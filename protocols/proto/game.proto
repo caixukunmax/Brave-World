@@ -1,0 +1,90 @@
+syntax = "proto3";
+
+package game;
+
+import "common.proto";
+
+/**
+ * ==================== 角色信息定义 ====================
+ */
+
+/**
+ * 完整角色信息（进入游戏后返回）
+ */
+message FullRoleInfo {
+  uint64 role_id = 1;           // 角色ID
+  string role_name = 2;         // 角色名
+  uint32 level = 3;             // 等级
+  uint64 exp = 4;               // 经验值
+  uint32 avatar_id = 5;         // 头像ID
+  uint64 gold = 6;              // 金币
+  uint64 diamond = 7;           // 钻石
+  uint64 total_power = 8;       // 总战力
+  uint32 vip_level = 9;         // VIP等级
+  uint64 create_time = 10;      // 创建时间
+  uint64 last_login_time = 11;  // 上次登录时间
+}
+
+/**
+ * 道具信息
+ */
+message ItemInfo {
+  uint32 item_id = 1;           // 道具ID
+  uint32 count = 2;             // 数量
+}
+
+/**
+ * 任务信息
+ */
+message TaskInfo {
+  uint32 task_id = 1;           // 任务ID
+  uint32 status = 2;            // 状态：0未接 1进行中 2已完成
+  uint32 progress = 3;          // 进度
+}
+
+/**
+ * ==================== 进入游戏流程 ====================
+ */
+
+/**
+ * 进入游戏请求（选择已有角色）
+ */
+message EnterGameRequest {
+  uint64 role_id = 1;           // 角色ID
+}
+
+/**
+ * 进入游戏响应
+ */
+message EnterGameResponse {
+  common.ErrorCode code = 1;
+  string message = 2;
+  FullRoleInfo role_info = 3;           // 完整角色信息
+  repeated ItemInfo items = 4;          // 背包道具
+  repeated TaskInfo tasks = 5;          // 任务列表
+  uint32 server_time = 6;               // 服务器时间
+}
+
+/**
+ * ==================== 创建角色流程 ====================
+ */
+
+/**
+ * 创建角色请求
+ */
+message CreateRoleRequest {
+  string role_name = 1;         // 角色名
+}
+
+/**
+ * 创建角色响应
+ * 创建成功后直接返回角色信息，自动进入游戏
+ */
+message CreateRoleResponse {
+  common.ErrorCode code = 1;
+  string message = 2;
+  FullRoleInfo role_info = 3;           // 新创建的角色信息
+  repeated ItemInfo items = 4;          // 初始道具
+  repeated TaskInfo tasks = 5;          // 初始任务
+  uint32 server_time = 6;               // 服务器时间
+}

@@ -1,0 +1,29 @@
+{
+	"camera": {
+		"position": "(4130.965, 4130.965)",
+		"smooth_speed": "10.0",
+		"zoom": "(1.001565, 1.001565)"
+	},
+	"errors": "",
+	"grid": {
+		"grid_size": "162",
+		"is_edit_mode": "false",
+		"line_color": "(0.2, 0.2, 0.2, 1.0)",
+		"line_width": "0.5",
+		"map_size": "50x50",
+		"total_cells": "2500",
+		"visible_cells": "0"
+	},
+	"logs": "[21:23:41] [INFO] [Camera] 鼠标在调试面板上，跳过输入处理\n[21:23:41] [INFO] [Camera] 鼠标在调试面板上，跳过输入处理\n[21:23:41] [INFO] [Camera] 鼠标在调试面板上，跳过输入处理\n[21:23:41] [INFO] [Camera] 鼠标在调试面板上，跳过输入处理\n[21:23:41] [INFO] [Camera] 鼠标在调试面板上，跳过输入处理\n[21:23:41] [INFO] [Camera] 鼠标在调试面板上，跳过输入处理\n[21:23:41] [INFO] [Camera] 鼠标在调试面板上，跳过输入处理\n[21:23:41] [INFO] [Camera] 鼠标在调试面板上，跳过输入处理\n[21:23:41] [INFO] [Camera] 鼠标在调试面板上，跳过输入处理\n[21:23:41] [INFO] [Camera] 鼠标在调试面板上，跳过输入处理",
+	"player": {
+		"border_width": "3.0",
+		"corner_radius": "22.0",
+		"font_size": "17",
+		"grid_pos": "(25, 25)",
+		"grid_size": "162",
+		"line_spacing": "0.8",
+		"position": "(4131.0, 4131.0)",
+		"visual_size": "162"
+	},
+	"time": "2026-03-30T21:23:42"
+}

@@ -1,0 +1,31 @@
+=== 调试信息 ===
+时间: 2026-03-30T22:26:08
+
+=== 玩家 ===
+position: (4131.0, 4131.0)
+grid_pos: (25, 25)
+grid_size: 162
+visual_size: 162
+border_width: 3.0
+corner_radius: 22.0
+font_size: 17
+line_spacing: 0.8
+
+=== 相机 ===
+zoom: (0.2, 0.2)
+position: (4002.505, 3847.474)
+smooth_speed: 10.0
+
+=== 网格 ===
+grid_size: 162
+map_size: 50x50
+line_width: 1.0
+line_color: (0.3, 0.3, 0.3, 1.0)
+is_edit_mode: false
+visible_cells: 0
+total_cells: 2500
+
+=== 日志 ===
+错误:
+[22:22:28] [ERROR] ERROR: Signal 'pressed' is already connected to given callable 'CanvasLayer(debug_panel.gd)::_on_load_font_pressed' in that object.
+[22:22:28] [ERROR] ERROR: Signal 'toggled' is already connected to given callable 'CanvasLayer(debug_panel.gd)::_on_free_look_toggled' in that object.

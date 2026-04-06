@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "commonjs",
+    "strict": true,
+    "outDir": "./docker/tslua",
+    "rootDir": "./server/src/skynet",
+    "types": []
+  },
+  "tstl": {
+    "luaTarget": "JIT",
+    "luaLibImport": "require-minimal",
+    "noImplicitSelf": true,
+    "noHeader": true,
+    "sourceMapTraceback": true,
+    "extension": ".lua"
+  },
+  "include": ["server/src/skynet/**/*"]
+}

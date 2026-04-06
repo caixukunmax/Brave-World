@@ -1,0 +1,38 @@
+services:
+  game-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "${GATEWAY_PORT:-8889}:${GATEWAY_PORT:-8889}"
+      - "${DEBUG_PORT:-8001}:${DEBUG_PORT:-8001}"
+    environment:
+      - GATEWAY_PORT=${GATEWAY_PORT:-8889}
+      - DEBUG_PORT=${DEBUG_PORT:-8000}
+      - MAX_CLIENT=${MAX_CLIENT:-1024}
+      - MONGO_HOST=mongo
+      - MONGO_PORT=27017
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+
+  mongo:
+    image: mongo:7
+    container_name: tslua2-mongo
+    restart: unless-stopped
+    ports:
+      - "27018:27017"
+    volumes:
+      - mongo-data:/data/db
+    environment:
+      - TZ=Asia/Shanghai
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  mongo-data:

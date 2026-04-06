@@ -1,0 +1,29 @@
+{
+	"camera": {
+		"position": "(3598.272, 3337.624)",
+		"smooth_speed": "10.0",
+		"zoom": "(0.2, 0.2)"
+	},
+	"errors": "[21:26:27] [ERROR] ERROR: Signal 'pressed' is already connected to given callable 'CanvasLayer(debug_panel.gd)::_on_load_font_pressed' in that object.\n[21:26:27] [ERROR] ERROR: Signal 'toggled' is already connected to given callable 'CanvasLayer(debug_panel.gd)::_on_free_look_toggled' in that object.",
+	"grid": {
+		"grid_size": "142",
+		"is_edit_mode": "false",
+		"line_color": "(0.2, 0.2, 0.2, 1.0)",
+		"line_width": "0.5",
+		"map_size": "50x50",
+		"total_cells": "2500",
+		"visible_cells": "0"
+	},
+	"logs": "[21:27:10] [INFO] [Camera] 自由视角模式: true\n[21:27:10] [INFO] [DebugPanel] 拖动视野按键改为: 左键\n[21:27:10] [INFO] [DebugPanel] Ctrl+点击选中: true\n[21:27:10] [INFO] [DebugPanel] 使用默认设置\n[21:27:10] [INFO] [DebugPanel] 已恢复到最后保存的状态\n[21:27:30] [INFO] [Player] Visual size changed to 183\n[21:27:31] [INFO] [Player] Visual size changed to 172\n[21:27:32] [INFO] [Player] Visual size changed to 166\n[21:27:32] [INFO] [Player] Visual size changed to 158\n[21:27:33] [INFO] [Player] Visual size changed to 154",
+	"player": {
+		"border_width": "3.0",
+		"corner_radius": "22.0",
+		"font_size": "17",
+		"grid_pos": "(25, 23)",
+		"grid_size": "142",
+		"line_spacing": "0.8",
+		"position": "(3621.0, 3337.0)",
+		"visual_size": "154"
+	},
+	"time": "2026-03-30T21:27:57"
+}

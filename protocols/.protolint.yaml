@@ -1,0 +1,44 @@
+# Protocol Buffers Linter 配置
+# 用于保证协议定义的代码质量和一致性
+
+lint:
+  rules:
+    # 基础规则
+    add:
+      - ENUM_FIELD_NAMES_UPPER_SNAKE_CASE
+      - ENUM_NAMES_UPPER_CAMEL_CASE
+      - FIELD_NAMES_LOWER_SNAKE_CASE
+      - MESSAGE_NAMES_UPPER_CAMEL_CASE
+      - SERVICE_NAMES_UPPER_CAMEL_CASE
+      - RPC_NAMES_UPPER_CAMEL_CASE
+      
+      # 注释规则
+      - ENUM_FIELD_NAMES_PREFIX
+      - FIELDS_HAVE_COMMENT
+      - ENUMS_HAVE_COMMENT
+      - MESSAGES_HAVE_COMMENT
+      
+      # 字段编号规则
+      - FIELDS_HAVE_UNIQUE_NUMBERS
+      
+    # 忽略的规则
+    remove:
+      - PACKAGE_NAME_LOWER_CASE  # 允许驼峰命名
+
+  # 规则配置
+  rules_option:
+    # 允许的包名格式
+    package_name_lower_case:
+      excludes:
+        - common
+        - gateway
+        - login
+        - game
+        - protocol
+
+# 文件排除
+files:
+  exclude:
+    - "*.pb.go"
+    - "*.pb.js"
+    - "*.pb.ts"

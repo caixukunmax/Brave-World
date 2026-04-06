@@ -1,0 +1,29 @@
+{
+	"camera": {
+		"position": "(3621.001, 3620.994)",
+		"smooth_speed": "10.0",
+		"zoom": "(1.001565, 1.001565)"
+	},
+	"errors": "[20:48:34] [ERROR] ERROR: Signal 'pressed' is already connected to given callable 'CanvasLayer(debug_panel.gd)::_on_map_save_pressed' in that object.\n[20:48:34] [ERROR] ERROR: Signal 'pressed' is already connected to given callable 'CanvasLayer(debug_panel.gd)::_on_discard_changes_pressed' in that object.",
+	"grid": {
+		"grid_size": "142",
+		"is_edit_mode": "false",
+		"line_color": "(0.2, 0.2, 0.2, 1.0)",
+		"line_width": "1.0",
+		"map_size": "50x50",
+		"total_cells": "2500",
+		"visible_cells": "0"
+	},
+	"logs": "[20:48:44] [INFO] [Camera._input] 鼠标按键事件: button=1 pressed=false 支持的按键: [1]\n[20:49:08] [INFO] [Camera._input] 鼠标按键事件: button=1 pressed=true 支持的按键: [1]\n[20:49:08] [INFO] [Camera] 开始拖拽 - 鼠标位置: (4224.042, 3433.223) 相机位置: (3621.0, 3621.0)\n[20:49:09] [INFO] [Camera._input] 鼠标按键事件: button=1 pressed=false 支持的按键: [1]\n[20:49:09] [INFO] [Camera] 结束拖拽 - 开始恢复计时, 延迟: 0.4秒\n[20:49:09] [INFO] [Camera._input] 鼠标按键事件: button=1 pressed=true 支持的按键: [1]\n[20:49:09] [INFO] [Camera] 开始拖拽 - 鼠标位置: (4225.54, 3430.224) 相机位置: (3621.749, 3609.756)\n[20:49:09] [INFO] [Camera._input] 鼠标按键事件: button=1 pressed=false 支持的按键: [1]\n[20:49:09] [INFO] [Camera] 结束拖拽 - 开始恢复计时, 延迟: 0.4秒\n[20:49:10] [INFO] [Camera] 恢复计时结束，恢复跟随模式",
+	"player": {
+		"border_width": "3.0",
+		"corner_radius": "22.0",
+		"font_size": "17",
+		"grid_pos": "(25, 25)",
+		"grid_size": "142",
+		"line_spacing": "0.8",
+		"position": "(3621.0, 3621.0)",
+		"visual_size": "142"
+	},
+	"time": "2026-03-30T20:49:11"
+}

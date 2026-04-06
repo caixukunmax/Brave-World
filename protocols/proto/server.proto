@@ -1,0 +1,51 @@
+syntax = "proto3";
+
+package server;
+
+import "common.proto";
+
+/**
+ * ==================== 区服相关协议 ====================
+ */
+
+/**
+ * 区服信息
+ */
+message ServerInfo {
+  uint32 server_id = 1;           // 区服ID
+  string server_name = 2;         // 区服名称
+  string host = 3;                // 网关地址
+  uint32 port = 4;                // 网关端口
+  common.ServerStatus status = 5; // 区服状态
+  uint32 online_count = 6;        // 在线人数
+  bool is_new = 7;                // 是否新服
+  bool is_recommend = 8;          // 是否推荐
+  bool has_role = 9;              // 当前账号在此服是否有角色
+  uint32 role_count = 10;         // 当前账号在此服的角色数量
+}
+
+/**
+ * 获取区服列表请求
+ */
+message GetServerListRequest {
+  string account_token = 1;       // 账号Token（可选，用于返回has_role）
+}
+
+/**
+ * 获取区服列表响应
+ */
+message GetServerListResponse {
+  common.ErrorCode code = 1;
+  string message = 2;
+  repeated ServerInfo servers = 3;    // 区服列表
+  uint32 last_server_id = 4;          // 最近登录的区服
+}
+
+/**
+ * 区服状态更新通知（服务器推送）
+ */
+message ServerStatusUpdate {
+  uint32 server_id = 1;
+  common.ServerStatus status = 2;
+  uint32 online_count = 3;
+}

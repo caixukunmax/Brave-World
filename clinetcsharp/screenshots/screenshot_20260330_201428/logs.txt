@@ -1,0 +1,38 @@
+=== 调试信息 ===
+时间: 2026-03-30T20:14:28
+
+=== 玩家 ===
+position: (3621.0, 3337.0)
+grid_pos: (25, 23)
+grid_size: 142
+visual_size: 142
+border_width: 3.0
+corner_radius: 22.0
+font_size: 17
+line_spacing: 0.8
+
+=== 相机 ===
+zoom: (1.001565, 1.001565)
+position: (3621.0, 3337.001)
+smooth_speed: 10.0
+
+=== 网格 ===
+grid_size: 142
+map_size: 50x50
+line_width: 1.0
+line_color: (0.2, 0.2, 0.2, 1.0)
+is_edit_mode: false
+visible_cells: 0
+total_cells: 2500
+
+=== 日志 ===
+[20:14:14] [INFO] [Player] Grid size changed to 142, repositioned to (3621.0, 3621.0)
+[20:14:14] [INFO] [Camera] 拖动视野按键已设置为: [1] (1=左键, 2=右键, 3=中键)
+[20:14:14] [INFO] [Camera] 自由视角模式: true
+[20:14:14] [INFO] [DebugPanel] 拖动视野按键改为: 左键
+[20:14:14] [INFO] [DebugPanel] Ctrl+点击选中: true
+[20:14:15] [INFO] [Camera._input] 鼠标按键事件: button=1 pressed=true 支持的按键: [1]
+[20:14:15] [INFO] [Camera] 开始拖拽 - 鼠标位置: (3714.64, 3633.368) 相机位置: (3621.0, 3621.0)
+[20:14:15] [INFO] [Camera._input] 鼠标按键事件: button=1 pressed=false 支持的按键: [1]
+[20:14:15] [INFO] [Camera] 结束拖拽 - 开始恢复计时, 延迟: 0.4秒
+[20:14:15] [INFO] [Camera] 恢复计时结束，恢复跟随模式

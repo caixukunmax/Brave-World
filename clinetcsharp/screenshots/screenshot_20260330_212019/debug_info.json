@@ -1,0 +1,29 @@
+{
+	"camera": {
+		"position": "(3976.354, 3733.635)",
+		"smooth_speed": "10.0",
+		"zoom": "(1.001565, 1.001565)"
+	},
+	"errors": "[21:20:06] [ERROR] ERROR: Signal 'pressed' is already connected to given callable 'CanvasLayer(debug_panel.gd)::_on_load_font_pressed' in that object.\n[21:20:06] [ERROR] ERROR: Signal 'toggled' is already connected to given callable 'CanvasLayer(debug_panel.gd)::_on_free_look_toggled' in that object.",
+	"grid": {
+		"grid_size": "162",
+		"is_edit_mode": "false",
+		"line_color": "(0.2, 0.2, 0.2, 1.0)",
+		"line_width": "0.5",
+		"map_size": "50x50",
+		"total_cells": "2500",
+		"visible_cells": "0"
+	},
+	"logs": "[21:20:10] [INFO] [Player] Visual size changed to 162\n[21:20:13] [INFO] [Camera._input] 鼠标按键事件: button=1 pressed=true 支持的按键: [1]\n[21:20:13] [INFO] [Camera] 开始拖拽 - 鼠标位置: (4595.877, 3679.29) 相机位置: (3989.838, 3856.573)\n[21:20:13] [INFO] [Camera] 拖拽中 - 鼠标偏移: (0.0, 18.73999) 当前位置: (3989.838, 3837.833)\n[21:20:14] [INFO] [Camera] 拖拽中 - 鼠标偏移: (5.992188, 86.2041) 当前位置: (3983.846, 3770.368)\n[21:20:15] [INFO] [Camera] 拖拽中 - 鼠标偏移: (-54.68652, 121.4353) 当前位置: (4044.525, 3735.137)\n[21:20:16] [INFO] [Camera] 拖拽中 - 鼠标偏移: (-178.29, 190.3997) 当前位置: (4168.128, 3666.173)\n[21:20:17] [INFO] [Camera] 拖拽中 - 鼠标偏移: (-56.18311, 156.6685) 当前位置: (4046.021, 3699.904)\n[21:20:18] [INFO] [Camera] 拖拽中 - 鼠标偏移: (14.98242, 122.9373) 当前位置: (3974.856, 3733.635)\n[21:20:19] [INFO] [Camera] 拖拽中 - 鼠标偏移: (14.2334, 122.9373) 当前位置: (3975.605, 3733.635)",
+	"player": {
+		"border_width": "3.0",
+		"corner_radius": "22.0",
+		"font_size": "17",
+		"grid_pos": "(25, 24)",
+		"grid_size": "162",
+		"line_spacing": "0.8",
+		"position": "(4131.0, 3969.0)",
+		"visual_size": "162"
+	},
+	"time": "2026-03-30T21:20:20"
+}

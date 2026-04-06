@@ -1,0 +1,29 @@
+{
+	"camera": {
+		"position": "(3621.0, 3480.0)",
+		"smooth_speed": "10.0",
+		"zoom": "(1.001565, 1.001565)"
+	},
+	"errors": "[23:24:42] [ERROR] ERROR: Signal 'pressed' is already connected to given callable 'CanvasLayer(debug_panel.gd)::_on_load_font_pressed' in that object.\n[23:24:42] [ERROR] ERROR: Signal 'toggled' is already connected to given callable 'CanvasLayer(debug_panel.gd)::_on_free_look_toggled' in that object.\n[23:24:49] [ERROR] ERROR: Unable to open clipboard.",
+	"grid": {
+		"grid_size": "142",
+		"is_edit_mode": "false",
+		"line_color": "(0.3, 0.3, 0.3, 1.0)",
+		"line_width": "0.5",
+		"map_size": "50x50",
+		"total_cells": "2500",
+		"visible_cells": "0"
+	},
+	"logs": "[23:24:43] [INFO] [Camera] 拖拽结束，0.4秒后开始回归...\n[23:24:43] [INFO] [Camera] 开始回归...\n[23:24:49] [INFO] [ScreenshotTool] 图片已复制到剪切板\n[23:24:49] [ERROR] ERROR: Unable to open clipboard.\n[23:24:49] [INFO]    at: clipboard_set (platform/windows/display_server_windows.cpp:1008)\n[23:24:49] [INFO]    GDScript backtrace (most recent call first):\n[23:24:49] [INFO]        [0] _take_screenshot (res://scripts/screenshot_tool.gd:98)\n[23:24:49] [INFO] [ScreenshotTool] 截图已保存到：C:/code/我是勇者/screenshots/screenshot_20260330_232448\n[23:25:01] [INFO] [Camera] 拖拽结束，0.4秒后开始回归...\n[23:25:01] [INFO] [Camera] 开始回归...",
+	"player": {
+		"border_width": "3.0",
+		"corner_radius": "22.0",
+		"font_size": "17",
+		"grid_pos": "(25, 24)",
+		"grid_size": "142",
+		"line_spacing": "0.8",
+		"position": "(3621.0, 3479.0)",
+		"visual_size": "142"
+	},
+	"time": "2026-03-30T23:25:02"
+}

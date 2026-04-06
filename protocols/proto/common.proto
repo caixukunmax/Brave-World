@@ -1,0 +1,70 @@
+syntax = "proto3";
+
+package common;
+
+/**
+ * 通用消息包装
+ * 所有消息都通过这个结构发送
+ */
+message Packet {
+  uint32 msg_id = 1;        // 消息ID
+  uint32 session = 2;       // 会话ID（用于请求响应匹配）
+  bytes data = 3;           // 消息体（具体消息的序列化数据）
+  uint64 timestamp = 4;     // 时间戳
+}
+
+/**
+ * 区服状态
+ */
+enum ServerStatus {
+  MAINTENANCE = 0;          // 维护中
+  SMOOTH = 1;               // 流畅
+  CROWDED = 2;              // 拥挤
+  FULL = 3;                 // 爆满
+}
+
+/**
+ * 错误码定义
+ */
+enum ErrorCode {
+  SUCCESS = 0;                        // 成功
+  UNKNOWN_ERROR = 1;                  // 未知错误
+  INVALID_REQUEST = 2;                // 无效请求
+  UNAUTHORIZED = 3;                   // 未授权
+  FORBIDDEN = 4;                      // 禁止访问
+  NOT_FOUND = 5;                      // 未找到
+  TIMEOUT = 6;                        // 超时
+  INTERNAL_ERROR = 7;                 // 内部错误
+  SERVICE_UNAVAILABLE = 8;            // 服务不可用
+  
+  // 账号相关错误 (100-199)
+  ACCOUNT_NOT_FOUND = 100;            // 账号不存在
+  PASSWORD_ERROR = 101;               // 密码错误
+  ACCOUNT_BANNED = 102;               // 账号被封禁
+  ACCOUNT_ALREADY_EXISTS = 103;       // 账号已存在
+  INVALID_ACCOUNT_FORMAT = 104;       // 账号格式错误
+  INVALID_PASSWORD_FORMAT = 105;      // 密码格式错误
+  
+  // 角色相关错误 (200-299)
+  ROLE_NOT_FOUND = 200;               // 角色不存在
+  ROLE_NAME_EXISTS = 201;             // 角色名已存在
+  ROLE_COUNT_LIMIT = 202;             // 角色数量达到上限
+  INVALID_ROLE_NAME = 203;            // 角色名格式错误
+  ROLE_NAME_TOO_SHORT = 204;          // 角色名太短
+  ROLE_NAME_TOO_LONG = 205;           // 角色名太长
+  ROLE_NAME_SENSITIVE = 206;          // 角色名包含敏感词
+  
+  // 区服相关错误 (300-399)
+  SERVER_NOT_FOUND = 300;             // 区服不存在
+  SERVER_MAINTENANCE = 301;           // 区服维护中
+  SERVER_FULL = 302;                  // 区服已满
+}
+
+/**
+ * 通用响应
+ */
+message Response {
+  ErrorCode code = 1;       // 错误码
+  string message = 2;       // 错误信息
+  bytes data = 3;           // 响应数据
+}

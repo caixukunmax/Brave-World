@@ -1,0 +1,29 @@
+{
+	"camera": {
+		"position": "(2994.779, 2554.464)",
+		"smooth_speed": "10.0",
+		"zoom": "(0.2, 0.2)"
+	},
+	"errors": "",
+	"grid": {
+		"grid_size": "121",
+		"is_edit_mode": "true",
+		"line_color": "(0.3, 0.3, 0.3, 1.0)",
+		"line_width": "1.0",
+		"map_size": "50x50",
+		"total_cells": "2500",
+		"visible_cells": "1600"
+	},
+	"logs": "暂无日志",
+	"player": {
+		"border_width": "3.0",
+		"corner_radius": "14.0",
+		"font_size": "16",
+		"grid_pos": "(25, 25)",
+		"grid_size": "121",
+		"line_spacing": "0.8",
+		"position": "(3085.5, 3085.5)",
+		"visual_size": "140"
+	},
+	"time": "2026-03-29T21:10:01"
+}

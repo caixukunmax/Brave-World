@@ -1,0 +1,29 @@
+{
+	"camera": {
+		"position": "(4002.505, 3847.474)",
+		"smooth_speed": "10.0",
+		"zoom": "(0.2, 0.2)"
+	},
+	"errors": "[22:22:28] [ERROR] ERROR: Signal 'pressed' is already connected to given callable 'CanvasLayer(debug_panel.gd)::_on_load_font_pressed' in that object.\n[22:22:28] [ERROR] ERROR: Signal 'toggled' is already connected to given callable 'CanvasLayer(debug_panel.gd)::_on_free_look_toggled' in that object.",
+	"grid": {
+		"grid_size": "162",
+		"is_edit_mode": "false",
+		"line_color": "(0.3, 0.3, 0.3, 1.0)",
+		"line_width": "1.0",
+		"map_size": "50x50",
+		"total_cells": "2500",
+		"visible_cells": "0"
+	},
+	"logs": "[22:22:28] [INFO] [GridManager] 响应式调整: 视口=(1280.0, 720.0), 新格子大小=256\n[22:22:28] [INFO] [Player] Grid size changed to 256, repositioned to (6528.0, 6528.0)\n[22:22:28] [INFO] [GridManager] 响应式调整: 视口=(1280.0, 720.0), 新格子大小=142\n[22:22:28] [INFO] [Player] Grid size changed to 142, repositioned to (3621.0, 3621.0)\n[22:22:28] [INFO] [Camera] 拖动视野按键已设置为: [1] (1=左键, 2=右键, 3=中键)\n[22:22:28] [INFO] [Camera] 自由视角模式: true\n[22:22:28] [INFO] [DebugPanel] 拖动视野按键改为: 左键\n[22:22:28] [INFO] [DebugPanel] Ctrl+点击选中: true\n[22:22:28] [INFO] [DebugPanel] 使用默认设置\n[22:22:29] [INFO] [Player] Visual size changed to 162",
+	"player": {
+		"border_width": "3.0",
+		"corner_radius": "22.0",
+		"font_size": "17",
+		"grid_pos": "(25, 25)",
+		"grid_size": "162",
+		"line_spacing": "0.8",
+		"position": "(4131.0, 4131.0)",
+		"visual_size": "162"
+	},
+	"time": "2026-03-30T22:26:08"
+}

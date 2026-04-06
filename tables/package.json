@@ -1,0 +1,22 @@
+{
+  "name": "@tslua/tables",
+  "version": "1.0.0",
+  "description": "Luban configuration tables for TS-Lua project",
+  "type": "module",
+  "scripts": {
+    "build": "tsx scripts/build_tables.ts",
+    "clean": "rm -rf ../docker/skynet/lualib/tables ../server/src/tables .tmp"
+  },
+  "keywords": [
+    "luban",
+    "tables",
+    "config",
+    "game-data"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsx": "^4.0.0"
+  }
+}

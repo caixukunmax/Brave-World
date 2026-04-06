@@ -1,0 +1,70 @@
+syntax = "proto3";
+
+package login;
+
+import "common.proto";
+import "server.proto";
+
+/**
+ * ==================== 账号登录流程 ====================
+ */
+
+/**
+ * 账号登录请求
+ */
+message AccountLoginRequest {
+  string username = 1;          // 用户名
+  string password = 2;          // 密码（MD5 哈希）
+  string platform = 3;          // 平台：ios/android/pc
+  string device_id = 4;         // 设备ID
+  string client_version = 5;    // 客户端版本
+}
+
+/**
+ * 账号登录响应
+ */
+message AccountLoginResponse {
+  common.ErrorCode code = 1;
+  string message = 2;
+  string account_token = 3;         // 账号级Token（全区服通用，有效期5分钟）
+  uint32 account_id = 4;            // 账号ID
+  repeated server.ServerInfo servers = 5;  // 区服列表
+  uint32 last_server_id = 6;        // 最近登录的区服ID
+  string last_role_name = 7;        // 最近登录的角色名
+}
+
+/**
+ * ==================== 选服流程 ====================
+ */
+
+/**
+ * 选服请求
+ */
+message SelectServerRequest {
+  string account_token = 1;     // 账号Token
+  uint32 server_id = 2;         // 选择的区服ID
+}
+
+/**
+ * 角色摘要信息（选服时返回）
+ */
+message RoleBrief {
+  uint64 role_id = 1;           // 角色ID
+  string role_name = 2;         // 角色名
+  uint32 level = 3;             // 等级
+  uint32 avatar_id = 4;         // 头像ID
+  uint64 last_login = 5;        // 上次登录时间
+  uint64 total_power = 6;       // 总战力
+}
+
+/**
+ * 选服响应
+ */
+message SelectServerResponse {
+  common.ErrorCode code = 1;
+  string message = 2;
+  string gateway_token = 3;         // 区服级Token（区服专用，有效期7天）
+  repeated RoleBrief roles = 4;     // 该区服的角色列表
+  uint32 max_role_count = 5;        // 最大角色数（来自配置表，默认3）
+  uint32 server_time = 6;           // 服务器时间（校时用）
+}

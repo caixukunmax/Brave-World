@@ -1,0 +1,84 @@
+[gd_scene load_steps=9 format=3]
+
+[ext_resource type="Script" path="res://Scripts/GridManager.cs" id="1_grid"]
+[ext_resource type="Script" path="res://Scripts/Player.cs" id="2_player"]
+[ext_resource type="Script" path="res://Scripts/CameraController.cs" id="3_camera"]
+[ext_resource type="PackedScene" path="res://scenes/debug_panel.tscn" id="4_debug"]
+[ext_resource type="Script" path="res://Scripts/MapEditor.cs" id="5_editor"]
+[ext_resource type="Script" path="res://Scripts/AuthChecker.cs" id="6_auth"]
+[ext_resource type="Script" path="res://Scripts/TestDebugButton.cs" id="7_test"]
+
+[node name="Main" type="Node2D"]
+
+[node name="AuthChecker" type="Node" parent="."]
+script = ExtResource("6_auth")
+
+[node name="Background" type="ColorRect" parent="."]
+offset_right = 5550.0
+offset_bottom = 5550.0
+color = Color(0, 0, 0, 1)
+
+[node name="GridManager" type="Node2D" parent="." groups=["grid_manager"]]
+script = ExtResource("1_grid")
+grid_size = 111
+map_width = 50
+map_height = 50
+
+[node name="Player" type="Node2D" parent="." groups=["player"]]
+script = ExtResource("2_player")
+grid_size = 111
+border_width = 3.0
+border_color = Color(1, 1, 1, 1)
+bg_color = Color(1, 1, 1, 0.1)
+text_color = Color(0, 0, 0, 1)
+move_duration = 0.15
+
+[node name="LabelContainer" type="VBoxContainer" parent="Player"]
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -55.5
+offset_top = -55.5
+offset_right = 55.5
+offset_bottom = 55.5
+grow_horizontal = 2
+grow_vertical = 2
+alignment = 1
+
+[node name="CameraController" type="Camera2D" parent="." groups=["camera"]]
+zoom = Vector2(1.4, 1.4)
+script = ExtResource("3_camera")
+smooth_speed = 10.0
+
+[node name="DebugPanel" parent="." instance=ExtResource("4_debug")]
+
+[node name="DebugButtonCanvas" type="CanvasLayer" parent="."]
+layer = 999
+
+[node name="ColorRect" type="ColorRect" parent="DebugButtonCanvas"]
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -140.0
+offset_top = 5.0
+offset_right = -10.0
+offset_bottom = 55.0
+grow_horizontal = 0
+color = Color(1, 0, 0, 0.5)
+
+[node name="DebugButton" type="Button" parent="DebugButtonCanvas"]
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -130.0
+offset_top = 10.0
+offset_right = -20.0
+offset_bottom = 50.0
+grow_horizontal = 0
+text = "⚙ 调试"
+script = ExtResource("7_test")
+
+[node name="MapEditor" type="Node2D" parent="."]
+script = ExtResource("5_editor")

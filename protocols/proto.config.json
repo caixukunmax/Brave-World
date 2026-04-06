@@ -1,0 +1,9 @@
+{
+  "$schema": "https://json-schema.org/draft/2020/12/schema",
+  "title": "Protocol Buffers 编译配置",
+  "description": "proto 源文件和编译选项，输出路径由 paths.json 统一管理",
+  "proto_dirs": [
+    "proto"
+  ],
+  "skip_ts_generation": false
+}

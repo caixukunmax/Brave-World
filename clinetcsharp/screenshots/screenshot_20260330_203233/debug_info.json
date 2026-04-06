@@ -1,0 +1,29 @@
+{
+	"camera": {
+		"position": "(3621.0, 3621.0)",
+		"smooth_speed": "10.0",
+		"zoom": "(1.001565, 1.001565)"
+	},
+	"errors": "",
+	"grid": {
+		"grid_size": "142",
+		"is_edit_mode": "false",
+		"line_color": "(0.2, 0.2, 0.2, 1.0)",
+		"line_width": "1.0",
+		"map_size": "50x50",
+		"total_cells": "2500",
+		"visible_cells": "0"
+	},
+	"logs": "[20:32:30] [INFO] [DebugPanel] 提示：响应式布局会改变相机zoom，线宽校准参考点可能需要调整\n[20:32:30] [INFO] [GridManager] 响应式调整: 视口=(1280.0, 720.0), 新格子大小=142\n[20:32:30] [INFO] [Player] Grid size changed to 142, repositioned to (3621.0, 3621.0)\n[20:32:30] [INFO] [Camera] 拖动视野按键已设置为: [1] (1=左键, 2=右键, 3=中键)\n[20:32:30] [INFO] [Camera] 自由视角模式: true\n[20:32:30] [INFO] [DebugPanel] 拖动视野按键改为: 左键\n[20:32:30] [INFO] [DebugPanel] Ctrl+点击选中: true\n[20:32:30] [INFO] [DebugPanel] 当前预设列表: [\"PC\"]\n[20:32:30] [INFO] [GridManager] 线宽计算：zoom=1.002 > high_zoom=1.000，外推 result=0.499\n[20:32:30] [INFO] [GridManager] 线宽计算：zoom=1.002 > high_zoom=1.000，外推 result=0.499",
+	"player": {
+		"border_width": "3.0",
+		"corner_radius": "22.0",
+		"font_size": "17",
+		"grid_pos": "(25, 25)",
+		"grid_size": "142",
+		"line_spacing": "0.8",
+		"position": "(3621.0, 3621.0)",
+		"visual_size": "142"
+	},
+	"time": "2026-03-30T20:32:33"
+}

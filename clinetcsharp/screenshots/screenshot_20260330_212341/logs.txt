@@ -1,0 +1,38 @@
+=== 调试信息 ===
+时间: 2026-03-30T21:23:42
+
+=== 玩家 ===
+position: (4131.0, 4131.0)
+grid_pos: (25, 25)
+grid_size: 162
+visual_size: 162
+border_width: 3.0
+corner_radius: 22.0
+font_size: 17
+line_spacing: 0.8
+
+=== 相机 ===
+zoom: (1.001565, 1.001565)
+position: (4130.965, 4130.965)
+smooth_speed: 10.0
+
+=== 网格 ===
+grid_size: 162
+map_size: 50x50
+line_width: 0.5
+line_color: (0.2, 0.2, 0.2, 1.0)
+is_edit_mode: false
+visible_cells: 0
+total_cells: 2500
+
+=== 日志 ===
+[21:23:41] [INFO] [Camera] 鼠标在调试面板上，跳过输入处理
+[21:23:41] [INFO] [Camera] 鼠标在调试面板上，跳过输入处理
+[21:23:41] [INFO] [Camera] 鼠标在调试面板上，跳过输入处理
+[21:23:41] [INFO] [Camera] 鼠标在调试面板上，跳过输入处理
+[21:23:41] [INFO] [Camera] 鼠标在调试面板上，跳过输入处理
+[21:23:41] [INFO] [Camera] 鼠标在调试面板上，跳过输入处理
+[21:23:41] [INFO] [Camera] 鼠标在调试面板上，跳过输入处理
+[21:23:41] [INFO] [Camera] 鼠标在调试面板上，跳过输入处理
+[21:23:41] [INFO] [Camera] 鼠标在调试面板上，跳过输入处理
+[21:23:41] [INFO] [Camera] 鼠标在调试面板上，跳过输入处理

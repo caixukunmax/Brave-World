@@ -1,0 +1,29 @@
+=== 调试信息 ===
+时间: 2026-03-29T21:30:39
+
+=== 玩家 ===
+position: (2843.5, 2843.5)
+grid_pos: (23, 23)
+grid_size: 121
+visual_size: 140
+border_width: 3.0
+corner_radius: 14.0
+font_size: 16
+line_spacing: 0.8
+
+=== 相机 ===
+zoom: (0.2, 0.2)
+position: (3270.705, 2488.358)
+smooth_speed: 10.0
+
+=== 网格 ===
+grid_size: 121
+map_size: 50x50
+line_width: 1.0
+line_color: (0.3, 0.3, 0.3, 1.0)
+is_edit_mode: true
+visible_cells: 0
+total_cells: 2500
+
+=== 日志 ===
+暂无日志
