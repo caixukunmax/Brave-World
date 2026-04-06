@@ -110,3 +110,11 @@ declare const token_generate_account: (accountId: number, username: string) => s
 declare const token_validate_account: (token: string) => TokenAccountClaims | null;
 declare const token_generate_gateway: (accountId: number, serverId: number) => string;
 declare const token_validate_gateway: (token: string) => TokenGatewayClaims | null;
+
+// Password hashing (injected by preload.lua)
+declare const password_hash: (password: string) => string;
+declare const password_verify: (password: string, stored_hash: string) => boolean;
+
+// MongoDB helpers (injected by preload.lua)
+declare const mongo_ensureIndex: (col: any, spec: any) => void;
+declare const mongo_findAndModify: (col: any, options: any) => any;
