@@ -1,3 +1,4 @@
+/// <reference path="../types.ts" />
 import { IPlatform, PlayerInfo } from "../types";
 
 export class DbLogic {
@@ -38,9 +39,9 @@ export class DbLogic {
     private ensureIndexes(): void {
         try {
             // 确保 username 唯一索引
-            this.accountsCol.ensureIndex({ key: { username: 1 }, unique: true, name: "username_idx" });
+            mongo_ensureIndex(this.accountsCol, { key: { username: 1 }, unique: true, name: "username_idx" });
             // 确保角色名在服务器内唯一
-            this.rolesCol.ensureIndex({ key: { server_id: 1, role_name: 1 }, unique: true, name: "server_role_name_idx" });
+            mongo_ensureIndex(this.rolesCol, { key: { server_id: 1, role_name: 1 }, unique: true, name: "server_role_name_idx" });
         } catch (_e) {
             // ignore
         }
@@ -127,6 +128,15 @@ export class DbLogic {
             this.accountsCol,
             { account_id: accountId },
             { ["$set"]: { last_server_id: serverId, last_role_name: roleName } },
+            false
+        );
+    }
+
+    updateAccountPassword(accountId: number, hashedPassword: string): void {
+        mongo_update(
+            this.accountsCol,
+            { account_id: accountId },
+            { ["$set"]: { password: hashedPassword } },
             false
         );
     }

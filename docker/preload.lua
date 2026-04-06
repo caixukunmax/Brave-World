@@ -8,6 +8,14 @@ mongo_insert = function(col, doc) col:insert(doc) end
 mongo_update = function(col, query, update, upsert, multi) col:update(query, update, upsert, multi) end
 mongo_delete = function(col, query, single) col:delete(query, single) end
 
+-- 确保索引（tstl 包装）
+mongo_ensureIndex = function(col, spec) 
+    -- spec 格式: { key = { field: 1 }, unique = true, name = "idx_name" }
+    if spec and spec.key then
+        pcall(function() col:ensureIndex(spec.key, spec.unique or false, spec.name or nil) end)
+    end
+end
+
 -- 查询多条记录，返回数组
 mongo_findArray = function(col, query)
     local results = {}
@@ -81,7 +89,7 @@ password_verify = function(password, stored_hash)
 end
 
 -- === Token 系统 (HMAC-SHA256 via skynet.crypt) ===
-local TOKEN_SECRET = skynet.getenv("TOKEN_SECRET") or "tslua2_game_secret_2024_change_in_production"
+local TOKEN_SECRET = skynet.getenv("TOKEN_SECRET") or "tslua2_game_secret_2024"
 
 -- AccountToken: payload=accountId:username:timestamp  签名=hmac  编码=base64(payload|sig)
 token_generate_account = function(account_id, username)

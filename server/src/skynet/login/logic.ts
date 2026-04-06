@@ -1,3 +1,4 @@
+/// <reference path="../types.ts" />
 import { IPlatform } from "../types";
 
 // 引用全局函数声明
@@ -44,10 +45,26 @@ export class LoginLogic {
             account = this.platform.serviceCall("db_service", "createAccount", username, password) as any;
             this.platform.log("info", "Auto-registered account: " + username + " id=" + account.account_id);
         } else {
-            // 4. 验证密码
-            if (!password_verify(password, account.password)) {
+            // 4. 验证密码（兼容旧明文和新 hash 格式）
+            let passwordValid = false;
+            
+            if (password_verify(password, account.password)) {
+                // 新格式：salt:hash
+                passwordValid = true;
+            } else if (account.password === password) {
+                // 旧格式：明文密码，兼容登录
+                passwordValid = true;
+                
+                // 自动升级为 hash 存储
+                const hashedPassword = password_hash(password);
+                this.platform.serviceSend("db_service", "updateAccountPassword", account.account_id, hashedPassword);
+                this.platform.log("info", "Upgraded password to hash format for account: " + username);
+            }
+            
+            if (!passwordValid) {
                 return this.makeError(211, 101, "密码错误");  // PASSWORD_ERROR
             }
+            
             if (account.status === 1) {
                 return this.makeError(211, 102, "账号已被封禁");  // ACCOUNT_BANNED
             }

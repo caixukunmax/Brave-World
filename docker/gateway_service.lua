@@ -13,6 +13,7 @@ local conn_counter = 0       -- 连接ID计数器
 
 local MAX_PACKET_SIZE = 65536  -- 64KB 最大包体
 local HEARTBEAT_TIMEOUT = 60   -- 60秒心跳超时
+local HEARTBEAT_ENABLED = false  -- 默认关闭，需要客户端实现心跳后才开启
 
 -- ========== Protobuf 编解码辅助 ==========
 
@@ -305,20 +306,25 @@ skynet.start(function()
         end
     end)
 
-    -- 启动心跳超时检测
-    skynet.fork(function()
-        while true do
-            skynet.sleep(1000)  -- 每 10 秒检查一次
-            local now = skynet.now()
-            local timeout_ticks = HEARTBEAT_TIMEOUT * 100  -- skynet.now() 单位是 1/100 秒
-            for fd, conn in pairs(connections) do
-                if conn.last_heartbeat and (now - conn.last_heartbeat) > timeout_ticks then
-                    skynet.error(string.format("[Gateway] Heartbeat timeout: fd=%d addr=%s", fd, conn.addr or "?"))
-                    close_connection(fd)
+    -- 启动心跳超时检测（仅在开启时生效）
+    if HEARTBEAT_ENABLED then
+        skynet.fork(function()
+            while true do
+                skynet.sleep(1000)  -- 每 10 秒检查一次
+                local now = skynet.now()
+                local timeout_ticks = HEARTBEAT_TIMEOUT * 100  -- skynet.now() 单位是 1/100 秒
+                for fd, conn in pairs(connections) do
+                    if conn.last_heartbeat and (now - conn.last_heartbeat) > timeout_ticks then
+                        skynet.error(string.format("[Gateway] Heartbeat timeout: fd=%d addr=%s", fd, conn.addr or "?"))
+                        close_connection(fd)
+                    end
                 end
             end
-        end
-    end)
+        end)
+        skynet.error("[Gateway] Heartbeat timeout detection enabled (" .. HEARTBEAT_TIMEOUT .. "s)")
+    else
+        skynet.error("[Gateway] Heartbeat timeout detection disabled (HEARTBEAT_ENABLED=false)")
+    end
 
     skynet.error("======== Gateway Service Ready ========")
 end)
