@@ -8,6 +8,20 @@ mongo_insert = function(col, doc) col:insert(doc) end
 mongo_update = function(col, query, update, upsert, multi) col:update(query, update, upsert, multi) end
 mongo_delete = function(col, query, single) col:delete(query, single) end
 
+-- 确保索引（tstl 包装）
+mongo_ensureIndex = function(col, spec) 
+    -- spec 格式: { key = { field: 1 }, unique = true, name = "idx_name" }
+    if spec and spec.key then
+        pcall(function() col:ensureIndex(spec.key, spec.unique or false, spec.name or nil) end)
+    end
+end
+
+-- findAndModify 原子操作（tstl 包装）
+mongo_findAndModify = function(col, options)
+    -- options: { query, update, upsert, new }
+    return col:findAndModify(options)
+end
+
 -- 查询多条记录，返回数组
 mongo_findArray = function(col, query)
     local results = {}
@@ -48,9 +62,42 @@ pcall(pb.loadfile, desc_dir .. "message_id_pb.desc")
 pb_decode = function(msg_type, data) return pb.decode(msg_type, data) end
 pb_encode = function(msg_type, data) return pb.encode(msg_type, data) end
 
--- === Token 系统 (HMAC-SHA256 via skynet.crypt) ===
+-- === 密码加密工具 (使用 HMAC-SHA256 替代 SHA256) ===
 local crypt = require "skynet.crypt"
-local TOKEN_SECRET = "tslua2_game_secret_2024"
+
+-- 生成随机盐值
+local function generate_salt()
+    local bytes = {}
+    for i = 1, 16 do
+        table.insert(bytes, string.char(math.random(0, 255)))
+    end
+    return table.concat(bytes)
+end
+
+-- 密码哈希: 返回 "salt:hash" (使用 HMAC-SHA256)
+password_hash = function(password)
+    local salt = generate_salt()
+    -- 使用 HMAC-SHA256，key 为 salt，message 为 password
+    local hash = crypt.hmac_sha256(salt, password)
+    return crypt.base64encode(salt) .. ":" .. crypt.base64encode(hash)
+end
+
+-- 密码验证
+password_verify = function(password, stored_hash)
+    local salt_b64, hash_b64 = stored_hash:match("^([^:]+):([^:]+)$")
+    if not salt_b64 then return false end
+    
+    local ok, salt = pcall(crypt.base64decode, salt_b64)
+    if not ok or not salt then return false end
+    
+    -- 使用相同的 HMAC-SHA256 计算
+    local expected_hash = crypt.hmac_sha256(salt, password)
+    local expected_b64 = crypt.base64encode(expected_hash)
+    return hash_b64 == expected_b64
+end
+
+-- === Token 系统 (HMAC-SHA256 via skynet.crypt) ===
+local TOKEN_SECRET = skynet.getenv("TOKEN_SECRET") or "tslua2_game_secret_2024"
 
 -- AccountToken: payload=accountId:username:timestamp  签名=hmac  编码=base64(payload|sig)
 token_generate_account = function(account_id, username)
