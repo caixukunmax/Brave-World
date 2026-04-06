@@ -17,6 +17,9 @@ if "%MAIN_CMD%"=="backup" goto do_backup
 if "%MAIN_CMD%"=="table" goto do_table
 if "%MAIN_CMD%"=="proto" goto do_proto
 if "%MAIN_CMD%"=="gen" goto do_gen
+if "%MAIN_CMD%"=="restart" goto do_restart
+if "%MAIN_CMD%"=="logs" goto do_logs
+if "%MAIN_CMD%"=="ps" goto do_ps
 if "%MAIN_CMD%"=="docker" goto handle_docker
 
 echo [ERROR] Unknown command: %MAIN_CMD%
@@ -36,6 +39,9 @@ echo   start.bat docker down     Stop Docker services
 echo   start.bat docker restart  Restart Docker services
 echo   start.bat docker logs     View Docker logs
 echo   start.bat docker run      Build and start (default)
+echo   start.bat restart         Shortcut: restart services
+echo   start.bat logs            Shortcut: view logs
+echo   start.bat ps              Shortcut: view container status
 echo.
 echo Dev Commands:
 echo   start.bat build           Compile TypeScript to Lua
@@ -53,6 +59,7 @@ echo   start.bat help            Show this help
 echo.
 echo Examples:
 echo   start.bat docker up       Start service
+echo   start.bat restart         Restart service (quick)
 echo   start.bat build           Compile only
 echo   start.bat gen             Export tables + protocols
 echo   start.bat backup          Backup images
@@ -122,6 +129,22 @@ if %errorlevel% neq 0 goto end
 call :do_proto
 if %errorlevel% neq 0 goto end
 echo [OK] All resources exported
+pause
+goto end
+
+:do_restart
+call :docker_restart
+goto end
+
+:do_logs
+call :docker_logs
+goto end
+
+:do_ps
+call :check_env
+cd docker
+docker compose ps
+cd ..
 pause
 goto end
 
