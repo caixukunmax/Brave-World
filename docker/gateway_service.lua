@@ -142,6 +142,11 @@ local function connection_handler(fd)
         local session = packet.session
         local data = packet.data or ""
 
+        -- 任何消息都视为活跃，更新心跳时间
+        if connections[fd] then
+            connections[fd].last_heartbeat = skynet.now()
+        end
+
         -- 4. 路由消息
         if msg_id == 102 then
             -- GATEWAY_CONNECT_REQ
