@@ -1,23 +1,23 @@
 -- Gateway 网关服务
--- 职责: TCP监听、Protobuf Packet编解码、消息路由、连接状态管理
--- 纯 Lua 实现（基础设施层，处理二进制协议和 Socket API 更自然）
+-- 职责: TCP监听、Protobuf Packet编解码、消息路由、连接状态管�?
+-- �?Lua 实现（基础设施层，处理二进制协议和 Socket API 更自然）
 
 local skynet = require "skynet"
 local socket = require "skynet.socket"
 local pb = require "pb"
 
--- 状态
-local connections = {}       -- fd → { fd, addr, token, account_id, server_id, last_heartbeat }
-local route_table = {}       -- msg_id → { addr, cmd }
-local conn_counter = 0       -- 连接ID计数器
+-- 状�?
+local connections = {}       -- fd �?{ fd, addr, token, account_id, server_id, last_heartbeat }
+local route_table = {}       -- msg_id �?{ addr, cmd }
+local conn_counter = 0       -- 连接ID计数�?
 
-local MAX_PACKET_SIZE = 65536  -- 64KB 最大包体
-local HEARTBEAT_TIMEOUT = 3600  -- 3600秒(1小时)心跳超时，避免客户端未实现心跳时踢掉玩家
-local HEARTBEAT_ENABLED = true  -- 开启心跳检测，但超时时间很长作为安全兜底
+local MAX_PACKET_SIZE = 65536  -- 64KB 最大包�?
+local HEARTBEAT_TIMEOUT = 3600  -- 3600�?1小时)心跳超时，避免客户端未实现心跳时踢掉玩家
+local HEARTBEAT_ENABLED = true  -- 开启心跳检测，但超时时间很长作为安全兜�?
 
--- ========== Protobuf 编解码辅助 ==========
+-- ========== Protobuf 编解码辅�?==========
 
--- 发送 Packet 给客户端
+-- 发�?Packet 给客户端
 local function send_packet(fd, msg_id, session, data)
     local packet = pb.encode("common.Packet", {
         msg_id = msg_id,
@@ -34,7 +34,7 @@ local function send_packet(fd, msg_id, session, data)
     return socket.write(fd, header .. packet)
 end
 
--- 断开连接并清理
+-- 断开连接并清�?
 local function close_connection(fd)
     local conn = connections[fd]
     if conn then
@@ -94,14 +94,14 @@ end
 -- ========== 连接读取协程 ==========
 
 local function connection_handler(fd)
-    -- 初始化心跳时间
+    -- 初始化心跳时�?
     if connections[fd] then
         connections[fd].last_heartbeat = skynet.now()
     end
     
     -- 读取循环
     while true do
-        -- 1. 读 4 字节长度前缀
+        -- 1. �?4 字节长度前缀
         local header = socket.read(fd, 4)
         if not header then
             close_connection(fd)
@@ -119,7 +119,7 @@ local function connection_handler(fd)
             return
         end
 
-        -- 2. 读包体
+        -- 2. 读包�?
         local body = socket.read(fd, body_len)
         if not body then
             close_connection(fd)
@@ -131,9 +131,10 @@ local function connection_handler(fd)
         end
 
         -- 3. 解码外层 Packet
+        skynet.error(string.format("[Gateway] Received packet from fd=%d, body_len=%d", fd, body_len))
         local ok, packet = pcall(pb.decode, "common.Packet", body)
         if not ok or not packet then
-            skynet.error("[Gateway] Failed to decode Packet from fd=" .. fd)
+            skynet.error("[Gateway] Failed to decode Packet from fd=" .. fd .. ", err=" .. tostring(packet))
             close_connection(fd)
             return
         end
@@ -141,6 +142,7 @@ local function connection_handler(fd)
         local msg_id = packet.msg_id
         local session = packet.session
         local data = packet.data or ""
+        skynet.error(string.format("[Gateway] Decoded packet: msg_id=%d, session=%d, data_len=%d", msg_id, session, #data))
 
         -- 任何消息都视为活跃，更新心跳时间
         if connections[fd] then
@@ -155,7 +157,7 @@ local function connection_handler(fd)
             -- GATEWAY_HEARTBEAT_REQ
             handle_heartbeat_req(fd, session, data)
         else
-            -- 业务消息 → 查路由表转发
+            -- 业务消息 �?查路由表转发
             local route = route_table[msg_id]
             if not route then
                 skynet.error(string.format("[Gateway] No route for msg_id=%d", msg_id))
@@ -166,11 +168,11 @@ local function connection_handler(fd)
                 })
                 send_packet(fd, msg_id + 1, session, err_data)
             else
-                -- 获取连接的 token
+                -- 获取连接�?token
                 local conn = connections[fd]
                 local token = conn and conn.token or ""
 
-                -- 转发给业务服务
+                -- 转发给业务服�?
                 local forward_msg = {
                     conn_id = fd,
                     session = session,
@@ -178,12 +180,15 @@ local function connection_handler(fd)
                     data = data,
                 }
 
+                skynet.error(string.format("[Gateway] Forwarding to %s, cmd=%s", route.addr, route.cmd))
                 local ok2, response = pcall(skynet.call, route.addr, "lua", route.cmd, forward_msg)
+                skynet.error(string.format("[Gateway] Forward result: ok2=%s, response=%s", tostring(ok2), tostring(response)))
                 if ok2 and response then
                     -- response = { msg_id, data, conn_id? }
+                    skynet.error(string.format("[Gateway] Sending response back to fd=%d", fd))
                     send_packet(fd, response.msg_id or (msg_id + 1), session, response.data or "")
 
-                    -- 如果包含 bind_token 指令（选服成功后绑定 token）
+                    -- 如果包含 bind_token 指令（选服成功后绑�?token�?
                     if response.bind_token and conn then
                         conn.token = response.bind_token
                         conn.account_id = response.account_id or 0
@@ -219,7 +224,7 @@ function CMD.register(source, msg)
 
     for msg_id, cmd in pairs(routes) do
         route_table[msg_id] = { addr = service_addr, cmd = cmd }
-        skynet.error(string.format("[Gateway] Route registered: msg_id=%d → %s.%s", msg_id, service_name, cmd))
+        skynet.error(string.format("[Gateway] Route registered: msg_id=%d �?%s.%s", msg_id, service_name, cmd))
     end
 end
 
@@ -253,12 +258,12 @@ function CMD.sendToClient(source, fd, msg_id, data)
     send_packet(fd, msg_id, 0, data)
 end
 
--- 踢下线
+-- 踢下�?
 function CMD.kick(source, fd)
     close_connection(fd)
 end
 
--- 查询在线数
+-- 查询在线�?
 function CMD.getOnlineCount(source)
     local count = 0
     for _ in pairs(connections) do
@@ -281,7 +286,7 @@ skynet.start(function()
     socket.start(listen_fd, function(fd, addr)
         skynet.error("[Gateway] Accept connection: fd=" .. fd .. " addr=" .. addr)
         socket.start(fd)
-        socket.nodelay(fd)
+        skynet.error("[Gateway] Socket started for fd=" .. fd)
 
         -- 存储初始连接信息
         connections[fd] = {
@@ -294,7 +299,7 @@ skynet.start(function()
             last_heartbeat = skynet.now(),
         }
 
-        -- 为每个连接 fork 协程处理
+        -- 为每个连�?fork 协程处理
         skynet.fork(connection_handler, fd)
     end)
 
@@ -311,13 +316,13 @@ skynet.start(function()
         end
     end)
 
-    -- 启动心跳超时检测（仅在开启时生效）
+    -- 启动心跳超时检测（仅在开启时生效�?
     if HEARTBEAT_ENABLED then
         skynet.fork(function()
             while true do
-                skynet.sleep(1000)  -- 每 10 秒检查一次
+                skynet.sleep(1000)  -- �?10 秒检查一�?
                 local now = skynet.now()
-                local timeout_ticks = HEARTBEAT_TIMEOUT * 100  -- skynet.now() 单位是 1/100 秒
+                local timeout_ticks = HEARTBEAT_TIMEOUT * 100  -- skynet.now() 单位�?1/100 �?
                 for fd, conn in pairs(connections) do
                     if conn.last_heartbeat and (now - conn.last_heartbeat) > timeout_ticks then
                         skynet.error(string.format("[Gateway] Heartbeat timeout: fd=%d addr=%s", fd, conn.addr or "?"))

@@ -118,3 +118,9 @@ declare function password_verify(password: string, stored_hash: string): boolean
 // MongoDB helpers (injected by preload.lua)
 declare function mongo_ensureIndex(col: any, spec: any): void;
 declare function mongo_findAndModify(col: any, options: any): any;
+
+// Lua os module (for environment variables)
+declare namespace os {
+    function getenv(varname: string): string | null;
+    function time(): number;
+}

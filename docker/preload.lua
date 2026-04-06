@@ -2,13 +2,15 @@
 skynet = require "skynet"
 mongo = require "skynet.db.mongo"
 
--- tstl 冒号调用辅助：tstl 无法对任意对象生成 Lua 冒号语法
+
+
+-- tstl 冒号调用辅助：tstl 无法对任意对象生�?Lua 冒号语法
 mongo_findOne = function(col, query) return col:findOne(query) end
 mongo_insert = function(col, doc) col:insert(doc) end
 mongo_update = function(col, query, update, upsert, multi) col:update(query, update, upsert, multi) end
 mongo_delete = function(col, query, single) col:delete(query, single) end
 
--- 确保索引（tstl 包装）
+-- 确保索引（tstl 包装�?
 mongo_ensureIndex = function(col, spec) 
     -- spec 格式: { key = { field: 1 }, unique = true, name = "idx_name" }
     if spec and spec.key then
@@ -16,13 +18,13 @@ mongo_ensureIndex = function(col, spec)
     end
 end
 
--- findAndModify 原子操作（tstl 包装）
+-- findAndModify 原子操作（tstl 包装�?
 mongo_findAndModify = function(col, options)
     -- options: { query, update, upsert, new }
     return col:findAndModify(options)
 end
 
--- 查询多条记录，返回数组
+-- 查询多条记录，返回数�?
 mongo_findArray = function(col, query)
     local results = {}
     local cursor = col:find(query)
@@ -49,7 +51,7 @@ end
 -- === lua-protobuf ===
 local pb = require "pb"
 
--- 加载所有 .desc 文件
+-- 加载所�?.desc 文件
 local desc_dir = "lualib/tslua/protos/"
 pcall(pb.loadfile, desc_dir .. "common_pb.desc")
 pcall(pb.loadfile, desc_dir .. "login_pb.desc")
@@ -65,7 +67,7 @@ pb_encode = function(msg_type, data) return pb.encode(msg_type, data) end
 -- === 密码加密工具 (使用 HMAC-SHA256 替代 SHA256) ===
 local crypt = require "skynet.crypt"
 
--- 生成随机盐值
+-- 生成随机盐�?
 local function generate_salt()
     local bytes = {}
     for i = 1, 16 do
@@ -77,7 +79,7 @@ end
 -- 密码哈希: 返回 "salt:hash" (使用 HMAC-SHA256)
 password_hash = function(password)
     local salt = generate_salt()
-    -- 使用 HMAC-SHA256，key 为 salt，message 为 password
+    -- 使用 HMAC-SHA256，key �?salt，message �?password
     local hash = crypt.hmac_sha256(salt, password)
     return crypt.base64encode(salt) .. ":" .. crypt.base64encode(hash)
 end
@@ -90,7 +92,7 @@ password_verify = function(password, stored_hash)
     local ok, salt = pcall(crypt.base64decode, salt_b64)
     if not ok or not salt then return false end
     
-    -- 使用相同的 HMAC-SHA256 计算
+    -- 使用相同�?HMAC-SHA256 计算
     local expected_hash = crypt.hmac_sha256(salt, password)
     local expected_b64 = crypt.base64encode(expected_hash)
     return hash_b64 == expected_b64
