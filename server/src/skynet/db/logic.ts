@@ -47,17 +47,28 @@ export class DbLogic {
         }
     }
 
-    // 获取自增 ID
+    // 获取自增 ID（原子操作）
     private getNextId(counterName: string): number {
-        const result = mongo_findOne(this.countersCol, { _id: counterName });
-        const nextId = result ? result.seq + 1 : 1000;
-        mongo_update(
-            this.countersCol,
-            { _id: counterName },
-            { ["$set"]: { seq: nextId } },
-            true  // upsert
-        );
-        return nextId;
+        // 使用 findAndModify 实现原子自增
+        const result = mongo_findAndModify(this.countersCol, {
+            query: { _id: counterName },
+            update: { ["$inc"]: { seq: 1 } },
+            upsert: true,
+            new: true  // 返回更新后的文档
+        });
+        
+        // 如果是新创建的文档，seq 从 1000 开始
+        if (!result || result.seq === 1) {
+            // 第一次创建，设置为 1000
+            mongo_update(
+                this.countersCol,
+                { _id: counterName },
+                { ["$set"]: { seq: 1000 } }
+            );
+            return 1000;
+        }
+        
+        return result.seq;
     }
 
     // ========== 原有 players ==========

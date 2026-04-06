@@ -1,7 +1,5 @@
+/// <reference path="../types.ts" />
 import { IPlatform } from "../types";
-
-// 引用全局函数声明
-import "../types";
 
 export class GameLogic {
     private platform: IPlatform;

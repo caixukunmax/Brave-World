@@ -16,6 +16,12 @@ mongo_ensureIndex = function(col, spec)
     end
 end
 
+-- findAndModify 原子操作（tstl 包装）
+mongo_findAndModify = function(col, options)
+    -- options: { query, update, upsert, new }
+    return col:findAndModify(options)
+end
+
 -- 查询多条记录，返回数组
 mongo_findArray = function(col, query)
     local results = {}
@@ -56,7 +62,7 @@ pcall(pb.loadfile, desc_dir .. "message_id_pb.desc")
 pb_decode = function(msg_type, data) return pb.decode(msg_type, data) end
 pb_encode = function(msg_type, data) return pb.encode(msg_type, data) end
 
--- === 密码加密工具 (SHA256 + Salt) ===
+-- === 密码加密工具 (使用 HMAC-SHA256 替代 SHA256) ===
 local crypt = require "skynet.crypt"
 
 -- 生成随机盐值
@@ -68,10 +74,11 @@ local function generate_salt()
     return table.concat(bytes)
 end
 
--- 密码哈希: 返回 "salt:hash"
+-- 密码哈希: 返回 "salt:hash" (使用 HMAC-SHA256)
 password_hash = function(password)
     local salt = generate_salt()
-    local hash = crypt.sha256(salt .. password)
+    -- 使用 HMAC-SHA256，key 为 salt，message 为 password
+    local hash = crypt.hmac_sha256(salt, password)
     return crypt.base64encode(salt) .. ":" .. crypt.base64encode(hash)
 end
 
@@ -83,7 +90,8 @@ password_verify = function(password, stored_hash)
     local ok, salt = pcall(crypt.base64decode, salt_b64)
     if not ok or not salt then return false end
     
-    local expected_hash = crypt.sha256(salt .. password)
+    -- 使用相同的 HMAC-SHA256 计算
+    local expected_hash = crypt.hmac_sha256(salt, password)
     local expected_b64 = crypt.base64encode(expected_hash)
     return hash_b64 == expected_b64
 end

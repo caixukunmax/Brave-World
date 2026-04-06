@@ -12,8 +12,8 @@ local route_table = {}       -- msg_id → { addr, cmd }
 local conn_counter = 0       -- 连接ID计数器
 
 local MAX_PACKET_SIZE = 65536  -- 64KB 最大包体
-local HEARTBEAT_TIMEOUT = 60   -- 60秒心跳超时
-local HEARTBEAT_ENABLED = false  -- 默认关闭，需要客户端实现心跳后才开启
+local HEARTBEAT_TIMEOUT = 3600  -- 3600秒(1小时)心跳超时，避免客户端未实现心跳时踢掉玩家
+local HEARTBEAT_ENABLED = true  -- 开启心跳检测，但超时时间很长作为安全兜底
 
 -- ========== Protobuf 编解码辅助 ==========
 

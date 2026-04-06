@@ -13,6 +13,7 @@ export interface IPlatform {
 declare function password_hash(password: string): string;
 declare function password_verify(password: string, stored_hash: string): boolean;
 declare function mongo_ensureIndex(col: any, spec: any): void;
+declare function mongo_findAndModify(col: any, options: any): any;
 
 // 消息协议类型
 export interface LoginRequest {
