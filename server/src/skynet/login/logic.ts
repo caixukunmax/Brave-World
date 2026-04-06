@@ -58,7 +58,7 @@ export class LoginLogic {
 
         // 7. 构造响应
         const serverList: any[] = [];
-        if (servers) {
+        if (servers !== undefined && servers.length > 0) {
             for (const s of servers) {
                 // 检查该账号在该服是否有角色
                 const roles = this.platform.serviceCall("db_service", "findRolesByAccountAndServer", account.account_id, s.server_id) as any[];
@@ -74,7 +74,7 @@ export class LoginLogic {
                     is_new: s.is_new || false,
                     is_recommend: s.is_recommend || false,
                     has_role: hasRole,
-                    role_count: roles ? roles.length : 0,
+                    role_count: (roles !== undefined && roles.length > 0) ? roles.length : 0,
                 });
             }
         }
@@ -130,7 +130,7 @@ export class LoginLogic {
         const roleList: any[] = [];
         let lastRoleName = "";
         let lastLoginTime = 0;
-        if (roles) {
+        if (roles !== undefined && roles.length > 0) {
             for (const r of roles) {
                 roleList.push({
                     role_id: r.role_id || 0,
