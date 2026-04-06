@@ -49,6 +49,9 @@ defineService({
     countRolesByAccountAndServer(accountId: number, serverId: number): number {
         return logic.countRolesByAccountAndServer(accountId, serverId);
     },
+    getNextRoleId(): number {
+        return logic.getNextRoleId();
+    },
 
     // ========== servers ==========
     getServers(): any {

@@ -5,7 +5,7 @@ services:
       dockerfile: Dockerfile
     ports:
       - "${GATEWAY_PORT:-8889}:${GATEWAY_PORT:-8889}"
-      - "${DEBUG_PORT:-8001}:${DEBUG_PORT:-8001}"
+      - "${DEBUG_PORT:-8000}:${DEBUG_PORT:-8000}"
     environment:
       - GATEWAY_PORT=${GATEWAY_PORT:-8889}
       - DEBUG_PORT=${DEBUG_PORT:-8000}

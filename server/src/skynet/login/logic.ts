@@ -1,5 +1,8 @@
 import { IPlatform } from "../types";
 
+// 引用全局函数声明
+import "../types";
+
 export class LoginLogic {
     private platform: IPlatform;
 
@@ -42,7 +45,7 @@ export class LoginLogic {
             this.platform.log("info", "Auto-registered account: " + username + " id=" + account.account_id);
         } else {
             // 4. 验证密码
-            if (account.password !== password) {
+            if (!password_verify(password, account.password)) {
                 return this.makeError(211, 101, "密码错误");  // PASSWORD_ERROR
             }
             if (account.status === 1) {

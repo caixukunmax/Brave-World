@@ -6,6 +6,7 @@ export class DbLogic {
     private accountsCol: any;
     private rolesCol: any;
     private serversCol: any;
+    private countersCol: any;
 
     constructor(platform: IPlatform) {
         this.platform = platform;
@@ -26,6 +27,7 @@ export class DbLogic {
         this.accountsCol = db["accounts"];
         this.rolesCol = db["roles"];
         this.serversCol = db["servers"];
+        this.countersCol = db["counters"];
 
         this.platform.log("info", "MongoDB connected");
 
@@ -35,15 +37,26 @@ export class DbLogic {
 
     private ensureIndexes(): void {
         try {
-            mongo_update(
-                this.accountsCol,
-                {},
-                { ["$set"]: {} },
-                false
-            );
+            // 确保 username 唯一索引
+            this.accountsCol.ensureIndex({ key: { username: 1 }, unique: true, name: "username_idx" });
+            // 确保角色名在服务器内唯一
+            this.rolesCol.ensureIndex({ key: { server_id: 1, role_name: 1 }, unique: true, name: "server_role_name_idx" });
         } catch (_e) {
             // ignore
         }
+    }
+
+    // 获取自增 ID
+    private getNextId(counterName: string): number {
+        const result = mongo_findOne(this.countersCol, { _id: counterName });
+        const nextId = result ? result.seq + 1 : 1000;
+        mongo_update(
+            this.countersCol,
+            { _id: counterName },
+            { ["$set"]: { seq: nextId } },
+            true  // upsert
+        );
+        return nextId;
     }
 
     // ========== 原有 players ==========
@@ -90,15 +103,16 @@ export class DbLogic {
     }
 
     createAccount(username: string, password: string): any {
-        // 自增 account_id
-        const lastDoc = mongo_findOne(this.accountsCol, {});
-        // 简单方案：用时间戳 + 随机数生成 account_id
-        const accountId = Math.floor(skynet.now() / 100) + Math.floor(Math.random() * 10000) + 1;
+        // 使用自增 ID
+        const accountId = this.getNextId("account_id");
+        
+        // 密码加密
+        const hashedPassword = password_hash(password);
 
         const doc = {
             account_id: accountId,
             username: username,
-            password: password,
+            password: hashedPassword,
             status: 0,           // 0=正常
             last_server_id: 0,
             last_role_name: "",
@@ -149,6 +163,10 @@ export class DbLogic {
 
     countRolesByAccountAndServer(accountId: number, serverId: number): number {
         return mongo_count(this.rolesCol, { account_id: accountId, server_id: serverId });
+    }
+
+    getNextRoleId(): number {
+        return this.getNextId("role_id");
     }
 
     // ========== servers 集合 ==========

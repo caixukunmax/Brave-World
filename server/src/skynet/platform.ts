@@ -3,6 +3,14 @@ import { IPlatform } from "./types";
 // 服务地址缓存，避免每次 queryservice
 const serviceCache: Map<string, any> = new Map();
 
+// 定时器管理
+let timerIdCounter = 1000;
+const pendingTimers: Map<number, boolean> = new Map();
+
+function generateTimerId(): number {
+    return ++timerIdCounter;
+}
+
 function getServiceAddr(name: string): any {
     let addr = serviceCache.get(name);
     if (addr === undefined) {
@@ -19,15 +27,29 @@ function msToTicks(ms: number): number {
 
 export const platform: IPlatform = {
     setTimeout(delayMs, callback) {
-        return skynet.timeout(msToTicks(delayMs), callback);
+        const id = generateTimerId();
+        pendingTimers.set(id, true);
+        skynet.timeout(msToTicks(delayMs), () => {
+            if (pendingTimers.get(id)) {
+                pendingTimers.delete(id);
+                callback();
+            }
+        });
+        return id;
     },
 
     clearInterval(id) {
-        // skynet 无 cancelTimeout，通过标记位忽略
+        pendingTimers.delete(id);
     },
 
     serviceCall(serviceName, method, ...args) {
-        return skynet.call(getServiceAddr(serviceName), "lua", method, ...args);
+        try {
+            return skynet.call(getServiceAddr(serviceName), "lua", method, ...args);
+        } catch (e) {
+            // 清除可能失效的服务缓存
+            serviceCache.delete(serviceName);
+            throw e;
+        }
     },
 
     serviceSend(serviceName, method, ...args) {

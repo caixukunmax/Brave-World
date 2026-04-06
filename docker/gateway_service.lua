@@ -7,11 +7,12 @@ local socket = require "skynet.socket"
 local pb = require "pb"
 
 -- 状态
-local connections = {}       -- fd → { fd, addr, token, account_id, server_id }
+local connections = {}       -- fd → { fd, addr, token, account_id, server_id, last_heartbeat }
 local route_table = {}       -- msg_id → { addr, cmd }
 local conn_counter = 0       -- 连接ID计数器
 
 local MAX_PACKET_SIZE = 65536  -- 64KB 最大包体
+local HEARTBEAT_TIMEOUT = 60   -- 60秒心跳超时
 
 -- ========== Protobuf 编解码辅助 ==========
 
@@ -77,6 +78,11 @@ local function handle_connect_req(fd, session, data)
 end
 
 local function handle_heartbeat_req(fd, session, data)
+    -- 更新心跳时间
+    if connections[fd] then
+        connections[fd].last_heartbeat = skynet.now()
+    end
+    
     local rsp_data = pb.encode("gateway.HeartbeatResponse", {
         server_time = math.floor(skynet.time()),
         online_count = 0,
@@ -87,6 +93,11 @@ end
 -- ========== 连接读取协程 ==========
 
 local function connection_handler(fd)
+    -- 初始化心跳时间
+    if connections[fd] then
+        connections[fd].last_heartbeat = skynet.now()
+    end
+    
     -- 读取循环
     while true do
         -- 1. 读 4 字节长度前缀
@@ -175,7 +186,8 @@ local function connection_handler(fd)
                             fd, conn.account_id, conn.server_id))
                     end
                 elseif not ok2 then
-                    skynet.error(string.format("[Gateway] Forward failed: msg_id=%d err=%s", msg_id, tostring(response)))
+                    skynet.error(string.format("[Gateway] Forward failed: msg_id=%d err=%s trace=%s", 
+                        msg_id, tostring(response), debug.traceback()))
                     local err_data = pb.encode("common.Response", {
                         code = 7,  -- INTERNAL_ERROR
                         message = "Service call failed",
@@ -202,6 +214,20 @@ function CMD.register(source, msg)
     for msg_id, cmd in pairs(routes) do
         route_table[msg_id] = { addr = service_addr, cmd = cmd }
         skynet.error(string.format("[Gateway] Route registered: msg_id=%d → %s.%s", msg_id, service_name, cmd))
+    end
+end
+
+-- 业务服务注销路由
+function CMD.unregister(source, service_name)
+    local unregistered = 0
+    for msg_id, route in pairs(route_table) do
+        if route.addr == service_name or route.addr == source then
+            route_table[msg_id] = nil
+            unregistered = unregistered + 1
+        end
+    end
+    if unregistered > 0 then
+        skynet.error(string.format("[Gateway] Routes unregistered: %s (%d routes)", service_name, unregistered))
     end
 end
 
@@ -259,6 +285,7 @@ skynet.start(function()
             account_id = 0,
             server_id = 0,
             conn_id = 0,
+            last_heartbeat = skynet.now(),
         }
 
         -- 为每个连接 fork 协程处理
@@ -275,6 +302,21 @@ skynet.start(function()
             end
         else
             skynet.error("[Gateway] Unknown command: " .. tostring(cmd))
+        end
+    end)
+
+    -- 启动心跳超时检测
+    skynet.fork(function()
+        while true do
+            skynet.sleep(1000)  -- 每 10 秒检查一次
+            local now = skynet.now()
+            local timeout_ticks = HEARTBEAT_TIMEOUT * 100  -- skynet.now() 单位是 1/100 秒
+            for fd, conn in pairs(connections) do
+                if conn.last_heartbeat and (now - conn.last_heartbeat) > timeout_ticks then
+                    skynet.error(string.format("[Gateway] Heartbeat timeout: fd=%d addr=%s", fd, conn.addr or "?"))
+                    close_connection(fd)
+                end
+            end
         end
     end)
 

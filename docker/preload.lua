@@ -48,9 +48,40 @@ pcall(pb.loadfile, desc_dir .. "message_id_pb.desc")
 pb_decode = function(msg_type, data) return pb.decode(msg_type, data) end
 pb_encode = function(msg_type, data) return pb.encode(msg_type, data) end
 
--- === Token 系统 (HMAC-SHA256 via skynet.crypt) ===
+-- === 密码加密工具 (SHA256 + Salt) ===
 local crypt = require "skynet.crypt"
-local TOKEN_SECRET = "tslua2_game_secret_2024"
+
+-- 生成随机盐值
+local function generate_salt()
+    local bytes = {}
+    for i = 1, 16 do
+        table.insert(bytes, string.char(math.random(0, 255)))
+    end
+    return table.concat(bytes)
+end
+
+-- 密码哈希: 返回 "salt:hash"
+password_hash = function(password)
+    local salt = generate_salt()
+    local hash = crypt.sha256(salt .. password)
+    return crypt.base64encode(salt) .. ":" .. crypt.base64encode(hash)
+end
+
+-- 密码验证
+password_verify = function(password, stored_hash)
+    local salt_b64, hash_b64 = stored_hash:match("^([^:]+):([^:]+)$")
+    if not salt_b64 then return false end
+    
+    local ok, salt = pcall(crypt.base64decode, salt_b64)
+    if not ok or not salt then return false end
+    
+    local expected_hash = crypt.sha256(salt .. password)
+    local expected_b64 = crypt.base64encode(expected_hash)
+    return hash_b64 == expected_b64
+end
+
+-- === Token 系统 (HMAC-SHA256 via skynet.crypt) ===
+local TOKEN_SECRET = skynet.getenv("TOKEN_SECRET") or "tslua2_game_secret_2024_change_in_production"
 
 -- AccountToken: payload=accountId:username:timestamp  签名=hmac  编码=base64(payload|sig)
 token_generate_account = function(account_id, username)

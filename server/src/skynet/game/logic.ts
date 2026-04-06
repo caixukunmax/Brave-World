@@ -1,5 +1,8 @@
 import { IPlatform } from "../types";
 
+// 引用全局函数声明
+import "../types";
+
 export class GameLogic {
     private platform: IPlatform;
 
@@ -52,8 +55,8 @@ export class GameLogic {
             return this.makeError(323, 202, "角色数量已达上限");  // ROLE_COUNT_LIMIT
         }
 
-        // 6. 创建角色
-        const roleId = Math.floor(skynet.now() / 100) * 10000 + Math.floor(Math.random() * 10000) + 1;
+        // 6. 创建角色（使用自增 ID，通过 db_service 获取）
+        const roleId = this.platform.serviceCall("db_service", "getNextRoleId") as number;
         const now = Math.floor(skynet.time());
 
         const roleData = {
