@@ -1,5 +1,6 @@
 /// <reference path="../types.ts" />
 import { IPlatform } from "../types";
+import { proto, MessageId, ErrorCode } from "../protos";
 
 export class LoginLogic {
     private platform: IPlatform;
@@ -19,19 +20,22 @@ export class LoginLogic {
      */
     accountLogin(msg: { conn_id: number; session: number; token: string; data: string }): any {
         // 1. 解码请求
-        const req = pb_decode("login.AccountLoginRequest", msg.data);
+        const req = proto.login.AccountLoginRequest.decode(msg.data);
         if (!req) {
-            return this.makeError(211, 2, "无效的请求格式");  // INVALID_REQUEST
+            // INVALID_REQUEST: 无效的请求格式
+            return this.makeError(MessageId.LOGIN_ACCOUNT_LOGIN_RSP, ErrorCode.INVALID_REQUEST);
         }
 
         const username: string = req.username || "";
         const password: string = req.password || "";
 
         if (!username || username.length < 2) {
-            return this.makeError(211, 104, "用户名格式错误");  // INVALID_ACCOUNT_FORMAT
+            // INVALID_ACCOUNT_FORMAT: 用户名格式错误
+            return this.makeError(MessageId.LOGIN_ACCOUNT_LOGIN_RSP, ErrorCode.INVALID_ACCOUNT_FORMAT);
         }
         if (!password || password.length < 1) {
-            return this.makeError(211, 105, "密码格式错误");  // INVALID_PASSWORD_FORMAT
+            // INVALID_PASSWORD_FORMAT: 密码格式错误
+            return this.makeError(MessageId.LOGIN_ACCOUNT_LOGIN_RSP, ErrorCode.INVALID_PASSWORD_FORMAT);
         }
 
         // 2. 查询账号
@@ -42,28 +46,15 @@ export class LoginLogic {
             account = this.platform.serviceCall("db_service", "createAccount", username, password) as any;
             this.platform.log("info", "Auto-registered account: " + username + " id=" + account.account_id);
         } else {
-            // 4. 验证密码（兼容旧明文和新 hash 格式）
-            let passwordValid = false;
-            
-            if (password_verify(password, account.password)) {
-                // 新格式：salt:hash
-                passwordValid = true;
-            } else if (account.password === password) {
-                // 旧格式：明文密码，兼容登录
-                passwordValid = true;
-                
-                // 自动升级为 hash 存储
-                const hashedPassword = password_hash(password);
-                this.platform.serviceSend("db_service", "updateAccountPassword", account.account_id, hashedPassword);
-                this.platform.log("info", "Upgraded password to hash format for account: " + username);
+            // 4. 验证密码
+            if (!password_verify(password, account.password)) {
+                // PASSWORD_ERROR: 密码错误
+                return this.makeError(MessageId.LOGIN_ACCOUNT_LOGIN_RSP, ErrorCode.PASSWORD_ERROR);
             }
-            
-            if (!passwordValid) {
-                return this.makeError(211, 101, "密码错误");  // PASSWORD_ERROR
-            }
-            
+
             if (account.status === 1) {
-                return this.makeError(211, 102, "账号已被封禁");  // ACCOUNT_BANNED
+                // ACCOUNT_BANNED: 账号已被封禁
+                return this.makeError(MessageId.LOGIN_ACCOUNT_LOGIN_RSP, ErrorCode.ACCOUNT_BANNED);
             }
         }
 
@@ -97,7 +88,7 @@ export class LoginLogic {
         }
 
         const response = {
-            code: 0,  // SUCCESS
+            code: ErrorCode.SUCCESS,
             message: "",
             account_token: accountToken,
             account_id: account.account_id,
@@ -106,10 +97,10 @@ export class LoginLogic {
             last_role_name: account.last_role_name || "",
         };
 
-        const rspData = pb_encode("login.AccountLoginResponse", response);
+        const rspData = proto.login.AccountLoginResponse.encode(response);
         this.platform.log("info", "Login success: " + username + " accountId=" + account.account_id);
 
-        return { msg_id: 211, data: rspData };
+        return { msg_id: MessageId.LOGIN_ACCOUNT_LOGIN_RSP, data: rspData };
     }
 
     /**
@@ -118,9 +109,10 @@ export class LoginLogic {
      */
     selectServer(msg: { conn_id: number; session: number; token: string; data: string }): any {
         // 1. 解码请求
-        const req = pb_decode("login.SelectServerRequest", msg.data);
+        const req = proto.login.SelectServerRequest.decode(msg.data);
         if (!req) {
-            return this.makeError(213, 2, "无效的请求格式");
+            // INVALID_REQUEST: 无效的请求格式
+            return this.makeError(MessageId.LOGIN_SELECT_SERVER_RSP, ErrorCode.INVALID_REQUEST);
         }
 
         const accountToken: string = req.account_token || "";
@@ -129,16 +121,19 @@ export class LoginLogic {
         // 2. 验证 AccountToken
         const claims = token_validate_account(accountToken);
         if (!claims) {
-            return this.makeError(213, 3, "Token无效或已过期");  // UNAUTHORIZED
+            // UNAUTHORIZED: Token无效或已过期
+            return this.makeError(MessageId.LOGIN_SELECT_SERVER_RSP, ErrorCode.UNAUTHORIZED);
         }
 
         // 3. 检查区服是否存在
         const server = this.platform.serviceCall("db_service", "findServerById", serverId) as any;
         if (!server) {
-            return this.makeError(213, 300, "区服不存在");  // SERVER_NOT_FOUND
+            // SERVER_NOT_FOUND: 区服不存在
+            return this.makeError(MessageId.LOGIN_SELECT_SERVER_RSP, ErrorCode.SERVER_NOT_FOUND);
         }
         if (server.status === 0) {
-            return this.makeError(213, 301, "区服维护中");  // SERVER_MAINTENANCE
+            // SERVER_MAINTENANCE: 区服维护中
+            return this.makeError(MessageId.LOGIN_SELECT_SERVER_RSP, ErrorCode.SERVER_MAINTENANCE);
         }
 
         // 4. 查询该账号在该服的角色列表
@@ -172,7 +167,7 @@ export class LoginLogic {
 
         // 7. 构造响应（bind_token 让 Gateway 在发送响应前绑定 token，避免竞态）
         const response = {
-            code: 0,
+            code: ErrorCode.SUCCESS,
             message: "",
             gateway_token: gatewayToken,
             roles: roleList,
@@ -180,11 +175,11 @@ export class LoginLogic {
             server_time: Math.floor(skynet.time()),
         };
 
-        const rspData = pb_encode("login.SelectServerResponse", response);
+        const rspData = proto.login.SelectServerResponse.encode(response);
         this.platform.log("info", "SelectServer: accountId=" + claims.account_id + " serverId=" + serverId);
 
         return {
-            msg_id: 213,
+            msg_id: MessageId.LOGIN_SELECT_SERVER_RSP,
             data: rspData,
             bind_token: gatewayToken,
             account_id: claims.account_id,
@@ -192,8 +187,8 @@ export class LoginLogic {
         };
     }
 
-    private makeError(msgId: number, code: number, message: string): any {
-        const rspData = pb_encode("common.Response", { code: code, message: message, data: "" });
+    private makeError(msgId: number, code: ErrorCode): any {
+        const rspData = proto.common.Response.encode({ code: code, message: "", data: new Uint8Array(0) });
         return { msg_id: msgId, data: rspData };
     }
 }

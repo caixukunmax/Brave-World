@@ -337,7 +337,7 @@ function generateIndexTs(protosDir: string): string {
     'export const proto = {',
   ];
 
-  // 按模块分组生成 create 方法
+  // 按模块分组生成 create / decode / encode 方法
   for (const [module, names] of modules) {
     const moduleTypes = typeInfos.filter(t => t.module === module);
     protoLines.push(`  ${module}: {`);
@@ -350,11 +350,16 @@ function generateIndexTs(protosDir: string): string {
         // 枚举直接引用
         protoLines.push(`    ${name},`);
       } else {
-        // 生成 create 方法
+        // 生成 create / decode / encode 方法
         const defaults = generateDefaults(info);
+        const fullName = `${module}.${name}`;
         protoLines.push(`    ${name}: {`);
         protoLines.push(`      create: (init?: Partial<${name}>): ${name} =>`);
         protoLines.push(`        createMessage(${defaults}, init),`);
+        protoLines.push(`      decode: (data: string): ${name} =>`);
+        protoLines.push(`        pb_decode("${fullName}", data) as ${name},`);
+        protoLines.push(`      encode: (msg: ${name}): string =>`);
+        protoLines.push(`        pb_encode("${fullName}", msg),`);
         protoLines.push(`    },`);
       }
     }

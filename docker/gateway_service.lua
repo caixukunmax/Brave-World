@@ -8,6 +8,7 @@ local pb = require "pb"
 
 -- 状态
 local connections = {}       -- fd → { fd, addr, token, account_id, server_id, last_heartbeat }
+local account_connections = {} -- "account_id:server_id" → fd（用于顶号检测）
 local route_table = {}       -- msg_id → { addr, cmd }
 local conn_counter = 0       -- 连接ID计数器
 
@@ -35,10 +36,18 @@ local function send_packet(fd, msg_id, session, data)
 end
 
 -- 断开连接并清理
-local function close_connection(fd)
+local function close_connection(fd, reason)
     local conn = connections[fd]
     if conn then
-        skynet.error(string.format("[Gateway] Connection closed: fd=%d addr=%s", fd, conn.addr or "?"))
+        -- 清理反向索引
+        if conn.account_id and conn.account_id > 0 and conn.server_id and conn.server_id > 0 then
+            local key = tostring(conn.account_id) .. ":" .. tostring(conn.server_id)
+            if account_connections[key] == fd then
+                account_connections[key] = nil
+            end
+        end
+        skynet.error(string.format("[Gateway] Connection closed: fd=%d addr=%s reason=%s",
+            fd, conn.addr or "?", reason or "unknown"))
         connections[fd] = nil
     end
     socket.close(fd)
@@ -180,16 +189,44 @@ local function connection_handler(fd)
                     data = data,
                 }
 
-                local ok2, response = pcall(skynet.call, route.addr, "lua", route.cmd, forward_msg)
+                skynet.error(string.format("[Gateway] Forwarding to service: addr=%s msg_id=%d data_len=%d",
+                    tostring(route.addr), msg_id, #data))
+                local ok2, response = pcall(skynet.call, route.addr, "lua", msg_id, forward_msg)
+                skynet.error(string.format("[Gateway] Forward result: ok=%s response_type=%s",
+                    tostring(ok2), type(response)))
                 if ok2 and response then
                     -- response = { msg_id, data, conn_id? }
                     send_packet(fd, response.msg_id or (msg_id + 1), session, response.data or "")
 
                     -- 如果包含 bind_token 指令（选服成功后绑定 token）
                     if response.bind_token and conn then
+                        local new_account_id = response.account_id or 0
+                        local new_server_id = response.server_id or 0
+
+                        -- 顶号检测：同一账号+区服只能有一个连接
+                        if new_account_id > 0 and new_server_id > 0 then
+                            local key = tostring(new_account_id) .. ":" .. tostring(new_server_id)
+                            local old_fd = account_connections[key]
+                            if old_fd and old_fd ~= fd and connections[old_fd] then
+                                skynet.error(string.format("[Gateway] Kick old connection: fd=%d (new fd=%d accountId=%d serverId=%d)",
+                                    old_fd, fd, new_account_id, new_server_id))
+                                -- 发送顶号通知给旧连接
+                                local notify_data = pb.encode("gateway.KickNotify", {
+                                    reason = "account_kick",  -- 被顶号
+                                })
+                                send_packet(old_fd, 104, 0, notify_data)  -- GATEWAY_KICK_NOTIFY = 104
+                                -- 延迟关闭旧连接，确保通知发出
+                                skynet.fork(function()
+                                    skynet.sleep(50)  -- 等 0.5 秒
+                                    close_connection(old_fd, "kick_replace")
+                                end)
+                            end
+                            account_connections[key] = fd
+                        end
+
                         conn.token = response.bind_token
-                        conn.account_id = response.account_id or 0
-                        conn.server_id = response.server_id or 0
+                        conn.account_id = new_account_id
+                        conn.server_id = new_server_id
                         skynet.error(string.format("[Gateway] Token bound: fd=%d accountId=%d serverId=%d",
                             fd, conn.account_id, conn.server_id))
                     end
@@ -219,9 +256,9 @@ function CMD.register(source, msg)
 
     if not routes then return end
 
-    for msg_id, cmd in pairs(routes) do
-        route_table[msg_id] = { addr = service_addr, cmd = cmd }
-        skynet.error(string.format("[Gateway] Route registered: msg_id=%d → %s.%s", msg_id, service_name, cmd))
+    for _, msg_id in ipairs(routes) do
+        route_table[msg_id] = { addr = service_addr }
+        skynet.error(string.format("[Gateway] Route registered: msg_id=%d → %s", msg_id, service_name))
     end
 end
 
@@ -243,10 +280,32 @@ end
 function CMD.bindToken(source, fd, token, account_id, server_id)
     local conn = connections[fd]
     if conn then
+        account_id = account_id or 0
+        server_id = server_id or 0
+
+        -- 顶号检测
+        if account_id > 0 and server_id > 0 then
+            local key = tostring(account_id) .. ":" .. tostring(server_id)
+            local old_fd = account_connections[key]
+            if old_fd and old_fd ~= fd and connections[old_fd] then
+                skynet.error(string.format("[Gateway] Kick old connection: fd=%d (new fd=%d accountId=%d serverId=%d)",
+                    old_fd, fd, account_id, server_id))
+                local notify_data = pb.encode("gateway.KickNotify", {
+                    reason = "account_kick",
+                })
+                send_packet(old_fd, 104, 0, notify_data)
+                skynet.fork(function()
+                    skynet.sleep(50)
+                    close_connection(old_fd, "kick_replace")
+                end)
+            end
+            account_connections[key] = fd
+        end
+
         conn.token = token
-        conn.account_id = account_id or 0
-        conn.server_id = server_id or 0
-        skynet.error(string.format("[Gateway] Token bound: fd=%d accountId=%d serverId=%d", fd, account_id or 0, server_id or 0))
+        conn.account_id = account_id
+        conn.server_id = server_id
+        skynet.error(string.format("[Gateway] Token bound: fd=%d accountId=%d serverId=%d", fd, account_id, server_id))
     end
 end
 

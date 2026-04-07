@@ -7,12 +7,12 @@ local SyntaxError = ____lualib.SyntaxError
 local TypeError = ____lualib.TypeError
 local URIError = ____lualib.URIError
 local __TS__InstanceOf = ____lualib.__TS__InstanceOf
+local __TS__StringEndsWith = ____lualib.__TS__StringEndsWith
+local __TS__ArrayFilter = ____lualib.__TS__ArrayFilter
 local Map = ____lualib.Map
 local __TS__New = ____lualib.__TS__New
 local __TS__ArrayFind = ____lualib.__TS__ArrayFind
-local __TS__ArrayFilter = ____lualib.__TS__ArrayFilter
 local __TS__Iterator = ____lualib.__TS__Iterator
-local __TS__StringEndsWith = ____lualib.__TS__StringEndsWith
 local __TS__StringIncludes = ____lualib.__TS__StringIncludes
 local __TS__ArraySome = ____lualib.__TS__ArraySome
 local __TS__StringStartsWith = ____lualib.__TS__StringStartsWith
@@ -111,28 +111,33 @@ function generateIndexTs(self, protosDir)
         protoLines[#protoLines + 1] = ("  " .. module) .. ": {"
         for ____, name in ipairs(names) do
             do
-                local __continue64
+                local __continue74
                 repeat
                     local info = __TS__ArrayFind(
                         moduleTypes,
                         function(____, t) return t.name == name end
                     )
                     if not info then
-                        __continue64 = true
+                        __continue74 = true
                         break
                     end
                     if info.isEnum then
                         protoLines[#protoLines + 1] = ("    " .. name) .. ","
                     else
                         local defaults = generateDefaults(nil, info)
+                        local fullName = (module .. ".") .. name
                         protoLines[#protoLines + 1] = ("    " .. name) .. ": {"
                         protoLines[#protoLines + 1] = ((("      create: (init?: Partial<" .. name) .. ">): ") .. name) .. " =>"
                         protoLines[#protoLines + 1] = ("        createMessage(" .. defaults) .. ", init),"
+                        protoLines[#protoLines + 1] = ("      decode: (data: string): " .. name) .. " =>"
+                        protoLines[#protoLines + 1] = ((("        pb_decode(\"" .. fullName) .. "\", data) as ") .. name) .. ","
+                        protoLines[#protoLines + 1] = ("      encode: (msg: " .. name) .. "): string =>"
+                        protoLines[#protoLines + 1] = ("        pb_encode(\"" .. fullName) .. "\", msg),"
                         protoLines[#protoLines + 1] = "    },"
                     end
-                    __continue64 = true
+                    __continue74 = true
                 until true
-                if not __continue64 then
+                if not __continue74 then
                     break
                 end
             end
@@ -285,6 +290,16 @@ local function main(self)
     end
     local config = JSON:parse(fs:readFileSync(configPath, "utf-8"))
     info(nil, "Loaded config: " .. configPath)
+    local rootDir = path:resolve(baseDir, "..")
+    local pathsPath = path:join(rootDir, "paths.json")
+    if not fs:existsSync(pathsPath) then
+        ____error(nil, "Paths config not found: " .. pathsPath)
+        process:exit(1)
+    end
+    local paths = JSON:parse(fs:readFileSync(pathsPath, "utf-8"))
+    local outputLuaDirs = {path:resolve(rootDir, paths.proto.desc_dir)}
+    local outputTsDirs = {path:resolve(rootDir, paths.proto.ts_dir)}
+    local outputCsDir = path:resolve(rootDir, paths.proto.cs_dir)
     console:log("")
     console:log("========================================")
     console:log("  Compiling Protocol Buffers")
@@ -293,12 +308,12 @@ local function main(self)
     local allProtoFiles = {}
     for ____, protoDir in ipairs(config.proto_dirs) do
         do
-            local __continue8
+            local __continue9
             repeat
                 local fullDir = path:resolve(baseDir, protoDir)
                 if not fs:existsSync(fullDir) then
                     warn(nil, "Proto directory not found: " .. fullDir)
-                    __continue8 = true
+                    __continue9 = true
                     break
                 end
                 info(nil, "Scanning proto directory: " .. protoDir)
@@ -306,9 +321,9 @@ local function main(self)
                 for ____, file in ipairs(protoFiles) do
                     allProtoFiles[#allProtoFiles + 1] = path:join(fullDir, file)
                 end
-                __continue8 = true
+                __continue9 = true
             until true
-            if not __continue8 then
+            if not __continue9 then
                 break
             end
         end
@@ -345,7 +360,7 @@ local function main(self)
         console:log("----------------------------------------")
         info(nil, "Generating Lua descriptor files...")
         console:log("----------------------------------------")
-        for ____, luaDir in ipairs(config.output_lua) do
+        for ____, luaDir in ipairs(outputLuaDirs) do
             local fullLuaDir = path:resolve(baseDir, luaDir)
             fs:mkdirSync(fullLuaDir, {recursive = true})
             info(nil, "Output directory: " .. luaDir)
@@ -369,7 +384,7 @@ local function main(self)
         end
         console:log("")
     end
-    local firstTsDir = path:resolve(baseDir, config.output_ts[1])
+    local firstTsDir = path:resolve(baseDir, outputTsDirs[1])
     if config.skip_ts_generation then
         info(nil, "Skipping TypeScript generation (manual mode)")
         console:log("")
@@ -377,7 +392,7 @@ local function main(self)
         console:log("----------------------------------------")
         info(nil, "Generating TypeScript files with ts-proto...")
         console:log("----------------------------------------")
-        for ____, tsDir in ipairs(config.output_ts) do
+        for ____, tsDir in ipairs(outputTsDirs) do
             local fullTsDir = path:resolve(baseDir, tsDir)
             fs:mkdirSync(fullTsDir, {recursive = true})
             info(nil, "Output directory: " .. tsDir)
@@ -442,6 +457,40 @@ local function main(self)
         local indexContent = generateIndexTs(nil, firstTsDir)
         fs:writeFileSync(indexTsPath, indexContent)
         success(nil, "index.ts (generated)")
+    end
+    if protocCmd and outputCsDir then
+        console:log("")
+        console:log("----------------------------------------")
+        info(nil, "Generating C# files with protoc --csharp_out...")
+        console:log("----------------------------------------")
+        fs:mkdirSync(outputCsDir, {recursive = true})
+        info(nil, "Output directory: " .. outputCsDir)
+        local oldCsFiles = __TS__ArrayFilter(
+            fs:readdirSync(outputCsDir),
+            function(____, f) return __TS__StringEndsWith(f, ".cs") end
+        )
+        for ____, f in ipairs(oldCsFiles) do
+            fs:unlinkSync(path:join(outputCsDir, f))
+        end
+        for ____, protoFile in ipairs(allProtoFiles) do
+            local filename = path:basename(protoFile, ".proto")
+            local protoPath = path:dirname(protoFile)
+            do
+                local function ____catch(err)
+                    warn(nil, filename .. ".cs (failed)")
+                    if __TS__InstanceOf(err, Error) then
+                        console:error(err.message)
+                    end
+                end
+                local ____try, ____hasReturned = pcall(function()
+                    execSync(nil, ((((((("\"" .. protocCmd) .. "\" --proto_path=\"") .. protoPath) .. "\" --csharp_out=\"") .. outputCsDir) .. "\" \"") .. protoFile) .. "\"", {stdio = "pipe"})
+                    success(nil, filename .. ".cs")
+                end)
+                if not ____try then
+                    ____catch(____hasReturned)
+                end
+            end
+        end
     end
     console:log("")
     console:log("========================================")

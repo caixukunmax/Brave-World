@@ -124,3 +124,9 @@ declare namespace os {
     function getenv(varname: string): string | null;
     function time(): number;
 }
+
+// Lua built-in helpers
+declare function tostring(val: any): string;
+declare namespace table {
+    function insert(t: any[], val: any): void;
+}

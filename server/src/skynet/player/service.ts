@@ -4,7 +4,7 @@ import { PlayerLogic } from "./logic";
 
 const logic = new PlayerLogic(platform);
 
-defineService({
+defineService("player", {
     login(msg: { userId: string; token: string }) {
         return logic.login(msg.userId, msg.token);
     },
@@ -16,6 +16,8 @@ defineService({
     getOnlineCount(): number {
         return logic.getOnlineCount();
     }
-}, function() {
-    platform.log("info", "player_service started");
+}, {
+    init() {
+        platform.log("info", "player_service started");
+    },
 });

@@ -4,8 +4,8 @@ import { DbLogic } from "./logic";
 
 const logic = new DbLogic(platform);
 
-defineService({
-    // ========== players (原有) ==========
+defineService("db", {
+    // ========== players ==========
     queryPlayer(userId: string): any {
         return logic.queryPlayer(userId);
     },
@@ -63,7 +63,9 @@ defineService({
     updateServerOnlineCount(serverId: number, count: number): void {
         logic.updateServerOnlineCount(serverId, count);
     },
-}, function() {
-    logic.init();
-    platform.log("info", "db_service started");
+}, {
+    init() {
+        logic.init();
+        platform.log("info", "db_service started");
+    },
 });

@@ -1,8 +1,13 @@
 local ____lualib = require("lualib_bundle")
 local __TS__Class = ____lualib.__TS__Class
+local __TS__New = ____lualib.__TS__New
 local __TS__SourceMapTraceBack = ____lualib.__TS__SourceMapTraceBack
-__TS__SourceMapTraceBack(debug.getinfo(1).short_src, {["6"] = 4,["7"] = 4,["8"] = 4,["9"] = 7,["10"] = 8,["11"] = 7,["12"] = 11,["13"] = 12,["14"] = 11,["15"] = 20,["16"] = 22,["17"] = 23,["18"] = 24,["20"] = 27,["21"] = 28,["22"] = 30,["23"] = 31,["25"] = 33,["26"] = 34,["28"] = 38,["29"] = 40,["30"] = 42,["31"] = 43,["32"] = 43,["33"] = 43,["34"] = 43,["36"] = 46,["37"] = 48,["38"] = 50,["39"] = 51,["40"] = 53,["41"] = 56,["42"] = 57,["43"] = 58,["45"] = 61,["46"] = 62,["48"] = 65,["49"] = 66,["52"] = 71,["53"] = 74,["54"] = 77,["55"] = 78,["56"] = 79,["57"] = 81,["58"] = 82,["59"] = 84,["60"] = 84,["61"] = 84,["62"] = 84,["63"] = 84,["64"] = 84,["65"] = 84,["66"] = 84,["67"] = 84,["68"] = 84,["69"] = 84,["70"] = 84,["73"] = 99,["74"] = 99,["75"] = 99,["76"] = 99,["77"] = 99,["78"] = 99,["79"] = 99,["80"] = 99,["81"] = 99,["82"] = 109,["83"] = 110,["84"] = 110,["85"] = 110,["86"] = 110,["87"] = 112,["88"] = 20,["89"] = 119,["90"] = 121,["91"] = 122,["92"] = 123,["94"] = 126,["95"] = 127,["96"] = 130,["97"] = 131,["98"] = 132,["100"] = 136,["101"] = 137,["102"] = 138,["104"] = 140,["105"] = 141,["107"] = 145,["108"] = 147,["109"] = 148,["110"] = 149,["111"] = 150,["112"] = 151,["113"] = 152,["114"] = 152,["115"] = 152,["116"] = 152,["117"] = 152,["118"] = 152,["119"] = 152,["120"] = 152,["121"] = 160,["122"] = 161,["123"] = 162,["127"] = 168,["128"] = 171,["129"] = 171,["130"] = 171,["131"] = 171,["132"] = 171,["133"] = 171,["134"] = 171,["135"] = 174,["136"] = 174,["137"] = 174,["138"] = 174,["139"] = 174,["140"] = 174,["141"] = 174,["142"] = 174,["143"] = 183,["144"] = 184,["145"] = 184,["146"] = 184,["147"] = 184,["148"] = 186,["149"] = 186,["150"] = 186,["151"] = 186,["152"] = 186,["153"] = 186,["154"] = 186,["155"] = 119,["156"] = 195,["157"] = 196,["158"] = 197,["159"] = 195});
+__TS__SourceMapTraceBack(debug.getinfo(1).short_src, {["7"] = 3,["8"] = 3,["9"] = 3,["10"] = 3,["11"] = 5,["12"] = 5,["13"] = 5,["14"] = 8,["15"] = 9,["16"] = 8,["17"] = 12,["18"] = 13,["19"] = 12,["20"] = 21,["21"] = 23,["22"] = 24,["23"] = 26,["25"] = 29,["26"] = 30,["27"] = 32,["28"] = 34,["30"] = 36,["31"] = 38,["33"] = 42,["34"] = 44,["35"] = 46,["36"] = 47,["37"] = 47,["38"] = 47,["39"] = 47,["41"] = 50,["42"] = 52,["44"] = 55,["45"] = 57,["48"] = 62,["49"] = 65,["50"] = 68,["51"] = 69,["52"] = 70,["53"] = 72,["54"] = 73,["55"] = 75,["56"] = 75,["57"] = 75,["58"] = 75,["59"] = 75,["60"] = 75,["61"] = 75,["62"] = 75,["63"] = 75,["64"] = 75,["65"] = 75,["66"] = 75,["69"] = 90,["70"] = 90,["71"] = 90,["72"] = 90,["73"] = 90,["74"] = 90,["75"] = 90,["76"] = 90,["77"] = 90,["78"] = 100,["79"] = 101,["80"] = 101,["81"] = 101,["82"] = 101,["83"] = 103,["84"] = 21,["85"] = 110,["86"] = 112,["87"] = 113,["88"] = 115,["90"] = 118,["91"] = 119,["92"] = 122,["93"] = 123,["94"] = 125,["96"] = 129,["97"] = 130,["98"] = 132,["100"] = 134,["101"] = 136,["103"] = 140,["104"] = 142,["105"] = 143,["106"] = 144,["107"] = 145,["108"] = 146,["109"] = 147,["110"] = 147,["111"] = 147,["112"] = 147,["113"] = 147,["114"] = 147,["115"] = 147,["116"] = 147,["117"] = 155,["118"] = 156,["119"] = 157,["123"] = 163,["124"] = 166,["125"] = 166,["126"] = 166,["127"] = 166,["128"] = 166,["129"] = 166,["130"] = 166,["131"] = 169,["132"] = 169,["133"] = 169,["134"] = 169,["135"] = 169,["136"] = 169,["137"] = 169,["138"] = 169,["139"] = 178,["140"] = 179,["141"] = 179,["142"] = 179,["143"] = 179,["144"] = 181,["145"] = 181,["146"] = 181,["147"] = 181,["148"] = 181,["149"] = 181,["150"] = 181,["151"] = 110,["152"] = 190,["153"] = 191,["154"] = 191,["155"] = 191,["156"] = 191,["157"] = 191,["158"] = 192,["159"] = 190});
 local ____exports = {}
+local ____protos = require("protos.index")
+local proto = ____protos.proto
+local MessageId = ____protos.MessageId
+local ErrorCode = ____protos.ErrorCode
 ____exports.LoginLogic = __TS__Class()
 local LoginLogic = ____exports.LoginLogic
 LoginLogic.name = "LoginLogic"
@@ -13,17 +18,17 @@ function LoginLogic.prototype.init(self)
     self.platform.log("info", "login_logic init")
 end
 function LoginLogic.prototype.accountLogin(self, msg)
-    local req = pb_decode("login.AccountLoginRequest", msg.data)
+    local req = proto.login.AccountLoginRequest.decode(msg.data)
     if not req then
-        return self:makeError(211, 2, "无效的请求格式")
+        return self:makeError(MessageId.LOGIN_ACCOUNT_LOGIN_RSP, ErrorCode.INVALID_REQUEST)
     end
     local username = req.username or ""
     local password = req.password or ""
     if not username or #username < 2 then
-        return self:makeError(211, 104, "用户名格式错误")
+        return self:makeError(MessageId.LOGIN_ACCOUNT_LOGIN_RSP, ErrorCode.INVALID_ACCOUNT_FORMAT)
     end
     if not password or #password < 1 then
-        return self:makeError(211, 105, "密码格式错误")
+        return self:makeError(MessageId.LOGIN_ACCOUNT_LOGIN_RSP, ErrorCode.INVALID_PASSWORD_FORMAT)
     end
     local account = self.platform.serviceCall("db_service", "findAccountByUsername", username)
     if not account then
@@ -33,20 +38,11 @@ function LoginLogic.prototype.accountLogin(self, msg)
             (("Auto-registered account: " .. username) .. " id=") .. tostring(account.account_id)
         )
     else
-        local passwordValid = false
-        if password_verify(password, account.password) then
-            passwordValid = true
-        elseif account.password == password then
-            passwordValid = true
-            local hashedPassword = password_hash(password)
-            self.platform.serviceSend("db_service", "updateAccountPassword", account.account_id, hashedPassword)
-            self.platform.log("info", "Upgraded password to hash format for account: " .. username)
-        end
-        if not passwordValid then
-            return self:makeError(211, 101, "密码错误")
+        if not password_verify(password, account.password) then
+            return self:makeError(MessageId.LOGIN_ACCOUNT_LOGIN_RSP, ErrorCode.PASSWORD_ERROR)
         end
         if account.status == 1 then
-            return self:makeError(211, 102, "账号已被封禁")
+            return self:makeError(MessageId.LOGIN_ACCOUNT_LOGIN_RSP, ErrorCode.ACCOUNT_BANNED)
         end
     end
     local servers = self.platform.serviceCall("db_service", "getServers")
@@ -71,7 +67,7 @@ function LoginLogic.prototype.accountLogin(self, msg)
         end
     end
     local response = {
-        code = 0,
+        code = ErrorCode.SUCCESS,
         message = "",
         account_token = accountToken,
         account_id = account.account_id,
@@ -79,30 +75,30 @@ function LoginLogic.prototype.accountLogin(self, msg)
         last_server_id = account.last_server_id or 0,
         last_role_name = account.last_role_name or ""
     }
-    local rspData = pb_encode("login.AccountLoginResponse", response)
+    local rspData = proto.login.AccountLoginResponse.encode(response)
     self.platform.log(
         "info",
         (("Login success: " .. username) .. " accountId=") .. tostring(account.account_id)
     )
-    return {msg_id = 211, data = rspData}
+    return {msg_id = MessageId.LOGIN_ACCOUNT_LOGIN_RSP, data = rspData}
 end
 function LoginLogic.prototype.selectServer(self, msg)
-    local req = pb_decode("login.SelectServerRequest", msg.data)
+    local req = proto.login.SelectServerRequest.decode(msg.data)
     if not req then
-        return self:makeError(213, 2, "无效的请求格式")
+        return self:makeError(MessageId.LOGIN_SELECT_SERVER_RSP, ErrorCode.INVALID_REQUEST)
     end
     local accountToken = req.account_token or ""
     local serverId = req.server_id or 0
     local claims = token_validate_account(accountToken)
     if not claims then
-        return self:makeError(213, 3, "Token无效或已过期")
+        return self:makeError(MessageId.LOGIN_SELECT_SERVER_RSP, ErrorCode.UNAUTHORIZED)
     end
     local server = self.platform.serviceCall("db_service", "findServerById", serverId)
     if not server then
-        return self:makeError(213, 300, "区服不存在")
+        return self:makeError(MessageId.LOGIN_SELECT_SERVER_RSP, ErrorCode.SERVER_NOT_FOUND)
     end
     if server.status == 0 then
-        return self:makeError(213, 301, "区服维护中")
+        return self:makeError(MessageId.LOGIN_SELECT_SERVER_RSP, ErrorCode.SERVER_MAINTENANCE)
     end
     local roles = self.platform.serviceCall("db_service", "findRolesByAccountAndServer", claims.account_id, serverId)
     local roleList = {}
@@ -133,28 +129,32 @@ function LoginLogic.prototype.selectServer(self, msg)
         lastRoleName
     )
     local response = {
-        code = 0,
+        code = ErrorCode.SUCCESS,
         message = "",
         gateway_token = gatewayToken,
         roles = roleList,
         max_role_count = 3,
         server_time = math.floor(skynet.time())
     }
-    local rspData = pb_encode("login.SelectServerResponse", response)
+    local rspData = proto.login.SelectServerResponse.encode(response)
     self.platform.log(
         "info",
         (("SelectServer: accountId=" .. tostring(claims.account_id)) .. " serverId=") .. tostring(serverId)
     )
     return {
-        msg_id = 213,
+        msg_id = MessageId.LOGIN_SELECT_SERVER_RSP,
         data = rspData,
         bind_token = gatewayToken,
         account_id = claims.account_id,
         server_id = serverId
     }
 end
-function LoginLogic.prototype.makeError(self, msgId, code, message)
-    local rspData = pb_encode("common.Response", {code = code, message = message, data = ""})
+function LoginLogic.prototype.makeError(self, msgId, code)
+    local rspData = proto.common.Response.encode({
+        code = code,
+        message = "",
+        data = __TS__New(Uint8Array, 0)
+    })
     return {msg_id = msgId, data = rspData}
 end
 return ____exports

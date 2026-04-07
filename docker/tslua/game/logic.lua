@@ -1,8 +1,13 @@
 local ____lualib = require("lualib_bundle")
 local __TS__Class = ____lualib.__TS__Class
+local __TS__New = ____lualib.__TS__New
 local __TS__SourceMapTraceBack = ____lualib.__TS__SourceMapTraceBack
-__TS__SourceMapTraceBack(debug.getinfo(1).short_src, {["6"] = 4,["7"] = 4,["8"] = 4,["9"] = 7,["10"] = 8,["11"] = 7,["12"] = 11,["13"] = 12,["14"] = 11,["15"] = 18,["16"] = 20,["17"] = 21,["19"] = 23,["20"] = 24,["21"] = 25,["23"] = 29,["24"] = 30,["25"] = 31,["27"] = 34,["28"] = 37,["29"] = 38,["31"] = 40,["32"] = 41,["34"] = 45,["35"] = 46,["36"] = 47,["38"] = 51,["39"] = 52,["40"] = 53,["42"] = 57,["43"] = 58,["44"] = 60,["45"] = 60,["46"] = 60,["47"] = 60,["48"] = 60,["49"] = 60,["50"] = 60,["51"] = 60,["52"] = 60,["53"] = 60,["54"] = 60,["55"] = 60,["56"] = 60,["57"] = 60,["58"] = 60,["59"] = 76,["60"] = 79,["61"] = 79,["62"] = 79,["63"] = 82,["64"] = 82,["65"] = 82,["66"] = 82,["67"] = 82,["68"] = 82,["69"] = 82,["70"] = 82,["71"] = 82,["72"] = 82,["73"] = 82,["74"] = 82,["75"] = 79,["76"] = 79,["77"] = 79,["78"] = 79,["79"] = 79,["80"] = 100,["81"] = 101,["82"] = 101,["83"] = 101,["84"] = 101,["85"] = 103,["86"] = 18,["87"] = 109,["88"] = 111,["89"] = 112,["91"] = 114,["92"] = 115,["93"] = 116,["95"] = 120,["96"] = 121,["97"] = 122,["99"] = 125,["100"] = 126,["101"] = 127,["103"] = 131,["104"] = 132,["105"] = 133,["107"] = 137,["108"] = 138,["110"] = 142,["111"] = 143,["112"] = 146,["113"] = 146,["114"] = 146,["115"] = 149,["116"] = 149,["117"] = 149,["118"] = 149,["119"] = 149,["120"] = 149,["121"] = 149,["122"] = 149,["123"] = 149,["124"] = 149,["125"] = 149,["126"] = 149,["127"] = 146,["128"] = 146,["129"] = 146,["130"] = 146,["131"] = 146,["132"] = 167,["133"] = 168,["134"] = 168,["135"] = 168,["136"] = 168,["137"] = 170,["138"] = 109,["139"] = 173,["140"] = 174,["141"] = 175,["142"] = 173});
+__TS__SourceMapTraceBack(debug.getinfo(1).short_src, {["7"] = 3,["8"] = 3,["9"] = 3,["10"] = 3,["11"] = 5,["12"] = 5,["13"] = 5,["14"] = 8,["15"] = 9,["16"] = 8,["17"] = 12,["18"] = 13,["19"] = 12,["20"] = 19,["21"] = 21,["22"] = 23,["24"] = 25,["25"] = 26,["26"] = 28,["28"] = 32,["29"] = 33,["30"] = 35,["32"] = 38,["33"] = 41,["34"] = 43,["36"] = 45,["37"] = 47,["39"] = 51,["40"] = 52,["41"] = 54,["43"] = 58,["44"] = 59,["45"] = 61,["47"] = 65,["48"] = 66,["49"] = 68,["50"] = 68,["51"] = 68,["52"] = 68,["53"] = 68,["54"] = 68,["55"] = 68,["56"] = 68,["57"] = 68,["58"] = 68,["59"] = 68,["60"] = 68,["61"] = 68,["62"] = 68,["63"] = 68,["64"] = 84,["65"] = 87,["66"] = 87,["67"] = 87,["68"] = 90,["69"] = 90,["70"] = 90,["71"] = 90,["72"] = 90,["73"] = 90,["74"] = 90,["75"] = 90,["76"] = 90,["77"] = 90,["78"] = 90,["79"] = 90,["80"] = 87,["81"] = 87,["82"] = 87,["83"] = 87,["84"] = 87,["85"] = 108,["86"] = 109,["87"] = 109,["88"] = 109,["89"] = 109,["90"] = 111,["91"] = 19,["92"] = 117,["93"] = 119,["94"] = 121,["96"] = 123,["97"] = 124,["98"] = 126,["100"] = 130,["101"] = 131,["102"] = 133,["104"] = 136,["105"] = 137,["106"] = 139,["108"] = 143,["109"] = 144,["110"] = 146,["112"] = 150,["113"] = 152,["115"] = 156,["116"] = 157,["117"] = 160,["118"] = 160,["119"] = 160,["120"] = 163,["121"] = 163,["122"] = 163,["123"] = 163,["124"] = 163,["125"] = 163,["126"] = 163,["127"] = 163,["128"] = 163,["129"] = 163,["130"] = 163,["131"] = 163,["132"] = 160,["133"] = 160,["134"] = 160,["135"] = 160,["136"] = 160,["137"] = 181,["138"] = 182,["139"] = 182,["140"] = 182,["141"] = 182,["142"] = 184,["143"] = 117,["144"] = 187,["145"] = 188,["146"] = 188,["147"] = 188,["148"] = 188,["149"] = 188,["150"] = 189,["151"] = 187});
 local ____exports = {}
+local ____protos = require("protos.index")
+local proto = ____protos.proto
+local MessageId = ____protos.MessageId
+local ErrorCode = ____protos.ErrorCode
 ____exports.GameLogic = __TS__Class()
 local GameLogic = ____exports.GameLogic
 GameLogic.name = "GameLogic"
@@ -14,30 +19,30 @@ function GameLogic.prototype.init(self)
 end
 function GameLogic.prototype.createRole(self, msg)
     if not msg.token then
-        return self:makeError(323, 3, "未授权，请先选服")
+        return self:makeError(MessageId.GAME_CREATE_ROLE_RSP, ErrorCode.UNAUTHORIZED)
     end
     local claims = token_validate_gateway(msg.token)
     if not claims then
-        return self:makeError(323, 3, "Token无效或已过期")
+        return self:makeError(MessageId.GAME_CREATE_ROLE_RSP, ErrorCode.UNAUTHORIZED)
     end
-    local req = pb_decode("game.CreateRoleRequest", msg.data)
+    local req = proto.game.CreateRoleRequest.decode(msg.data)
     if not req then
-        return self:makeError(323, 2, "无效的请求格式")
+        return self:makeError(MessageId.GAME_CREATE_ROLE_RSP, ErrorCode.INVALID_REQUEST)
     end
     local roleName = req.role_name or ""
     if #roleName < 2 then
-        return self:makeError(323, 204, "角色名太短")
+        return self:makeError(MessageId.GAME_CREATE_ROLE_RSP, ErrorCode.ROLE_NAME_TOO_SHORT)
     end
     if #roleName > 12 then
-        return self:makeError(323, 205, "角色名太长")
+        return self:makeError(MessageId.GAME_CREATE_ROLE_RSP, ErrorCode.ROLE_NAME_TOO_LONG)
     end
     local nameExists = self.platform.serviceCall("db_service", "checkRoleNameExists", claims.server_id, roleName)
     if nameExists then
-        return self:makeError(323, 201, "角色名已存在")
+        return self:makeError(MessageId.GAME_CREATE_ROLE_RSP, ErrorCode.ROLE_NAME_EXISTS)
     end
     local roleCount = self.platform.serviceCall("db_service", "countRolesByAccountAndServer", claims.account_id, claims.server_id)
     if roleCount >= 3 then
-        return self:makeError(323, 202, "角色数量已达上限")
+        return self:makeError(MessageId.GAME_CREATE_ROLE_RSP, ErrorCode.ROLE_COUNT_LIMIT)
     end
     local roleId = self.platform.serviceCall("db_service", "getNextRoleId")
     local now = math.floor(skynet.time())
@@ -77,35 +82,35 @@ function GameLogic.prototype.createRole(self, msg)
         tasks = {},
         server_time = now
     }
-    local rspData = pb_encode("game.CreateRoleResponse", response)
+    local rspData = proto.game.CreateRoleResponse.encode(response)
     self.platform.log(
         "info",
         (("CreateRole: " .. roleName) .. " roleId=") .. tostring(roleId)
     )
-    return {msg_id = 323, data = rspData}
+    return {msg_id = MessageId.GAME_CREATE_ROLE_RSP, data = rspData}
 end
 function GameLogic.prototype.enterGame(self, msg)
     if not msg.token then
-        return self:makeError(321, 3, "未授权，请先选服")
+        return self:makeError(MessageId.GAME_ENTER_GAME_RSP, ErrorCode.UNAUTHORIZED)
     end
     local claims = token_validate_gateway(msg.token)
     if not claims then
-        return self:makeError(321, 3, "Token无效或已过期")
+        return self:makeError(MessageId.GAME_ENTER_GAME_RSP, ErrorCode.UNAUTHORIZED)
     end
-    local req = pb_decode("game.EnterGameRequest", msg.data)
+    local req = proto.game.EnterGameRequest.decode(msg.data)
     if not req then
-        return self:makeError(321, 2, "无效的请求格式")
+        return self:makeError(MessageId.GAME_ENTER_GAME_RSP, ErrorCode.INVALID_REQUEST)
     end
     local roleId = req.role_id or 0
     if roleId == 0 then
-        return self:makeError(321, 2, "角色ID不能为空")
+        return self:makeError(MessageId.GAME_ENTER_GAME_RSP, ErrorCode.INVALID_REQUEST)
     end
     local role = self.platform.serviceCall("db_service", "findRoleById", roleId)
     if not role then
-        return self:makeError(321, 200, "角色不存在")
+        return self:makeError(MessageId.GAME_ENTER_GAME_RSP, ErrorCode.ROLE_NOT_FOUND)
     end
     if role.account_id ~= claims.account_id or role.server_id ~= claims.server_id then
-        return self:makeError(321, 4, "无权操作此角色")
+        return self:makeError(MessageId.GAME_ENTER_GAME_RSP, ErrorCode.FORBIDDEN)
     end
     local now = math.floor(skynet.time())
     self.platform.serviceSend("db_service", "updateRole", roleId, {last_login_time = now})
@@ -129,15 +134,19 @@ function GameLogic.prototype.enterGame(self, msg)
         tasks = {},
         server_time = now
     }
-    local rspData = pb_encode("game.EnterGameResponse", response)
+    local rspData = proto.game.EnterGameResponse.encode(response)
     self.platform.log(
         "info",
         (("EnterGame: roleId=" .. tostring(roleId)) .. " name=") .. tostring(role.role_name or "?")
     )
-    return {msg_id = 321, data = rspData}
+    return {msg_id = MessageId.GAME_ENTER_GAME_RSP, data = rspData}
 end
-function GameLogic.prototype.makeError(self, msgId, code, message)
-    local rspData = pb_encode("common.Response", {code = code, message = message, data = ""})
+function GameLogic.prototype.makeError(self, msgId, code)
+    local rspData = proto.common.Response.encode({
+        code = code,
+        message = "",
+        data = __TS__New(Uint8Array, 0)
+    })
     return {msg_id = msgId, data = rspData}
 end
 return ____exports

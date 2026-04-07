@@ -1,5 +1,6 @@
 /// <reference path="../types.ts" />
 import { IPlatform } from "../types";
+import { proto, MessageId, ErrorCode } from "../protos";
 
 export class GameLogic {
     private platform: IPlatform;
@@ -18,39 +19,46 @@ export class GameLogic {
     createRole(msg: { conn_id: number; session: number; token: string; data: string }): any {
         // 1. 验证 GatewayToken
         if (!msg.token) {
-            return this.makeError(323, 3, "未授权，请先选服");  // UNAUTHORIZED
+            // UNAUTHORIZED: 请先选服
+            return this.makeError(MessageId.GAME_CREATE_ROLE_RSP, ErrorCode.UNAUTHORIZED);
         }
         const claims = token_validate_gateway(msg.token);
         if (!claims) {
-            return this.makeError(323, 3, "Token无效或已过期");  // UNAUTHORIZED
+            // UNAUTHORIZED: Token无效或已过期
+            return this.makeError(MessageId.GAME_CREATE_ROLE_RSP, ErrorCode.UNAUTHORIZED);
         }
 
         // 2. 解码请求
-        const req = pb_decode("game.CreateRoleRequest", msg.data);
+        const req = proto.game.CreateRoleRequest.decode(msg.data);
         if (!req) {
-            return this.makeError(323, 2, "无效的请求格式");
+            // INVALID_REQUEST: 无效的请求格式
+            return this.makeError(MessageId.GAME_CREATE_ROLE_RSP, ErrorCode.INVALID_REQUEST);
         }
 
         const roleName: string = req.role_name || "";
 
         // 3. 校验角色名
         if (roleName.length < 2) {
-            return this.makeError(323, 204, "角色名太短");  // ROLE_NAME_TOO_SHORT
+            // ROLE_NAME_TOO_SHORT: 角色名太短
+            return this.makeError(MessageId.GAME_CREATE_ROLE_RSP, ErrorCode.ROLE_NAME_TOO_SHORT);
         }
         if (roleName.length > 12) {
-            return this.makeError(323, 205, "角色名太长");  // ROLE_NAME_TOO_LONG
+            // ROLE_NAME_TOO_LONG: 角色名太长
+            return this.makeError(MessageId.GAME_CREATE_ROLE_RSP, ErrorCode.ROLE_NAME_TOO_LONG);
         }
 
         // 4. 检查角色名是否已存在
         const nameExists = this.platform.serviceCall("db_service", "checkRoleNameExists", claims.server_id, roleName) as boolean;
         if (nameExists) {
-            return this.makeError(323, 201, "角色名已存在");  // ROLE_NAME_EXISTS
+            // ROLE_NAME_EXISTS: 角色名已存在
+            return this.makeError(MessageId.GAME_CREATE_ROLE_RSP, ErrorCode.ROLE_NAME_EXISTS);
         }
 
         // 5. 检查角色数量上限
         const roleCount = this.platform.serviceCall("db_service", "countRolesByAccountAndServer", claims.account_id, claims.server_id) as number;
         if (roleCount >= 3) {
-            return this.makeError(323, 202, "角色数量已达上限");  // ROLE_COUNT_LIMIT
+            // ROLE_COUNT_LIMIT: 角色数量已达上限
+            return this.makeError(MessageId.GAME_CREATE_ROLE_RSP, ErrorCode.ROLE_COUNT_LIMIT);
         }
 
         // 6. 创建角色（使用自增 ID，通过 db_service 获取）
@@ -97,10 +105,10 @@ export class GameLogic {
             server_time: now,
         };
 
-        const rspData = pb_encode("game.CreateRoleResponse", response);
+        const rspData = proto.game.CreateRoleResponse.encode(response);
         this.platform.log("info", "CreateRole: " + roleName + " roleId=" + roleId);
 
-        return { msg_id: 323, data: rspData };
+        return { msg_id: MessageId.GAME_CREATE_ROLE_RSP, data: rspData };
     }
 
     /**
@@ -109,33 +117,39 @@ export class GameLogic {
     enterGame(msg: { conn_id: number; session: number; token: string; data: string }): any {
         // 1. 验证 GatewayToken
         if (!msg.token) {
-            return this.makeError(321, 3, "未授权，请先选服");
+            // UNAUTHORIZED: 请先选服
+            return this.makeError(MessageId.GAME_ENTER_GAME_RSP, ErrorCode.UNAUTHORIZED);
         }
         const claims = token_validate_gateway(msg.token);
         if (!claims) {
-            return this.makeError(321, 3, "Token无效或已过期");
+            // UNAUTHORIZED: Token无效或已过期
+            return this.makeError(MessageId.GAME_ENTER_GAME_RSP, ErrorCode.UNAUTHORIZED);
         }
 
         // 2. 解码请求
-        const req = pb_decode("game.EnterGameRequest", msg.data);
+        const req = proto.game.EnterGameRequest.decode(msg.data);
         if (!req) {
-            return this.makeError(321, 2, "无效的请求格式");
+            // INVALID_REQUEST: 无效的请求格式
+            return this.makeError(MessageId.GAME_ENTER_GAME_RSP, ErrorCode.INVALID_REQUEST);
         }
 
         const roleId: number = req.role_id || 0;
         if (roleId === 0) {
-            return this.makeError(321, 2, "角色ID不能为空");
+            // INVALID_REQUEST: 角色ID不能为空
+            return this.makeError(MessageId.GAME_ENTER_GAME_RSP, ErrorCode.INVALID_REQUEST);
         }
 
         // 3. 查询角色
         const role = this.platform.serviceCall("db_service", "findRoleById", roleId) as any;
         if (!role) {
-            return this.makeError(321, 200, "角色不存在");  // ROLE_NOT_FOUND
+            // ROLE_NOT_FOUND: 角色不存在
+            return this.makeError(MessageId.GAME_ENTER_GAME_RSP, ErrorCode.ROLE_NOT_FOUND);
         }
 
         // 验证角色属于该账号
         if (role.account_id !== claims.account_id || role.server_id !== claims.server_id) {
-            return this.makeError(321, 4, "无权操作此角色");  // FORBIDDEN
+            // FORBIDDEN: 无权操作此角色
+            return this.makeError(MessageId.GAME_ENTER_GAME_RSP, ErrorCode.FORBIDDEN);
         }
 
         // 4. 更新最后登录时间
@@ -164,14 +178,14 @@ export class GameLogic {
             server_time: now,
         };
 
-        const rspData = pb_encode("game.EnterGameResponse", response);
+        const rspData = proto.game.EnterGameResponse.encode(response);
         this.platform.log("info", "EnterGame: roleId=" + roleId + " name=" + (role.role_name || "?"));
 
-        return { msg_id: 321, data: rspData };
+        return { msg_id: MessageId.GAME_ENTER_GAME_RSP, data: rspData };
     }
 
-    private makeError(msgId: number, code: number, message: string): any {
-        const rspData = pb_encode("common.Response", { code: code, message: message, data: "" });
+    private makeError(msgId: number, code: ErrorCode): any {
+        const rspData = proto.common.Response.encode({ code, message: "", data: new Uint8Array(0) });
         return { msg_id: msgId, data: rspData };
     }
 }
