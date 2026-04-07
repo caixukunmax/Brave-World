@@ -131,9 +131,10 @@ local function connection_handler(fd)
         end
 
         -- 3. 解码外层 Packet
+        skynet.error(string.format("[Gateway] Received packet from fd=%d, body_len=%d", fd, body_len))
         local ok, packet = pcall(pb.decode, "common.Packet", body)
         if not ok or not packet then
-            skynet.error("[Gateway] Failed to decode Packet from fd=" .. fd)
+            skynet.error("[Gateway] Failed to decode Packet from fd=" .. fd .. ", err=" .. tostring(packet))
             close_connection(fd)
             return
         end
@@ -141,6 +142,7 @@ local function connection_handler(fd)
         local msg_id = packet.msg_id
         local session = packet.session
         local data = packet.data or ""
+        skynet.error(string.format("[Gateway] Decoded packet: msg_id=%d, session=%d, data_len=%d", msg_id, session, #data))
 
         -- 任何消息都视为活跃，更新心跳时间
         if connections[fd] then
@@ -281,7 +283,6 @@ skynet.start(function()
     socket.start(listen_fd, function(fd, addr)
         skynet.error("[Gateway] Accept connection: fd=" .. fd .. " addr=" .. addr)
         socket.start(fd)
-        socket.nodelay(fd)
 
         -- 存储初始连接信息
         connections[fd] = {

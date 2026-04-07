@@ -6,21 +6,21 @@ set "SUB_CMD=%~2"
 
 if "%MAIN_CMD%"=="" goto show_help
 if "%MAIN_CMD%"=="help" goto show_help
-if "%MAIN_CMD%"=="/?" goto show_help
+if "%MAIN_CMD%"=="/" goto show_help
 if "%MAIN_CMD%"=="-h" goto show_help
 if "%MAIN_CMD%"=="--help" goto show_help
 
 if "%MAIN_CMD%"=="build" goto do_build
-if "%MAIN_CMD%"=="dev" goto do_dev
+if "%MAIN_CMD%"=="up" goto do_up
+if "%MAIN_CMD%"=="down" goto do_down
+if "%MAIN_CMD%"=="restart" goto do_restart
+if "%MAIN_CMD%"=="logs" goto do_logs
+if "%MAIN_CMD%"=="ps" goto do_ps
 if "%MAIN_CMD%"=="clean" goto do_clean
 if "%MAIN_CMD%"=="backup" goto do_backup
 if "%MAIN_CMD%"=="table" goto do_table
 if "%MAIN_CMD%"=="proto" goto do_proto
 if "%MAIN_CMD%"=="gen" goto do_gen
-if "%MAIN_CMD%"=="restart" goto do_restart
-if "%MAIN_CMD%"=="logs" goto do_logs
-if "%MAIN_CMD%"=="ps" goto do_ps
-if "%MAIN_CMD%"=="docker" goto handle_docker
 
 echo [ERROR] Unknown command: %MAIN_CMD%
 goto show_help
@@ -31,38 +31,30 @@ echo ==========================================
 echo      TS-Lua2 Game Server Launcher
 echo ==========================================
 echo.
-echo Usage: start.bat ^<command^> [subcommand]
+echo Usage: start.bat ^<command^>
 echo.
-echo Docker Commands:
-echo   start.bat docker up       Start Docker services
-echo   start.bat docker down     Stop Docker services
-echo   start.bat docker restart  Restart Docker services
-echo   start.bat docker logs     View Docker logs
-echo   start.bat docker run      Build and start (default)
-echo   start.bat restart         Shortcut: restart services
-echo   start.bat logs            Shortcut: view logs
-echo   start.bat ps              Shortcut: view container status
-echo.
-echo Dev Commands:
-echo   start.bat build           Compile TypeScript to Lua
-echo   start.bat dev             Dev mode (compile+start+watch)
-echo   start.bat clean           Clean and rebuild
+echo Commands:
+echo   start.bat up         Build TS + Start services
+echo   start.bat down       Stop services
+echo   start.bat restart    Build TS + Restart services
+echo   start.bat build      Compile TypeScript only
+echo   start.bat logs       View service logs
+echo   start.bat ps         View container status
 echo.
 echo Resource Commands:
-echo   start.bat table           Export tables (config)
-echo   start.bat proto           Export protocols
-echo   start.bat gen             Export both tables and protocols
+echo   start.bat table      Export config tables
+echo   start.bat proto      Export protocols
+echo   start.bat gen        Export tables + protocols
 echo.
 echo Other Commands:
-echo   start.bat backup          Backup Docker images (offline)
-echo   start.bat help            Show this help
+echo   start.bat backup     Backup for offline deploy
+echo   start.bat clean      Clean and rebuild
+echo   start.bat help       Show this help
 echo.
 echo Examples:
-echo   start.bat docker up       Start service
-echo   start.bat restart         Restart service (quick)
-echo   start.bat build           Compile only
-echo   start.bat gen             Export tables + protocols
-echo   start.bat backup          Backup images
+echo   start.bat up         First time start
+echo   start.bat restart    After code changes
+echo   start.bat build      Compile only
 echo.
 goto end
 
@@ -89,7 +81,94 @@ if %errorlevel% neq 0 (
     pause
     exit /b 1
 )
-echo [OK] Build complete
+echo [OK] Build complete: docker/tslua/
+pause
+goto end
+
+:do_up
+call :check_env
+echo [INFO] Building TypeScript...
+call npx tstl -p tsconfig.json
+if %errorlevel% neq 0 (
+    echo [ERROR] Build failed
+    pause
+    exit /b 1
+)
+echo [INFO] Starting services...
+cd docker
+call :check_image
+docker compose up -d
+cd ..
+echo [OK] Services started on port 8889
+pause
+goto end
+
+:do_down
+echo [INFO] Stopping services...
+cd docker
+docker compose down
+cd ..
+echo [OK] Services stopped
+pause
+goto end
+
+:do_restart
+call :check_env
+echo [INFO] Stopping services...
+cd docker
+docker compose down
+cd ..
+echo [INFO] Building TypeScript...
+call npx tstl -p tsconfig.json
+if %errorlevel% neq 0 (
+    echo [ERROR] Build failed
+    pause
+    exit /b 1
+)
+echo [INFO] Starting services...
+cd docker
+call :check_image
+docker compose up -d --force-recreate
+cd ..
+echo [OK] Services restarted (logs cleared)
+echo [TIP] Client can connect to localhost:8889
+pause
+goto end
+
+:do_logs
+cd docker
+docker compose logs -f
+cd ..
+goto end
+
+:do_ps
+cd docker
+docker compose ps
+cd ..
+pause
+goto end
+
+:check_image
+echo [Check] Checking Docker image...
+for /f "tokens=*" %%i in ('docker images -q docker-game-server 2^>nul') do set "IMAGE_ID=%%i"
+if "%IMAGE_ID%"=="" (
+    echo [INFO] Image not found, building...
+    docker compose build
+    echo [OK] Image built
+) else (
+    echo [OK] Image exists: %IMAGE_ID:~0,12%
+)
+goto :eof
+
+:do_clean
+call :check_env
+call npx tstl -p tsconfig.json
+if %errorlevel% neq 0 (
+    echo [ERROR] Clean failed
+    pause
+    exit /b 1
+)
+echo [OK] Clean complete
 pause
 goto end
 
@@ -104,7 +183,7 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 cd ..
-echo [OK] Tables exported
+echo [OK] Tables exported to docker/tables/
 pause
 goto end
 
@@ -119,7 +198,7 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 cd ..
-echo [OK] Protocols exported
+echo [OK] Protocols exported to docker/protos/
 pause
 goto end
 
@@ -132,99 +211,10 @@ echo [OK] All resources exported
 pause
 goto end
 
-:do_restart
-call :docker_restart
-goto end
-
-:do_logs
-call :docker_logs
-goto end
-
-:do_ps
-call :check_env
-cd docker
-docker compose ps
-cd ..
-pause
-goto end
-
-:handle_docker
-if "%SUB_CMD%"=="" set "SUB_CMD=run"
-if "%SUB_CMD%"=="up" goto docker_up
-if "%SUB_CMD%"=="down" goto docker_down
-if "%SUB_CMD%"=="restart" goto docker_restart
-if "%SUB_CMD%"=="logs" goto docker_logs
-if "%SUB_CMD%"=="run" goto docker_run
-echo [ERROR] Unknown docker subcommand: %SUB_CMD%
-goto end
-
-:docker_up
-call :check_env
-cd docker
-docker compose up -d
-cd ..
-echo [OK] Services started
-goto end
-
-:docker_down
-cd docker
-docker compose down
-cd ..
-echo [OK] Services stopped
-pause
-goto end
-
-:docker_restart
-call :check_env
-call :docker_down
-call npx tstl -p tsconfig.json
-call :docker_up
-goto end
-
-:docker_logs
-cd docker
-docker compose logs -f
-cd ..
-goto end
-
-:docker_run
-call :check_env
-call npx tstl -p tsconfig.json
-if %errorlevel% neq 0 (
-    echo [ERROR] Build failed
-    pause
-    exit /b 1
-)
-call :docker_up
-goto end
-
-:do_clean
-call :check_env
-call npx tstl -p tsconfig.json
-if %errorlevel% neq 0 (
-    echo [ERROR] Clean failed
-    pause
-    exit /b 1
-)
-echo [OK] Clean complete
-pause
-goto end
-
-:do_dev
-call :check_env
-call npx tstl -p tsconfig.json
-if %errorlevel% neq 0 (
-    echo [ERROR] Build failed
-    pause
-    exit /b 1
-)
-call :docker_up
-call npx tstl -p tsconfig.json --watch
-goto end
-
 :do_backup
+call :check_env
 echo ==========================================
-echo      Backup Docker Images (Offline)
+echo      Backup for Offline Deployment
 echo ==========================================
 echo.
 
@@ -240,10 +230,11 @@ echo Backup directory: %BACKUP_DIR%
 echo Git commit: %GIT_COMMIT%
 echo.
 
+:: 检查镜像
 docker images docker-game-server --format "{{.Repository}}" | findstr "docker-game-server" >nul
 if %errorlevel% neq 0 (
     echo [ERROR] docker-game-server image not found
-    echo Please run 'start.bat docker up' first
+    echo Please run 'start.bat up' first
     pause
     exit /b 1
 )
@@ -257,15 +248,8 @@ docker save -o "%BACKUP_DIR%\mongo-7.tar" mongo:7
 echo [OK] mongo-7.tar
 
 echo [3/3] Copying deployment files...
-copy "docker\config.lua" "%BACKUP_DIR%\" >nul
-copy "docker\main.lua" "%BACKUP_DIR%\" >nul
-copy "docker\preload.lua" "%BACKUP_DIR%\" >nul
-copy "docker\start.sh" "%BACKUP_DIR%\" >nul
-copy "docker\gateway_service.lua" "%BACKUP_DIR%\" >nul
-xcopy "docker\tslua" "%BACKUP_DIR%\tslua\" /E /I /Q >nul
-xcopy "docker\tables" "%BACKUP_DIR%\tables\" /E /I /Q >nul
-xcopy "docker\protos" "%BACKUP_DIR%\protos\" /E /I /Q >nul
-echo [OK] Files copied
+xcopy "docker\*" "%BACKUP_DIR%\" /E /I /Q /Y >nul
+echo [OK] docker/ folder copied
 
 echo Backup Time: %date:~0,4%-%date:~5,2%-%date:~8,2% %time:~0,8% > "%BACKUP_DIR%\VERSION.txt"
 echo Git Commit: %GIT_COMMIT% >> "%BACKUP_DIR%\VERSION.txt"
@@ -273,19 +257,15 @@ echo [OK] VERSION.txt
 
 echo.
 echo ==========================================
-echo     Backup Complete! Ready for offline
+echo       Backup Complete!
 echo ==========================================
 echo.
-echo Backup contents:
-echo   - docker-game-server.tar
-echo   - mongo-7.tar
-echo   - Configuration files
-echo.
 echo To deploy offline:
-echo   1. Copy %BACKUP_DIR% to offline server
-echo   2. docker load -i docker-game-server.tar
-echo   3. docker load -i mongo-7.tar
-echo   4. docker compose -f docker-compose.offline.yml up -d
+echo   1. Copy backup folder to target server
+echo   2. cd %%BACKUP_DIR%%
+echo   3. docker load -i docker-game-server.tar
+echo   4. docker load -i mongo-7.tar
+echo   5. docker compose up -d
 echo.
 pause
 goto end

@@ -112,9 +112,15 @@ declare const token_generate_gateway: (accountId: number, serverId: number) => s
 declare const token_validate_gateway: (token: string) => TokenGatewayClaims | null;
 
 // Password hashing (injected by preload.lua)
-declare const password_hash: (password: string) => string;
-declare const password_verify: (password: string, stored_hash: string) => boolean;
+declare function password_hash(password: string): string;
+declare function password_verify(password: string, stored_hash: string): boolean;
 
 // MongoDB helpers (injected by preload.lua)
-declare const mongo_ensureIndex: (col: any, spec: any) => void;
-declare const mongo_findAndModify: (col: any, options: any) => any;
+declare function mongo_ensureIndex(col: any, spec: any): void;
+declare function mongo_findAndModify(col: any, options: any): any;
+
+// Lua os module (for environment variables)
+declare namespace os {
+    function getenv(varname: string): string | null;
+    function time(): number;
+}

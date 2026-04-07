@@ -18,8 +18,9 @@ export class DbLogic {
     }
 
     init(): void {
-        const host = skynet.getenv("MONGO_HOST") || "127.0.0.1";
-        const port = Number(skynet.getenv("MONGO_PORT") || "27017");
+        // Use os.getenv for system environment variables (Docker)
+        const host = (os as any).getenv("MONGO_HOST") || skynet.getenv("MONGO_HOST") || "127.0.0.1";
+        const port = Number((os as any).getenv("MONGO_PORT") || skynet.getenv("MONGO_PORT") || "27017");
         this.platform.log("info", "Connecting to MongoDB", host + ":" + port);
 
         const client: any = mongo.client({ host, port });
