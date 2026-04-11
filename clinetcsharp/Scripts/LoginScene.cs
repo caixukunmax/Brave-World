@@ -11,6 +11,7 @@ namespace ClinetCSharp
         private LineEdit _usernameEdit;
         private LineEdit _passwordEdit;
         private Button _loginButton;
+        private Button _testButton;
         private Label _statusLabel;
 
         private const string SAVE_FILE = "user://login_data.cfg";
@@ -23,6 +24,7 @@ namespace ClinetCSharp
             _usernameEdit = GetNode<LineEdit>("CenterContainer/Panel/VBoxContainer/UsernameEdit");
             _passwordEdit = GetNode<LineEdit>("CenterContainer/Panel/VBoxContainer/PasswordEdit");
             _loginButton = GetNode<Button>("CenterContainer/Panel/VBoxContainer/LoginButton");
+            _testButton = GetNode<Button>("CenterContainer/Panel/VBoxContainer/TestButton");
             _statusLabel = GetNode<Label>("CenterContainer/Panel/VBoxContainer/StatusLabel");
 
             if (_loginButton == null || _usernameEdit == null || _passwordEdit == null || _statusLabel == null)
@@ -34,6 +36,9 @@ namespace ClinetCSharp
             _loginButton.Pressed += OnLoginPressed;
             _usernameEdit.TextSubmitted += _ => OnLoginPressed();
             _passwordEdit.TextSubmitted += _ => OnLoginPressed();
+
+            if (_testButton != null)
+                _testButton.Pressed += OnTestDirectPressed;
 
             LoadSavedAccount();
 
@@ -174,6 +179,34 @@ namespace ClinetCSharp
             config.SetValue("login", "username", username);
             config.SetValue("login", "last_login_time", Time.GetUnixTimeFromSystem());
             config.Save(SAVE_FILE);
+        }
+
+        /// <summary>
+        /// 测试直通：跳过登录流程，直接进入游戏
+        /// </summary>
+        private void OnTestDirectPressed()
+        {
+            GD.Print("[LoginScene] Test direct entry pressed");
+            var nm = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
+            if (nm != null)
+            {
+                nm.AccountToken = "test_bypass_" + Time.GetUnixTimeFromSystem();
+                nm.AccountId = 1;
+                nm.LastServerId = 1;
+                nm.CachedRoleInfo = new Game.FullRoleInfo
+                {
+                    RoleName = "测试勇者",
+                    Level = 1,
+                    Job = "勇者",
+                    Title = "冒险家",
+                    Status = "探索中...",
+                    Gold = 10000,
+                    Diamond = 100,
+                    TotalPower = 100,
+                };
+            }
+            _statusLabel.Text = "测试直通，跳转游戏...";
+            GetTree().ChangeSceneToFile("res://scenes/main.tscn");
         }
     }
 }

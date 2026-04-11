@@ -23,6 +23,9 @@ message FullRoleInfo {
   uint32 vip_level = 9;         // VIP等级
   uint64 create_time = 10;      // 创建时间
   uint64 last_login_time = 11;  // 上次登录时间
+  string job = 12;              // 职业
+  string title = 13;            // 称号
+  string status = 14;           // 状态
 }
 
 /**

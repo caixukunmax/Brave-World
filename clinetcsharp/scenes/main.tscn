@@ -33,20 +33,6 @@ bg_color = Color(1, 1, 1, 0.1)
 text_color = Color(0, 0, 0, 1)
 move_duration = 0.15
 
-[node name="LabelContainer" type="VBoxContainer" parent="Player"]
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -55.5
-offset_top = -55.5
-offset_right = 55.5
-offset_bottom = 55.5
-grow_horizontal = 2
-grow_vertical = 2
-alignment = 1
-
 [node name="CameraController" type="Camera2D" parent="." groups=["camera"]]
 zoom = Vector2(1.4, 1.4)
 script = ExtResource("3_camera")

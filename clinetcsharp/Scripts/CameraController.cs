@@ -88,22 +88,10 @@ namespace ClinetCSharp
 
         private bool IsMouseOnDebugPanel()
         {
-            // 检查鼠标是否在调试面板上
             var debugPanel = GetTree().GetFirstNodeInGroup("debug_panel");
-            if (debugPanel == null)
-                return false;
-
-            // 检查 panel 节点是否存在且可见
-            var panel = debugPanel.Get("panel").AsGodotObject() as Control;
-            if (panel == null)
-                return false;
-
-            if (!panel.Visible)
-                return false;
-
-            var panelRect = panel.GetGlobalRect();
-            var mousePos = GetViewport().GetMousePosition();
-            return panelRect.HasPoint(mousePos);
+            if (debugPanel is DebugPanel dp)
+                return dp.IsMouseOverPanel();
+            return false;
         }
 
         public override void _Input(InputEvent @event)

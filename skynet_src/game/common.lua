@@ -78,6 +78,32 @@ function common.queryTable(name)
 end
 
 --------------------------------------------------------------------------------
+-- Map: 地图数据查询与移动合法性校验
+-- 地图文件由 sync-maps.ts 从客户端 CSV 生成，存放在 tables/data/map_*.lua
+--------------------------------------------------------------------------------
+function common.queryMap(mapName)
+    local key = "map_" .. mapName
+    local data = tableCache[key]
+    if data then return data end
+    data = sharetable.query("tables/data/" .. key)
+    if data then
+        tableCache[key] = data
+    end
+    return data
+end
+
+function common.isWalkable(mapName, x, y)
+    local mapData = common.queryMap(mapName)
+    if not mapData then return false end
+    if x < 0 or x >= mapData.width or y < 0 or y >= mapData.height then return false end
+    local cellStr = mapData.cells[y * mapData.width + x]
+    if not cellStr then return false end
+    -- 格式: "exists;walkable;visible;terrain;height;custom"
+    local walkable = cellStr:match("^%d;(%d)")
+    return walkable == "1"
+end
+
+--------------------------------------------------------------------------------
 -- Platform: 服务通信、定时器、日志
 --------------------------------------------------------------------------------
 local serviceCache = {}

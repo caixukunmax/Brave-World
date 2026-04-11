@@ -24,18 +24,19 @@ namespace Protocol {
     static MessageIdReflection() {
       byte[] descriptorData = global::System.Convert.FromBase64String(
           string.Concat(
-            "ChBtZXNzYWdlX2lkLnByb3RvEghwcm90b2NvbCrkAwoJTWVzc2FnZUlkEgsK",
+            "ChBtZXNzYWdlX2lkLnByb3RvEghwcm90b2NvbCr9AwoJTWVzc2FnZUlkEgsK",
             "B1VOS05PV04QABIICgRQSU5HEAESCAoEUE9ORxACEhkKFUdBVEVXQVlfSEVB",
             "UlRCRUFUX1JFURBkEhkKFUdBVEVXQVlfSEVBUlRCRUFUX1JTUBBlEhcKE0dB",
             "VEVXQVlfQ09OTkVDVF9SRVEQZhIXChNHQVRFV0FZX0NPTk5FQ1RfUlNQEGcS",
-            "HQoZR0FURVdBWV9ESVNDT05ORUNUX05PVElGWRBoEhwKF0xPR0lOX0FDQ09V",
-            "TlRfTE9HSU5fUkVRENIBEhwKF0xPR0lOX0FDQ09VTlRfTE9HSU5fUlNQENMB",
-            "EhwKF0xPR0lOX1NFTEVDVF9TRVJWRVJfUkVRENQBEhwKF0xPR0lOX1NFTEVD",
-            "VF9TRVJWRVJfUlNQENUBEhgKE1NFUlZFUl9HRVRfTElTVF9SRVEQ+gESGAoT",
-            "U0VSVkVSX0dFVF9MSVNUX1JTUBD7ARIZChRTRVJWRVJfU1RBVFVTX1VQREFU",
-            "RRD8ARIYChNHQU1FX0VOVEVSX0dBTUVfUkVREMACEhgKE0dBTUVfRU5URVJf",
-            "R0FNRV9SU1AQwQISGQoUR0FNRV9DUkVBVEVfUk9MRV9SRVEQwgISGQoUR0FN",
-            "RV9DUkVBVEVfUk9MRV9SU1AQwwJiBnByb3RvMw=="));
+            "HQoZR0FURVdBWV9ESVNDT05ORUNUX05PVElGWRBoEhcKE0dBVEVXQVlfS0lD",
+            "S19OT1RJRlkQaRIcChdMT0dJTl9BQ0NPVU5UX0xPR0lOX1JFURDSARIcChdM",
+            "T0dJTl9BQ0NPVU5UX0xPR0lOX1JTUBDTARIcChdMT0dJTl9TRUxFQ1RfU0VS",
+            "VkVSX1JFURDUARIcChdMT0dJTl9TRUxFQ1RfU0VSVkVSX1JTUBDVARIYChNT",
+            "RVJWRVJfR0VUX0xJU1RfUkVREPoBEhgKE1NFUlZFUl9HRVRfTElTVF9SU1AQ",
+            "+wESGQoUU0VSVkVSX1NUQVRVU19VUERBVEUQ/AESGAoTR0FNRV9FTlRFUl9H",
+            "QU1FX1JFURDAAhIYChNHQU1FX0VOVEVSX0dBTUVfUlNQEMECEhkKFEdBTUVf",
+            "Q1JFQVRFX1JPTEVfUkVREMICEhkKFEdBTUVfQ1JFQVRFX1JPTEVfUlNQEMMC",
+            "YgZwcm90bzM="));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { },
           new pbr::GeneratedClrTypeInfo(new[] {typeof(global::Protocol.MessageId), }, null, null));
@@ -64,6 +65,7 @@ namespace Protocol {
     [pbr::OriginalName("GATEWAY_CONNECT_REQ")] GatewayConnectReq = 102,
     [pbr::OriginalName("GATEWAY_CONNECT_RSP")] GatewayConnectRsp = 103,
     [pbr::OriginalName("GATEWAY_DISCONNECT_NOTIFY")] GatewayDisconnectNotify = 104,
+    [pbr::OriginalName("GATEWAY_KICK_NOTIFY")] GatewayKickNotify = 105,
     /// <summary>
     /// Login消息 (200-299)
     /// </summary>

@@ -554,7 +554,23 @@ text = "右对齐"
 layout_mode = 2
 custom_minimum_size = Vector2(0, 4)
 
-; 分组3：视觉效果
+; 分组3：文本控制
+[node name="SectionLabelCtrl" type="Button" parent="Control/Panel/ScrollContainer/TabContainer/玩家"]
+layout_mode = 2
+text = "▼ 文本控制"
+flat = true
+alignment = 0
+theme_override_styles/normal = SubResource("StyleBoxFlat_section")
+
+[node name="LabelCtrlGroup" type="VBoxContainer" parent="Control/Panel/ScrollContainer/TabContainer/玩家"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="SpacerLabelCtrl" type="Control" parent="Control/Panel/ScrollContainer/TabContainer/玩家/LabelCtrlGroup"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 4)
+
+; 分组4：视觉效果
 [node name="SectionEffect" type="Button" parent="Control/Panel/ScrollContainer/TabContainer/玩家"]
 layout_mode = 2
 text = "▼ 视觉效果"

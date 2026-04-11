@@ -10,17 +10,17 @@ namespace ClinetCSharp
     public partial class Player : Node2D
     {
         [Export] public int GridSize { get; set; } = 111;
-        [Export] public int VisualSize { get; set; } = 111;  // 独立的视觉大小，不影响网格
+        [Export] public int VisualSize { get; set; } = 111;
         [Export] public float BorderWidth { get; set; } = 3.0f;
         [Export] public Color BorderColor { get; set; } = Colors.White;
         [Export] public Color BgColor { get; set; } = new Color(1, 1, 1, 0.1f);
         [Export] public Color TextColor { get; set; } = Colors.Black;
         [Export] public float MoveDuration { get; set; } = 0.15f;
-        [Export] public int FontSizeOverride { get; set; } = 0;  // 0 表示自动计算
-        [Export] public float LineSpacing { get; set; } = 0.8f;  // 行间距系数 (0.5-1.5)
-        [Export] public float CornerRadius { get; set; } = 0.0f;  // 圆角半径
-        [Export] public float LetterSpacing { get; set; } = 0.0f;  // 字间距
-        [Export] public float BgOpacity { get; set; } = 0.1f;  // 背景透明度 (0-1)
+        [Export] public int FontSizeOverride { get; set; } = 0;
+        [Export] public float LineSpacing { get; set; } = 0.8f;
+        [Export] public float CornerRadius { get; set; } = 0.0f;
+        [Export] public float LetterSpacing { get; set; } = 0.0f;
+        [Export] public float BgOpacity { get; set; } = 0.1f;
 
         // 字体设置
         public string CurrentFontPath { get; set; } = "";
@@ -43,16 +43,70 @@ namespace ClinetCSharp
         public string Title { get; set; } = "普通人";
         public string Status { get; set; } = "闲逛中...";
 
+        // ========== 血条 ==========
+        public Vector2 HealthBarOffset { get; set; } = new Vector2(0, -70);
+        public float HealthBarLength { get; set; } = 80;
+        public float HealthBarHeight { get; set; } = 6;
+        public Color HealthBarColor { get; set; } = new Color(0, 0.8f, 0, 1);
+        public Color HealthBarBgColor { get; set; } = new Color(0.3f, 0.3f, 0.3f, 0.5f);
+        public bool HealthBarVisible { get; set; } = true;
+        public float HealthBarFillPercent { get; set; } = 1.0f;
+
+        // ========== 施法条 ==========
+        public Vector2 CastBarOffset { get; set; } = new Vector2(0, -80);
+        public float CastBarLength { get; set; } = 60;
+        public float CastBarHeight { get; set; } = 4;
+        public Color CastBarColor { get; set; } = new Color(0.3f, 0.5f, 1, 1); // 蓝色
+        public Color CastBarBgColor { get; set; } = new Color(0.3f, 0.3f, 0.3f, 0.4f);
+        public bool CastBarVisible { get; set; } = true;
+        public float CastBarFillPercent { get; set; } = 0.6f;
+
+        // ========== 等级徽章 ==========
+        public Vector2 LevelBadgeOffset { get; set; } = new Vector2(-35, -35);
+        public float LevelBadgeFontSize { get; set; } = 12;
+        public Color LevelBadgeTextColor { get; set; } = Colors.Yellow;
+        public bool LevelBadgeVisible { get; set; } = true;
+        public string LevelBadgeText { get; set; } = "Lv.{level}";
+
         public Vector2I GridPos { get; set; } = new Vector2I(25, 25);
         public bool IsMoving { get; set; } = false;
         public HorizontalAlignment TextAlignment { get; set; } = HorizontalAlignment.Center;
 
-        private VBoxContainer _labelContainer;
+        // ========== 独立文本系统 ==========
+        private const int LabelCount = 4;
+        private RichTextLabel[] _labels = new RichTextLabel[LabelCount];
+        private Control[] _labelContainers = new Control[LabelCount];
+        private Vector2[] _labelOffsets = new Vector2[LabelCount];
+        private bool[] _labelVisible = new bool[LabelCount] { true, true, true, true };
+        private int[] _labelFontSizes = new int[LabelCount]; // 0 = 使用全局字号
+
+        // 默认偏移：4行文字从角色上方向下排列
+        public static readonly Vector2[] DefaultOffsets = new Vector2[LabelCount]
+        {
+            new Vector2(0, -55), // 名称
+            new Vector2(0, -38), // 职业
+            new Vector2(0, -21), // 称号
+            new Vector2(0, -4),  // 状态
+        };
+
+        // 拖拽状态
+        private bool _dragging = false;
+        private int _dragIndex = -1;
+        private Vector2 _dragStartMouse;
+        private Vector2 _dragStartOffset;
+
+        // 文本名称（可编辑，调试面板标题）
+        public string[] LabelNames = new string[LabelCount] { "名称", "职业", "称号", "状态" };
+
+        // 文本内容（可编辑）
+        public string[] LabelTexts = new string[LabelCount] { $"Lv.1 王建国", "农夫", "普通人", "闲逛中..." };
 
         public override void _Ready()
         {
             Position = GridToWorld(GridPos);
-            _labelContainer = GetNodeOrNull<VBoxContainer>("LabelContainer");
+            // 初始化默认偏移
+            for (int i = 0; i < LabelCount; i++)
+                _labelOffsets[i] = DefaultOffsets[i];
             SetupLabels();
             QueueRedraw();
         }
@@ -72,135 +126,277 @@ namespace ClinetCSharp
 
         private async System.Threading.Tasks.Task SetupLabelsInternal()
         {
-            if (_labelContainer != null)
+            // 清理旧节点
+            for (int i = 0; i < LabelCount; i++)
             {
-                // 清空现有标签
-                foreach (Node child in _labelContainer.GetChildren())
+                if (_labelContainers[i] != null && IsInstanceValid(_labelContainers[i]))
                 {
-                    child.QueueFree();
+                    _labelContainers[i].QueueFree();
+                    _labelContainers[i] = null;
+                    _labels[i] = null;
                 }
+            }
 
-                // 设置 VBoxContainer 对齐方式为居中
-                _labelContainer.Alignment = BoxContainer.AlignmentMode.Center;
+            // 创建文本行
+            var lines = new string[LabelCount];
+            for (int i = 0; i < LabelCount; i++)
+                lines[i] = LabelTexts[i];
 
-                // 创建4行标签
-                var lines = new[]
-                {
-                    $"Lv.{Level} {CharacterName}",
-                    Job,
-                    Title,
-                    Status
-                };
+            for (int i = 0; i < LabelCount; i++)
+            {
+                var container = new Control();
+                container.Name = $"LabelContainer_{i}";
+                AddChild(container);
 
-                for (int i = 0; i < lines.Length; i++)
-                {
-                    var label = new RichTextLabel();
-                    label.FitContent = true;
-                    label.ScrollActive = false;
-                    label.BbcodeEnabled = true;
-                    label.Text = lines[i];
-                    label.HorizontalAlignment = TextAlignment;
-                    label.VerticalAlignment = VerticalAlignment.Center;
-                    // 使用每行单独的颜色，如果没有设置则使用默认 text_color
-                    var lineColor = TextColor;
-                    if (i < LineColors.Count)
-                        lineColor = LineColors[i];
-                    label.AddThemeColorOverride("font_color", lineColor);
-                    _labelContainer.AddChild(label);
-                }
+                var label = new RichTextLabel();
+                label.Name = $"Label_{i}";
+                label.FitContent = true;
+                label.ScrollActive = false;
+                label.BbcodeEnabled = true;
+                label.Text = lines[i];
+                label.HorizontalAlignment = TextAlignment;
+                label.VerticalAlignment = VerticalAlignment.Center;
+                label.AutowrapMode = TextServer.AutowrapMode.Off;
+                label.CustomMinimumSize = new Vector2(1, 1);
 
-                // 等待一帧让 Godot 完成布局计算
-                await ToSignal(GetTree(), "process_frame");
-                UpdateLabelFontSize();
+                // 颜色
+                var lineColor = TextColor;
+                if (i < LineColors.Count)
+                    lineColor = LineColors[i];
+                label.AddThemeColorOverride("font_color", lineColor);
+
+                container.AddChild(label);
+                _labelContainers[i] = container;
+                _labels[i] = label;
+            }
+
+            // 等待一帧让布局完成
+            await ToSignal(GetTree(), "process_frame");
+            UpdateAllLabelPositions();
+            ApplyFontToLabels();
+            UpdateLabelFontSize();
+        }
+
+        private void UpdateAllLabelPositions()
+        {
+            for (int i = 0; i < LabelCount; i++)
+            {
+                if (_labelContainers[i] == null) continue;
+                _labelContainers[i].Visible = _labelVisible[i];
+                if (!_labelVisible[i]) continue;
+
+                var label = _labels[i];
+                if (label == null) continue;
+
+                // 让 RichTextLabel 自适应内容大小
+                var textSize = label.GetMinimumSize();
+                _labelContainers[i].Position = _labelOffsets[i] - textSize / 2;
             }
         }
 
         private void UpdateLabelFontSize()
         {
-            if (_labelContainer == null) return;
-
-            // 先应用字体设置（确保在设置字号前字体已就绪）
-            ApplyFontToLabels();
-
-            // 使用 visual_size 计算字体大小，而不是 grid_size
             var availableHeight = VisualSize - BorderWidth * 4;
-            var lineCount = 4;
-
-            // 计算字号
-            int fontSize;
+            int globalFontSize;
             if (FontSizeOverride > 0)
-                fontSize = FontSizeOverride;
+                globalFontSize = FontSizeOverride;
             else
-                fontSize = (int)(availableHeight / lineCount * 0.8f);
+                globalFontSize = (int)(availableHeight / LabelCount * 0.8f);
 
-            // 最小字号限制
             const int minFontSize = 8;
-            if (fontSize < minFontSize)
-                fontSize = minFontSize;
+            if (globalFontSize < minFontSize)
+                globalFontSize = minFontSize;
 
-            // 设置字体大小和 VBoxContainer 行间距
-            _labelContainer.AddThemeConstantOverride("separation", (int)(fontSize * (LineSpacing - 0.5f)));
-
-            foreach (Node child in _labelContainer.GetChildren())
+            for (int i = 0; i < LabelCount; i++)
             {
-                if (child is RichTextLabel label)
+                if (_labels[i] == null) continue;
+
+                int fontSize = _labelFontSizes[i] > 0 ? _labelFontSizes[i] : globalFontSize;
+                if (fontSize < minFontSize) fontSize = minFontSize;
+
+                _labels[i].AddThemeFontSizeOverride("normal_font_size", fontSize);
+
+                // BBCode 样式
+                var originalText = _labels[i].GetParsedText();
+                var bbcodeText = "";
+                if (FontBold) bbcodeText += "[b]";
+                if (FontItalic) bbcodeText += "[i]";
+                bbcodeText += originalText;
+                if (FontItalic) bbcodeText += "[/i]";
+                if (FontBold) bbcodeText += "[/b]";
+                _labels[i].Text = bbcodeText;
+
+                // 阴影
+                if (FontShadow)
                 {
-                    label.AddThemeFontSizeOverride("normal_font_size", fontSize);
-                    // 获取原始文本（去掉之前的 BBCode）
-                    var originalText = label.GetParsedText();
-                    // 应用粗体和斜体 BBCode
-                    var bbcodeText = "";
-                    if (FontBold)
-                        bbcodeText += "[b]";
-                    if (FontItalic)
-                        bbcodeText += "[i]";
-                    bbcodeText += originalText;
-                    if (FontItalic)
-                        bbcodeText += "[/i]";
-                    if (FontBold)
-                        bbcodeText += "[/b]";
-                    label.Text = bbcodeText;
-                    // 阴影
-                    if (FontShadow)
-                    {
-                        label.AddThemeColorOverride("font_shadow_color", new Color(0, 0, 0, 0.5f));
-                        label.AddThemeConstantOverride("shadow_offset_x", 2);
-                        label.AddThemeConstantOverride("shadow_offset_y", 2);
-                    }
-                    else
-                    {
-                        label.AddThemeColorOverride("font_shadow_color", new Color(0, 0, 0, 0));
-                    }
-                    // 字间距
-                    label.AddThemeConstantOverride("character_spacing", (int)LetterSpacing);
+                    _labels[i].AddThemeColorOverride("font_shadow_color", new Color(0, 0, 0, 0.5f));
+                    _labels[i].AddThemeConstantOverride("shadow_offset_x", 2);
+                    _labels[i].AddThemeConstantOverride("shadow_offset_y", 2);
                 }
+                else
+                {
+                    _labels[i].AddThemeColorOverride("font_shadow_color", new Color(0, 0, 0, 0));
+                }
+
+                // 字间距
+                _labels[i].AddThemeConstantOverride("character_spacing", (int)LetterSpacing);
             }
 
-            // 更新容器大小 - 使用 visual_size
-            var containerSize = new Vector2(VisualSize - BorderWidth * 2, VisualSize - BorderWidth * 2);
-            _labelContainer.CustomMinimumSize = containerSize;
-            _labelContainer.Size = containerSize;
-            _labelContainer.Position = new Vector2(-containerSize.X / 2, -containerSize.Y / 2);
+            UpdateAllLabelPositions();
         }
+
+        // ========== 拖拽系统 ==========
+
+        public override void _Input(InputEvent @event)
+        {
+            if (@event is InputEventMouseButton mb && mb.ButtonIndex == MouseButton.Left)
+            {
+                if (mb.Pressed)
+                {
+                    var localMouse = ToLocal(mb.GlobalPosition);
+                    // 从最上面的文本开始检测（后创建的在上面）
+                    for (int i = LabelCount - 1; i >= 0; i--)
+                    {
+                        if (_labelContainers[i] == null || !_labelVisible[i]) continue;
+                        var rect = GetLabelRect(i);
+                        if (rect.HasPoint(localMouse))
+                        {
+                            _dragging = true;
+                            _dragIndex = i;
+                            _dragStartMouse = localMouse;
+                            _dragStartOffset = _labelOffsets[i];
+                            GetViewport().SetInputAsHandled();
+                            return;
+                        }
+                    }
+                }
+                else if (_dragging)
+                {
+                    _dragging = false;
+                    _dragIndex = -1;
+                    GetViewport().SetInputAsHandled();
+                }
+            }
+            else if (@event is InputEventMouseMotion mm && _dragging && _dragIndex >= 0)
+            {
+                var localMouse = ToLocal(mm.GlobalPosition);
+                var delta = localMouse - _dragStartMouse;
+                _labelOffsets[_dragIndex] = _dragStartOffset + delta;
+                UpdateAllLabelPositions();
+                GetViewport().SetInputAsHandled();
+            }
+        }
+
+        private Rect2 GetLabelRect(int index)
+        {
+            if (_labels[index] == null) return new Rect2();
+            var textSize = _labels[index].GetMinimumSize();
+            var pos = _labelOffsets[index] - textSize / 2;
+            return new Rect2(pos, textSize);
+        }
+
+        // ========== 公共接口（保留旧接口 + 新接口） ==========
+
+        // --- 独立文本控制 ---
+
+        public Vector2 GetLabelOffset(int index)
+        {
+            if (index < 0 || index >= LabelCount) return Vector2.Zero;
+            return _labelOffsets[index];
+        }
+
+        public void SetLabelOffset(int index, Vector2 offset)
+        {
+            if (index < 0 || index >= LabelCount) return;
+            _labelOffsets[index] = offset;
+            UpdateAllLabelPositions();
+        }
+
+        public void ResetLabelOffset(int index)
+        {
+            if (index < 0 || index >= LabelCount) return;
+            _labelOffsets[index] = DefaultOffsets[index];
+            UpdateAllLabelPositions();
+        }
+
+        public void ResetAllLabelOffsets()
+        {
+            for (int i = 0; i < LabelCount; i++)
+                _labelOffsets[i] = DefaultOffsets[i];
+            UpdateAllLabelPositions();
+        }
+
+        public bool GetLabelVisible(int index)
+        {
+            if (index < 0 || index >= LabelCount) return false;
+            return _labelVisible[index];
+        }
+
+        public string GetLabelName(int index)
+        {
+            if (index < 0 || index >= LabelCount) return "";
+            return LabelNames[index];
+        }
+
+        public void SetLabelName(int index, string name)
+        {
+            if (index < 0 || index >= LabelCount) return;
+            LabelNames[index] = name;
+        }
+
+        public string GetLabelText(int index)
+        {
+            if (index < 0 || index >= LabelCount) return "";
+            return LabelTexts[index];
+        }
+
+        public void SetLabelText(int index, string text)
+        {
+            if (index < 0 || index >= LabelCount) return;
+            LabelTexts[index] = text;
+            if (_labels[index] != null)
+            {
+                _labels[index].Text = text;
+                UpdateAllLabelPositions();
+            }
+        }
+
+        public void SetLabelVisible(int index, bool visible)
+        {
+            if (index < 0 || index >= LabelCount) return;
+            _labelVisible[index] = visible;
+            UpdateAllLabelPositions();
+        }
+
+        public int GetLabelFontSize(int index)
+        {
+            if (index < 0 || index >= LabelCount) return 0;
+            return _labelFontSizes[index];
+        }
+
+        public void SetLabelFontSize(int index, int size)
+        {
+            if (index < 0 || index >= LabelCount) return;
+            _labelFontSizes[index] = size;
+            UpdateLabelFontSize();
+        }
+
+        // --- 保留的旧接口 ---
 
         public void SetGridSize(int newSize)
         {
-            // grid_size 改变时，同时更新 visual_size 保持一致
             GridSize = newSize;
             VisualSize = newSize;
             Position = GridToWorld(GridPos);
             SetupLabels();
             QueueRedraw();
-            GD.Print("[Player] Grid size changed to " + newSize + ", repositioned to " + Position);
         }
 
         public void SetVisualSize(int newSize)
         {
-            // 只改变视觉大小，不影响网格计算和位置
             VisualSize = newSize;
             SetupLabels();
             QueueRedraw();
-            GD.Print("[Player] Visual size changed to " + newSize);
         }
 
         public void SetBorderWidth(float newWidth)
@@ -239,7 +435,8 @@ namespace ClinetCSharp
             if (lineIndex >= 0 && lineIndex < LineColors.Count)
             {
                 LineColors[lineIndex] = color;
-                SetupLabels();
+                if (_labels[lineIndex] != null)
+                    _labels[lineIndex].AddThemeColorOverride("font_color", color);
             }
         }
 
@@ -275,12 +472,10 @@ namespace ClinetCSharp
 
         private void ApplyFontToLabels()
         {
-            if (_labelContainer == null) return;
-
             Font font = null;
             if (string.IsNullOrEmpty(CurrentFontPath))
             {
-                font = null;  // 使用默认字体
+                font = null;
             }
             else if (!FileAccess.FileExists(CurrentFontPath))
             {
@@ -289,9 +484,7 @@ namespace ClinetCSharp
             }
             else
             {
-                // 尝试加载字体
                 var loadedResource = GD.Load(CurrentFontPath);
-
                 if (loadedResource == null)
                 {
                     GD.PushError("[Player] 无法加载字体文件: " + CurrentFontPath);
@@ -301,7 +494,6 @@ namespace ClinetCSharp
                 else if (loadedResource is Font loadedFont)
                 {
                     font = loadedFont;
-                    GD.Print("[Player] 字体加载成功: " + CurrentFontPath);
                 }
                 else
                 {
@@ -311,25 +503,22 @@ namespace ClinetCSharp
                 }
             }
 
-            foreach (Node child in _labelContainer.GetChildren())
+            for (int i = 0; i < LabelCount; i++)
             {
-                if (child is RichTextLabel label)
+                if (_labels[i] == null) continue;
+                if (font != null)
                 {
-                    if (font != null)
-                    {
-                        // RichTextLabel 需要设置所有字体变体
-                        label.AddThemeFontOverride("normal_font", font);
-                        label.AddThemeFontOverride("bold_font", font);
-                        label.AddThemeFontOverride("italics_font", font);
-                        label.AddThemeFontOverride("bold_italics_font", font);
-                    }
-                    else
-                    {
-                        label.RemoveThemeFontOverride("normal_font");
-                        label.RemoveThemeFontOverride("bold_font");
-                        label.RemoveThemeFontOverride("italics_font");
-                        label.RemoveThemeFontOverride("bold_italics_font");
-                    }
+                    _labels[i].AddThemeFontOverride("normal_font", font);
+                    _labels[i].AddThemeFontOverride("bold_font", font);
+                    _labels[i].AddThemeFontOverride("italics_font", font);
+                    _labels[i].AddThemeFontOverride("bold_italics_font", font);
+                }
+                else
+                {
+                    _labels[i].RemoveThemeFontOverride("normal_font");
+                    _labels[i].RemoveThemeFontOverride("bold_font");
+                    _labels[i].RemoveThemeFontOverride("italics_font");
+                    _labels[i].RemoveThemeFontOverride("bold_italics_font");
                 }
             }
         }
@@ -346,26 +535,161 @@ namespace ClinetCSharp
             QueueRedraw();
         }
 
+        // --- 血条控制 ---
+
+        public Vector2 GetHealthBarOffset() => HealthBarOffset;
+
+        public void SetHealthBarOffset(Vector2 offset)
+        {
+            HealthBarOffset = offset;
+            QueueRedraw();
+        }
+
+        public void SetHealthBarLength(float length)
+        {
+            HealthBarLength = length;
+            QueueRedraw();
+        }
+
+        public void SetHealthBarHeight(float height)
+        {
+            HealthBarHeight = height;
+            QueueRedraw();
+        }
+
+        public void SetHealthBarColor(Color color)
+        {
+            HealthBarColor = color;
+            QueueRedraw();
+        }
+
+        public void SetHealthBarFillPercent(float percent)
+        {
+            HealthBarFillPercent = Mathf.Clamp(percent, 0, 1);
+            QueueRedraw();
+        }
+
+        public void SetHealthBarVisible(bool visible)
+        {
+            HealthBarVisible = visible;
+            QueueRedraw();
+        }
+
+        // --- 施法条控制 ---
+
+        public Vector2 GetCastBarOffset() => CastBarOffset;
+
+        public void SetCastBarOffset(Vector2 offset)
+        {
+            CastBarOffset = offset;
+            QueueRedraw();
+        }
+
+        public void SetCastBarLength(float length)
+        {
+            CastBarLength = length;
+            QueueRedraw();
+        }
+
+        public void SetCastBarHeight(float height)
+        {
+            CastBarHeight = height;
+            QueueRedraw();
+        }
+
+        public void SetCastBarColor(Color color)
+        {
+            CastBarColor = color;
+            QueueRedraw();
+        }
+
+        public void SetCastBarFillPercent(float percent)
+        {
+            CastBarFillPercent = Mathf.Clamp(percent, 0, 1);
+            QueueRedraw();
+        }
+
+        public void SetCastBarVisible(bool visible)
+        {
+            CastBarVisible = visible;
+            QueueRedraw();
+        }
+
+        // --- 等级徽章控制 ---
+
+        public Vector2 GetLevelBadgeOffset() => LevelBadgeOffset;
+
+        public void SetLevelBadgeOffset(Vector2 offset)
+        {
+            LevelBadgeOffset = offset;
+            QueueRedraw();
+        }
+
+        public void SetLevelBadgeFontSize(float size)
+        {
+            LevelBadgeFontSize = size;
+            QueueRedraw();
+        }
+
+        public void SetLevelBadgeTextColor(Color color)
+        {
+            LevelBadgeTextColor = color;
+            QueueRedraw();
+        }
+
+        public void SetLevelBadgeText(string text)
+        {
+            LevelBadgeText = text;
+            QueueRedraw();
+        }
+
+        public void SetLevelBadgeVisible(bool visible)
+        {
+            LevelBadgeVisible = visible;
+            QueueRedraw();
+        }
+
+        /// <summary>
+        /// 从服务器返回的角色数据更新显示
+        /// </summary>
+        public void ApplyRoleInfo(Game.FullRoleInfo roleInfo)
+        {
+            if (roleInfo == null) return;
+
+            CharacterName = roleInfo.RoleName;
+            Level = (int)roleInfo.Level;
+            Job = roleInfo.Job;
+            Title = roleInfo.Title;
+            Status = roleInfo.Status;
+
+            // 更新4个标签内容
+            LabelTexts[0] = $"Lv.{Level} {CharacterName}";
+            LabelTexts[1] = Job;
+            LabelTexts[2] = Title;
+            LabelTexts[3] = Status;
+
+            // 更新等级徽章
+            LevelBadgeText = "Lv.{level}";
+
+            GD.Print($"[Player] ApplyRoleInfo: name={CharacterName}, level={Level}, job={Job}, title={Title}, status={Status}");
+            SetupLabels();
+            QueueRedraw();
+        }
+
+        // ========== 绘制 ==========
+
         public override void _Draw()
         {
-            // 使用 visual_size 绘制角色，而不是 grid_size
-            // 这样改变视觉大小时不会影响角色在世界中的位置
             var margin = BorderWidth * 2 + 8.0f;
-            var drawSize = VisualSize - margin * 2;  // 实际可绘制区域
-
-            // 确保最小尺寸
-            if (drawSize < 10)
-                drawSize = 10;
+            var drawSize = VisualSize - margin * 2;
+            if (drawSize < 10) drawSize = 10;
 
             var halfDraw = drawSize / 2.0f;
             var rect = new Rect2(new Vector2(-halfDraw, -halfDraw), new Vector2(drawSize, drawSize));
-
-            // 计算实际背景色（应用透明度）
             var actualBgColor = new Color(BgColor.R, BgColor.G, BgColor.B, BgOpacity);
 
             if (CornerRadius > 0)
             {
-                // 限制圆角半径
                 var maxRadius = halfDraw - BorderWidth;
                 var actualRadius = Mathf.Min(CornerRadius, Mathf.Max(maxRadius, 0));
                 DrawRoundedRect(rect, actualBgColor, true, actualRadius);
@@ -373,21 +697,81 @@ namespace ClinetCSharp
             }
             else
             {
-                // 普通矩形
                 DrawRect(rect, actualBgColor, true);
                 DrawRect(rect, BorderColor, false, BorderWidth);
             }
 
-            // 调试绘制：辅助分析线
+            // 血条
+            if (HealthBarVisible)
+            {
+                float halfLen = HealthBarLength / 2.0f;
+                float halfH = HealthBarHeight / 2.0f;
+                var bgRect = new Rect2(
+                    HealthBarOffset.X - halfLen,
+                    HealthBarOffset.Y - halfH,
+                    HealthBarLength,
+                    HealthBarHeight);
+                DrawRect(bgRect, HealthBarBgColor, true);
+
+                float fillWidth = HealthBarLength * Mathf.Clamp(HealthBarFillPercent, 0, 1);
+                if (fillWidth > 0)
+                {
+                    var fillRect = new Rect2(
+                        HealthBarOffset.X - halfLen,
+                        HealthBarOffset.Y - halfH,
+                        fillWidth,
+                        HealthBarHeight);
+                    DrawRect(fillRect, HealthBarColor, true);
+                }
+            }
+
+            // 施法条
+            if (CastBarVisible)
+            {
+                float cHalfLen = CastBarLength / 2.0f;
+                float cHalfH = CastBarHeight / 2.0f;
+                var cBgRect = new Rect2(
+                    CastBarOffset.X - cHalfLen,
+                    CastBarOffset.Y - cHalfH,
+                    CastBarLength,
+                    CastBarHeight);
+                DrawRect(cBgRect, CastBarBgColor, true);
+
+                float cFillWidth = CastBarLength * Mathf.Clamp(CastBarFillPercent, 0, 1);
+                if (cFillWidth > 0)
+                {
+                    var cFillRect = new Rect2(
+                        CastBarOffset.X - cHalfLen,
+                        CastBarOffset.Y - cHalfH,
+                        cFillWidth,
+                        CastBarHeight);
+                    DrawRect(cFillRect, CastBarColor, true);
+                }
+            }
+
+            // 等级徽章
+            if (LevelBadgeVisible)
+            {
+                var levelText = LevelBadgeText.Replace("{level}", Level.ToString())
+                    .Replace("{name}", CharacterName)
+                    .Replace("{job}", Job)
+                    .Replace("{title}", Title)
+                    .Replace("{status}", Status);
+                var font = ThemeDB.FallbackFont;
+                int fontSize = Mathf.Max((int)LevelBadgeFontSize, 6);
+                var textSize = font.GetStringSize(levelText, HorizontalAlignment.Center, -1, fontSize);
+                var textPos = LevelBadgeOffset - textSize / 2.0f + new Vector2(0, fontSize * 0.15f);
+                DrawString(font, textPos, levelText, HorizontalAlignment.Center, -1, fontSize, LevelBadgeTextColor);
+            }
+
             if (ShowDebugInfo)
                 DrawDebugOverlay();
         }
 
         private void DrawCornerSector(float cx, float cy, float r, float startAngle, float endAngle, Color color)
         {
-            // 绘制圆角扇形（90度圆弧填充）
-            var points = new Vector2[10];  // 圆心 + 8分段 + 闭合点
-            points[0] = new Vector2(cx, cy);  // 圆心
+            var points = new Vector2[10];
+            points[0] = new Vector2(cx, cy);
             const int segments = 8;
             for (int i = 0; i <= segments; i++)
             {
@@ -406,153 +790,116 @@ namespace ClinetCSharp
             var y = rect.Position.Y;
             var w = rect.Size.X;
             var h = rect.Size.Y;
-            var r = Mathf.Min(radius, Mathf.Min(w, h) / 2.0f);  // 确保半径不超过矩形一半
+            var r = Mathf.Min(radius, Mathf.Min(w, h) / 2.0f);
 
             if (filled)
             {
-                // 绘制填充：中心矩形 + 四个圆角扇形
-                // 中心矩形（不覆盖四角区域）
                 DrawRect(new Rect2(x + r, y + r, w - r * 2, h - r * 2), color, true);
-                // 四条边矩形（上下左右）
-                DrawRect(new Rect2(x + r, y, w - r * 2, r), color, true);  // 上
-                DrawRect(new Rect2(x + r, y + h - r, w - r * 2, r), color, true);  // 下
-                DrawRect(new Rect2(x, y + r, r, h - r * 2), color, true);  // 左
-                DrawRect(new Rect2(x + w - r, y + r, r, h - r * 2), color, true);  // 右
-
-                // 四个圆角扇形
-                DrawCornerSector(x + r, y + r, r, Mathf.Pi, 1.5f * Mathf.Pi, color);  // 左上
-                DrawCornerSector(x + w - r, y + r, r, 1.5f * Mathf.Pi, 2 * Mathf.Pi, color);  // 右上
-                DrawCornerSector(x + r, y + h - r, r, 0.5f * Mathf.Pi, Mathf.Pi, color);  // 左下
-                DrawCornerSector(x + w - r, y + h - r, r, 0, 0.5f * Mathf.Pi, color);  // 右下
+                DrawRect(new Rect2(x + r, y, w - r * 2, r), color, true);
+                DrawRect(new Rect2(x + r, y + h - r, w - r * 2, r), color, true);
+                DrawRect(new Rect2(x, y + r, r, h - r * 2), color, true);
+                DrawRect(new Rect2(x + w - r, y + r, r, h - r * 2), color, true);
+                DrawCornerSector(x + r, y + r, r, Mathf.Pi, 1.5f * Mathf.Pi, color);
+                DrawCornerSector(x + w - r, y + r, r, 1.5f * Mathf.Pi, 2 * Mathf.Pi, color);
+                DrawCornerSector(x + r, y + h - r, r, 0.5f * Mathf.Pi, Mathf.Pi, color);
+                DrawCornerSector(x + w - r, y + h - r, r, 0, 0.5f * Mathf.Pi, color);
             }
             else
             {
-                // 绘制边框线
-                const int segments = 8;  // 每角弧线分段数
+                const int segments = 8;
                 var points = new System.Collections.Generic.List<Vector2>();
-
-                // 左上角弧线 (从左侧到顶部)
                 for (int i = 0; i <= segments; i++)
                 {
                     var angle = Mathf.Pi + (Mathf.Pi / 2) * (i / (float)segments);
                     points.Add(new Vector2(x + r + Mathf.Cos(angle) * r, y + r + Mathf.Sin(angle) * r));
                 }
-
-                // 右上角弧线 (从顶部到右侧)
                 for (int i = 0; i <= segments; i++)
                 {
                     var angle = 1.5f * Mathf.Pi + (Mathf.Pi / 2) * (i / (float)segments);
                     points.Add(new Vector2(x + w - r + Mathf.Cos(angle) * r, y + r + Mathf.Sin(angle) * r));
                 }
-
-                // 右下角弧线 (从右侧到底部)
                 for (int i = 0; i <= segments; i++)
                 {
                     var angle = 0 + (Mathf.Pi / 2) * (i / (float)segments);
                     points.Add(new Vector2(x + w - r + Mathf.Cos(angle) * r, y + h - r + Mathf.Sin(angle) * r));
                 }
-
-                // 左下角弧线 (从底部到左侧)
                 for (int i = 0; i <= segments; i++)
                 {
                     var angle = 0.5f * Mathf.Pi + (Mathf.Pi / 2) * (i / (float)segments);
                     points.Add(new Vector2(x + r + Mathf.Cos(angle) * r, y + h - r + Mathf.Sin(angle) * r));
                 }
-
-                // 添加第一个点来闭合多边形（修复左边线缺失问题）
                 if (points.Count > 0)
                     points.Add(points[0]);
-
                 DrawPolyline(points.ToArray(), color, width);
             }
         }
 
         private void DrawDebugOverlay()
         {
-            // 绘制调试辅助线，帮助分析边框与格子的对齐
             var gridHalf = GridSize / 2.0f;
 
-            // 1. 红色虚线框 - 显示格子边界（角色所在格子的完整区域）
             var gridRect = new Rect2(new Vector2(-gridHalf, -gridHalf), new Vector2(GridSize, GridSize));
             DrawRect(gridRect, new Color(1, 0, 0, 0.5f), false, 1.0f);
-
-            // 在左上角标注
             var labelColor = new Color(1, 0.5f, 0.5f, 0.8f);
             DrawString(ThemeDB.FallbackFont, new Vector2(-gridHalf + 2, -gridHalf + 12), "Grid", HorizontalAlignment.Left, -1, 10, labelColor);
 
-            // 2. 绿色实线框 - 显示安全区域（margin 内）
             var margin = BorderWidth * 2 + 8.0f;
             var safeSize = GridSize - margin * 2;
             var safeHalf = safeSize / 2.0f;
             var safeRect = new Rect2(new Vector2(-safeHalf, -safeHalf), new Vector2(safeSize, safeSize));
             DrawRect(safeRect, new Color(0, 1, 0, 0.6f), false, 1.5f);
 
-            // 3. 黄色测量线 - 显示边距大小
             var measureColor = new Color(1, 1, 0, 0.7f);
             var arrowSize = 5.0f;
             var marginHalf = margin / 2.0f;
-
-            // 左侧边距标注线
-            var leftX = -gridHalf + marginHalf;
             DrawLine(new Vector2(-gridHalf, 0), new Vector2(-safeHalf, 0), measureColor, 1.0f);
-            // 箭头
             DrawLine(new Vector2(-gridHalf, 0), new Vector2(-gridHalf + arrowSize, -arrowSize), measureColor, 1.0f);
             DrawLine(new Vector2(-gridHalf, 0), new Vector2(-gridHalf + arrowSize, arrowSize), measureColor, 1.0f);
             DrawLine(new Vector2(-safeHalf, 0), new Vector2(-safeHalf - arrowSize, -arrowSize), measureColor, 1.0f);
             DrawLine(new Vector2(-safeHalf, 0), new Vector2(-safeHalf - arrowSize, arrowSize), measureColor, 1.0f);
-            // 标注文字
-            DrawString(ThemeDB.FallbackFont, new Vector2(leftX - 15, -15), $"m={margin:F1}", HorizontalAlignment.Center, -1, 9, measureColor);
+            DrawString(ThemeDB.FallbackFont, new Vector2(marginHalf - 15, -15), $"m={margin:F1}", HorizontalAlignment.Center, -1, 9, measureColor);
 
-            // 4. 蓝色点 - 显示中心点
             DrawCircle(Vector2.Zero, 3.0f, new Color(0, 0.5f, 1, 0.8f));
 
-            // 5. 白色文字 - 显示当前尺寸信息（右下角）
             var infoColor = new Color(1, 1, 1, 0.9f);
             DrawString(ThemeDB.FallbackFont, new Vector2(gridHalf - 120, gridHalf - 5),
                 $"Grid:{GridSize} | Margin:{margin:F1} | Draw:{safeSize:F1}",
                 HorizontalAlignment.Left, -1, 9, infoColor);
 
-            // 6. 吸附状态指示（左上角）- 已改为自动校正，始终显示绿色
             var snapColor = new Color(0, 1, 0, 0.9f);
             DrawString(ThemeDB.FallbackFont, new Vector2(-gridHalf + 2, -gridHalf + 25),
                 "[AUTO SNAP]", HorizontalAlignment.Left, -1, 10, snapColor);
 
-            // 7. 十字准星 - 标记格子中心
-            var crossColor = new Color(1, 0, 1, 0.5f);  // 紫色
+            var crossColor = new Color(1, 0, 1, 0.5f);
             var crossSize = 8.0f;
             DrawLine(new Vector2(-crossSize, 0), new Vector2(crossSize, 0), crossColor, 1.0f);
             DrawLine(new Vector2(0, -crossSize), new Vector2(0, crossSize), crossColor, 1.0f);
 
-            // 8. 实时坐标信息（左下角）
-            var posColor = new Color(0, 1, 1, 0.9f);  // 青色
+            var posColor = new Color(0, 1, 1, 0.9f);
             var targetPos = GridToWorld(GridPos);
             DrawString(ThemeDB.FallbackFont, new Vector2(-gridHalf + 2, gridHalf - 20),
                 $"Pos:{Position.X:F1},{Position.Y:F1} | Target:{targetPos.X:F1},{targetPos.Y:F1}",
                 HorizontalAlignment.Left, -1, 9, posColor);
         }
 
+        // ========== 移动系统 ==========
+
         public override void _Process(double _delta)
         {
-            // 自动校正位置：确保始终位于当前格子的中心
-            // 只有在非移动状态下才校正，避免干扰移动动画
             if (!IsMoving)
             {
                 var targetPos = GridToWorld(GridPos);
-                // 使用距离判断而非精确相等，避免浮点精度问题
                 if (Position.DistanceTo(targetPos) > 0.5f)
                     Position = targetPos;
             }
-
             HandleInput();
         }
 
         private void HandleInput()
         {
-            if (IsMoving)
-                return;
+            if (IsMoving) return;
 
             var direction = Vector2I.Zero;
-
             if (Input.IsActionJustPressed("move_up"))
                 direction.Y = -1;
             else if (Input.IsActionJustPressed("move_down"))
@@ -574,7 +921,6 @@ namespace ClinetCSharp
 
             GridPos = targetGridPos;
             var targetWorldPos = GridToWorld(GridPos);
-
             IsMoving = true;
 
             var tween = CreateTween();
@@ -587,7 +933,6 @@ namespace ClinetCSharp
         private void OnMoveFinished()
         {
             IsMoving = false;
-            // 强制精确对齐到网格中心，消除浮点误差
             Position = GridToWorld(GridPos);
         }
 

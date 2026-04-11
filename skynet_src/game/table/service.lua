@@ -57,6 +57,21 @@ skynet.start(function()
         count = count + 1
     end
 
+    -- 加载地图数据文件 (map_*.lua)
+    local dataDir = "tables/data/"
+    local f = io.popen('ls "' .. dataDir .. 'map_"*.lua 2>/dev/null')
+    if f then
+        for filepath in f:lines() do
+            local name = filepath:match("([^/]+)%.lua$")
+            if name then
+                sharetable.loadfile("tables/data/" .. name)
+                count = count + 1
+                skynet.error("[Table] Loaded map: " .. name)
+            end
+        end
+        f:close()
+    end
+
     skynet.error("======== Table Service Started (" .. count .. " tables loaded) ========")
 
     skynet.dispatch("lua", function(session, address, cmd, ...)

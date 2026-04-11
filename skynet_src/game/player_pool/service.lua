@@ -63,6 +63,9 @@ function handlers.createRole(msg, claims)
         vip_level       = 0,
         create_time     = now,
         last_login_time = now,
+        job             = "无",
+        title           = "新手",
+        status          = "在线",
     }
     platform.serviceCall("game/db", "createRole", roleData)
 
@@ -81,6 +84,9 @@ function handlers.createRole(msg, claims)
             vip_level       = 0,
             create_time     = now,
             last_login_time = now,
+            job             = "无",
+            title           = "新手",
+            status          = "在线",
         },
         items       = {},
         tasks       = {},
@@ -132,6 +138,9 @@ function handlers.enterGame(msg, claims)
             vip_level       = role.vip_level or 0,
             create_time     = role.create_time or 0,
             last_login_time = now,
+            job             = role.job or "无",
+            title           = role.title or "新手",
+            status          = role.status or "在线",
         },
         items       = {},
         tasks       = {},

@@ -6,7 +6,7 @@ local pb = require "pb"
 
 local M = {}
 
--- Fields: role_id(uint64) -- 角色ID role_name(string) -- 角色名 level(uint32) -- 等级 exp(uint64) -- 经验值 avatar_id(uint32) -- 头像ID gold(uint64) -- 金币 diamond(uint64) -- 钻石 total_power(uint64) -- 总战力 vip_level(uint32) -- VIP等级 create_time(uint64) -- 创建时间 last_login_time(uint64) -- 上次登录时间
+-- Fields: role_id(uint64) -- 角色ID role_name(string) -- 角色名 level(uint32) -- 等级 exp(uint64) -- 经验值 avatar_id(uint32) -- 头像ID gold(uint64) -- 金币 diamond(uint64) -- 钻石 total_power(uint64) -- 总战力 vip_level(uint32) -- VIP等级 create_time(uint64) -- 创建时间 last_login_time(uint64) -- 上次登录时间 job(string) -- 职业 title(string) -- 称号 status(string) -- 状态
 M.FullRoleInfo = {
     encode = function(data) return pb.encode("game.FullRoleInfo", data) end,
     decode = function(data) return pb.decode("game.FullRoleInfo", data) end,

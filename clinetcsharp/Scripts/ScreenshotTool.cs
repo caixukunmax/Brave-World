@@ -111,6 +111,12 @@ namespace ClinetCSharp
                 return;
             }
 
+            // 保存调试面板配置
+            SaveDebugPanelData(folderPath);
+            
+            // 保存日志
+            SaveLogs(folderPath);
+
             // 恢复调试面板
             if (debugPanel != null && wasDebugPanelVisible)
             {
@@ -125,6 +131,128 @@ namespace ClinetCSharp
             DisplayServer.ClipboardSet(globalPath);
             GD.Print("[ScreenshotTool] Screenshot saved to: " + globalPath);
             ShowNotification("Screenshot saved! (UI hidden)", Colors.Green);
+        }
+
+        /// <summary>
+        /// 保存调试面板数据到截图文件夹
+        /// </summary>
+        private void SaveDebugPanelData(string folderPath)
+        {
+            try
+            {
+                // 尝试从 DebugPanel 获取实时配置数据
+                var debugPanel = GetTree().GetFirstNodeInGroup("debug_panel") as DebugPanel;
+                if (debugPanel != null)
+                {
+                    string configData = debugPanel.ExportConfigToJson();
+                    string configPath = folderPath + "/debug_panel_config.json";
+                    var file = FileAccess.Open(configPath, FileAccess.ModeFlags.Write);
+                    if (file != null)
+                    {
+                        file.StoreString(configData);
+                        file.Close();
+                        GD.Print("[ScreenshotTool] Debug panel config saved to: " + configPath);
+                    }
+                }
+                else
+                {
+                    // 如果无法获取 DebugPanel 实例，复制配置文件
+                    CopyConfigFile(folderPath);
+                }
+            }
+            catch (System.Exception ex)
+            {
+                GD.PushWarning($"[ScreenshotTool] Failed to save debug panel data: {ex.Message}");
+                // 备用：复制配置文件
+                CopyConfigFile(folderPath);
+            }
+        }
+
+        /// <summary>
+        /// 复制调试面板配置文件到截图文件夹
+        /// </summary>
+        private void CopyConfigFile(string folderPath)
+        {
+            string configPath = "user://debug_panel_config.cfg";
+            if (FileAccess.FileExists(configPath))
+            {
+                var file = FileAccess.Open(configPath, FileAccess.ModeFlags.Read);
+                if (file != null)
+                {
+                    string content = file.GetAsText();
+                    file.Close();
+                    
+                    string destPath = folderPath + "/debug_panel_config.cfg";
+                    var destFile = FileAccess.Open(destPath, FileAccess.ModeFlags.Write);
+                    if (destFile != null)
+                    {
+                        destFile.StoreString(content);
+                        destFile.Close();
+                        GD.Print("[ScreenshotTool] Debug panel config copied to: " + destPath);
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// 保存日志到截图文件夹
+        /// </summary>
+        private void SaveLogs(string folderPath)
+        {
+            try
+            {
+                string logContent = "";
+                
+                if (_logCollector != null)
+                {
+                    // 使用 LogCollector 获取日志
+                    logContent = _logCollector.GetRecentLogs(100, false);
+                }
+                else
+                {
+                    // 备用：尝试读取 Godot 日志文件
+                    logContent = ReadGodotLogFile();
+                }
+
+                if (!string.IsNullOrEmpty(logContent))
+                {
+                    string logPath = folderPath + "/logs.txt";
+                    var file = FileAccess.Open(logPath, FileAccess.ModeFlags.Write);
+                    if (file != null)
+                    {
+                        file.StoreString(logContent);
+                        file.Close();
+                        GD.Print("[ScreenshotTool] Logs saved to: " + logPath);
+                    }
+                }
+            }
+            catch (System.Exception ex)
+            {
+                GD.PushWarning($"[ScreenshotTool] Failed to save logs: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 读取 Godot 日志文件
+        /// </summary>
+        private string ReadGodotLogFile()
+        {
+            string logPath = "user://logs/godot.log";
+            if (FileAccess.FileExists(logPath))
+            {
+                var file = FileAccess.Open(logPath, FileAccess.ModeFlags.Read);
+                if (file != null)
+                {
+                    string content = file.GetAsText();
+                    file.Close();
+                    
+                    // 只返回最后 100 行
+                    var lines = content.Split('\n');
+                    int startIdx = System.Math.Max(0, lines.Length - 100);
+                    return string.Join("\n", lines[startIdx..]);
+                }
+            }
+            return "No logs available";
         }
 
         private async void ShowNotification(string text, Color color)

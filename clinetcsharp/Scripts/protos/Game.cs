@@ -24,29 +24,30 @@ namespace Game {
     static GameReflection() {
       byte[] descriptorData = global::System.Convert.FromBase64String(
           string.Concat(
-            "CgpnYW1lLnByb3RvEgRnYW1lGgxjb21tb24ucHJvdG8i1gEKDEZ1bGxSb2xl",
+            "CgpnYW1lLnByb3RvEgRnYW1lGgxjb21tb24ucHJvdG8iggIKDEZ1bGxSb2xl",
             "SW5mbxIPCgdyb2xlX2lkGAEgASgEEhEKCXJvbGVfbmFtZRgCIAEoCRINCgVs",
             "ZXZlbBgDIAEoDRILCgNleHAYBCABKAQSEQoJYXZhdGFyX2lkGAUgASgNEgwK",
             "BGdvbGQYBiABKAQSDwoHZGlhbW9uZBgHIAEoBBITCgt0b3RhbF9wb3dlchgI",
             "IAEoBBIRCgl2aXBfbGV2ZWwYCSABKA0SEwoLY3JlYXRlX3RpbWUYCiABKAQS",
-            "FwoPbGFzdF9sb2dpbl90aW1lGAsgASgEIioKCEl0ZW1JbmZvEg8KB2l0ZW1f",
-            "aWQYASABKA0SDQoFY291bnQYAiABKA0iPQoIVGFza0luZm8SDwoHdGFza19p",
-            "ZBgBIAEoDRIOCgZzdGF0dXMYAiABKA0SEAoIcHJvZ3Jlc3MYAyABKA0iIwoQ",
-            "RW50ZXJHYW1lUmVxdWVzdBIPCgdyb2xlX2lkGAEgASgEIr8BChFFbnRlckdh",
-            "bWVSZXNwb25zZRIfCgRjb2RlGAEgASgOMhEuY29tbW9uLkVycm9yQ29kZRIP",
-            "CgdtZXNzYWdlGAIgASgJEiUKCXJvbGVfaW5mbxgDIAEoCzISLmdhbWUuRnVs",
-            "bFJvbGVJbmZvEh0KBWl0ZW1zGAQgAygLMg4uZ2FtZS5JdGVtSW5mbxIdCgV0",
-            "YXNrcxgFIAMoCzIOLmdhbWUuVGFza0luZm8SEwoLc2VydmVyX3RpbWUYBiAB",
-            "KA0iJgoRQ3JlYXRlUm9sZVJlcXVlc3QSEQoJcm9sZV9uYW1lGAEgASgJIsAB",
-            "ChJDcmVhdGVSb2xlUmVzcG9uc2USHwoEY29kZRgBIAEoDjIRLmNvbW1vbi5F",
-            "cnJvckNvZGUSDwoHbWVzc2FnZRgCIAEoCRIlCglyb2xlX2luZm8YAyABKAsy",
-            "Ei5nYW1lLkZ1bGxSb2xlSW5mbxIdCgVpdGVtcxgEIAMoCzIOLmdhbWUuSXRl",
-            "bUluZm8SHQoFdGFza3MYBSADKAsyDi5nYW1lLlRhc2tJbmZvEhMKC3NlcnZl",
-            "cl90aW1lGAYgASgNYgZwcm90bzM="));
+            "FwoPbGFzdF9sb2dpbl90aW1lGAsgASgEEgsKA2pvYhgMIAEoCRINCgV0aXRs",
+            "ZRgNIAEoCRIOCgZzdGF0dXMYDiABKAkiKgoISXRlbUluZm8SDwoHaXRlbV9p",
+            "ZBgBIAEoDRINCgVjb3VudBgCIAEoDSI9CghUYXNrSW5mbxIPCgd0YXNrX2lk",
+            "GAEgASgNEg4KBnN0YXR1cxgCIAEoDRIQCghwcm9ncmVzcxgDIAEoDSIjChBF",
+            "bnRlckdhbWVSZXF1ZXN0Eg8KB3JvbGVfaWQYASABKAQivwEKEUVudGVyR2Ft",
+            "ZVJlc3BvbnNlEh8KBGNvZGUYASABKA4yES5jb21tb24uRXJyb3JDb2RlEg8K",
+            "B21lc3NhZ2UYAiABKAkSJQoJcm9sZV9pbmZvGAMgASgLMhIuZ2FtZS5GdWxs",
+            "Um9sZUluZm8SHQoFaXRlbXMYBCADKAsyDi5nYW1lLkl0ZW1JbmZvEh0KBXRh",
+            "c2tzGAUgAygLMg4uZ2FtZS5UYXNrSW5mbxITCgtzZXJ2ZXJfdGltZRgGIAEo",
+            "DSImChFDcmVhdGVSb2xlUmVxdWVzdBIRCglyb2xlX25hbWUYASABKAkiwAEK",
+            "EkNyZWF0ZVJvbGVSZXNwb25zZRIfCgRjb2RlGAEgASgOMhEuY29tbW9uLkVy",
+            "cm9yQ29kZRIPCgdtZXNzYWdlGAIgASgJEiUKCXJvbGVfaW5mbxgDIAEoCzIS",
+            "LmdhbWUuRnVsbFJvbGVJbmZvEh0KBWl0ZW1zGAQgAygLMg4uZ2FtZS5JdGVt",
+            "SW5mbxIdCgV0YXNrcxgFIAMoCzIOLmdhbWUuVGFza0luZm8SEwoLc2VydmVy",
+            "X3RpbWUYBiABKA1iBnByb3RvMw=="));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { global::Common.CommonReflection.Descriptor, },
           new pbr::GeneratedClrTypeInfo(null, null, new pbr::GeneratedClrTypeInfo[] {
-            new pbr::GeneratedClrTypeInfo(typeof(global::Game.FullRoleInfo), global::Game.FullRoleInfo.Parser, new[]{ "RoleId", "RoleName", "Level", "Exp", "AvatarId", "Gold", "Diamond", "TotalPower", "VipLevel", "CreateTime", "LastLoginTime" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Game.FullRoleInfo), global::Game.FullRoleInfo.Parser, new[]{ "RoleId", "RoleName", "Level", "Exp", "AvatarId", "Gold", "Diamond", "TotalPower", "VipLevel", "CreateTime", "LastLoginTime", "Job", "Title", "Status" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Game.ItemInfo), global::Game.ItemInfo.Parser, new[]{ "ItemId", "Count" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Game.TaskInfo), global::Game.TaskInfo.Parser, new[]{ "TaskId", "Status", "Progress" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Game.EnterGameRequest), global::Game.EnterGameRequest.Parser, new[]{ "RoleId" }, null, null, null, null),
@@ -108,6 +109,9 @@ namespace Game {
       vipLevel_ = other.vipLevel_;
       createTime_ = other.createTime_;
       lastLoginTime_ = other.lastLoginTime_;
+      job_ = other.job_;
+      title_ = other.title_;
+      status_ = other.status_;
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
     }
 
@@ -282,6 +286,51 @@ namespace Game {
       }
     }
 
+    /// <summary>Field number for the "job" field.</summary>
+    public const int JobFieldNumber = 12;
+    private string job_ = "";
+    /// <summary>
+    /// 职业
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string Job {
+      get { return job_; }
+      set {
+        job_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    /// <summary>Field number for the "title" field.</summary>
+    public const int TitleFieldNumber = 13;
+    private string title_ = "";
+    /// <summary>
+    /// 称号
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string Title {
+      get { return title_; }
+      set {
+        title_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    /// <summary>Field number for the "status" field.</summary>
+    public const int StatusFieldNumber = 14;
+    private string status_ = "";
+    /// <summary>
+    /// 状态
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string Status {
+      get { return status_; }
+      set {
+        status_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override bool Equals(object other) {
@@ -308,6 +357,9 @@ namespace Game {
       if (VipLevel != other.VipLevel) return false;
       if (CreateTime != other.CreateTime) return false;
       if (LastLoginTime != other.LastLoginTime) return false;
+      if (Job != other.Job) return false;
+      if (Title != other.Title) return false;
+      if (Status != other.Status) return false;
       return Equals(_unknownFields, other._unknownFields);
     }
 
@@ -326,6 +378,9 @@ namespace Game {
       if (VipLevel != 0) hash ^= VipLevel.GetHashCode();
       if (CreateTime != 0UL) hash ^= CreateTime.GetHashCode();
       if (LastLoginTime != 0UL) hash ^= LastLoginTime.GetHashCode();
+      if (Job.Length != 0) hash ^= Job.GetHashCode();
+      if (Title.Length != 0) hash ^= Title.GetHashCode();
+      if (Status.Length != 0) hash ^= Status.GetHashCode();
       if (_unknownFields != null) {
         hash ^= _unknownFields.GetHashCode();
       }
@@ -388,6 +443,18 @@ namespace Game {
         output.WriteRawTag(88);
         output.WriteUInt64(LastLoginTime);
       }
+      if (Job.Length != 0) {
+        output.WriteRawTag(98);
+        output.WriteString(Job);
+      }
+      if (Title.Length != 0) {
+        output.WriteRawTag(106);
+        output.WriteString(Title);
+      }
+      if (Status.Length != 0) {
+        output.WriteRawTag(114);
+        output.WriteString(Status);
+      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(output);
       }
@@ -442,6 +509,18 @@ namespace Game {
         output.WriteRawTag(88);
         output.WriteUInt64(LastLoginTime);
       }
+      if (Job.Length != 0) {
+        output.WriteRawTag(98);
+        output.WriteString(Job);
+      }
+      if (Title.Length != 0) {
+        output.WriteRawTag(106);
+        output.WriteString(Title);
+      }
+      if (Status.Length != 0) {
+        output.WriteRawTag(114);
+        output.WriteString(Status);
+      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(ref output);
       }
@@ -484,6 +563,15 @@ namespace Game {
       }
       if (LastLoginTime != 0UL) {
         size += 1 + pb::CodedOutputStream.ComputeUInt64Size(LastLoginTime);
+      }
+      if (Job.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(Job);
+      }
+      if (Title.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(Title);
+      }
+      if (Status.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(Status);
       }
       if (_unknownFields != null) {
         size += _unknownFields.CalculateSize();
@@ -529,6 +617,15 @@ namespace Game {
       }
       if (other.LastLoginTime != 0UL) {
         LastLoginTime = other.LastLoginTime;
+      }
+      if (other.Job.Length != 0) {
+        Job = other.Job;
+      }
+      if (other.Title.Length != 0) {
+        Title = other.Title;
+      }
+      if (other.Status.Length != 0) {
+        Status = other.Status;
       }
       _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
     }
@@ -589,6 +686,18 @@ namespace Game {
             LastLoginTime = input.ReadUInt64();
             break;
           }
+          case 98: {
+            Job = input.ReadString();
+            break;
+          }
+          case 106: {
+            Title = input.ReadString();
+            break;
+          }
+          case 114: {
+            Status = input.ReadString();
+            break;
+          }
         }
       }
     #endif
@@ -646,6 +755,18 @@ namespace Game {
           }
           case 88: {
             LastLoginTime = input.ReadUInt64();
+            break;
+          }
+          case 98: {
+            Job = input.ReadString();
+            break;
+          }
+          case 106: {
+            Title = input.ReadString();
+            break;
+          }
+          case 114: {
+            Status = input.ReadString();
             break;
           }
         }

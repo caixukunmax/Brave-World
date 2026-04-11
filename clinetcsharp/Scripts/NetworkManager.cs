@@ -46,6 +46,9 @@ namespace ClinetCSharp
         public uint MaxRoleCount { get; set; } = 3;
         public uint ServerTime { get; set; } = 0;
 
+        // 进入游戏后缓存的角色完整信息
+        public Game.FullRoleInfo CachedRoleInfo { get; set; } = null;
+
         // 最后收到的响应原始数据（供场景解析特定类型）
         private byte[] _lastPayload = new byte[0];
         private int _lastMsgId = 0;
@@ -290,6 +293,30 @@ namespace ClinetCSharp
                                 foreach (var r in rsp.Roles)
                                     Roles.Add(RoleBriefToDict(r));
                                 GD.Print("[NetworkManager] SelectServer cached");
+                            }
+                        }
+                        break;
+
+                    case MessageId.GameEnterGameRsp:
+                        {
+                            var rsp = Game.EnterGameResponse.Parser.ParseFrom(data);
+                            if (rsp.Code == Common.ErrorCode.Success && rsp.RoleInfo != null)
+                            {
+                                CachedRoleInfo = rsp.RoleInfo;
+                                ServerTime = rsp.ServerTime;
+                                GD.Print($"[NetworkManager] EnterGame cached, name={rsp.RoleInfo.RoleName} level={rsp.RoleInfo.Level}");
+                            }
+                        }
+                        break;
+
+                    case MessageId.GameCreateRoleRsp:
+                        {
+                            var rsp = Game.CreateRoleResponse.Parser.ParseFrom(data);
+                            if (rsp.Code == Common.ErrorCode.Success && rsp.RoleInfo != null)
+                            {
+                                CachedRoleInfo = rsp.RoleInfo;
+                                ServerTime = rsp.ServerTime;
+                                GD.Print($"[NetworkManager] CreateRole cached, name={rsp.RoleInfo.RoleName}");
                             }
                         }
                         break;
