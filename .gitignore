@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+
+# Sync-generated (start.bat sync_* generates these)
+docker/game/
+docker/protos/*.lua
+docker/tables/
+
+# Screenshots
+clinetcsharp/screenshots/
+
+# IDE
+.vs/
+.vscode/
+*.swp
+*.swo
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Claude
+.claude/
+
+# Old directories (removed)
+docker/tslua/
+cli/cli.ts

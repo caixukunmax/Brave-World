@@ -184,8 +184,12 @@ namespace ClinetCSharp
         private void OnCreateRole()
         {
             var name = _nameEdit.Text.StripEdges();
+            GD.Print($"[RoleSelectScene] OnCreateRole called, name='{name}' len={name.Length}");
             if (name.Length < 2)
+            {
+                GD.Print("[RoleSelectScene] Name too short, skipping send");
                 return;
+            }
 
             var nm = GetNode<NetworkManager>("/root/NetworkManager");
             var req = new Game.CreateRoleRequest

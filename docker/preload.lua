@@ -2,6 +2,12 @@
 skynet = require "skynet"
 mongo = require "skynet.db.mongo"
 
+-- Lua 5.4 兼容: unpack 已移至 table.unpack
+unpack = table.unpack
+
+-- 配置表已由 game/table 服务统一加载到 sharetable，各服务通过 common.queryTable 查询
+-- preload 不再全局 require 配置表
+
 -- tstl 冒号调用辅助：tstl 无法对任意对象生成 Lua 冒号语法
 mongo_findOne = function(col, query) return col:findOne(query) end
 mongo_insert = function(col, doc) col:insert(doc) end
@@ -50,7 +56,7 @@ end
 local pb = require "pb"
 
 -- 加载所有 .desc 文件
-local desc_dir = "lualib/tslua/protos/"
+local desc_dir = "protos/"
 pcall(pb.loadfile, desc_dir .. "common_pb.desc")
 pcall(pb.loadfile, desc_dir .. "login_pb.desc")
 pcall(pb.loadfile, desc_dir .. "game_pb.desc")
@@ -62,8 +68,8 @@ pcall(pb.loadfile, desc_dir .. "message_id_pb.desc")
 pb_decode = function(msg_type, data) return pb.decode(msg_type, data) end
 pb_encode = function(msg_type, data) return pb.encode(msg_type, data) end
 
--- === 密码加密工具 (使用 HMAC-SHA256 替代 SHA256) ===
-local crypt = require "skynet.crypt"
+-- === 密码加密工具 ===
+local md5 = require "md5.core"
 
 -- 生成随机盐值
 local function generate_salt()
@@ -74,46 +80,70 @@ local function generate_salt()
     return table.concat(bytes)
 end
 
--- 密码哈希: 返回 "salt:hash" (使用 HMAC-SHA256)
+-- base64 编解码 (纯 Lua 实现)
+local b64chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+local function base64encode(data)
+    return ((data:gsub('.', function(x)
+        local r, b = '', x:byte()
+        for i = 8, 1, -1 do r = r .. (b % 2^i - b % 2^(i-1) > 0 and '1' or '0') end
+        return r
+    end) .. '0000'):gsub('%d%d%d?%d?%d?%d?', function(x)
+        if (#x < 6) then return '' end
+        local c = 0
+        for i = 1, 6 do c = c + (x:sub(i,i) == '1' and 2^(6-i) or 0) end
+        return b64chars:sub(c+1, c+1)
+    end) .. ({ '', '==', '=' })[#data % 3 + 1])
+end
+local function base64decode(data)
+    data = string.gsub(data, '[^'..b64chars..'=]', '')
+    return (data:gsub('.', function(x)
+        if x == '=' then return '' end
+        local r, f = '', (b64chars:find(x) - 1)
+        for i = 6, 1, -1 do r = r .. (f % 2^i - f % 2^(i-1) > 0 and '1' or '0') end
+        return r
+    end):gsub('%d%d%d?%d?%d?%d?%d?%d?', function(x)
+        if (#x ~= 8) then return '' end
+        local c = 0
+        for i = 1, 8 do c = c + (x:sub(i,i) == '1' and 2^(8-i) or 0) end
+        return string.char(c)
+    end))
+end
+
+-- 密码哈希: 返回 "salt:hash"
 password_hash = function(password)
     local salt = generate_salt()
-    -- 使用 HMAC-SHA256，key 为 salt，message 为 password
-    local hash = crypt.hmac_sha256(salt, password)
-    return crypt.base64encode(salt) .. ":" .. crypt.base64encode(hash)
+    local hash = md5.sumhexa(salt .. password)
+    return base64encode(salt) .. ":" .. hash
 end
 
 -- 密码验证
 password_verify = function(password, stored_hash)
-    local salt_b64, hash_b64 = stored_hash:match("^([^:]+):([^:]+)$")
+    local salt_b64, hash_hex = stored_hash:match("^([^:]+):([^:]+)$")
     if not salt_b64 then return false end
-    
-    local ok, salt = pcall(crypt.base64decode, salt_b64)
-    if not ok or not salt then return false end
-    
-    -- 使用相同的 HMAC-SHA256 计算
-    local expected_hash = crypt.hmac_sha256(salt, password)
-    local expected_b64 = crypt.base64encode(expected_hash)
-    return hash_b64 == expected_b64
+    local salt = base64decode(salt_b64)
+    if not salt then return false end
+    local expected = md5.sumhexa(salt .. password)
+    return hash_hex == expected
 end
 
--- === Token 系统 (HMAC-SHA256 via skynet.crypt) ===
+-- === Token 系统 ===
 local TOKEN_SECRET = skynet.getenv("TOKEN_SECRET") or "tslua2_game_secret_2024"
 
--- AccountToken: payload=accountId:username:timestamp  签名=hmac  编码=base64(payload|sig)
+-- AccountToken: base64(payload|md5hex(secret+payload))
 token_generate_account = function(account_id, username)
     local ts = tostring(os.time())
     local payload = tostring(account_id) .. ":" .. username .. ":" .. ts
-    local sig = crypt.hmac_sha256(TOKEN_SECRET, payload)
-    return crypt.base64encode(payload .. "|" .. sig)
+    local sig = md5.sumhexa(TOKEN_SECRET .. payload)
+    return base64encode(payload .. "|" .. sig)
 end
 
 token_validate_account = function(token)
     if not token or token == "" then return nil end
-    local ok, decoded = pcall(crypt.base64decode, token)
+    local ok, decoded = pcall(base64decode, token)
     if not ok or not decoded then return nil end
     local payload, sig = decoded:match("^(.+)|(.+)$")
     if not payload then return nil end
-    local expected = crypt.hmac_sha256(TOKEN_SECRET, payload)
+    local expected = md5.sumhexa(TOKEN_SECRET .. payload)
     if sig ~= expected then return nil end
     local aid, uname, ts = payload:match("^(%d+):([^:]+):(%d+)$")
     if not aid then return nil end
@@ -121,21 +151,21 @@ token_validate_account = function(token)
     return { account_id = tonumber(aid), username = uname }
 end
 
--- GatewayToken: payload=accountId:serverId:timestamp  签名=hmac  编码=base64(payload|sig)
+-- GatewayToken: base64(payload|md5hex(secret+payload))
 token_generate_gateway = function(account_id, server_id)
     local ts = tostring(os.time())
     local payload = tostring(account_id) .. ":" .. tostring(server_id) .. ":" .. ts
-    local sig = crypt.hmac_sha256(TOKEN_SECRET, payload)
-    return crypt.base64encode(payload .. "|" .. sig)
+    local sig = md5.sumhexa(TOKEN_SECRET .. payload)
+    return base64encode(payload .. "|" .. sig)
 end
 
 token_validate_gateway = function(token)
     if not token or token == "" then return nil end
-    local ok, decoded = pcall(crypt.base64decode, token)
+    local ok, decoded = pcall(base64decode, token)
     if not ok or not decoded then return nil end
     local payload, sig = decoded:match("^(.+)|(.+)$")
     if not payload then return nil end
-    local expected = crypt.hmac_sha256(TOKEN_SECRET, payload)
+    local expected = md5.sumhexa(TOKEN_SECRET .. payload)
     if sig ~= expected then return nil end
     local aid, sid, ts = payload:match("^(%d+):(%d+):(%d+)$")
     if not aid then return nil end

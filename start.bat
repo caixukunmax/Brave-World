@@ -10,7 +10,6 @@ if "%MAIN_CMD%"=="/" goto show_help
 if "%MAIN_CMD%"=="-h" goto show_help
 if "%MAIN_CMD%"=="--help" goto show_help
 
-if "%MAIN_CMD%"=="build" goto do_build
 if "%MAIN_CMD%"=="up" goto do_up
 if "%MAIN_CMD%"=="down" goto do_down
 if "%MAIN_CMD%"=="restart" goto do_restart
@@ -34,10 +33,9 @@ echo.
 echo Usage: start.bat ^<command^>
 echo.
 echo Commands:
-echo   start.bat up         Build TS + Start services
+echo   start.bat up         Sync code + Start services
 echo   start.bat down       Stop services
-echo   start.bat restart    Build TS + Restart services
-echo   start.bat build      Compile TypeScript only
+echo   start.bat restart    Sync code + Restart services
 echo   start.bat logs       View service logs
 echo   start.bat ps         View container status
 echo.
@@ -54,17 +52,11 @@ echo.
 echo Examples:
 echo   start.bat up         First time start
 echo   start.bat restart    After code changes
-echo   start.bat build      Compile only
 echo.
 goto end
 
 :check_env
 echo [Check] Checking environment...
-call node --version >nul 2>&1
-if %errorlevel% neq 0 (
-    echo [ERROR] Node.js not found
-    exit /b 1
-)
 call docker --version >nul 2>&1
 if %errorlevel% neq 0 (
     echo [ERROR] Docker not found
@@ -73,27 +65,11 @@ if %errorlevel% neq 0 (
 echo [OK] Environment check passed
 goto :eof
 
-:do_build
-call :check_env
-call npx tstl -p tsconfig.json
-if %errorlevel% neq 0 (
-    echo [ERROR] Build failed
-    pause
-    exit /b 1
-)
-echo [OK] Build complete: docker/tslua/
-pause
-goto end
-
 :do_up
 call :check_env
-echo [INFO] Building TypeScript...
-call npx tstl -p tsconfig.json
-if %errorlevel% neq 0 (
-    echo [ERROR] Build failed
-    pause
-    exit /b 1
-)
+call :sync_tables
+call :sync_protos
+call :sync_game
 echo [INFO] Starting services...
 cd docker
 call :check_image
@@ -114,24 +90,15 @@ goto end
 
 :do_restart
 call :check_env
-echo [INFO] Stopping services...
-cd docker
-docker compose down
-cd ..
-echo [INFO] Building TypeScript...
-call npx tstl -p tsconfig.json
-if %errorlevel% neq 0 (
-    echo [ERROR] Build failed
-    pause
-    exit /b 1
-)
-echo [INFO] Starting services...
+call :sync_tables
+call :sync_protos
+call :sync_game
+echo [INFO] Restarting game-server...
 cd docker
 call :check_image
-docker compose up -d --force-recreate
+docker compose up -d --force-recreate game-server
 cd ..
-echo [OK] Services restarted (logs cleared)
-echo [TIP] Client can connect to localhost:8889
+echo [OK] Game server restarted (mongo kept running)
 pause
 goto end
 
@@ -160,14 +127,39 @@ if "%IMAGE_ID%"=="" (
 )
 goto :eof
 
+:sync_game
+echo [INFO] Syncing game code...
+if not exist "docker\game" mkdir "docker\game"
+xcopy "skynet_src\game\*" "docker\game\" /E /Y /D
+if not exist "docker\game\config.lua" copy "docker\config.lua" "docker\game\config.lua" >nul
+echo [OK] Game code synced
+goto :eof
+
+:sync_protos
+echo [INFO] Syncing proto files...
+if not exist "docker\protos" mkdir "docker\protos"
+xcopy "skynet_src\protos\*" "docker\protos\" /E /Y /D
+echo [OK] Proto files synced
+goto :eof
+
+:sync_tables
+echo [INFO] Syncing table files...
+if not exist "docker\tables" mkdir "docker\tables"
+if not exist "docker\tables\data" mkdir "docker\tables\data"
+xcopy "skynet_src\tables\*.lua" "docker\tables\" /Y /D
+xcopy "skynet_src\tables\data\*.lua" "docker\tables\data\" /Y /D
+echo [OK] Table files synced
+goto :eof
+
 :do_clean
 call :check_env
-call npx tstl -p tsconfig.json
-if %errorlevel% neq 0 (
-    echo [ERROR] Clean failed
-    pause
-    exit /b 1
-)
+echo [INFO] Removing old image...
+docker rmi docker-game-server 2>nul
+echo [INFO] Rebuilding...
+call :sync_game
+cd docker
+docker compose build --no-cache
+cd ..
 echo [OK] Clean complete
 pause
 goto end

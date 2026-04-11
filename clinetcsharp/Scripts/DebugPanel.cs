@@ -253,7 +253,8 @@ namespace ClinetCSharp
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
             
             // 再次应用格子大小设置（确保 GridManager 已经准备好）
-            if (_gridManager != null)
+            // 但如果响应式模式已启用，则跳过（响应式模式会自己管理格子大小）
+            if (_gridManager != null && (_responsiveCheck == null || !_responsiveCheck.ButtonPressed))
             {
                 int gridSize = (int)_gridSizeSlider.Value;
                 _gridManager.Call("SetGridSize", gridSize);
@@ -2237,9 +2238,14 @@ namespace ClinetCSharp
         {
             if (_gridManager != null)
             {
+                GD.Print($"[DebugPanel] Setting responsive mode: {enabled}, visibleGridsX={_visibleGridsXSpin.Value}");
                 _gridManager.Call("set_responsive_mode", enabled);
                 if (enabled)
                     _gridManager.Set("visible_grids_x", _visibleGridsXSpin.Value);
+            }
+            else
+            {
+                GD.PrintErr("[DebugPanel] Cannot toggle responsive: _gridManager is null");
             }
 
             // Responsive layout and grid size slider are mutually exclusive
@@ -2261,7 +2267,7 @@ namespace ClinetCSharp
             if (_gridManager != null && (bool)_gridManager.Get("responsive_mode"))
             {
                 _gridManager.Set("visible_grids_x", _visibleGridsXSpin.Value);
-                _gridManager.Call("_update_responsive_grid_size");
+                _gridManager.Call("update_responsive_grid_size");
             }
         }
 

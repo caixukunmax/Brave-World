@@ -2,13 +2,14 @@
   "skynet_lua_dir": "docker/tslua",
   "server_src_dir": "server/src",
   "proto": {
-    "desc_dir": "docker/protos",
+    "desc_dir": "skynet_src/protos",
+    "lua_enum_dir": "skynet_src/protos",
     "ts_dir": "server/src/skynet/protos",
     "cs_dir": "clinetcsharp/Scripts/protos"
   },
   "tables": {
-    "lua_code_dir": "docker/tables",
-    "lua_data_dir": "docker/tables/data",
+    "lua_code_dir": "skynet_src/tables",
+    "lua_data_dir": "skynet_src/tables/data",
     "json_data_dir": "server/src/tables/data"
   }
 }

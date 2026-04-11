@@ -1,0 +1,31 @@
+--------------------------------------------------------------------------------
+-- 枚举常量（由 build_proto 自动生成，请勿手动修改）
+-- Source: message_id.proto
+--------------------------------------------------------------------------------
+
+local MessageId = {
+    UNKNOWN = 0,  -- 系统消息 (1-99)
+    PING = 1,
+    PONG = 2,  -- Gateway消息 (100-199)
+    GATEWAY_HEARTBEAT_REQ = 100,
+    GATEWAY_HEARTBEAT_RSP = 101,
+    GATEWAY_CONNECT_REQ = 102,
+    GATEWAY_CONNECT_RSP = 103,
+    GATEWAY_DISCONNECT_NOTIFY = 104,
+    GATEWAY_KICK_NOTIFY = 105,  -- Login消息 (200-299)
+    LOGIN_ACCOUNT_LOGIN_REQ = 210,
+    LOGIN_ACCOUNT_LOGIN_RSP = 211,
+    LOGIN_SELECT_SERVER_REQ = 212,
+    LOGIN_SELECT_SERVER_RSP = 213,  -- Server消息 (250-299)
+    SERVER_GET_LIST_REQ = 250,
+    SERVER_GET_LIST_RSP = 251,
+    SERVER_STATUS_UPDATE = 252,  -- Game消息 (300-399)
+    GAME_ENTER_GAME_REQ = 320,
+    GAME_ENTER_GAME_RSP = 321,
+    GAME_CREATE_ROLE_REQ = 322,
+    GAME_CREATE_ROLE_RSP = 323,
+}
+
+return {
+    MessageId = MessageId,
+}

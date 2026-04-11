@@ -26,6 +26,7 @@ interface ProtoConfig {
 interface PathsConfig {
   proto: {
     desc_dir: string;
+    lua_enum_dir: string;
     ts_dir: string;
     cs_dir: string;
   };
@@ -84,6 +85,7 @@ function main(): void {
   }
   const paths: PathsConfig = JSON.parse(fs.readFileSync(pathsPath, 'utf-8'));
   const outputLuaDirs = [path.resolve(rootDir, paths.proto.desc_dir)];
+  const luaEnumDirs = [path.resolve(rootDir, paths.proto.lua_enum_dir)];
   const outputTsDirs = [path.resolve(rootDir, paths.proto.ts_dir)];
   const outputCsDir = path.resolve(rootDir, paths.proto.cs_dir);
 
@@ -159,6 +161,67 @@ function main(): void {
       }
     }
     console.log('');
+  }
+
+  // 生成 Lua 枚举常量文件（直接导出为 .lua，方便 IDE 跳转和类型查看）
+  console.log('');
+  console.log('----------------------------------------');
+  info('Generating Lua enum files...');
+  console.log('----------------------------------------');
+
+  for (const enumDir of luaEnumDirs) {
+    fs.mkdirSync(enumDir, { recursive: true });
+  }
+
+  for (const protoFile of allProtoFiles) {
+    const filename = path.basename(protoFile, '.proto');
+    const content = fs.readFileSync(protoFile, 'utf-8');
+    const enums = parseProtoEnums(content);
+    if (enums.length === 0) continue;
+
+    const luaContent = generateLuaEnumFile(filename, enums);
+    for (const enumDir of luaEnumDirs) {
+      fs.writeFileSync(path.join(enumDir, `${filename}_enum.lua`), luaContent);
+    }
+    success(`${filename}_enum.lua`);
+  }
+
+  // 生成 Lua 消息编解码文件（方便 IDE 跳转，避免手写字符串）
+  console.log('');
+  console.log('----------------------------------------');
+  info('Generating Lua proto files...');
+  console.log('----------------------------------------');
+
+  for (const protoFile of allProtoFiles) {
+    const filename = path.basename(protoFile, '.proto');
+    const content = fs.readFileSync(protoFile, 'utf-8');
+    const messages = parseProtoMessages(content);
+    if (messages.length === 0) continue;
+
+    const packageName = parseProtoPackage(content);
+    const luaContent = generateLuaProtoFile(filename, packageName, messages);
+    for (const enumDir of luaEnumDirs) {
+      fs.writeFileSync(path.join(enumDir, `${filename}_proto.lua`), luaContent);
+    }
+    success(`${filename}_proto.lua`);
+  }
+
+  // 生成 index.lua 统一导出（枚举 + 消息）
+  const luaIndexContent = generateLuaIndex(allProtoFiles, luaEnumDirs[0]);
+  if (luaIndexContent) {
+    for (const enumDir of luaEnumDirs) {
+      fs.writeFileSync(path.join(enumDir, 'index.lua'), luaIndexContent);
+    }
+    success('index.lua (enum index)');
+  }
+
+  // 生成 msg_id_map.lua（msg_id → 名称 + protobuf 类型）
+  const msgIdMapContent = generateMsgIdMap(allProtoFiles);
+  if (msgIdMapContent) {
+    for (const enumDir of luaEnumDirs) {
+      fs.writeFileSync(path.join(enumDir, 'msg_id_map.lua'), msgIdMapContent);
+    }
+    success('msg_id_map.lua');
   }
 
   // 生成 TypeScript 代码 (使用 ts-proto)
@@ -491,6 +554,338 @@ interface FieldInfo {
   name: string;
   type: string;
   isOptional: boolean;
+}
+
+// =============================================================================
+// msg_id_map 生成（msg_id → 名称 + protobuf 类型）
+// =============================================================================
+
+/**
+ * 从 MessageId 枚举名推导 protobuf 类型
+ * LOGIN_ACCOUNT_LOGIN_REQ → login.AccountLoginRequest
+ * GAME_CREATE_ROLE_RSP   → game.CreateRoleResponse
+ */
+function enumNameToProtoType(name: string): string | null {
+  const suffixes: Record<string, string> = { REQ: 'Request', RSP: 'Response', NOTIFY: 'Notify' };
+  const parts = name.split('_');
+  const direction = parts[parts.length - 1];
+
+  if (!suffixes[direction]) return null;
+
+  const module = parts[0].toLowerCase();
+  const messageBase = parts.slice(1, -1)
+    .map(p => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase())
+    .join('');
+
+  return `${module}.${messageBase}${suffixes[direction]}`;
+}
+
+/**
+ * 生成 msg_id_map.lua
+ */
+function generateMsgIdMap(protoFiles: string[]): string {
+  // 找 message_id.proto
+  const msgIdFile = protoFiles.find(f => path.basename(f) === 'message_id.proto');
+  if (!msgIdFile) return '';
+
+  const content = fs.readFileSync(msgIdFile, 'utf-8');
+  const enums = parseProtoEnums(content);
+  const messageIdEnum = enums.find(e => e.name === 'MessageId');
+  if (!messageIdEnum) return '';
+
+  const nameLines: string[] = [];
+  const typeLines: string[] = [];
+
+  for (const entry of messageIdEnum.entries) {
+    if (entry.value === 0) continue; // skip UNKNOWN
+
+    nameLines.push(`    [${entry.value}] = "${entry.name}",`);
+
+    const protoType = enumNameToProtoType(entry.name);
+    if (protoType) {
+      typeLines.push(`    [${entry.value}] = "${protoType}",`);
+    }
+  }
+
+  return `--------------------------------------------------------------------------------
+-- msg_id 映射表（由 build_proto 自动生成，请勿手动修改）
+-- Source: message_id.proto
+--------------------------------------------------------------------------------
+local M = {}
+
+-- msg_id → 枚举名称
+M.name = {
+${nameLines.join('\n')}
+}
+
+-- msg_id → protobuf 类型（用于解码包体内容）
+M.type = {
+${typeLines.join('\n')}
+}
+
+return M
+`;
+}
+
+// =============================================================================
+// Lua 枚举生成
+// =============================================================================
+
+interface EnumEntry {
+  name: string;
+  value: number;
+  comment: string;
+}
+
+interface EnumDef {
+  name: string;
+  entries: EnumEntry[];
+  comment: string;
+}
+
+/**
+ * 解析 .proto 文件中的 enum 定义
+ */
+function parseProtoEnums(content: string): EnumDef[] {
+  const enums: EnumDef[] = [];
+
+  // 匹配 enum 块（含可选注释）
+  const enumRegex = /(?:\/\*\*[\s\S]*?\*\/\s*)?(?:\/\/[^\n]*\n\s*)*enum\s+(\w+)\s*\{([^}]*)\}/g;
+  let match;
+
+  while ((match = enumRegex.exec(content)) !== null) {
+    const enumName = match[1];
+    const body = match[2];
+    const entries: EnumEntry[] = [];
+
+    // 匹配每个枚举项: NAME = VALUE; // comment
+    const entryRegex = /^\s*(\w+)\s*=\s*(\d+)\s*;\s*(?:\/\/\s*(.*))?$/gm;
+    let entryMatch;
+    while ((entryMatch = entryRegex.exec(body)) !== null) {
+      entries.push({
+        name: entryMatch[1],
+        value: parseInt(entryMatch[2], 10),
+        comment: (entryMatch[3] || '').trim(),
+      });
+    }
+
+    if (entries.length > 0) {
+      // 提取 enum 上方的注释
+      const beforeEnum = content.substring(0, match.index);
+      const lastCommentMatch = beforeEnum.match(/\/\*\*[\s\S]*?\*\/\s*$/);
+      const enumComment = lastCommentMatch
+        ? lastCommentMatch[0].replace(/\/\*\*|\*\//g, '').replace(/\s*\*\s?/g, ' ').trim()
+        : '';
+
+      enums.push({ name: enumName, entries, comment: enumComment });
+    }
+  }
+
+  return enums;
+}
+
+/**
+ * 生成单个 proto 文件的 Lua 枚举文件内容
+ */
+function generateLuaEnumFile(protoName: string, enums: EnumDef[]): string {
+  const lines: string[] = [];
+
+  lines.push('--------------------------------------------------------------------------------');
+  lines.push(`-- 枚举常量（由 build_proto 自动生成，请勿手动修改）`);
+  lines.push(`-- Source: ${protoName}.proto`);
+  lines.push('--------------------------------------------------------------------------------');
+  lines.push('');
+
+  for (const e of enums) {
+    if (e.comment) {
+      lines.push(`-- ${e.comment}`);
+    }
+    lines.push(`local ${e.name} = {`);
+
+    for (const entry of e.entries) {
+      const comment = entry.comment ? `  -- ${entry.comment}` : '';
+      lines.push(`    ${entry.name} = ${entry.value},${comment}`);
+    }
+
+    lines.push('}');
+    lines.push('');
+  }
+
+  // 返回表
+  lines.push('return {');
+  for (const e of enums) {
+    lines.push(`    ${e.name} = ${e.name},`);
+  }
+  lines.push('}');
+
+  return lines.join('\n') + '\n';
+}
+
+/**
+ * 生成 index.lua，统一导出所有枚举和消息编解码
+ */
+function generateLuaIndex(protoFiles: string[], enumDir: string): string {
+  const enumModules: string[] = [];
+  const protoModules: string[] = [];
+
+  for (const protoFile of protoFiles) {
+    const filename = path.basename(protoFile, '.proto');
+    const content = fs.readFileSync(protoFile, 'utf-8');
+
+    const enums = parseProtoEnums(content);
+    if (enums.length > 0) enumModules.push(filename);
+
+    const messages = parseProtoMessages(content);
+    if (messages.length > 0) protoModules.push(filename);
+  }
+
+  if (enumModules.length === 0 && protoModules.length === 0) return '';
+
+  const lines: string[] = [];
+  lines.push('--------------------------------------------------------------------------------');
+  lines.push('-- 协议索引（由 build_proto 自动生成，请勿手动修改）');
+  lines.push('--------------------------------------------------------------------------------');
+  lines.push('');
+
+  for (const mod of enumModules) {
+    lines.push(`local ${mod}_enum = require "protos.${mod}_enum"`);
+  }
+  for (const mod of protoModules) {
+    lines.push(`local ${mod}_proto = require "protos.${mod}_proto"`);
+  }
+  lines.push('');
+
+  lines.push('return {');
+
+  for (const mod of enumModules) {
+    const hasProto = protoModules.includes(mod);
+    if (hasProto) {
+      lines.push(`    ${mod} = setmetatable({}, {`);
+      lines.push(`        __index = function(_, key)`);
+      lines.push(`            local v = rawget(${mod}_enum, key) or rawget(${mod}_proto, key)`);
+      lines.push(`            if v ~= nil then return v end`);
+      lines.push(`        end,`);
+      lines.push(`    }),`);
+    } else {
+      lines.push(`    ${mod} = ${mod}_enum,`);
+    }
+  }
+
+  // 纯 proto 模块（没有 enum 的）
+  for (const mod of protoModules) {
+    if (enumModules.includes(mod)) continue;
+    lines.push(`    ${mod} = ${mod}_proto,`);
+  }
+
+  lines.push('}');
+
+  return lines.join('\n') + '\n';
+}
+
+// =============================================================================
+// Lua 消息编解码生成
+// =============================================================================
+
+interface MsgField {
+  name: string;
+  type: string;
+  repeated: boolean;
+  comment: string;
+}
+
+interface MsgDef {
+  name: string;
+  fields: MsgField[];
+  comment: string;
+}
+
+/**
+ * 解析 .proto 文件中的 package 名称
+ */
+function parseProtoPackage(content: string): string {
+  const match = content.match(/^\s*package\s+(\w+)\s*;/m);
+  return match ? match[1] : '';
+}
+
+/**
+ * 解析 .proto 文件中的 message 定义
+ */
+function parseProtoMessages(content: string): MsgDef[] {
+  const messages: MsgDef[] = [];
+
+  // 匹配 message 块
+  const msgRegex = /(?:\/\*\*[\s\S]*?\*\/\s*)?(?:\/\/[^\n]*\n\s*)*message\s+(\w+)\s*\{([^}]*)\}/g;
+  let match;
+
+  while ((match = msgRegex.exec(content)) !== null) {
+    const msgName = match[1];
+    const body = match[2];
+    const fields: MsgField[] = [];
+
+    // 匹配字段: [repeated] type name = number; // comment
+    const fieldRegex = /^\s*(repeated\s+)?([\w.]+)\s+(\w+)\s*=\s*\d+\s*;\s*(?:\/\/\s*(.*))?$/gm;
+    let fieldMatch;
+    while ((fieldMatch = fieldRegex.exec(body)) !== null) {
+      fields.push({
+        repeated: !!fieldMatch[1],
+        type: fieldMatch[2],
+        name: fieldMatch[3],
+        comment: (fieldMatch[4] || '').trim(),
+      });
+    }
+
+    if (fields.length > 0) {
+      // 提取 message 上方的注释
+      const beforeMsg = content.substring(0, match.index);
+      const lastCommentMatch = beforeMsg.match(/\/\*\*[\s\S]*?\*\/\s*$/);
+      const msgComment = lastCommentMatch
+        ? lastCommentMatch[0].replace(/\/\*\*|\*\//g, '').replace(/\s*\*\s?/g, ' ').trim()
+        : '';
+
+      messages.push({ name: msgName, fields, comment: msgComment });
+    }
+  }
+
+  return messages;
+}
+
+/**
+ * 生成单个 proto 文件的 Lua 消息编解码文件
+ */
+function generateLuaProtoFile(protoName: string, packageName: string, messages: MsgDef[]): string {
+  const lines: string[] = [];
+
+  lines.push('--------------------------------------------------------------------------------');
+  lines.push(`-- 消息编解码（由 build_proto 自动生成，请勿手动修改）`);
+  lines.push(`-- Source: ${protoName}.proto  Package: ${packageName}`);
+  lines.push('--------------------------------------------------------------------------------');
+  lines.push('local pb = require "pb"');
+  lines.push('');
+  lines.push('local M = {}');
+  lines.push('');
+
+  for (const msg of messages) {
+    // 字段注释行
+    const fieldParts = msg.fields.map(f => {
+      const prefix = f.repeated ? `${f.type}[]` : f.type;
+      const comment = f.comment ? ` -- ${f.comment}` : '';
+      return `${f.name}(${prefix})${comment}`;
+    });
+
+    if (msg.comment) {
+      lines.push(`--- ${msg.comment}`);
+    }
+    lines.push(`-- Fields: ${fieldParts.join(' ')}`);
+    lines.push(`M.${msg.name} = {`);
+    lines.push(`    encode = function(data) return pb.encode("${packageName}.${msg.name}", data) end,`);
+    lines.push(`    decode = function(data) return pb.decode("${packageName}.${msg.name}", data) end,`);
+    lines.push('}');
+    lines.push('');
+  }
+
+  lines.push('return M');
+
+  return lines.join('\n') + '\n';
 }
 
 // 运行主函数
