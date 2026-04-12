@@ -96,7 +96,8 @@ function common.isWalkable(mapName, x, y)
     local mapData = common.queryMap(mapName)
     if not mapData then return false end
     if x < 0 or x >= mapData.width or y < 0 or y >= mapData.height then return false end
-    local cellStr = mapData.cells[y * mapData.width + x]
+    -- Lua 1-based array: index = y * width + x + 1
+    local cellStr = mapData.cells[y * mapData.width + x + 1]
     if not cellStr then return false end
     -- 格式: "exists;walkable;visible;terrain;height;custom"
     local walkable = cellStr:match("^%d;(%d)")
