@@ -66,8 +66,8 @@ function generateLua(mapName: string, data: { width: number; height: number; cel
     const rowCells: string[] = [];
     for (let x = 0; x < data.width; x++) {
       const idx = y * data.width + x;
-      // Lua 1-based array
-      rowCells.push(`"${data.cells[idx]}"`);
+      // Lua 1-based array: sharetable 要求 [key] = value 格式
+      rowCells.push(`[${idx + 1}] = "${data.cells[idx]}"`);
     }
     lines.push(`        ${rowCells.join(', ')}`);
   }
