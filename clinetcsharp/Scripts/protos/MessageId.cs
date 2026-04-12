@@ -24,7 +24,7 @@ namespace Protocol {
     static MessageIdReflection() {
       byte[] descriptorData = global::System.Convert.FromBase64String(
           string.Concat(
-            "ChBtZXNzYWdlX2lkLnByb3RvEghwcm90b2NvbCqHBQoJTWVzc2FnZUlkEgsK",
+            "ChBtZXNzYWdlX2lkLnByb3RvEghwcm90b2NvbCqrBQoJTWVzc2FnZUlkEgsK",
             "B1VOS05PV04QABIICgRQSU5HEAESCAoEUE9ORxACEhkKFUdBVEVXQVlfSEVB",
             "UlRCRUFUX1JFURBkEhkKFUdBVEVXQVlfSEVBUlRCRUFUX1JTUBBlEhcKE0dB",
             "VEVXQVlfQ09OTkVDVF9SRVEQZhIXChNHQVRFV0FZX0NPTk5FQ1RfUlNQEGcS",
@@ -39,7 +39,8 @@ namespace Protocol {
             "EhIKDUdBTUVfTU9WRV9SRVEQxAISEgoNR0FNRV9NT1ZFX1JTUBDFAhIWChFH",
             "QU1FX1VTRV9JVEVNX1JFURDKAhIWChFHQU1FX1VTRV9JVEVNX1JTUBDLAhIX",
             "ChJHQU1FX0RST1BfSVRFTV9SRVEQzAISFwoSR0FNRV9EUk9QX0lURU1fUlNQ",
-            "EM0CYgZwcm90bzM="));
+            "EM0CEhAKC0dBTUVfR01fUkVRENQCEhAKC0dBTUVfR01fUlNQENUCYgZwcm90",
+            "bzM="));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { },
           new pbr::GeneratedClrTypeInfo(new[] {typeof(global::Protocol.MessageId), }, null, null));
@@ -95,6 +96,8 @@ namespace Protocol {
     [pbr::OriginalName("GAME_USE_ITEM_RSP")] GameUseItemRsp = 331,
     [pbr::OriginalName("GAME_DROP_ITEM_REQ")] GameDropItemReq = 332,
     [pbr::OriginalName("GAME_DROP_ITEM_RSP")] GameDropItemRsp = 333,
+    [pbr::OriginalName("GAME_GM_REQ")] GameGmReq = 340,
+    [pbr::OriginalName("GAME_GM_RSP")] GameGmRsp = 341,
   }
 
   #endregion

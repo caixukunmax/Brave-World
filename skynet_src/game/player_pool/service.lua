@@ -314,6 +314,70 @@ function handlers.dropItem(msg, claims)
     return { msg_id = MessageId.GAME_DROP_ITEM_RSP, data = rspData }
 end
 
+function handlers.gmCommand(msg, claims)
+    local req = protos.game.GmCommandRequest.decode(msg.data)
+    if not req then
+        local rspData = protos.game.GmCommandResponse.encode({
+            code = ErrorCode.INVALID_REQUEST,
+            message = "invalid request",
+        })
+        return { msg_id = MessageId.GAME_GM_RSP, data = rspData }
+    end
+
+    local cmd = req.command or ""
+    local args = req.args or ""
+
+    local player = onlinePlayers[claims.account_id]
+    if not player then
+        local rspData = protos.game.GmCommandResponse.encode({
+            code = ErrorCode.UNAUTHORIZED,
+            message = "player not online",
+        })
+        return { msg_id = MessageId.GAME_GM_RSP, data = rspData }
+    end
+
+    if cmd == "additem" then
+        -- 格式: "itemId:count" 或 "itemId"（默认1个）
+        local itemIdStr, countStr = args:match("^(%d+):?(%d*)$")
+        if not itemIdStr then
+            local rspData = protos.game.GmCommandResponse.encode({
+                code = ErrorCode.INVALID_REQUEST,
+                message = "usage: additem itemId:count",
+            })
+            return { msg_id = MessageId.GAME_GM_RSP, data = rspData }
+        end
+        local itemId = tonumber(itemIdStr)
+        local count = tonumber(countStr) or 1
+        if count <= 0 then count = 1 end
+
+        -- 校验物品是否存在
+        local itemTable = common.queryTable("TbItem")
+        if not itemTable or not itemTable[itemId] then
+            local rspData = protos.game.GmCommandResponse.encode({
+                code = ErrorCode.NOT_FOUND,
+                message = "item not found: " .. tostring(itemId),
+            })
+            return { msg_id = MessageId.GAME_GM_RSP, data = rspData }
+        end
+
+        platform.serviceCall("game/db", "addItem", player.role_id, itemId, count)
+        platform.log("info", "GM additem: roleId=" .. tostring(player.role_id) .. " item=" .. itemId .. " count=" .. count)
+
+        local rspData = protos.game.GmCommandResponse.encode({
+            code = ErrorCode.SUCCESS,
+            message = "added " .. count .. "x " .. (itemTable[itemId].name or itemId),
+            items = buildItemsProto(player.role_id),
+        })
+        return { msg_id = MessageId.GAME_GM_RSP, data = rspData }
+    end
+
+    local rspData = protos.game.GmCommandResponse.encode({
+        code = ErrorCode.INVALID_REQUEST,
+        message = "unknown command: " .. cmd,
+    })
+    return { msg_id = MessageId.GAME_GM_RSP, data = rspData }
+end
+
 function handlers.login(msg)
     platform.log("info", "Player login (pool " .. pool_id .. ")", msg.userId)
     local player = platform.serviceCall("game/db", "queryPlayer", msg.userId)

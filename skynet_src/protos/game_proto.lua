@@ -84,4 +84,16 @@ M.DropItemResponse = {
     decode = function(data) return pb.decode("game.DropItemResponse", data) end,
 }
 
+-- Fields: command(string) -- 命令名（如 "additem"） args(string) -- 参数（如 "1001:5"）
+M.GmCommandRequest = {
+    encode = function(data) return pb.encode("game.GmCommandRequest", data) end,
+    decode = function(data) return pb.decode("game.GmCommandRequest", data) end,
+}
+
+-- Fields: code(common.ErrorCode) message(string) items(ItemInfo[]) -- 如果影响背包，返回更新后的背包
+M.GmCommandResponse = {
+    encode = function(data) return pb.encode("game.GmCommandResponse", data) end,
+    decode = function(data) return pb.decode("game.GmCommandResponse", data) end,
+}
+
 return M

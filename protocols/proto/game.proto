@@ -154,3 +154,24 @@ message DropItemResponse {
   string message = 2;
   repeated ItemInfo items = 3;   // 更新后的完整背包
 }
+
+/**
+ * ==================== GM 系统 ====================
+ */
+
+/**
+ * GM 命令请求
+ */
+message GmCommandRequest {
+  string command = 1;            // 命令名（如 "additem"）
+  string args = 2;               // 参数（如 "1001:5"）
+}
+
+/**
+ * GM 命令响应
+ */
+message GmCommandResponse {
+  common.ErrorCode code = 1;
+  string message = 2;
+  repeated ItemInfo items = 3;   // 如果影响背包，返回更新后的背包
+}

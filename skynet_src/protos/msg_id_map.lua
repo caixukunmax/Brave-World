@@ -31,6 +31,8 @@ M.name = {
     [331] = "GAME_USE_ITEM_RSP",
     [332] = "GAME_DROP_ITEM_REQ",
     [333] = "GAME_DROP_ITEM_RSP",
+    [340] = "GAME_GM_REQ",
+    [341] = "GAME_GM_RSP",
 }
 
 -- msg_id → protobuf 类型（用于解码包体内容）
@@ -57,6 +59,8 @@ M.type = {
     [331] = "game.UseItemResponse",
     [332] = "game.DropItemRequest",
     [333] = "game.DropItemResponse",
+    [340] = "game.GmRequest",
+    [341] = "game.GmResponse",
 }
 
 return M

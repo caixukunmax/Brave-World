@@ -1,4 +1,4 @@
-[gd_scene load_steps=11 format=3]
+[gd_scene load_steps=12 format=3]
 
 [ext_resource type="Script" path="res://Scripts/GridManager.cs" id="1_grid"]
 [ext_resource type="Script" path="res://Scripts/Player.cs" id="2_player"]
@@ -9,6 +9,7 @@
 [ext_resource type="Script" path="res://Scripts/TestDebugButton.cs" id="7_test"]
 [ext_resource type="Script" path="res://Scripts/InventoryManager.cs" id="8_inv"]
 [ext_resource type="Script" path="res://Scripts/InventoryUI.cs" id="9_invui"]
+[ext_resource type="Script" path="res://Scripts/GMPanel.cs" id="10_gm"]
 
 [node name="Main" type="Node2D"]
 
@@ -76,3 +77,7 @@ script = ExtResource("8_inv")
 
 [node name="InventoryUI" type="CanvasLayer" parent="."]
 script = ExtResource("9_invui")
+
+[node name="GMPanel" type="CanvasLayer" parent="."]
+layer = 100
+script = ExtResource("10_gm")

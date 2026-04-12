@@ -335,10 +335,22 @@ namespace ClinetCSharp
                         {
                             var rsp = Game.MoveResponse.Parser.ParseFrom(data);
                             GD.Print($"[NetworkManager] MoveResponse: code={rsp.Code}, pos=({rsp.X},{rsp.Y})");
-                            // 转发给 Player
                             var player = GetTree()?.GetFirstNodeInGroup("player");
                             if (player is Player playerObj)
                                 playerObj.OnMoveResponse(rsp);
+                        }
+                        break;
+
+                    case MessageId.GameGmRsp:
+                        {
+                            var rsp = Game.GmCommandResponse.Parser.ParseFrom(data);
+                            GD.Print($"[NetworkManager] GM response: code={rsp.Code}, msg={rsp.Message}");
+                            // 查找 GMPanel（在 Main 场景下）
+                            foreach (var child in GetTree().Root.GetChildren())
+                            {
+                                var gm = child.GetNodeOrNull<GMPanel>("GMPanel");
+                                if (gm != null) { gm.OnGmResponse(rsp); break; }
+                            }
                         }
                         break;
                 }
