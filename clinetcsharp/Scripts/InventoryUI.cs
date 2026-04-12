@@ -61,7 +61,7 @@ namespace ClinetCSharp
             _panel.Size = new Vector2(panelWidth, panelHeight);
 
             var vbox = new VBoxContainer();
-            vbox.SetAnchorsPreset((int)Control.LayoutPreset.FullRect);
+            vbox.SetAnchorsPreset(Control.LayoutPreset.FullRect);
             vbox.OffsetLeft = 8;
             vbox.OffsetTop = 8;
             vbox.OffsetRight = -8;
