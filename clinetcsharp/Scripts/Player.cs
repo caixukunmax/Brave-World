@@ -1,5 +1,6 @@
 using Godot;
 using Godot.Collections;
+using Protocol;
 
 namespace ClinetCSharp
 {
@@ -884,6 +885,9 @@ namespace ClinetCSharp
 
         // ========== 移动系统 ==========
 
+        // 服务器校验前的位置（用于回滚）
+        private Vector2I _confirmedGridPos = new Vector2I(25, 25);
+
         public override void _Process(double _delta)
         {
             if (!IsMoving)
@@ -919,6 +923,9 @@ namespace ClinetCSharp
             if (gridManager != null && !gridManager.IsWalkable(targetGridPos))
                 return;
 
+            // 记录校验前位置
+            _confirmedGridPos = GridPos;
+
             GridPos = targetGridPos;
             var targetWorldPos = GridToWorld(GridPos);
             IsMoving = true;
@@ -928,12 +935,54 @@ namespace ClinetCSharp
             tween.SetEase(Tween.EaseType.Out);
             tween.TweenProperty(this, "position", targetWorldPos, MoveDuration);
             tween.Finished += OnMoveFinished;
+
+            // 向服务器发送移动请求
+            SendMoveRequest(_confirmedGridPos, targetGridPos);
         }
 
         private void OnMoveFinished()
         {
             IsMoving = false;
             Position = GridToWorld(GridPos);
+        }
+
+        private void SendMoveRequest(Vector2I from, Vector2I to)
+        {
+            var nm = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
+            if (nm == null || !nm.IsServerConnected())
+                return;
+
+            var req = new Game.MoveRequest
+            {
+                FromX = from.X,
+                FromY = from.Y,
+                ToX = to.X,
+                ToY = to.Y,
+                MapName = "xinshoucun",
+            };
+
+            nm.SendPacket(MessageId.GameMoveReq, req);
+        }
+
+        /// <summary>
+        /// 供 NetworkManager 收到 MoveResponse 时调用
+        /// </summary>
+        public void OnMoveResponse(Game.MoveResponse rsp)
+        {
+            if (rsp.Code != Common.ErrorCode.Success)
+            {
+                // 服务器拒绝，回滚到确认位置
+                var rollbackPos = new Vector2I((int)rsp.X, (int)rsp.Y);
+                GD.Print($"[Player] Move rejected by server, rollback to ({rollbackPos.X}, {rollbackPos.Y})");
+                GridPos = rollbackPos;
+                _confirmedGridPos = rollbackPos;
+                Position = GridToWorld(GridPos);
+                IsMoving = false;
+            }
+            else
+            {
+                _confirmedGridPos = new Vector2I((int)rsp.X, (int)rsp.Y);
+            }
         }
 
         private Vector2 GridToWorld(Vector2I pos)

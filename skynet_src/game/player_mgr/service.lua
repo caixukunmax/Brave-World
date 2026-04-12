@@ -41,6 +41,17 @@ handlers[MessageId.GAME_ENTER_GAME_REQ] = function(msg)
     return skynet.call(getPool(claims.account_id), "lua", "enterGame", msg, claims)
 end
 
+handlers[MessageId.GAME_MOVE_REQ] = function(msg)
+    if not msg.token or msg.token == "" then
+        return common.makeError(MessageId.GAME_MOVE_RSP, ErrorCode.UNAUTHORIZED)
+    end
+    local claims = common.token_validate_gateway(msg.token)
+    if not claims then
+        return common.makeError(MessageId.GAME_MOVE_RSP, ErrorCode.UNAUTHORIZED)
+    end
+    return skynet.call(getPool(claims.account_id), "lua", "move", msg, claims)
+end
+
 -- 命令路由
 function handlers.login(msg)
     return skynet.call(getPool(msg.userId), "lua", "login", msg)

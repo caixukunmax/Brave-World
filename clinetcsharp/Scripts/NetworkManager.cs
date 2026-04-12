@@ -320,6 +320,17 @@ namespace ClinetCSharp
                             }
                         }
                         break;
+
+                    case MessageId.GameMoveRsp:
+                        {
+                            var rsp = Game.MoveResponse.Parser.ParseFrom(data);
+                            GD.Print($"[NetworkManager] MoveResponse: code={rsp.Code}, pos=({rsp.X},{rsp.Y})");
+                            // 转发给 Player
+                            var player = GetTree()?.GetFirstNodeInGroup("player");
+                            if (player is Player playerObj)
+                                playerObj.OnMoveResponse(rsp);
+                        }
+                        break;
                 }
             }
             catch (Exception e)

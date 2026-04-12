@@ -24,6 +24,8 @@ local MessageId = {
     GAME_ENTER_GAME_RSP = 321,
     GAME_CREATE_ROLE_REQ = 322,
     GAME_CREATE_ROLE_RSP = 323,
+    GAME_MOVE_REQ = 324,
+    GAME_MOVE_RSP = 325,
 }
 
 return {

@@ -91,3 +91,28 @@ message CreateRoleResponse {
   repeated TaskInfo tasks = 5;          // 初始任务
   uint32 server_time = 6;               // 服务器时间
 }
+
+/**
+ * ==================== 移动系统 ====================
+ */
+
+/**
+ * 移动请求（客户端预测：先移动后确认）
+ */
+message MoveRequest {
+  int32 from_x = 1;             // 起点 X
+  int32 from_y = 2;             // 起点 Y
+  int32 to_x = 3;               // 终点 X
+  int32 to_y = 4;               // 终点 Y
+  string map_name = 5;          // 地图名
+}
+
+/**
+ * 移动响应
+ */
+message MoveResponse {
+  common.ErrorCode code = 1;
+  string message = 2;
+  int32 x = 3;                  // 服务器确认的位置 X（失败时为合法位置）
+  int32 y = 4;                  // 服务器确认的位置 Y
+}

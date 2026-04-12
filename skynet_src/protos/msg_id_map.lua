@@ -25,6 +25,8 @@ M.name = {
     [321] = "GAME_ENTER_GAME_RSP",
     [322] = "GAME_CREATE_ROLE_REQ",
     [323] = "GAME_CREATE_ROLE_RSP",
+    [324] = "GAME_MOVE_REQ",
+    [325] = "GAME_MOVE_RSP",
 }
 
 -- msg_id → protobuf 类型（用于解码包体内容）
@@ -45,6 +47,8 @@ M.type = {
     [321] = "game.EnterGameResponse",
     [322] = "game.CreateRoleRequest",
     [323] = "game.CreateRoleResponse",
+    [324] = "game.MoveRequest",
+    [325] = "game.MoveResponse",
 }
 
 return M

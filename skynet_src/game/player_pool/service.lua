@@ -152,6 +152,56 @@ function handlers.enterGame(msg, claims)
     return { msg_id = MessageId.GAME_ENTER_GAME_RSP, data = rspData }
 end
 
+function handlers.move(msg, claims)
+    local req = protos.game.MoveRequest.decode(msg.data)
+    if not req then
+        return common.makeError(MessageId.GAME_MOVE_RSP, ErrorCode.INVALID_REQUEST)
+    end
+
+    local fromX, fromY = req.from_x or 0, req.from_y or 0
+    local toX, toY = req.to_x or 0, req.to_y or 0
+    local mapName = req.map_name or ""
+
+    -- 校验移动距离（只允许相邻格）
+    local dx = math.abs(toX - fromX)
+    local dy = math.abs(toY - fromY)
+    if dx + dy ~= 1 then
+        local rspData = protos.game.MoveResponse.encode({
+            code = ErrorCode.INVALID_REQUEST,
+            message = "invalid distance",
+            x = fromX,
+            y = fromY,
+        })
+        return { msg_id = MessageId.GAME_MOVE_RSP, data = rspData }
+    end
+
+    -- 校验地图数据
+    if mapName == "" or not common.isWalkable(mapName, toX, toY) then
+        local rspData = protos.game.MoveResponse.encode({
+            code = ErrorCode.FORBIDDEN,
+            message = "target not walkable",
+            x = fromX,
+            y = fromY,
+        })
+        return { msg_id = MessageId.GAME_MOVE_RSP, data = rspData }
+    end
+
+    -- 更新在线玩家位置
+    local player = onlinePlayers[claims.account_id]
+    if player then
+        player.grid_x = toX
+        player.grid_y = toY
+    end
+
+    local rspData = protos.game.MoveResponse.encode({
+        code = ErrorCode.SUCCESS,
+        message = "",
+        x = toX,
+        y = toY,
+    })
+    return { msg_id = MessageId.GAME_MOVE_RSP, data = rspData }
+end
+
 function handlers.login(msg)
     platform.log("info", "Player login (pool " .. pool_id .. ")", msg.userId)
     local player = platform.serviceCall("game/db", "queryPlayer", msg.userId)

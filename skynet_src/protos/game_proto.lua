@@ -48,4 +48,16 @@ M.CreateRoleResponse = {
     decode = function(data) return pb.decode("game.CreateRoleResponse", data) end,
 }
 
+-- Fields: from_x(int32) -- 起点 X from_y(int32) -- 起点 Y to_x(int32) -- 终点 X to_y(int32) -- 终点 Y map_name(string) -- 地图名
+M.MoveRequest = {
+    encode = function(data) return pb.encode("game.MoveRequest", data) end,
+    decode = function(data) return pb.decode("game.MoveRequest", data) end,
+}
+
+-- Fields: code(common.ErrorCode) message(string) x(int32) -- 服务器确认的位置 X（失败时为合法位置） y(int32) -- 服务器确认的位置 Y
+M.MoveResponse = {
+    encode = function(data) return pb.encode("game.MoveResponse", data) end,
+    decode = function(data) return pb.decode("game.MoveResponse", data) end,
+}
+
 return M
