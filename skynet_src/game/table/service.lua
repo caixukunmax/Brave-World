@@ -64,7 +64,7 @@ skynet.start(function()
         for filepath in f:lines() do
             local name = filepath:match("([^/]+)%.lua$")
             if name then
-                sharetable.loadfile("tables/data/" .. name)
+                sharetable.loadfile("tables/data/" .. name .. ".lua")
                 count = count + 1
                 skynet.error("[Table] Loaded map: " .. name)
             end
