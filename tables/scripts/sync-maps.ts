@@ -69,7 +69,7 @@ function generateLua(mapName: string, data: { width: number; height: number; cel
       // Lua 1-based array: sharetable 要求 [key] = value 格式
       rowCells.push(`[${idx + 1}] = "${data.cells[idx]}"`);
     }
-    lines.push(`        ${rowCells.join(', ')}`);
+    lines.push(`        ${rowCells.join(', ')},`);
   }
 
   lines.push(`    }`);
