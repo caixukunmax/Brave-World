@@ -952,6 +952,10 @@ namespace ClinetCSharp
             if (nm == null || !nm.IsServerConnected())
                 return;
 
+            // 测试直通模式没有有效的 gateway token，跳过服务器校验
+            if (string.IsNullOrEmpty(nm.GatewayToken))
+                return;
+
             var req = new Game.MoveRequest
             {
                 FromX = from.X,
@@ -973,6 +977,9 @@ namespace ClinetCSharp
             {
                 // 服务器拒绝，回滚到确认位置
                 var rollbackPos = new Vector2I((int)rsp.X, (int)rsp.Y);
+                // 防御：如果服务器返回 (0,0) 无效位置，用本地确认位置
+                if (rollbackPos.X == 0 && rollbackPos.Y == 0)
+                    rollbackPos = _confirmedGridPos;
                 GD.Print($"[Player] Move rejected by server, rollback to ({rollbackPos.X}, {rollbackPos.Y})");
                 GridPos = rollbackPos;
                 _confirmedGridPos = rollbackPos;
