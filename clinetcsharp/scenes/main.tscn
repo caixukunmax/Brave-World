@@ -1,4 +1,4 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene load_steps=11 format=3]
 
 [ext_resource type="Script" path="res://Scripts/GridManager.cs" id="1_grid"]
 [ext_resource type="Script" path="res://Scripts/Player.cs" id="2_player"]
@@ -7,6 +7,8 @@
 [ext_resource type="Script" path="res://Scripts/MapEditor.cs" id="5_editor"]
 [ext_resource type="Script" path="res://Scripts/AuthChecker.cs" id="6_auth"]
 [ext_resource type="Script" path="res://Scripts/TestDebugButton.cs" id="7_test"]
+[ext_resource type="Script" path="res://Scripts/InventoryManager.cs" id="8_inv"]
+[ext_resource type="Script" path="res://Scripts/InventoryUI.cs" id="9_invui"]
 
 [node name="Main" type="Node2D"]
 
@@ -68,3 +70,9 @@ script = ExtResource("7_test")
 
 [node name="MapEditor" type="Node2D" parent="."]
 script = ExtResource("5_editor")
+
+[node name="InventoryManager" type="Node" parent="." groups=["inventory_manager"]]
+script = ExtResource("8_inv")
+
+[node name="InventoryUI" type="CanvasLayer" parent="."]
+script = ExtResource("9_invui")
