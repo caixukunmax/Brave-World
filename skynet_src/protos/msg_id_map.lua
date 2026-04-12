@@ -27,6 +27,10 @@ M.name = {
     [323] = "GAME_CREATE_ROLE_RSP",
     [324] = "GAME_MOVE_REQ",
     [325] = "GAME_MOVE_RSP",
+    [330] = "GAME_USE_ITEM_REQ",
+    [331] = "GAME_USE_ITEM_RSP",
+    [332] = "GAME_DROP_ITEM_REQ",
+    [333] = "GAME_DROP_ITEM_RSP",
 }
 
 -- msg_id → protobuf 类型（用于解码包体内容）
@@ -49,6 +53,10 @@ M.type = {
     [323] = "game.CreateRoleResponse",
     [324] = "game.MoveRequest",
     [325] = "game.MoveResponse",
+    [330] = "game.UseItemRequest",
+    [331] = "game.UseItemResponse",
+    [332] = "game.DropItemRequest",
+    [333] = "game.DropItemResponse",
 }
 
 return M

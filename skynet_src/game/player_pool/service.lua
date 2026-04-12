@@ -16,6 +16,31 @@ local protos = common.protos
 local onlinePlayers = {}
 
 --------------------------------------------------------------------------------
+-- 辅助：解析 "1001:1,1002:10" 格式的初始物品
+--------------------------------------------------------------------------------
+local function parseInitItems(str)
+    local items = {}
+    if not str or str == "" then return items end
+    for pair in str:gmatch("([^,]+)") do
+        local id, count = pair:match("^(%d+):(%d+)$")
+        if id and count then
+            items[#items + 1] = { item_id = tonumber(id), count = tonumber(count) }
+        end
+    end
+    return items
+end
+
+-- 辅助：从 DB 查询结果构建 proto items 数组
+local function buildItemsProto(roleId)
+    local dbItems = platform.serviceCall("game/db", "getInventory", roleId)
+    local items = {}
+    for _, row in ipairs(dbItems) do
+        items[#items + 1] = { item_id = row.item_id, count = row.count }
+    end
+    return items
+end
+
+--------------------------------------------------------------------------------
 -- handlers: 由 player_mgr 调用
 --------------------------------------------------------------------------------
 local handlers = {}
@@ -69,6 +94,19 @@ function handlers.createRole(msg, claims)
     }
     platform.serviceCall("game/db", "createRole", roleData)
 
+    -- 初始化背包：从 RoleInitConfig 读取初始物品
+    local initConfig = common.queryTable("TbRoleInitConfig")
+    local initItems = {}
+    if initConfig then
+        for _, cfg in pairs(initConfig) do
+            initItems = parseInitItems(cfg.init_items or "")
+            break
+        end
+    end
+    for _, item in ipairs(initItems) do
+        platform.serviceCall("game/db", "addItem", roleId, item.item_id, item.count)
+    end
+
     local response = {
         code    = ErrorCode.SUCCESS,
         message = "",
@@ -88,7 +126,7 @@ function handlers.createRole(msg, claims)
             title           = "新手",
             status          = "在线",
         },
-        items       = {},
+        items       = initItems,
         tasks       = {},
         server_time = now,
     }
@@ -123,6 +161,8 @@ function handlers.enterGame(msg, claims)
     platform.serviceSend("game/db", "updateRole", roleId, { last_login_time = now })
     onlinePlayers[claims.account_id] = role
 
+    local items = buildItemsProto(roleId)
+
     local response = {
         code    = ErrorCode.SUCCESS,
         message = "",
@@ -142,7 +182,7 @@ function handlers.enterGame(msg, claims)
             title           = role.title or "新手",
             status          = role.status or "在线",
         },
-        items       = {},
+        items       = items,
         tasks       = {},
         server_time = now,
     }
@@ -200,6 +240,78 @@ function handlers.move(msg, claims)
         y = toY,
     })
     return { msg_id = MessageId.GAME_MOVE_RSP, data = rspData }
+end
+
+function handlers.useItem(msg, claims)
+    local req = protos.game.UseItemRequest.decode(msg.data)
+    if not req then
+        return common.makeError(MessageId.GAME_USE_ITEM_RSP, ErrorCode.INVALID_REQUEST)
+    end
+
+    local player = onlinePlayers[claims.account_id]
+    if not player then
+        return common.makeError(MessageId.GAME_USE_ITEM_RSP, ErrorCode.UNAUTHORIZED)
+    end
+
+    local itemId = req.item_id or 0
+    local count = req.count or 0
+    if itemId == 0 or count == 0 then
+        return common.makeError(MessageId.GAME_USE_ITEM_RSP, ErrorCode.INVALID_REQUEST)
+    end
+
+    local ok = platform.serviceCall("game/db", "removeItem", player.role_id, itemId, count)
+    if not ok then
+        local rspData = protos.game.UseItemResponse.encode({
+            code = ErrorCode.NOT_FOUND,
+            message = "item not enough",
+            items = buildItemsProto(player.role_id),
+        })
+        return { msg_id = MessageId.GAME_USE_ITEM_RSP, data = rspData }
+    end
+
+    platform.log("info", "UseItem: roleId=" .. tostring(player.role_id) .. " itemId=" .. itemId .. " count=" .. count)
+    local rspData = protos.game.UseItemResponse.encode({
+        code = ErrorCode.SUCCESS,
+        message = "",
+        items = buildItemsProto(player.role_id),
+    })
+    return { msg_id = MessageId.GAME_USE_ITEM_RSP, data = rspData }
+end
+
+function handlers.dropItem(msg, claims)
+    local req = protos.game.DropItemRequest.decode(msg.data)
+    if not req then
+        return common.makeError(MessageId.GAME_DROP_ITEM_RSP, ErrorCode.INVALID_REQUEST)
+    end
+
+    local player = onlinePlayers[claims.account_id]
+    if not player then
+        return common.makeError(MessageId.GAME_DROP_ITEM_RSP, ErrorCode.UNAUTHORIZED)
+    end
+
+    local itemId = req.item_id or 0
+    local count = req.count or 0
+    if itemId == 0 or count == 0 then
+        return common.makeError(MessageId.GAME_DROP_ITEM_RSP, ErrorCode.INVALID_REQUEST)
+    end
+
+    local ok = platform.serviceCall("game/db", "removeItem", player.role_id, itemId, count)
+    if not ok then
+        local rspData = protos.game.DropItemResponse.encode({
+            code = ErrorCode.NOT_FOUND,
+            message = "item not enough",
+            items = buildItemsProto(player.role_id),
+        })
+        return { msg_id = MessageId.GAME_DROP_ITEM_RSP, data = rspData }
+    end
+
+    platform.log("info", "DropItem: roleId=" .. tostring(player.role_id) .. " itemId=" .. itemId .. " count=" .. count)
+    local rspData = protos.game.DropItemResponse.encode({
+        code = ErrorCode.SUCCESS,
+        message = "",
+        items = buildItemsProto(player.role_id),
+    })
+    return { msg_id = MessageId.GAME_DROP_ITEM_RSP, data = rspData }
 end
 
 function handlers.login(msg)

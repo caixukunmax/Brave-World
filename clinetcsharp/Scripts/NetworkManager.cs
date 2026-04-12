@@ -305,6 +305,10 @@ namespace ClinetCSharp
                                 CachedRoleInfo = rsp.RoleInfo;
                                 ServerTime = rsp.ServerTime;
                                 GD.Print($"[NetworkManager] EnterGame cached, name={rsp.RoleInfo.RoleName} level={rsp.RoleInfo.Level}");
+                                // 转发背包数据给 InventoryManager
+                                var inv = GetTree()?.GetFirstNodeInGroup("inventory_manager");
+                                if (inv is InventoryManager invObj && rsp.Items.Count > 0)
+                                    invObj.UpdateFromProto(rsp.Items);
                             }
                         }
                         break;
@@ -315,6 +319,12 @@ namespace ClinetCSharp
                             if (rsp.Code == Common.ErrorCode.Success && rsp.RoleInfo != null)
                             {
                                 CachedRoleInfo = rsp.RoleInfo;
+                                ServerTime = rsp.ServerTime;
+                                GD.Print($"[NetworkManager] CreateRole cached, name={rsp.RoleInfo.RoleName}");
+                                // 转发背包数据
+                                var inv = GetTree()?.GetFirstNodeInGroup("inventory_manager");
+                                if (inv is InventoryManager invObj && rsp.Items.Count > 0)
+                                    invObj.UpdateFromProto(rsp.Items);
                                 ServerTime = rsp.ServerTime;
                                 GD.Print($"[NetworkManager] CreateRole cached, name={rsp.RoleInfo.RoleName}");
                             }

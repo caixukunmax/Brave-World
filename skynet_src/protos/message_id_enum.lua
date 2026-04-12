@@ -26,6 +26,10 @@ local MessageId = {
     GAME_CREATE_ROLE_RSP = 323,
     GAME_MOVE_REQ = 324,
     GAME_MOVE_RSP = 325,
+    GAME_USE_ITEM_REQ = 330,
+    GAME_USE_ITEM_RSP = 331,
+    GAME_DROP_ITEM_REQ = 332,
+    GAME_DROP_ITEM_RSP = 333,
 }
 
 return {

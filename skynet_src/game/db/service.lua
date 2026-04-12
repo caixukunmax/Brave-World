@@ -14,6 +14,7 @@ local accountsCol
 local rolesCol
 local serversCol
 local countersCol
+local inventoriesCol
 
 --------------------------------------------------------------------------------
 -- 内部: 获取自增 ID
@@ -195,6 +196,40 @@ function CMD.getNextRoleId()
     return getNextId("role_id")
 end
 
+-- ========== inventories ==========
+
+function CMD.getInventory(roleId)
+    return findArray(inventoriesCol, { role_id = roleId })
+end
+
+function CMD.addItem(roleId, itemId, count)
+    local existing = inventoriesCol:findOne({ role_id = roleId, item_id = itemId })
+    if existing then
+        local newCount = (existing.count or 0) + count
+        inventoriesCol:update(
+            { role_id = roleId, item_id = itemId },
+            { ["$set"] = { count = newCount } },
+            false)
+    else
+        inventoriesCol:insert({ role_id = roleId, item_id = itemId, count = count })
+    end
+end
+
+function CMD.removeItem(roleId, itemId, count)
+    local existing = inventoriesCol:findOne({ role_id = roleId, item_id = itemId })
+    if not existing then return false end
+    local newCount = (existing.count or 0) - count
+    if newCount <= 0 then
+        inventoriesCol:delete({ role_id = roleId, item_id = itemId })
+    else
+        inventoriesCol:update(
+            { role_id = roleId, item_id = itemId },
+            { ["$set"] = { count = newCount } },
+            false)
+    end
+    return true
+end
+
 -- ========== servers ==========
 
 function CMD.getServers()
@@ -228,6 +263,7 @@ common.defineService("db", CMD, {
         rolesCol    = db["roles"]
         serversCol  = db["servers"]
         countersCol = db["counters"]
+        inventoriesCol = db["inventories"]
 
         platform.log("info", "MongoDB connected")
         ensureIndexes()

@@ -60,4 +60,28 @@ M.MoveResponse = {
     decode = function(data) return pb.decode("game.MoveResponse", data) end,
 }
 
+-- Fields: item_id(uint32) -- 物品ID count(uint32) -- 使用数量
+M.UseItemRequest = {
+    encode = function(data) return pb.encode("game.UseItemRequest", data) end,
+    decode = function(data) return pb.decode("game.UseItemRequest", data) end,
+}
+
+-- Fields: code(common.ErrorCode) message(string) items(ItemInfo[]) -- 更新后的完整背包
+M.UseItemResponse = {
+    encode = function(data) return pb.encode("game.UseItemResponse", data) end,
+    decode = function(data) return pb.decode("game.UseItemResponse", data) end,
+}
+
+-- Fields: item_id(uint32) -- 物品ID count(uint32) -- 丢弃数量
+M.DropItemRequest = {
+    encode = function(data) return pb.encode("game.DropItemRequest", data) end,
+    decode = function(data) return pb.decode("game.DropItemRequest", data) end,
+}
+
+-- Fields: code(common.ErrorCode) message(string) items(ItemInfo[]) -- 更新后的完整背包
+M.DropItemResponse = {
+    encode = function(data) return pb.encode("game.DropItemResponse", data) end,
+    decode = function(data) return pb.decode("game.DropItemResponse", data) end,
+}
+
 return M

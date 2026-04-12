@@ -116,3 +116,41 @@ message MoveResponse {
   int32 x = 3;                  // 服务器确认的位置 X（失败时为合法位置）
   int32 y = 4;                  // 服务器确认的位置 Y
 }
+
+/**
+ * ==================== 背包系统 ====================
+ */
+
+/**
+ * 使用物品请求
+ */
+message UseItemRequest {
+  uint32 item_id = 1;            // 物品ID
+  uint32 count = 2;              // 使用数量
+}
+
+/**
+ * 使用物品响应
+ */
+message UseItemResponse {
+  common.ErrorCode code = 1;
+  string message = 2;
+  repeated ItemInfo items = 3;   // 更新后的完整背包
+}
+
+/**
+ * 丢弃物品请求
+ */
+message DropItemRequest {
+  uint32 item_id = 1;            // 物品ID
+  uint32 count = 2;              // 丢弃数量
+}
+
+/**
+ * 丢弃物品响应
+ */
+message DropItemResponse {
+  common.ErrorCode code = 1;
+  string message = 2;
+  repeated ItemInfo items = 3;   // 更新后的完整背包
+}
