@@ -52,19 +52,27 @@ namespace ClinetCSharp
 
         private void BuildUI()
         {
-            _panel = new Panel
-            {
-                AnchorsPreset = (int)Control.LayoutPreset.Center,
-                OffsetLeft = -200,
-                OffsetTop = -250,
-                OffsetRight = 200,
-                OffsetBottom = 250,
-            };
+            var viewportSize = GetViewport().GetVisibleRect().Size;
+            var panelWidth = 420f;
+            var panelHeight = 520f;
+
+            _panel = new Panel();
+            _panel.Position = new Vector2((viewportSize.X - panelWidth) / 2, (viewportSize.Y - panelHeight) / 2);
+            _panel.Size = new Vector2(panelWidth, panelHeight);
 
             var vbox = new VBoxContainer
             {
-                SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+                LayoutMode = 1,
+                AnchorsPreset = 15, // full rect
             };
+            vbox.SetAnchor(Control.LayoutPreset.Begin, 0);
+            vbox.SetAnchor(Control.LayoutPreset.End, 1);
+            vbox.SetAnchor(Control.LayoutPreset.Top, 0);
+            vbox.SetAnchor(Control.LayoutPreset.Bottom, 1);
+            vbox.OffsetLeft = 8;
+            vbox.OffsetTop = 8;
+            vbox.OffsetRight = -8;
+            vbox.OffsetBottom = -8;
 
             // 标题
             _titleLabel = new Label
@@ -124,7 +132,23 @@ namespace ClinetCSharp
                 child.QueueFree();
 
             var inv = GetNodeOrNull<InventoryManager>("/root/Main/InventoryManager");
-            if (inv == null) return;
+            if (inv == null)
+            {
+                GD.PrintErr("[InventoryUI] RefreshGrid: InventoryManager not found");
+                // 填充空格子
+                for (int i = 0; i < 20; i++)
+                {
+                    var empty = new Button
+                    {
+                        CustomMinimumSize = new Vector2(70, 70),
+                        Disabled = true,
+                    };
+                    _grid.AddChild(empty);
+                }
+                return;
+            }
+
+            GD.Print($"[InventoryUI] RefreshGrid: {inv.Items.Count} items");
 
             foreach (var slot in inv.Items)
             {
