@@ -25,17 +25,26 @@ namespace ClinetCSharp
 
         public override void _Ready()
         {
+            GD.Print("[InventoryUI] _Ready() called");
             BuildUI();
 
-            var inv = GetNodeOrNull<InventoryManager>("/root/InventoryManager");
+            var inv = GetNodeOrNull<InventoryManager>("/root/Main/InventoryManager");
             if (inv != null)
+            {
                 inv.InventoryChanged += OnInventoryChanged;
+                GD.Print("[InventoryUI] Connected to InventoryManager");
+            }
+            else
+            {
+                GD.PrintErr("[InventoryUI] InventoryManager not found!");
+            }
         }
 
-        public override void _UnhandledInput(InputEvent @event)
+        public override void _Input(InputEvent @event)
         {
-            if (@event is InputEventKey key && key.Pressed && key.Keycode == Key.I)
+            if (@event is InputEventKey key && key.Pressed && !key.Echo && key.Keycode == Key.I)
             {
+                GD.Print("[InventoryUI] I key pressed, toggling");
                 Toggle();
                 GetViewport().SetInputAsHandled();
             }
@@ -114,7 +123,7 @@ namespace ClinetCSharp
             foreach (var child in _grid.GetChildren())
                 child.QueueFree();
 
-            var inv = GetNodeOrNull<InventoryManager>("/root/InventoryManager");
+            var inv = GetNodeOrNull<InventoryManager>("/root/Main/InventoryManager");
             if (inv == null) return;
 
             foreach (var slot in inv.Items)
@@ -160,7 +169,7 @@ namespace ClinetCSharp
 
             popup.IdPressed += (id) =>
             {
-                var inv = GetNodeOrNull<InventoryManager>("/root/InventoryManager");
+                var inv = GetNodeOrNull<InventoryManager>("/root/Main/InventoryManager");
                 if (inv == null) return;
 
                 if (id == 0)

@@ -29,10 +29,18 @@ namespace ClinetCSharp
         public override void _Ready()
         {
             AddToGroup("inventory_manager");
+            GD.Print("[InventoryManager] _Ready() called");
 
             var nm = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
             if (nm != null)
+            {
                 nm.PacketReceived += OnPacketReceived;
+                GD.Print("[InventoryManager] Connected to NetworkManager");
+            }
+            else
+            {
+                GD.PrintErr("[InventoryManager] NetworkManager not found!");
+            }
         }
 
         /// <summary>
