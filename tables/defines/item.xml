@@ -131,45 +131,7 @@
 		<var name="BAO_NUAN" alias="保暖" />
 	</enum>
 	
-	<bean name="Item" comment="道具">
-		<var name="id" type="int" comment="道具 id"/>
-		<var name="name" type="string"/>
-		<var name="major_type" type="EMajorType" group="c,s"/>
-		<var name="minor_type" type="EMinorType"/>
-		<var name="max_pile_num" type="int" group="s"/>
-		<var name="quality" type="EItemQuality"/>
-		<var name="icon" type="string" group="c"/>
-		<var name="icon_backgroud" type="string"/>
-		<var name="icon_mask" type="string"/>
-		<var name="desc" type="string"/>
-		<var name="show_order" type="int"/>
-	
-	</bean>
-		
-	<table name="TbItem" value="Item" input="通用道具表@item/道具系统表.xlsx" comment="道具表"/>
-	
-	<!-- 新增：道具配置表 -->
-	<bean name="ItemConfig" comment="道具配置">
-		<var name="id" type="int" comment="道具 ID"/>
-		<var name="name" type="string" comment="道具名称"/>
-		<var name="major_type" type="EMajorType" comment="主类型" group="c,s"/>
-		<var name="minor_type" type="EMinorType" comment="子类型"/>
-		<var name="quality" type="EItemQuality" comment="品质"/>
-		<var name="max_pile_num" type="int" comment="最大堆叠数" group="s"/>
-		<var name="icon" type="string" comment="图标路径" group="c"/>
-		<var name="icon_background" type="string" comment="图标背景"/>
-		<var name="icon_mask" type="string" comment="图标遮罩"/>
-		<var name="desc" type="string" comment="描述"/>
-		<var name="show_order" type="int" comment="显示顺序"/>
-		<var name="effect_type" type="string" comment="效果类型"/>
-		<var name="effect_value" type="int" comment="效果数值"/>
-		<var name="price" type="int" comment="价格"/>
-		<var name="can_sell" type="bool" comment="可否出售"/>
-		<var name="obtain_methods" type="string" comment="获取途径"/>
-		<var name="release_date" type="string" comment="上线日期"/>
-	</bean>
-		
-	<table name="TbItemConfig" value="ItemConfig" input="道具配置表@item/道具配置表.xlsx" comment="道具配置表"/>
+
 	
 
 </module>

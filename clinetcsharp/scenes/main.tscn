@@ -1,4 +1,4 @@
-[gd_scene load_steps=12 format=3]
+[gd_scene load_steps=13 format=3]
 
 [ext_resource type="Script" path="res://Scripts/GridManager.cs" id="1_grid"]
 [ext_resource type="Script" path="res://Scripts/Player.cs" id="2_player"]
@@ -10,6 +10,10 @@
 [ext_resource type="Script" path="res://Scripts/InventoryManager.cs" id="8_inv"]
 [ext_resource type="Script" path="res://Scripts/InventoryUI.cs" id="9_invui"]
 [ext_resource type="Script" path="res://Scripts/GMPanel.cs" id="10_gm"]
+[ext_resource type="Script" path="res://Scripts/ChestManager.cs" id="11_chest"]
+[ext_resource type="Script" path="res://Scripts/MonsterManager.cs" id="12_monster"]
+[ext_resource type="Script" path="res://Scripts/MapManager.cs" id="13_map"]
+[ext_resource type="Script" path="res://Scripts/EntityListPanel.cs" id="14_entity_list"]
 
 [node name="Main" type="Node2D"]
 
@@ -81,3 +85,15 @@ script = ExtResource("9_invui")
 [node name="GMPanel" type="CanvasLayer" parent="."]
 layer = 100
 script = ExtResource("10_gm")
+
+[node name="ChestManager" type="Node" parent="." groups=["chest_manager"]]
+script = ExtResource("11_chest")
+
+[node name="MonsterManager" type="Node" parent="." groups=["monster_manager"]]
+script = ExtResource("12_monster")
+
+[node name="MapManager" type="Node" parent="."]
+script = ExtResource("13_map")
+
+[node name="EntityListPanel" type="CanvasLayer" parent="."]
+script = ExtResource("14_entity_list")

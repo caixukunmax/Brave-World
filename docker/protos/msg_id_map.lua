@@ -25,6 +25,19 @@ M.name = {
     [321] = "GAME_ENTER_GAME_RSP",
     [322] = "GAME_CREATE_ROLE_REQ",
     [323] = "GAME_CREATE_ROLE_RSP",
+    [324] = "GAME_MOVE_REQ",
+    [325] = "GAME_MOVE_RSP",
+    [330] = "GAME_USE_ITEM_REQ",
+    [331] = "GAME_USE_ITEM_RSP",
+    [332] = "GAME_DROP_ITEM_REQ",
+    [333] = "GAME_DROP_ITEM_RSP",
+    [340] = "GAME_GM_REQ",
+    [341] = "GAME_GM_RSP",
+    [350] = "GAME_OPEN_CHEST_REQ",
+    [351] = "GAME_OPEN_CHEST_RSP",
+    [352] = "GAME_CHEST_UPDATE_NOTIFY",
+    [360] = "GAME_MAP_INFO_SYNC_NOTIFY",
+    [370] = "GAME_MONSTER_MOVE_NOTIFY",
 }
 
 -- msg_id → protobuf 类型（用于解码包体内容）
@@ -45,6 +58,19 @@ M.type = {
     [321] = "game.EnterGameResponse",
     [322] = "game.CreateRoleRequest",
     [323] = "game.CreateRoleResponse",
+    [324] = "game.MoveRequest",
+    [325] = "game.MoveResponse",
+    [330] = "game.UseItemRequest",
+    [331] = "game.UseItemResponse",
+    [332] = "game.DropItemRequest",
+    [333] = "game.DropItemResponse",
+    [340] = "game.GmRequest",
+    [341] = "game.GmResponse",
+    [350] = "game.OpenChestRequest",
+    [351] = "game.OpenChestResponse",
+    [352] = "game.ChestUpdateNotify",
+    [360] = "game.MapInfoSyncNotify",
+    [370] = "game.MonsterMoveNotify",
 }
 
 return M

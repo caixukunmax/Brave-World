@@ -33,6 +33,18 @@ export interface FullRoleInfo {
   create_time: number;
   /** 上次登录时间 */
   last_login_time: number;
+  /** 职业 */
+  job: string;
+  /** 称号 */
+  title: string;
+  /** 状态 */
+  status: string;
+  /** 当前地图 */
+  current_map: string;
+  /** 格子X */
+  grid_x: number;
+  /** 格子Y */
+  grid_y: number;
 }
 
 /** 道具信息 */
@@ -73,6 +85,8 @@ export interface EnterGameResponse {
   tasks: TaskInfo[];
   /** 服务器时间 */
   server_time: number;
+  /** 地图宝箱列表 */
+  chests: ChestInfo[];
 }
 
 /** 创建角色请求 */
@@ -98,4 +112,167 @@ export interface CreateRoleResponse {
   tasks: TaskInfo[];
   /** 服务器时间 */
   server_time: number;
+  /** 地图宝箱列表 */
+  chests: ChestInfo[];
+}
+
+/** 宝箱更新推送（服务器主动推送新增/删除的宝箱） */
+export interface ChestUpdateNotify {
+  /** 当前地图完整宝箱列表 */
+  chests: ChestInfo[];
+}
+
+/** 移动请求（客户端预测：先移动后确认） */
+export interface MoveRequest {
+  /** 起点 X */
+  from_x: number;
+  /** 起点 Y */
+  from_y: number;
+  /** 终点 X */
+  to_x: number;
+  /** 终点 Y */
+  to_y: number;
+  /** 地图名 */
+  map_name: string;
+}
+
+/** 移动响应 */
+export interface MoveResponse {
+  code: ErrorCode;
+  message: string;
+  /** 服务器确认的位置 X（失败时为合法位置） */
+  x: number;
+  /** 服务器确认的位置 Y */
+  y: number;
+}
+
+/** 使用物品请求 */
+export interface UseItemRequest {
+  /** 物品ID */
+  item_id: number;
+  /** 使用数量 */
+  count: number;
+}
+
+/** 使用物品响应 */
+export interface UseItemResponse {
+  code: ErrorCode;
+  message: string;
+  /** 更新后的完整背包 */
+  items: ItemInfo[];
+}
+
+/** 丢弃物品请求 */
+export interface DropItemRequest {
+  /** 物品ID */
+  item_id: number;
+  /** 丢弃数量 */
+  count: number;
+}
+
+/** 丢弃物品响应 */
+export interface DropItemResponse {
+  code: ErrorCode;
+  message: string;
+  /** 更新后的完整背包 */
+  items: ItemInfo[];
+}
+
+/** GM 命令请求 */
+export interface GmCommandRequest {
+  /** 命令名（如 "additem"） */
+  command: string;
+  /** 参数（如 "1001:5"） */
+  args: string;
+}
+
+/** GM 命令响应 */
+export interface GmCommandResponse {
+  code: ErrorCode;
+  message: string;
+  /** 如果影响背包，返回更新后的背包 */
+  items: ItemInfo[];
+}
+
+/** 怪物属性项 */
+export interface MonsterAttr {
+  /** 属性键（对应 EMonsterAttr） */
+  attr_key: number;
+  /** 属性值 */
+  attr_value: number;
+}
+
+/** 地图上的怪物信息 */
+export interface MonsterInfo {
+  /** 实例配置ID（来自 TbMapMonster.id） */
+  instance_id: number;
+  /** 怪物类型ID（来自 TbMonster.id） */
+  monster_id: number;
+  /** 格子 X */
+  x: number;
+  /** 格子 Y */
+  y: number;
+  /** 怪物名称 */
+  name: string;
+  /** 等级 */
+  level: number;
+  /** 属性列表 */
+  attrs: MonsterAttr[];
+}
+
+/** 怪物移动/状态更新推送（服务器主动广播） */
+export interface MonsterMoveNotify {
+  /** 怪物实例ID */
+  instance_id: number;
+  /** 起点 X */
+  from_x: number;
+  /** 起点 Y */
+  from_y: number;
+  /** 终点 X */
+  to_x: number;
+  /** 终点 Y */
+  to_y: number;
+  /** 状态：idle | patrol | chase | return */
+  state: string;
+}
+
+/** 怪物状态批量更新推送 */
+export interface MonsterStateBatchNotify {
+  monsters: MonsterMoveNotify[];
+}
+
+/** 地图信息同步通知（进入/切换地图时推送） */
+export interface MapInfoSyncNotify {
+  /** 地图名 */
+  map_name: string;
+  /** 地图宝箱列表 */
+  chests: ChestInfo[];
+  /** 地图怪物列表 */
+  monsters: MonsterInfo[];
+}
+
+/** 地图上的宝箱信息 */
+export interface ChestInfo {
+  /** 宝箱实例ID */
+  chest_id: number;
+  /** 格子 X */
+  x: number;
+  /** 格子 Y */
+  y: number;
+  /** 是否已打开 */
+  opened: boolean;
+}
+
+/** 开箱请求 */
+export interface OpenChestRequest {
+  /** 宝箱实例ID */
+  chest_id: number;
+}
+
+/** 开箱响应 */
+export interface OpenChestResponse {
+  code: ErrorCode;
+  message: string;
+  /** 获得的物品 */
+  items: ItemInfo[];
 }

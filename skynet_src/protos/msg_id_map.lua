@@ -33,6 +33,11 @@ M.name = {
     [333] = "GAME_DROP_ITEM_RSP",
     [340] = "GAME_GM_REQ",
     [341] = "GAME_GM_RSP",
+    [350] = "GAME_OPEN_CHEST_REQ",
+    [351] = "GAME_OPEN_CHEST_RSP",
+    [352] = "GAME_CHEST_UPDATE_NOTIFY",
+    [360] = "GAME_MAP_INFO_SYNC_NOTIFY",
+    [370] = "GAME_MONSTER_MOVE_NOTIFY",
 }
 
 -- msg_id → protobuf 类型（用于解码包体内容）
@@ -61,6 +66,11 @@ M.type = {
     [333] = "game.DropItemResponse",
     [340] = "game.GmRequest",
     [341] = "game.GmResponse",
+    [350] = "game.OpenChestRequest",
+    [351] = "game.OpenChestResponse",
+    [352] = "game.ChestUpdateNotify",
+    [360] = "game.MapInfoSyncNotify",
+    [370] = "game.MonsterMoveNotify",
 }
 
 return M

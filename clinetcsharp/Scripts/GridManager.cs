@@ -339,9 +339,21 @@ namespace ClinetCSharp
 
         // ============ 行走检查 ============
 
+        // 被宝箱占据的格子（未开的宝箱阻挡移动）
+        private HashSet<Vector2I> _blockedByChest = new();
+
+        public void BlockCell(Vector2I pos) => _blockedByChest.Add(pos);
+        public void UnblockCell(Vector2I pos) => _blockedByChest.Remove(pos);
+        public bool IsBlockedByChest(Vector2I pos) => _blockedByChest.Contains(pos);
+
         public bool IsWalkable(Vector2I gridPos)
         {
             if (!IsInBounds(gridPos))
+                return false;
+            if (_blockedByChest.Contains(gridPos))
+                return false;
+            var mm = GetTree()?.GetFirstNodeInGroup("monster_manager") as MonsterManager;
+            if (mm != null && mm.IsBlockedByMonster(gridPos))
                 return false;
             var cell = GridData[gridPos.Y][gridPos.X];
             return cell.Exists && cell.Walkable;
@@ -378,7 +390,7 @@ namespace ClinetCSharp
                 UpdateResponsiveGridSize();
         }
 
-        private void UpdateResponsiveGridSize()
+        public void UpdateResponsiveGridSize()
         {
             // 根据视口大小计算格子大小，确保始终显示固定数量的格子
             var viewportSize = GetViewportRect().Size;
@@ -400,10 +412,6 @@ namespace ClinetCSharp
             {
                 GD.Print($"[GridManager] 响应式调整: 视口={viewportSize}, 新格子大小={newGridSize}");
                 SetGridSize(newGridSize);
-
-                // 同步更新玩家大小
-                var player = GetTree().GetFirstNodeInGroup("player") as Player;
-                player?.SetGridSize(newGridSize);
 
                 // 调整相机确保覆盖目标格子数
                 UpdateCameraForResponsive();
@@ -580,10 +588,17 @@ namespace ClinetCSharp
                 GD.PushError($"[GridManager] Invalid grid size: {newSize}, using maximum: {MaxGridSize}");
                 newSize = MaxGridSize;
             }
-            
+
             GridSize = newSize;
             GD.Print($"[GridManager] GridSize set to: {GridSize}");
             QueueRedraw();
+
+            // 作为单一数据源，自动同步玩家和怪物
+            var player = GetTree()?.GetFirstNodeInGroup("player") as Player;
+            player?.SetGridSize(newSize);
+
+            var mm = GetTree()?.GetFirstNodeInGroup("monster_manager") as MonsterManager;
+            mm?.SetGridSize(newSize);
         }
 
         public void SetLineBrightness(float brightness)

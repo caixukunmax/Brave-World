@@ -12,7 +12,9 @@ namespace ClinetCSharp
     {
         [Export] public int GridSize { get; set; } = 111;
         [Export] public int VisualSize { get; set; } = 111;
+        [Export] public float VisualSizeScale { get; set; } = 1.0f;
         [Export] public float BorderWidth { get; set; } = 3.0f;
+        [Export] public float BorderWidthScale { get; set; } = 3.0f / 111.0f;
         [Export] public Color BorderColor { get; set; } = Colors.White;
         [Export] public Color BgColor { get; set; } = new Color(1, 1, 1, 0.1f);
         [Export] public Color TextColor { get; set; } = Colors.Black;
@@ -48,6 +50,8 @@ namespace ClinetCSharp
         public Vector2 HealthBarOffset { get; set; } = new Vector2(0, -70);
         public float HealthBarLength { get; set; } = 80;
         public float HealthBarHeight { get; set; } = 6;
+        public float HealthBarLengthScale { get; set; } = 80.0f / 111.0f;
+        public float HealthBarHeightScale { get; set; } = 6.0f / 111.0f;
         public Color HealthBarColor { get; set; } = new Color(0, 0.8f, 0, 1);
         public Color HealthBarBgColor { get; set; } = new Color(0.3f, 0.3f, 0.3f, 0.5f);
         public bool HealthBarVisible { get; set; } = true;
@@ -89,6 +93,9 @@ namespace ClinetCSharp
             new Vector2(0, -21), // 称号
             new Vector2(0, -4),  // 状态
         };
+
+        // 自动居中
+        public bool LabelAutoCenterX { get; set; } = false;
 
         // 拖拽状态
         private bool _dragging = false;
@@ -191,7 +198,10 @@ namespace ClinetCSharp
 
                 // 让 RichTextLabel 自适应内容大小
                 var textSize = label.GetMinimumSize();
-                _labelContainers[i].Position = _labelOffsets[i] - textSize / 2;
+                var pos = _labelOffsets[i] - textSize / 2;
+                if (LabelAutoCenterX)
+                    pos.X = -textSize.X / 2;
+                _labelContainers[i].Position = pos;
             }
         }
 
@@ -282,7 +292,10 @@ namespace ClinetCSharp
             {
                 var localMouse = ToLocal(mm.GlobalPosition);
                 var delta = localMouse - _dragStartMouse;
-                _labelOffsets[_dragIndex] = _dragStartOffset + delta;
+                if (LabelAutoCenterX)
+                    _labelOffsets[_dragIndex] = new Vector2(0, _dragStartOffset.Y + delta.Y);
+                else
+                    _labelOffsets[_dragIndex] = _dragStartOffset + delta;
                 UpdateAllLabelPositions();
                 GetViewport().SetInputAsHandled();
             }
@@ -309,6 +322,8 @@ namespace ClinetCSharp
         public void SetLabelOffset(int index, Vector2 offset)
         {
             if (index < 0 || index >= LabelCount) return;
+            if (LabelAutoCenterX)
+                offset.X = 0;
             _labelOffsets[index] = offset;
             UpdateAllLabelPositions();
         }
@@ -324,6 +339,17 @@ namespace ClinetCSharp
         {
             for (int i = 0; i < LabelCount; i++)
                 _labelOffsets[i] = DefaultOffsets[i];
+            UpdateAllLabelPositions();
+        }
+
+        public void SetLabelAutoCenterX(bool enabled)
+        {
+            LabelAutoCenterX = enabled;
+            if (enabled)
+            {
+                for (int i = 0; i < LabelCount; i++)
+                    _labelOffsets[i] = new Vector2(0, _labelOffsets[i].Y);
+            }
             UpdateAllLabelPositions();
         }
 
@@ -387,7 +413,10 @@ namespace ClinetCSharp
         public void SetGridSize(int newSize)
         {
             GridSize = newSize;
-            VisualSize = newSize;
+            VisualSize = Mathf.Clamp((int)(newSize * VisualSizeScale), 10, newSize);
+            BorderWidth = Mathf.Clamp(newSize * BorderWidthScale, 1.0f, 20.0f);
+            HealthBarLength = Mathf.Clamp(newSize * HealthBarLengthScale, 10.0f, newSize * 2.0f);
+            HealthBarHeight = Mathf.Clamp(newSize * HealthBarHeightScale, 2.0f, newSize);
             Position = GridToWorld(GridPos);
             SetupLabels();
             QueueRedraw();
@@ -400,9 +429,25 @@ namespace ClinetCSharp
             QueueRedraw();
         }
 
+        public void SetVisualSizeScale(float scale)
+        {
+            VisualSizeScale = scale;
+            VisualSize = Mathf.Clamp((int)(GridSize * VisualSizeScale), 10, GridSize);
+            SetupLabels();
+            QueueRedraw();
+        }
+
         public void SetBorderWidth(float newWidth)
         {
             BorderWidth = newWidth;
+            SetupLabels();
+            QueueRedraw();
+        }
+
+        public void SetBorderWidthScale(float scale)
+        {
+            BorderWidthScale = scale;
+            BorderWidth = Mathf.Clamp(GridSize * BorderWidthScale, 1.0f, 20.0f);
             SetupLabels();
             QueueRedraw();
         }
@@ -558,6 +603,20 @@ namespace ClinetCSharp
             QueueRedraw();
         }
 
+        public void SetHealthBarLengthScale(float scale)
+        {
+            HealthBarLengthScale = scale;
+            HealthBarLength = Mathf.Clamp(GridSize * scale, 10.0f, GridSize * 2.0f);
+            QueueRedraw();
+        }
+
+        public void SetHealthBarHeightScale(float scale)
+        {
+            HealthBarHeightScale = scale;
+            HealthBarHeight = Mathf.Clamp(GridSize * scale, 2.0f, GridSize);
+            QueueRedraw();
+        }
+
         public void SetHealthBarColor(Color color)
         {
             HealthBarColor = color;
@@ -673,6 +732,16 @@ namespace ClinetCSharp
             LevelBadgeText = "Lv.{level}";
 
             GD.Print($"[Player] ApplyRoleInfo: name={CharacterName}, level={Level}, job={Job}, title={Title}, status={Status}");
+
+            // 从服务器设置初始位置
+            if (roleInfo.GridX != 0 || roleInfo.GridY != 0)
+            {
+                GridPos = new Vector2I(roleInfo.GridX, roleInfo.GridY);
+                _confirmedGridPos = GridPos;
+                Position = GridToWorld(GridPos);
+                GD.Print($"[Player] Set position from server: ({GridPos.X}, {GridPos.Y})");
+            }
+
             SetupLabels();
             QueueRedraw();
         }
@@ -681,8 +750,7 @@ namespace ClinetCSharp
 
         public override void _Draw()
         {
-            var margin = BorderWidth * 2 + 8.0f;
-            var drawSize = VisualSize - margin * 2;
+            var drawSize = VisualSize;
             if (drawSize < 10) drawSize = 10;
 
             var halfDraw = drawSize / 2.0f;
@@ -921,7 +989,15 @@ namespace ClinetCSharp
         {
             var gridManager = GetParent()?.GetNode<GridManager>("GridManager");
             if (gridManager != null && !gridManager.IsWalkable(targetGridPos))
+            {
+                // 目标格有未开宝箱 → 自动开箱
+                if (gridManager.IsBlockedByChest(targetGridPos))
+                {
+                    var chestMgr = GetTree()?.GetFirstNodeInGroup("chest_manager") as ChestManager;
+                    chestMgr?.TryOpenChestAt(targetGridPos);
+                }
                 return;
+            }
 
             // 记录校验前位置
             _confirmedGridPos = GridPos;
@@ -962,10 +1038,16 @@ namespace ClinetCSharp
                 FromY = from.Y,
                 ToX = to.X,
                 ToY = to.Y,
-                MapName = "xinshoucun",
+                MapName = GetMapName(),
             };
 
             nm.SendPacket(MessageId.GameMoveReq, req);
+        }
+
+        private string GetMapName()
+        {
+            var nm = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
+            return nm?.CurrentMapName ?? "xinshoucun";
         }
 
         /// <summary>

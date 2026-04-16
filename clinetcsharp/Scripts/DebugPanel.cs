@@ -58,13 +58,6 @@ namespace ClinetCSharp
         private TabContainer _tabContainer;
         #endregion
 
-        #region Node References - Map Tab - Section Buttons
-        private Button _sectionBasicBtn;
-        private Button _sectionGridBtn;
-        private Button _sectionCameraBtn;
-        private Button _sectionDebugBtn;
-        #endregion
-
         #region Node References - Map Tab - Basic Settings
         private HSlider _gridSizeSlider;
         private Label _gridSizeValue;
@@ -95,18 +88,15 @@ namespace ClinetCSharp
         private CheckButton _cameraDebugCheck;
         #endregion
 
-        #region Node References - Player Tab - Section Buttons
-        private Button _sectionLookBtn;
-        private Button _sectionTextBtn;
-        private Button _sectionLabelCtrlBtn;
-        private Button _sectionEffectBtn;
-        #endregion
-
         #region Node References - Player Tab - Appearance
         private HSlider _playerSizeSlider;
         private Label _playerSizeValue;
+        private HSlider _playerSizeScaleSlider;
+        private Label _playerSizeScaleValue;
         private HSlider _borderWidthSlider;
         private Label _borderWidthValue;
+        private HSlider _borderWidthScaleSlider;
+        private Label _borderWidthScaleValue;
         private HSlider _cornerRadiusSlider;
         private Label _cornerRadiusValue;
         private HSlider _bgOpacitySlider;
@@ -147,6 +137,7 @@ namespace ClinetCSharp
         private Label[] _labelOffsetXValues = new Label[LabelCount];
         private Label[] _labelOffsetYValues = new Label[LabelCount];
         private Button[] _labelResetButtons = new Button[LabelCount];
+        private CheckButton _labelAutoCenterXCheck;
         #endregion
 
         #region Dynamic Created Controls
@@ -174,8 +165,12 @@ namespace ClinetCSharp
         private CheckButton _healthBarVisibleCheck;
         private HSlider _healthBarLengthSlider;
         private Label _healthBarLengthValue;
+        private HSlider _healthBarLengthScaleSlider;
+        private Label _healthBarLengthScaleValue;
         private HSlider _healthBarHeightSlider;
         private Label _healthBarHeightValue;
+        private HSlider _healthBarHeightScaleSlider;
+        private Label _healthBarHeightScaleValue;
         private HSlider _healthBarFillSlider;
         private Label _healthBarFillValue;
         private Button _healthBarColorBtn;
@@ -217,14 +212,37 @@ namespace ClinetCSharp
         private CheckButton _editorSelectModCheck;
         #endregion
 
-        #region Other References
-        private FileDialog _fontFileDialog;
+        #region Monster Tab Controls
+        private HSlider _monsterSizeSlider;
+        private Label _monsterSizeValue;
+        private HSlider _monsterSizeScaleSlider;
+        private Label _monsterSizeScaleValue;
+        private HSlider _monsterBorderWidthSlider;
+        private Label _monsterBorderWidthValue;
+        private HSlider _monsterBorderWidthScaleSlider;
+        private Label _monsterBorderWidthScaleValue;
+        private HSlider _monsterCornerRadiusSlider;
+        private Label _monsterCornerRadiusValue;
+        private HSlider _monsterBgOpacitySlider;
+        private Label _monsterBgOpacityValue;
+        private HSlider _monsterFontSizeSlider;
+        private Label _monsterFontSizeValue;
+
+        private ColorPickerButton _monsterBorderColorPicker;
+        private ColorPickerButton _monsterBgColorPicker;
+        private ColorPickerButton _monsterTextColorPicker;
+        private LineEdit[] _monsterLabelEdits = new LineEdit[4];
+        private HSlider[] _monsterLabelFontSizeSliders = new HSlider[4];
+        private Label[] _monsterLabelFontSizeValues = new Label[4];
+        private HSlider[] _monsterLabelXOffsetSliders = new HSlider[4];
+        private Label[] _monsterLabelXOffsetValues = new Label[4];
+        private HSlider[] _monsterLabelYOffsetSliders = new HSlider[4];
+        private Label[] _monsterLabelYOffsetValues = new Label[4];
+        private CheckButton[] _monsterLabelCenterXChecks = new CheckButton[4];
         #endregion
 
-        #region Group Containers (for collapsing)
-        private Godot.Collections.Dictionary _mapGroups = new Godot.Collections.Dictionary();
-        private Godot.Collections.Dictionary _playerGroups = new Godot.Collections.Dictionary();
-        private Godot.Collections.Dictionary _sectionStates = new Godot.Collections.Dictionary();
+        #region Other References
+        private FileDialog _fontFileDialog;
         #endregion
 
         #region Undo System State
@@ -262,21 +280,17 @@ namespace ClinetCSharp
             _camera = GetTree().GetFirstNodeInGroup("camera") as Camera2D;
 
             SetupPanel();
-            InitSectionSystem();
             SetupSliders();
-            SetupLineColorButtons();
+
+            CreateMapDebugUI();
+            CreatePlayerDebugUI();
+            CreateMonsterDebugUI();
+
             SetupFontOptions();
             SetupEaseOptions();
 
-            CreateFreeLookToggle();
-            CreateLineWidthScaleSlider();
-            CreateLineWidthCalibrationUI();
-            CreateResponsiveUI();
-            CreateFontAutoSizeToggle();
-            CreateEditorKeyConfigUI();
-            CreateLabelControlsUI();
-
             CreatePresetUI();
+            SetupLineColorButtons();
             ConnectSignals();
 
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
@@ -307,6 +321,7 @@ namespace ClinetCSharp
                 GD.Print("[DebugPanel] Applied server role info to player");
             }
 
+            UpdateControlStates();
             PushCurrentStateToHistory();
             _panel.Visible = false;
         }
@@ -397,7 +412,10 @@ namespace ClinetCSharp
             _toggleButton.Text = _isPanelVisible ? "✕" : "⚙";
 
             if (_isPanelVisible)
+            {
                 SyncSlidersToCurrentValues();
+                SyncMonsterDebugUI();
+            }
         }
 
         public bool IsFocused()

@@ -1,5 +1,5 @@
 <module name="common">
-    <bean name="DateTimeRange" sep=";">
+<bean name="DateTimeRange" sep=";">
         <var name="start_time" type="datetime?"/>
         <var name="end_time" type="datetime?"/>
     </bean>

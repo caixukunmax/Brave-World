@@ -15,6 +15,9 @@ local rolesCol
 local serversCol
 local countersCol
 local inventoriesCol
+local chestsCol
+local gmChestsCol
+local entitySeqMetaCol
 
 --------------------------------------------------------------------------------
 -- 内部: 获取自增 ID
@@ -230,6 +233,108 @@ function CMD.removeItem(roleId, itemId, count)
     return true
 end
 
+-- ========== chests (宝箱开启状态) ==========
+
+function CMD.isChestOpened(roleId, chestId)
+    return chestsCol:findOne({ role_id = roleId, chest_id = chestId }) ~= nil
+end
+
+function CMD.markChestOpened(roleId, chestId)
+    chestsCol:safe_insert({ role_id = roleId, chest_id = chestId })
+end
+
+function CMD.getOpenedChests(roleId)
+    local docs = findArray(chestsCol, { role_id = roleId })
+    local ids = {}
+    for _, doc in ipairs(docs) do
+        ids[doc.chest_id] = true
+    end
+    return ids
+end
+
+-- ========== GM dynamic chests ==========
+
+function CMD.addGmChest(id, mapId, entityType, chestTypeId, x, y, rewards)
+    gmChestsCol:safe_insert({
+        id = id,
+        map_id = mapId,
+        entity_type = entityType,
+        chest_type_id = chestTypeId,
+        x = x,
+        y = y,
+        rewards = rewards,
+    })
+end
+
+function CMD.getGmChestsByMapAndType(mapId, entityType)
+    return findArray(gmChestsCol, { map_id = mapId, entity_type = entityType })
+end
+
+function CMD.allocateEntitySeq(mapId, entityType)
+    local metaId = tostring(mapId) .. "_" .. tostring(entityType)
+    
+    local meta = entitySeqMetaCol:findOne({ _id = metaId })
+    if not meta then
+        meta = { _id = metaId, map_id = mapId, entity_type = entityType, last_seq = 99, active_count = 0 }
+        entitySeqMetaCol:safe_insert(meta)
+    end
+    
+    -- 满员检查 (可用槽位 100~9999 共 9900 个)
+    if meta.active_count >= 9900 then
+        error("entity seq overflow: map=" .. mapId .. " type=" .. entityType)
+    end
+    
+    -- 查询已占用的 seq（包括 GM 宝箱和配置宝箱）
+    local occupied = {}
+    local cursor = gmChestsCol:find({ map_id = mapId, entity_type = entityType })
+    while cursor:hasNext() do
+        local doc = cursor:next()
+        occupied[doc.id % 10000] = true
+    end
+    cursor:close()
+    
+    -- 同时标记配置宝箱占用的 seq
+    local mapChests = common.queryTable("TbMapChest")
+    if mapChests then
+        for _, c in ipairs(mapChests) do
+            if c.map_id == mapId and c.entity_type == entityType then
+                occupied[c.id % 10000] = true
+            end
+        end
+    end
+    
+    -- 从 last_seq + 1 开始扫描，范围 100~9999，绕回 100
+    local startSeq = math.max(100, (meta.last_seq + 1) % 10000)
+    if startSeq < 100 then startSeq = 100 end
+    local seq = startSeq
+    while occupied[seq] do
+        seq = seq + 1
+        if seq > 9999 then seq = 100 end
+        if seq == startSeq then
+            error("entity seq overflow: map=" .. mapId .. " type=" .. entityType)
+        end
+    end
+    
+    entitySeqMetaCol:update(
+        { _id = metaId },
+        { ["$set"] = { last_seq = seq }, ["$inc"] = { active_count = 1 } },
+        true,
+        false
+    )
+    
+    return seq
+end
+
+function CMD.deallocateEntitySeq(mapId, entityType)
+    local metaId = tostring(mapId) .. "_" .. tostring(entityType)
+    entitySeqMetaCol:update(
+        { _id = metaId },
+        { ["$inc"] = { active_count = -1 } },
+        true,
+        false
+    )
+end
+
 -- ========== servers ==========
 
 function CMD.getServers()
@@ -264,6 +369,24 @@ common.defineService("db", CMD, {
         serversCol  = db["servers"]
         countersCol = db["counters"]
         inventoriesCol = db["inventories"]
+        chestsCol = db["chests"]
+        gmChestsCol = db["gm_chests"]
+        entitySeqMetaCol = db["entity_seq_meta"]
+
+        -- 清理旧格式 gm_chests（id >= 20000 且无 entity_type 字段）
+        pcall(function()
+            gmChestsCol:delete({ id = { ["$gte"] = 20000 }, entity_type = { ["$exists"] = false } })
+        end)
+
+        -- 清理与配置宝箱 ID 冲突的 GM 宝箱
+        pcall(function()
+            local mapChests = common.queryTable("TbMapChest")
+            if mapChests then
+                for _, c in ipairs(mapChests) do
+                    gmChestsCol:delete({ id = c.id })
+                end
+            end
+        end)
 
         platform.log("info", "MongoDB connected")
         ensureIndexes()

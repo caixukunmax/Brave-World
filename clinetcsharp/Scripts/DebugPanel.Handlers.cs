@@ -29,11 +29,76 @@ namespace ClinetCSharp
                 GD.PushError("[DebugPanel] _gridManager is null!");
             }
 
+            // 同步玩家大小滑块和比例滑块（SetGridSize 已自动按比例重算）
             if (_player != null)
             {
-                _player.Call("SetGridSize", newGridSize);
-                _player.Call("SetVisualSize", newGridSize);
-                GD.Print($"[DebugPanel] Called Player.SetGridSize and set_visual_size");
+                int newPlayerSize = _player.Get("VisualSize").AsInt32();
+                float newPlayerScale = _player.Get("VisualSizeScale").AsSingle();
+                if (_playerSizeSlider != null)
+                {
+                    _playerSizeSlider.SetBlockSignals(true);
+                    _playerSizeSlider.Value = newPlayerSize;
+                    _playerSizeSlider.SetBlockSignals(false);
+                    _playerSizeValue.Text = newPlayerSize.ToString();
+                }
+                if (_playerSizeScaleSlider != null)
+                {
+                    _playerSizeScaleSlider.SetBlockSignals(true);
+                    _playerSizeScaleSlider.Value = newPlayerScale;
+                    _playerSizeScaleSlider.SetBlockSignals(false);
+                    _playerSizeScaleValue.Text = newPlayerScale.ToString("F2");
+                }
+
+                float newBorderWidth = _player.Get("BorderWidth").AsSingle();
+                float newBorderScale = _player.Get("BorderWidthScale").AsSingle();
+                if (_borderWidthSlider != null)
+                {
+                    _borderWidthSlider.SetBlockSignals(true);
+                    _borderWidthSlider.Value = newBorderWidth;
+                    _borderWidthSlider.SetBlockSignals(false);
+                    _borderWidthValue.Text = ((int)newBorderWidth).ToString();
+                }
+                if (_borderWidthScaleSlider != null)
+                {
+                    _borderWidthScaleSlider.SetBlockSignals(true);
+                    _borderWidthScaleSlider.Value = newBorderScale;
+                    _borderWidthScaleSlider.SetBlockSignals(false);
+                    _borderWidthScaleValue.Text = newBorderScale.ToString("F2");
+                }
+
+                float newHpLength = _player.Get("HealthBarLength").AsSingle();
+                float newHpLengthScale = _player.Get("HealthBarLengthScale").AsSingle();
+                if (_healthBarLengthSlider != null)
+                {
+                    _healthBarLengthSlider.SetBlockSignals(true);
+                    _healthBarLengthSlider.Value = newHpLength;
+                    _healthBarLengthSlider.SetBlockSignals(false);
+                    _healthBarLengthValue.Text = ((int)newHpLength).ToString();
+                }
+                if (_healthBarLengthScaleSlider != null)
+                {
+                    _healthBarLengthScaleSlider.SetBlockSignals(true);
+                    _healthBarLengthScaleSlider.Value = newHpLengthScale;
+                    _healthBarLengthScaleSlider.SetBlockSignals(false);
+                    _healthBarLengthScaleValue.Text = newHpLengthScale.ToString("F2");
+                }
+
+                float newHpHeight = _player.Get("HealthBarHeight").AsSingle();
+                float newHpHeightScale = _player.Get("HealthBarHeightScale").AsSingle();
+                if (_healthBarHeightSlider != null)
+                {
+                    _healthBarHeightSlider.SetBlockSignals(true);
+                    _healthBarHeightSlider.Value = newHpHeight;
+                    _healthBarHeightSlider.SetBlockSignals(false);
+                    _healthBarHeightValue.Text = ((int)newHpHeight).ToString();
+                }
+                if (_healthBarHeightScaleSlider != null)
+                {
+                    _healthBarHeightScaleSlider.SetBlockSignals(true);
+                    _healthBarHeightScaleSlider.Value = newHpHeightScale;
+                    _healthBarHeightScaleSlider.SetBlockSignals(false);
+                    _healthBarHeightScaleValue.Text = newHpHeightScale.ToString("F2");
+                }
             }
 
             GridUpdate();
@@ -133,8 +198,7 @@ namespace ClinetCSharp
         {
             if (_gridManager != null)
             {
-                _gridManager.Set("show_grid_coords", enabled);
-                _gridManager.Call("queue_redraw");
+                _gridManager.Call("SetShowGridCoords", enabled);
             }
             PushCurrentStateToHistory();
         }
@@ -143,7 +207,7 @@ namespace ClinetCSharp
         {
             if (_gridManager != null)
             {
-                _gridManager.Call("set_line_width_scale", value);
+                _gridManager.Call("SetLineWidthScale", value);
                 _gridManager.Call("queue_redraw");
             }
         }
@@ -162,9 +226,9 @@ namespace ClinetCSharp
 
         private void OnCameraReturnDelayDragEnded(bool valueChanged)
         {
-            if (_camera != null && _camera.HasMethod("set_return_delay"))
+            if (_camera != null && _camera.HasMethod("SetReturnDelay"))
             {
-                _camera.Call("set_return_delay", _cameraReturnDelaySlider.Value);
+                _camera.Call("SetReturnDelay", _cameraReturnDelaySlider.Value);
             }
             PushCurrentStateToHistory();
         }
@@ -176,18 +240,18 @@ namespace ClinetCSharp
 
         private void OnCameraReturnSpeedDragEnded(bool valueChanged)
         {
-            if (_camera != null && _camera.HasMethod("set_return_speed"))
+            if (_camera != null && _camera.HasMethod("SetReturnSpeed"))
             {
-                _camera.Call("set_return_speed", _cameraReturnSpeedSlider.Value);
+                _camera.Call("SetReturnSpeed", _cameraReturnSpeedSlider.Value);
             }
             PushCurrentStateToHistory();
         }
 
         private void OnCameraEaseTypeChanged(long index)
         {
-            if (_camera != null && _camera.HasMethod("set_ease_type"))
+            if (_camera != null && _camera.HasMethod("SetEaseType"))
             {
-                _camera.Call("set_ease_type", (int)index);
+                _camera.Call("SetEaseType", (int)index);
             }
             PushCurrentStateToHistory();
         }
@@ -199,44 +263,20 @@ namespace ClinetCSharp
 
         private void OnCameraEasePowerDragEnded(bool valueChanged)
         {
-            if (_camera != null && _camera.HasMethod("set_ease_power"))
+            if (_camera != null && _camera.HasMethod("SetEasePower"))
             {
-                _camera.Call("set_ease_power", _cameraEasePowerSlider.Value);
+                _camera.Call("SetEasePower", _cameraEasePowerSlider.Value);
             }
             PushCurrentStateToHistory();
         }
 
         private void OnFreeLookToggled(bool enabled)
         {
-            if (_camera != null && _camera.HasMethod("set_free_look_mode"))
+            if (_camera != null && _camera.HasMethod("SetFreeLookMode"))
             {
-                _camera.Call("set_free_look_mode", enabled);
+                _camera.Call("SetFreeLookMode", enabled);
             }
-
-            // Disable camera return settings in free look mode
-            _cameraReturnDelaySlider.Editable = !enabled;
-            _cameraReturnSpeedSlider.Editable = !enabled;
-            _cameraEaseTypeOption.Disabled = enabled;
-            _cameraEasePowerSlider.Editable = !enabled;
-
-            // Zoom slider read-only in free look mode (displays current value)
-            _zoomSlider.Editable = !enabled;
-            if (enabled)
-            {
-                _zoomValue.Text = $"{_zoomSlider.Value:F1} (自动)";
-            }
-
-            // Update label hints
-            if (enabled)
-            {
-                _cameraReturnDelayValue.Text = "自由视角";
-                _cameraReturnSpeedValue.Text = "自由视角";
-            }
-            else
-            {
-                _cameraReturnDelayValue.Text = $"{_cameraReturnDelaySlider.Value:F1}s";
-                _cameraReturnSpeedValue.Text = ((int)_cameraReturnSpeedSlider.Value).ToString();
-            }
+            UpdateControlStates();
         }
         #endregion
 
@@ -257,9 +297,9 @@ namespace ClinetCSharp
 
         private void OnCameraDebugToggled(bool enabled)
         {
-            if (_camera != null && _camera.HasMethod("set_debug_drag"))
+            if (_camera != null && _camera.HasMethod("SetDebugDrag"))
             {
-                _camera.Call("set_debug_drag", enabled);
+                _camera.Call("SetDebugDrag", enabled);
             }
         }
 
@@ -297,9 +337,42 @@ namespace ClinetCSharp
             if (_player != null)
             {
                 _player.Call("SetVisualSize", (int)_playerSizeSlider.Value);
+                int gridSize = (int)_gridSizeSlider.Value;
+                float scale = gridSize > 0 ? (float)(_playerSizeSlider.Value / gridSize) : 1.0f;
+                _player.Set("VisualSizeScale", scale);
+                if (_playerSizeScaleSlider != null)
+                {
+                    _playerSizeScaleSlider.SetBlockSignals(true);
+                    _playerSizeScaleSlider.Value = scale;
+                    _playerSizeScaleSlider.SetBlockSignals(false);
+                    _playerSizeScaleValue.Text = scale.ToString("F2");
+                }
             }
             if (pushToHistory)
                 PushCurrentStateToHistory();
+        }
+
+        private void OnPlayerSizeScaleChanged(double value)
+        {
+            if (_playerSizeScaleValue != null)
+                _playerSizeScaleValue.Text = value.ToString("F2");
+        }
+
+        private void OnPlayerSizeScaleDragEnded(bool valueChanged)
+        {
+            if (_player != null)
+            {
+                _player.Call("SetVisualSizeScale", (float)_playerSizeScaleSlider.Value);
+                int newSize = _player.Get("VisualSize").AsInt32();
+                if (_playerSizeSlider != null)
+                {
+                    _playerSizeSlider.SetBlockSignals(true);
+                    _playerSizeSlider.Value = newSize;
+                    _playerSizeSlider.SetBlockSignals(false);
+                    _playerSizeValue.Text = newSize.ToString();
+                }
+            }
+            PushCurrentStateToHistory();
         }
 
         private void OnBorderWidthChanged(double value)
@@ -316,10 +389,43 @@ namespace ClinetCSharp
         {
             if (_player != null)
             {
+                int gridSize = (int)_gridSizeSlider.Value;
+                float scale = gridSize > 0 ? (float)(_borderWidthSlider.Value / gridSize) : 0.0f;
                 _player.Call("SetBorderWidth", _borderWidthSlider.Value);
+                _player.Set("BorderWidthScale", scale);
+                if (_borderWidthScaleSlider != null)
+                {
+                    _borderWidthScaleSlider.SetBlockSignals(true);
+                    _borderWidthScaleSlider.Value = scale;
+                    _borderWidthScaleSlider.SetBlockSignals(false);
+                    _borderWidthScaleValue.Text = scale.ToString("F2");
+                }
             }
             if (pushToHistory)
                 PushCurrentStateToHistory();
+        }
+
+        private void OnBorderWidthScaleChanged(double value)
+        {
+            if (_borderWidthScaleValue != null)
+                _borderWidthScaleValue.Text = value.ToString("F2");
+        }
+
+        private void OnBorderWidthScaleDragEnded(bool valueChanged)
+        {
+            if (_player != null)
+            {
+                _player.Call("SetBorderWidthScale", (float)_borderWidthScaleSlider.Value);
+                float newWidth = _player.Get("BorderWidth").AsSingle();
+                if (_borderWidthSlider != null)
+                {
+                    _borderWidthSlider.SetBlockSignals(true);
+                    _borderWidthSlider.Value = newWidth;
+                    _borderWidthSlider.SetBlockSignals(false);
+                    _borderWidthValue.Text = ((int)newWidth).ToString();
+                }
+            }
+            PushCurrentStateToHistory();
         }
 
         private void OnCornerRadiusChanged(double value)
@@ -623,18 +729,45 @@ namespace ClinetCSharp
         public void SyncLabelOffsetSlidersFromPlayer()
         {
             if (_player == null) return;
+            bool autoCenter = _player.Get("LabelAutoCenterX").AsBool();
+            if (_labelAutoCenterXCheck != null)
+            {
+                _labelAutoCenterXCheck.SetBlockSignals(true);
+                _labelAutoCenterXCheck.ButtonPressed = autoCenter;
+                _labelAutoCenterXCheck.SetBlockSignals(false);
+            }
             for (int i = 0; i < LabelCount; i++)
             {
                 var offset = (Vector2)_player.Call("GetLabelOffset", i);
                 _labelOffsetXSliders[i].SetBlockSignals(true);
                 _labelOffsetYSliders[i].SetBlockSignals(true);
-                _labelOffsetXSliders[i].Value = (double)offset.X;
+                if (autoCenter)
+                {
+                    _labelOffsetXSliders[i].Value = 0;
+                    _labelOffsetXSliders[i].Editable = false;
+                    _labelOffsetXValues[i].Text = "居中";
+                }
+                else
+                {
+                    _labelOffsetXSliders[i].Value = (double)offset.X;
+                    _labelOffsetXSliders[i].Editable = true;
+                    _labelOffsetXValues[i].Text = ((int)offset.X).ToString();
+                }
                 _labelOffsetYSliders[i].Value = (double)offset.Y;
-                _labelOffsetXValues[i].Text = ((int)offset.X).ToString();
                 _labelOffsetYValues[i].Text = ((int)offset.Y).ToString();
                 _labelOffsetXSliders[i].SetBlockSignals(false);
                 _labelOffsetYSliders[i].SetBlockSignals(false);
             }
+        }
+
+        private void OnLabelAutoCenterXToggled(bool enabled)
+        {
+            if (_player != null)
+            {
+                _player.Call("SetLabelAutoCenterX", enabled);
+            }
+            SyncLabelOffsetSlidersFromPlayer();
+            PushCurrentStateToHistory();
         }
         #endregion
 
@@ -649,44 +782,24 @@ namespace ClinetCSharp
                 GD.Print($"[DebugPanel] Calibration toggled: {enabled}");
             }
 
-            // Reference point setting UI dim/normal (no longer hide)
-            Node rowA = GetNodeOrNull("Control/Panel/ScrollContainer/TabContainer/地图/GridGroup/RefPointARow");
-            Node rowB = GetNodeOrNull("Control/Panel/ScrollContainer/TabContainer/地图/GridGroup/RefPointBRow");
-            if (rowA != null)
-                rowA.Set("modulate", enabled ? new Color(1, 1, 1, 1) : new Color(0.6f, 0.6f, 0.6f, 0.6f));
-            if (rowB != null)
-                rowB.Set("modulate", enabled ? new Color(1, 1, 1, 1) : new Color(0.6f, 0.6f, 0.6f, 0.6f));
-
             if (enabled)
             {
-                // On: immediately apply current reference point values
                 ApplyCalibrationValues();
-                // Enable calibration zoom range limit
                 UpdateCalibrationZoomLimits();
-                // Disable max width slider (controlled by algorithm)
-                if (_lineWidthScaleSlider != null)
-                    _lineWidthScaleSlider.Editable = false;
-                // Update label display
-                _gridLineWidthValue.Text = $"{_gridLineWidthSlider.Value:F1}px (自适应)";
-                // Responsive layout hint
                 if (_responsiveCheck != null && _responsiveCheck.ButtonPressed)
                     GD.Print("[DebugPanel] Hint: Responsive layout will change camera zoom, line width calibration reference points may need adjustment");
             }
             else
             {
-                // Off: disable calibration zoom range limit
                 if (_camera != null)
                 {
-                    _camera.Call("set_calibration_zoom_limits", false);
+                    _camera.Call("SetCalibrationZoomLimits", false);
                     GD.Print("[DebugPanel] Calibration zoom limit disabled");
                 }
-                // Use current slider value as fixed value
-                if (_lineWidthScaleSlider != null)
-                    _lineWidthScaleSlider.Editable = true;
                 if (_gridManager != null)
                     _gridManager.Call("SetLineWidthScale", (float)_gridLineWidthSlider.Value);
-                _gridLineWidthValue.Text = $"{_gridLineWidthSlider.Value:F1}px";
             }
+            UpdateControlStates();
         }
 
         private void OnCalibrationValueChanged(double value)
@@ -709,7 +822,7 @@ namespace ClinetCSharp
             double widthA = _refWidthASpin.Value;
             double zoomB = _refZoomBSpin.Value;
             double widthB = _refWidthBSpin.Value;
-            _gridManager.Call("set_line_width_calibration", zoomA, widthA, zoomB, widthB);
+            _gridManager.Call("SetLineWidthCalibration", zoomA, widthA, zoomB, widthB);
 
             // Update slider display to current zoom corresponding value
             SyncLineWidthToAdaptiveValue();
@@ -734,7 +847,7 @@ namespace ClinetCSharp
                 // Reference point A is usually farther view (smaller zoom), B is closer view (larger zoom)
                 double minZoomLimit = Mathf.Min((float)zoomA, (float)zoomB);
                 double maxZoomLimit = Mathf.Max((float)zoomA, (float)zoomB);
-                _camera.Call("set_calibration_zoom_limits", true, minZoomLimit, maxZoomLimit);
+                _camera.Call("SetCalibrationZoomLimits", true, minZoomLimit, maxZoomLimit);
                 GD.Print($"[DebugPanel] Calibration zoom limit enabled: zoom [{minZoomLimit:F1} - {maxZoomLimit:F1}]");
             }
         }
@@ -744,35 +857,29 @@ namespace ClinetCSharp
             if (_gridManager != null)
             {
                 GD.Print($"[DebugPanel] Setting responsive mode: {enabled}, visibleGridsX={_visibleGridsXSpin.Value}");
-                _gridManager.Call("set_responsive_mode", enabled);
-                if (enabled)
-                    _gridManager.Set("visible_grids_x", _visibleGridsXSpin.Value);
+                var gm = _gridManager as GridManager;
+                if (enabled && gm != null)
+                    gm.VisibleGridsX = (float)_visibleGridsXSpin.Value;
+                gm?.SetResponsiveMode(enabled);
             }
             else
             {
                 GD.PrintErr("[DebugPanel] Cannot toggle responsive: _gridManager is null");
             }
 
-            // Responsive layout and grid size slider are mutually exclusive
-            _gridSizeSlider.Editable = !enabled;
-            if (enabled)
-                _gridSizeValue.Text = $"{(int)_gridSizeSlider.Value} (自动)";
-            else
-                _gridSizeValue.Text = ((int)_gridSizeSlider.Value).ToString();
-
-            // Responsive layout and line width calibration can be used simultaneously, no longer auto-disable
-
-            // Note: Responsive layout and line width calibration can be used simultaneously, no longer mutually exclusive
             if (_applyCalibrationBtn != null)
                 _applyCalibrationBtn.TooltipText = "启用自适应校准";
+
+            UpdateControlStates();
         }
 
         private void OnVisibleGridsChanged(double value)
         {
-            if (_gridManager != null && (bool)_gridManager.Get("responsive_mode"))
+            var gm = _gridManager as GridManager;
+            if (gm != null && gm.ResponsiveMode)
             {
-                _gridManager.Set("visible_grids_x", _visibleGridsXSpin.Value);
-                _gridManager.Call("update_responsive_grid_size");
+                gm.VisibleGridsX = (float)_visibleGridsXSpin.Value;
+                gm.UpdateResponsiveGridSize();
             }
         }
 
@@ -784,9 +891,9 @@ namespace ClinetCSharp
 
             // Update camera controller
             Godot.Collections.Array<MouseButton> buttons = new Godot.Collections.Array<MouseButton> { selectedButton };
-            if (_camera != null && _camera.HasMethod("set_drag_buttons"))
+            if (_camera != null && _camera.HasMethod("SetDragButtons"))
             {
-                _camera.Call("set_drag_buttons", buttons);
+                _camera.Call("SetDragButtons", buttons);
             }
             else if (_camera != null)
             {
@@ -813,7 +920,6 @@ namespace ClinetCSharp
         {
             if (enabled)
             {
-                _fontSizeValue.Text = "自动";
                 if (_player != null)
                 {
                     _player.Call("SetFontSize", 0);
@@ -822,13 +928,138 @@ namespace ClinetCSharp
             }
             else
             {
-                _fontSizeValue.Text = ((int)_fontSizeSlider.Value).ToString();
                 if (_player != null)
                 {
                     _player.Call("SetFontSize", (int)_fontSizeSlider.Value);
                     _player.Call("RefreshLabels");
                 }
             }
+            UpdateControlStates();
+        }
+
+        private void UpdateControlStates()
+        {
+            bool freeLook = _freeLookCheck?.ButtonPressed ?? false;
+            bool responsive = _responsiveCheck?.ButtonPressed ?? false;
+            bool calibration = _calibrationEnabled;
+            bool fontAutoSize = _fontAutoSizeCheck?.ButtonPressed ?? false;
+
+            Color dim = new Color(0.5f, 0.5f, 0.5f, 1.0f);
+            Color normal = new Color(1.0f, 1.0f, 1.0f, 1.0f);
+
+            // Zoom slider: disabled by free look OR responsive layout
+            if (_zoomSlider != null)
+            {
+                bool enabled = !freeLook && !responsive;
+                _zoomSlider.Editable = enabled;
+                _zoomSlider.Modulate = enabled ? normal : dim;
+                if (_zoomValue != null)
+                {
+                    _zoomValue.Modulate = enabled ? normal : dim;
+                    if (freeLook || responsive)
+                        _zoomValue.Text = $"{_zoomSlider.Value:F1} (自动)";
+                    else
+                        _zoomValue.Text = $"{_zoomSlider.Value:F1}";
+                }
+            }
+
+            // Grid size slider: disabled by responsive layout
+            if (_gridSizeSlider != null)
+            {
+                _gridSizeSlider.Editable = !responsive;
+                _gridSizeSlider.Modulate = responsive ? dim : normal;
+                if (_gridSizeValue != null)
+                {
+                    _gridSizeValue.Modulate = responsive ? dim : normal;
+                    if (responsive)
+                        _gridSizeValue.Text = $"{(int)_gridSizeSlider.Value} (自动)";
+                    else
+                        _gridSizeValue.Text = ((int)_gridSizeSlider.Value).ToString();
+                }
+            }
+
+            // Camera return settings: disabled by free look
+            if (_cameraReturnDelaySlider != null)
+            {
+                _cameraReturnDelaySlider.Editable = !freeLook;
+                _cameraReturnDelaySlider.Modulate = freeLook ? dim : normal;
+            }
+            if (_cameraReturnDelayValue != null)
+                _cameraReturnDelayValue.Modulate = freeLook ? dim : normal;
+            if (_cameraReturnSpeedSlider != null)
+            {
+                _cameraReturnSpeedSlider.Editable = !freeLook;
+                _cameraReturnSpeedSlider.Modulate = freeLook ? dim : normal;
+            }
+            if (_cameraReturnSpeedValue != null)
+                _cameraReturnSpeedValue.Modulate = freeLook ? dim : normal;
+            if (_cameraEaseTypeOption != null)
+            {
+                _cameraEaseTypeOption.Disabled = freeLook;
+                _cameraEaseTypeOption.Modulate = freeLook ? dim : normal;
+            }
+            if (_cameraEasePowerSlider != null)
+            {
+                _cameraEasePowerSlider.Editable = !freeLook;
+                _cameraEasePowerSlider.Modulate = freeLook ? dim : normal;
+            }
+            if (_cameraEasePowerValue != null)
+                _cameraEasePowerValue.Modulate = freeLook ? dim : normal;
+
+            if (freeLook)
+            {
+                if (_cameraReturnDelayValue != null)
+                    _cameraReturnDelayValue.Text = "自由视角";
+                if (_cameraReturnSpeedValue != null)
+                    _cameraReturnSpeedValue.Text = "自由视角";
+            }
+            else
+            {
+                if (_cameraReturnDelayValue != null)
+                    _cameraReturnDelayValue.Text = $"{_cameraReturnDelaySlider.Value:F1}s";
+                if (_cameraReturnSpeedValue != null)
+                    _cameraReturnSpeedValue.Text = ((int)_cameraReturnSpeedSlider.Value).ToString();
+            }
+
+            // Line width scale: disabled by calibration
+            if (_lineWidthScaleSlider != null)
+            {
+                _lineWidthScaleSlider.Editable = !calibration;
+                _lineWidthScaleSlider.Modulate = calibration ? dim : normal;
+            }
+            if (_lineWidthScaleValue != null)
+                _lineWidthScaleValue.Modulate = calibration ? dim : normal;
+
+            // Grid line width label
+            if (_gridLineWidthValue != null)
+            {
+                if (calibration)
+                    _gridLineWidthValue.Text = $"{_gridLineWidthSlider.Value:F1}px (自适应)";
+                else
+                    _gridLineWidthValue.Text = $"{_gridLineWidthSlider.Value:F1}px";
+            }
+
+            // Font size: disabled by auto size
+            if (_fontSizeSlider != null)
+            {
+                _fontSizeSlider.Editable = !fontAutoSize;
+                _fontSizeSlider.Modulate = fontAutoSize ? dim : normal;
+            }
+            if (_fontSizeValue != null)
+            {
+                _fontSizeValue.Modulate = fontAutoSize ? dim : normal;
+                if (fontAutoSize)
+                    _fontSizeValue.Text = "自动";
+                else
+                    _fontSizeValue.Text = ((int)_fontSizeSlider.Value).ToString();
+            }
+
+            // Calibration reference points: dim when disabled
+            float refModulate = calibration ? 1.0f : 0.6f;
+            if (_refZoomASpin != null) _refZoomASpin.Modulate = new Color(refModulate, refModulate, refModulate, refModulate);
+            if (_refWidthASpin != null) _refWidthASpin.Modulate = new Color(refModulate, refModulate, refModulate, refModulate);
+            if (_refZoomBSpin != null) _refZoomBSpin.Modulate = new Color(refModulate, refModulate, refModulate, refModulate);
+            if (_refWidthBSpin != null) _refWidthBSpin.Modulate = new Color(refModulate, refModulate, refModulate, refModulate);
         }
         #endregion
 
@@ -862,14 +1093,72 @@ namespace ClinetCSharp
         {
             _healthBarLengthValue.Text = ((int)value).ToString();
             if (_player != null)
+            {
+                int gridSize = (int)_gridSizeSlider.Value;
+                float scale = gridSize > 0 ? (float)(value / gridSize) : 0.0f;
                 _player.Call("SetHealthBarLength", (float)value);
+                _player.Set("HealthBarLengthScale", scale);
+                if (_healthBarLengthScaleSlider != null)
+                {
+                    _healthBarLengthScaleSlider.SetBlockSignals(true);
+                    _healthBarLengthScaleSlider.Value = scale;
+                    _healthBarLengthScaleSlider.SetBlockSignals(false);
+                    _healthBarLengthScaleValue.Text = scale.ToString("F2");
+                }
+            }
+        }
+
+        private void OnHealthBarLengthScaleChanged(double value)
+        {
+            _healthBarLengthScaleValue.Text = value.ToString("F2");
+            if (_player != null)
+            {
+                _player.Call("SetHealthBarLengthScale", (float)value);
+                float newLength = _player.Get("HealthBarLength").AsSingle();
+                if (_healthBarLengthSlider != null)
+                {
+                    _healthBarLengthSlider.SetBlockSignals(true);
+                    _healthBarLengthSlider.Value = newLength;
+                    _healthBarLengthSlider.SetBlockSignals(false);
+                    _healthBarLengthValue.Text = ((int)newLength).ToString();
+                }
+            }
         }
 
         private void OnHealthBarHeightChanged(double value)
         {
             _healthBarHeightValue.Text = ((int)value).ToString();
             if (_player != null)
+            {
+                int gridSize = (int)_gridSizeSlider.Value;
+                float scale = gridSize > 0 ? (float)(value / gridSize) : 0.0f;
                 _player.Call("SetHealthBarHeight", (float)value);
+                _player.Set("HealthBarHeightScale", scale);
+                if (_healthBarHeightScaleSlider != null)
+                {
+                    _healthBarHeightScaleSlider.SetBlockSignals(true);
+                    _healthBarHeightScaleSlider.Value = scale;
+                    _healthBarHeightScaleSlider.SetBlockSignals(false);
+                    _healthBarHeightScaleValue.Text = scale.ToString("F2");
+                }
+            }
+        }
+
+        private void OnHealthBarHeightScaleChanged(double value)
+        {
+            _healthBarHeightScaleValue.Text = value.ToString("F2");
+            if (_player != null)
+            {
+                _player.Call("SetHealthBarHeightScale", (float)value);
+                float newHeight = _player.Get("HealthBarHeight").AsSingle();
+                if (_healthBarHeightSlider != null)
+                {
+                    _healthBarHeightSlider.SetBlockSignals(true);
+                    _healthBarHeightSlider.Value = newHeight;
+                    _healthBarHeightSlider.SetBlockSignals(false);
+                    _healthBarHeightValue.Text = ((int)newHeight).ToString();
+                }
+            }
         }
 
         private void OnHealthBarFillChanged(double value)

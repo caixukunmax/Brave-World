@@ -24,6 +24,12 @@ namespace ClinetCSharp
         [Signal]
         public delegate void ConnectionErrorEventHandler(string error);
 
+        [Signal]
+        public delegate void MapInfoReceivedEventHandler();
+
+        [Signal]
+        public delegate void MonsterMoveReceivedEventHandler(uint instanceId, int fromX, int fromY, int toX, int toY, string state);
+
         public const string ServerHost = "127.0.0.1";
         public const int ServerPort = 8889;
 
@@ -48,6 +54,18 @@ namespace ClinetCSharp
 
         // 进入游戏后缓存的角色完整信息
         public Game.FullRoleInfo CachedRoleInfo { get; set; } = null;
+
+        // 宝箱数据
+        public Godot.Collections.Array Chests { get; set; } = new Godot.Collections.Array();
+        public uint? PendingOpenChestId { get; set; } = null;
+
+        // 怪物数据
+        public Godot.Collections.Array Monsters { get; set; } = new Godot.Collections.Array();
+
+        // 当前地图信息（从 FullRoleInfo 获取）
+        public string CurrentMapName { get; set; } = "xinshoucun";
+        public int SpawnGridX { get; set; } = 25;
+        public int SpawnGridY { get; set; } = 25;
 
         // 最后收到的响应原始数据（供场景解析特定类型）
         private byte[] _lastPayload = new byte[0];
@@ -304,11 +322,18 @@ namespace ClinetCSharp
                             {
                                 CachedRoleInfo = rsp.RoleInfo;
                                 ServerTime = rsp.ServerTime;
-                                GD.Print($"[NetworkManager] EnterGame cached, name={rsp.RoleInfo.RoleName} level={rsp.RoleInfo.Level}");
+                                CurrentMapName = rsp.RoleInfo.CurrentMap;
+                                SpawnGridX = rsp.RoleInfo.GridX;
+                                SpawnGridY = rsp.RoleInfo.GridY;
+                                GD.Print($"[NetworkManager] EnterGame cached, name={rsp.RoleInfo.RoleName} map={rsp.RoleInfo.CurrentMap} pos=({rsp.RoleInfo.GridX},{rsp.RoleInfo.GridY})");
                                 // 转发背包数据给 InventoryManager
                                 var inv = GetTree()?.GetFirstNodeInGroup("inventory_manager");
                                 if (inv is InventoryManager invObj && rsp.Items.Count > 0)
                                     invObj.UpdateFromProto(rsp.Items);
+                                // 缓存宝箱数据（兼容旧逻辑，后续以 MapInfoSyncNotify 为准刷新）
+                                Chests.Clear();
+                                foreach (var c in rsp.Chests)
+                                    Chests.Add(ChestInfoToDict(c));
                             }
                         }
                         break;
@@ -320,13 +345,18 @@ namespace ClinetCSharp
                             {
                                 CachedRoleInfo = rsp.RoleInfo;
                                 ServerTime = rsp.ServerTime;
-                                GD.Print($"[NetworkManager] CreateRole cached, name={rsp.RoleInfo.RoleName}");
+                                CurrentMapName = rsp.RoleInfo.CurrentMap;
+                                SpawnGridX = rsp.RoleInfo.GridX;
+                                SpawnGridY = rsp.RoleInfo.GridY;
+                                GD.Print($"[NetworkManager] CreateRole cached, name={rsp.RoleInfo.RoleName} map={rsp.RoleInfo.CurrentMap}");
                                 // 转发背包数据
                                 var inv = GetTree()?.GetFirstNodeInGroup("inventory_manager");
                                 if (inv is InventoryManager invObj && rsp.Items.Count > 0)
                                     invObj.UpdateFromProto(rsp.Items);
-                                ServerTime = rsp.ServerTime;
-                                GD.Print($"[NetworkManager] CreateRole cached, name={rsp.RoleInfo.RoleName}");
+                                // 缓存宝箱数据
+                                Chests.Clear();
+                                foreach (var c in rsp.Chests)
+                                    Chests.Add(ChestInfoToDict(c));
                             }
                         }
                         break;
@@ -351,6 +381,57 @@ namespace ClinetCSharp
                                 var gm = child.GetNodeOrNull<GMPanel>("GMPanel");
                                 if (gm != null) { gm.OnGmResponse(rsp); break; }
                             }
+                        }
+                        break;
+
+                    case MessageId.GameOpenChestRsp:
+                        {
+                            var rsp = Game.OpenChestResponse.Parser.ParseFrom(data);
+                            GD.Print($"[NetworkManager] OpenChest response: code={rsp.Code}, items={rsp.Items.Count}");
+                            var chestMgr = GetTree()?.GetFirstNodeInGroup("chest_manager");
+                            if (chestMgr is ChestManager cm3 && PendingOpenChestId.HasValue)
+                            {
+                                cm3.OnOpenChestResponse(rsp, PendingOpenChestId.Value);
+                                PendingOpenChestId = null;
+                            }
+                            // 同时更新背包（合并新增道具）
+                            var inv = GetTree()?.GetFirstNodeInGroup("inventory_manager");
+                            if (inv is InventoryManager invObj && rsp.Items.Count > 0)
+                                invObj.AddOrUpdateItemsFromProto(rsp.Items);
+                        }
+                        break;
+
+                    case MessageId.GameChestUpdateNotify:
+                        {
+                            var notify = Game.ChestUpdateNotify.Parser.ParseFrom(data);
+                            GD.Print($"[NetworkManager] ChestUpdateNotify received, count={notify.Chests.Count}");
+                            foreach (var c in notify.Chests)
+                                Chests.Add(ChestInfoToDict(c));
+                            var chestMgr = GetTree()?.GetFirstNodeInGroup("chest_manager");
+                            if (chestMgr is ChestManager cm)
+                                cm.SpawnChests(Chests, 111);
+                        }
+                        break;
+
+                    case MessageId.GameMapInfoSyncNotify:
+                        {
+                            var notify = Game.MapInfoSyncNotify.Parser.ParseFrom(data);
+                            GD.Print($"[NetworkManager] MapInfoSyncNotify received: map={notify.MapName}, chests={notify.Chests.Count}, monsters={notify.Monsters.Count}");
+                            CurrentMapName = notify.MapName;
+                            Chests.Clear();
+                            foreach (var c in notify.Chests)
+                                Chests.Add(ChestInfoToDict(c));
+                            Monsters.Clear();
+                            foreach (var m in notify.Monsters)
+                                Monsters.Add(MonsterInfoToDict(m));
+                            EmitSignal(SignalName.MapInfoReceived);
+                        }
+                        break;
+
+                    case MessageId.GameMonsterMoveNotify:
+                        {
+                            var notify = Game.MonsterMoveNotify.Parser.ParseFrom(data);
+                            EmitSignal(SignalName.MonsterMoveReceived, notify.InstanceId, notify.FromX, notify.FromY, notify.ToX, notify.ToY, notify.State);
                         }
                         break;
                 }
@@ -386,6 +467,41 @@ namespace ClinetCSharp
                 ["avatarId"] = (int)r.AvatarId,
                 ["lastLogin"] = (long)r.LastLogin,
                 ["totalPower"] = (long)r.TotalPower,
+            };
+        }
+
+        private static Godot.Collections.Dictionary ChestInfoToDict(Game.ChestInfo c)
+        {
+            return new Godot.Collections.Dictionary
+            {
+                ["chest_id"] = (int)c.ChestId,
+                ["x"] = c.X,
+                ["y"] = c.Y,
+                ["opened"] = c.Opened,
+            };
+        }
+
+        private static Godot.Collections.Dictionary MonsterInfoToDict(Game.MonsterInfo m)
+        {
+            var attrs = new Godot.Collections.Array();
+            foreach (var attr in m.Attrs)
+            {
+                attrs.Add(new Godot.Collections.Dictionary
+                {
+                    ["attr_key"] = (int)attr.AttrKey,
+                    ["attr_value"] = attr.AttrValue,
+                });
+            }
+
+            return new Godot.Collections.Dictionary
+            {
+                ["instance_id"] = (int)m.InstanceId,
+                ["monster_id"] = (int)m.MonsterId,
+                ["x"] = m.X,
+                ["y"] = m.Y,
+                ["name"] = m.Name,
+                ["level"] = (int)m.Level,
+                ["attrs"] = attrs,
             };
         }
     }

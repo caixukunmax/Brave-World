@@ -20,11 +20,29 @@
 
 struct socket_server;
 
+/**
+ * Socket 事件消息结构体
+ * 
+ * 用于 socket_server_poll() 返回各种网络事件(数据到达、连接建立、断开等)
+ * 该结构体由 socket_server 填充，调用者负责处理其中的数据
+ * 
+ * 各字段含义根据事件类型(type)不同而变化：
+ * 
+ * | 事件类型      | id       | opaque       | ud                    | data              |
+ * |--------------|----------|--------------|----------------------|-------------------|
+ * | SOCKET_DATA  | socket id| 关联服务句柄  | 数据字节数            | 数据缓冲区指针     |
+ * | SOCKET_CLOSE | socket id| 关联服务句柄  | 0                    | NULL              |
+ * | SOCKET_OPEN  | socket id| 关联服务句柄  | 0                    | 对端地址字符串     |
+ * | SOCKET_ACCEPT| listen id| 关联服务句柄  | 新连接 id             | 客户端地址字符串   |
+ * | SOCKET_ERR   | socket id| 关联服务句柄  | 0                    | 错误信息字符串     |
+ * | SOCKET_UDP   | socket id| 关联服务句柄  | 数据字节数            | 数据+地址(附加末尾)|
+ * | SOCKET_WARN  | socket id| 关联服务句柄  | 缓冲区大小(KB)        | NULL              |
+ */
 struct socket_message {
-	int id;
-	uintptr_t opaque;
-	int ud;	// for accept, ud is new connection id ; for data, ud is size of data 
-	char * data;
+	int id;              // socket id (创建时分配的唯一标识)
+	uintptr_t opaque;    // 关联的服务句柄 (创建 socket 时传入，用于消息路由)
+	int ud;              // 附加数据：accept时为连接id，data时为数据大小，warning时为KB数
+	char * data;         // 数据指针或字符串指针 (需要调用者释放，或使用后丢弃)
 };
 
 struct socket_server * socket_server_create(uint64_t time);

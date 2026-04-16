@@ -9,10 +9,8 @@ namespace ClinetCSharp
     public partial class DebugPanel
     {
         #region Dynamic UI Creation
-        private void CreateFreeLookToggle()
+        private void CreateFreeLookToggle(Node mapTab)
         {
-            Node cameraGroup = GetNode("Control/Panel/ScrollContainer/TabContainer/地图/CameraGroup");
-
             HBoxContainer row = new HBoxContainer();
             row.Name = "FreeLookRow";
             row.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
@@ -26,19 +24,13 @@ namespace ClinetCSharp
 
             row.AddChild(label);
             row.AddChild(_freeLookCheck);
-            cameraGroup.AddChild(row);
+            mapTab.AddChild(row);
 
             _freeLookCheck.Toggled += OnFreeLookToggled;
         }
 
-        private void CreateLineWidthScaleSlider()
+        private void CreateLineWidthScaleSlider(Node mapTab)
         {
-            Node gridGroup = GetNode("Control/Panel/ScrollContainer/TabContainer/地图/GridGroup");
-
-            _lineWidthScaleSlider = GetNodeOrNull<HSlider>("Control/Panel/ScrollContainer/TabContainer/地图/GridGroup/LineWidthScaleSlider");
-            if (_lineWidthScaleSlider != null)
-                return;
-
             _lineWidthScaleSlider = new HSlider();
             _lineWidthScaleSlider.Name = "LineWidthScaleSlider";
             _lineWidthScaleSlider.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
@@ -62,14 +54,12 @@ namespace ClinetCSharp
 
             row.AddChild(label);
             row.AddChild(_lineWidthScaleValue);
-            gridGroup.AddChild(row);
-            gridGroup.AddChild(_lineWidthScaleSlider);
+            mapTab.AddChild(row);
+            mapTab.AddChild(_lineWidthScaleSlider);
         }
 
-        private void CreateLineWidthCalibrationUI()
+        private void CreateLineWidthCalibrationUI(Node mapTab)
         {
-            Node gridGroup = GetNode("Control/Panel/ScrollContainer/TabContainer/地图/GridGroup");
-
             HBoxContainer rowToggle = new HBoxContainer();
             rowToggle.Name = "CalibrationToggleRow";
             rowToggle.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
@@ -85,9 +75,9 @@ namespace ClinetCSharp
 
             rowToggle.AddChild(label);
             rowToggle.AddChild(_applyCalibrationBtn);
-            gridGroup.AddChild(rowToggle);
+            mapTab.AddChild(rowToggle);
 
-            CreateCalibrationRefUI(gridGroup);
+            CreateCalibrationRefUI(mapTab);
         }
 
         private void CreateCalibrationRefUI(Node parent)
@@ -137,10 +127,8 @@ namespace ClinetCSharp
             parent.AddChild(rowB);
         }
 
-        private void CreateResponsiveUI()
+        private void CreateResponsiveUI(Node mapTab)
         {
-            Node cameraGroup = GetNode("Control/Panel/ScrollContainer/TabContainer/地图/CameraGroup");
-
             HBoxContainer rowToggle = new HBoxContainer();
             rowToggle.Name = "ResponsiveToggleRow";
             rowToggle.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
@@ -154,7 +142,7 @@ namespace ClinetCSharp
 
             rowToggle.AddChild(label);
             rowToggle.AddChild(_responsiveCheck);
-            cameraGroup.AddChild(rowToggle);
+            mapTab.AddChild(rowToggle);
 
             HBoxContainer rowX = new HBoxContainer();
             rowX.Name = "VisibleGridsXRow";
@@ -165,23 +153,18 @@ namespace ClinetCSharp
             labelX.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
 
             _visibleGridsXSpin = CreateSpinBox(1.0, 30.0, 0.5, 5.0, 70);
+            _visibleGridsXSpin.UpdateOnTextChanged = true;
             _visibleGridsXSpin.ValueChanged += OnVisibleGridsChanged;
 
             rowX.AddChild(labelX);
             rowX.AddChild(_visibleGridsXSpin);
-            cameraGroup.AddChild(rowX);
+            mapTab.AddChild(rowX);
 
             _responsiveCheck.Toggled += OnResponsiveToggled;
         }
 
-        private void CreateFontAutoSizeToggle()
+        private void CreateFontAutoSizeToggle(Node playerTab)
         {
-            _fontAutoSizeCheck = GetNodeOrNull<CheckButton>("Control/Panel/ScrollContainer/TabContainer/玩家/TextGroup/FontAutoSizeRow/FontAutoSizeCheck");
-            if (_fontAutoSizeCheck != null)
-                return;
-
-            Node textGroup = GetNode("Control/Panel/ScrollContainer/TabContainer/玩家/TextGroup");
-
             HBoxContainer row = new HBoxContainer();
             row.Name = "FontAutoSizeRow";
             row.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
@@ -195,15 +178,13 @@ namespace ClinetCSharp
 
             row.AddChild(label);
             row.AddChild(_fontAutoSizeCheck);
-            textGroup.AddChild(row);
+            playerTab.AddChild(row);
 
             _fontAutoSizeCheck.Toggled += OnFontAutoSizeToggled;
         }
 
-        private void CreateEditorKeyConfigUI()
+        private void CreateEditorKeyConfigUI(Node mapTab)
         {
-            Node debugGroup = GetNode("Control/Panel/ScrollContainer/TabContainer/地图/DebugGroup");
-
             HBoxContainer rowDrag = new HBoxContainer();
             rowDrag.Name = "EditorDragButtonRow";
             rowDrag.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
@@ -220,7 +201,7 @@ namespace ClinetCSharp
 
             rowDrag.AddChild(labelDrag);
             rowDrag.AddChild(_editorDragButtonOption);
-            debugGroup.AddChild(rowDrag);
+            mapTab.AddChild(rowDrag);
 
             _editorDragButtonOption.ItemSelected += OnEditorDragButtonChanged;
 
@@ -238,14 +219,20 @@ namespace ClinetCSharp
 
             rowSelect.AddChild(labelSelect);
             rowSelect.AddChild(_editorSelectModCheck);
-            debugGroup.AddChild(rowSelect);
+            mapTab.AddChild(rowSelect);
 
             _editorSelectModCheck.Toggled += OnEditorSelectModChanged;
         }
 
-        private void CreateLabelControlsUI()
+        private void CreateLabelControlsUI(Node playerTab)
         {
-            var labelCtrlGroup = GetNode<VBoxContainer>("Control/Panel/ScrollContainer/TabContainer/玩家/LabelCtrlGroup");
+            var labelCtrlGroup = new VBoxContainer { Name = "LabelCtrlGroup", SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+            playerTab.AddChild(labelCtrlGroup);
+
+            var autoCenterRow = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+            _labelAutoCenterXCheck = new CheckButton { Text = "X轴自动居中" };
+            autoCenterRow.AddChild(_labelAutoCenterXCheck);
+            labelCtrlGroup.AddChild(autoCenterRow);
 
             for (int i = 0; i < LabelCount; i++)
             {
@@ -403,8 +390,16 @@ namespace ClinetCSharp
             _healthBarLengthValue = new Label { Text = "80", CustomMinimumSize = new Vector2(25, 0), HorizontalAlignment = HorizontalAlignment.Right };
             lenRow.AddChild(_healthBarLengthValue);
             labelCtrlGroup.AddChild(lenRow);
-            _healthBarLengthSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = 20, MaxValue = 200, Step = 1, Value = 80 };
+            _healthBarLengthSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = 20, MaxValue = 400, Step = 1, Value = 80 };
             labelCtrlGroup.AddChild(_healthBarLengthSlider);
+
+            var lenScaleRow = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+            lenScaleRow.AddChild(new Label { Text = "长度比例", CustomMinimumSize = new Vector2(60, 0) });
+            _healthBarLengthScaleValue = new Label { Text = "0.72", CustomMinimumSize = new Vector2(30, 0), HorizontalAlignment = HorizontalAlignment.Right };
+            lenScaleRow.AddChild(_healthBarLengthScaleValue);
+            labelCtrlGroup.AddChild(lenScaleRow);
+            _healthBarLengthScaleSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = 0.1, MaxValue = 2.0, Step = 0.05, Value = 80.0 / 111.0 };
+            labelCtrlGroup.AddChild(_healthBarLengthScaleSlider);
 
             // Height slider
             var hRow = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
@@ -412,8 +407,16 @@ namespace ClinetCSharp
             _healthBarHeightValue = new Label { Text = "6", CustomMinimumSize = new Vector2(25, 0), HorizontalAlignment = HorizontalAlignment.Right };
             hRow.AddChild(_healthBarHeightValue);
             labelCtrlGroup.AddChild(hRow);
-            _healthBarHeightSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = 2, MaxValue = 20, Step = 1, Value = 6 };
+            _healthBarHeightSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = 2, MaxValue = 40, Step = 1, Value = 6 };
             labelCtrlGroup.AddChild(_healthBarHeightSlider);
+
+            var hScaleRow = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+            hScaleRow.AddChild(new Label { Text = "高度比例", CustomMinimumSize = new Vector2(60, 0) });
+            _healthBarHeightScaleValue = new Label { Text = "0.05", CustomMinimumSize = new Vector2(30, 0), HorizontalAlignment = HorizontalAlignment.Right };
+            hScaleRow.AddChild(_healthBarHeightScaleValue);
+            labelCtrlGroup.AddChild(hScaleRow);
+            _healthBarHeightScaleSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = 0.01, MaxValue = 0.3, Step = 0.01, Value = 6.0 / 111.0 };
+            labelCtrlGroup.AddChild(_healthBarHeightScaleSlider);
 
             // Fill slider
             var fillRow = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
@@ -450,8 +453,12 @@ namespace ClinetCSharp
             _healthBarColorBtn.Pressed += OnHealthBarColorPressed;
             _healthBarLengthSlider.ValueChanged += OnHealthBarLengthChanged;
             _healthBarLengthSlider.DragEnded += (changed) => PushCurrentStateToHistory();
+            _healthBarLengthScaleSlider.ValueChanged += OnHealthBarLengthScaleChanged;
+            _healthBarLengthScaleSlider.DragEnded += (changed) => PushCurrentStateToHistory();
             _healthBarHeightSlider.ValueChanged += OnHealthBarHeightChanged;
             _healthBarHeightSlider.DragEnded += (changed) => PushCurrentStateToHistory();
+            _healthBarHeightScaleSlider.ValueChanged += OnHealthBarHeightScaleChanged;
+            _healthBarHeightScaleSlider.DragEnded += (changed) => PushCurrentStateToHistory();
             _healthBarFillSlider.ValueChanged += OnHealthBarFillChanged;
             _healthBarFillSlider.DragEnded += (changed) => PushCurrentStateToHistory();
             _healthBarOffsetXSlider.ValueChanged += OnHealthBarOffsetXChanged;
@@ -593,6 +600,372 @@ namespace ClinetCSharp
         }
         #endregion
 
+        #region Map Debug UI Creation
+        private void CreateMapDebugUI()
+        {
+            var mapTab = GetNode<VBoxContainer>("Control/Panel/ScrollContainer/TabContainer/地图");
+
+            var title = new Label { Text = "地图设置", HorizontalAlignment = HorizontalAlignment.Center };
+            title.AddThemeFontSizeOverride("font_size", 13);
+            mapTab.AddChild(title);
+            mapTab.AddChild(new HSeparator());
+
+            (_gridSizeSlider, _gridSizeValue) = CreateDebugSliderRow(mapTab, "格子大小", 32, 256, 111, 1f);
+            (_zoomSlider, _zoomValue) = CreateDebugSliderRow(mapTab, "视角远近", 0.2f, 3.0f, 1.4f, 0.1f);
+            (_gridLineWidthSlider, _gridLineWidthValue) = CreateDebugSliderRow(mapTab, "网格线宽", 0.1f, 5.0f, 2.0f, 0.1f);
+            (_gridLineBrightnessSlider, _gridLineBrightnessValue) = CreateDebugSliderRow(mapTab, "网格线亮度", 0.1f, 1.0f, 0.7f, 0.1f);
+
+            var coordsRow = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+            _gridCoordsCheck = new CheckButton { Text = "显示格子坐标" };
+            coordsRow.AddChild(_gridCoordsCheck);
+            mapTab.AddChild(coordsRow);
+
+            mapTab.AddChild(new HSeparator());
+
+            (_cameraReturnDelaySlider, _cameraReturnDelayValue) = CreateDebugSliderRow(mapTab, "恢复延迟", 0.0f, 3.0f, 0.5f, 0.1f);
+            (_cameraReturnSpeedSlider, _cameraReturnSpeedValue) = CreateDebugSliderRow(mapTab, "回退速度", 1.0f, 20.0f, 5.0f, 1f);
+
+            var easeRow = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+            easeRow.AddChild(new Label { Text = "缓动曲线:", CustomMinimumSize = new Vector2(80, 0) });
+            _cameraEaseTypeOption = new OptionButton { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+            easeRow.AddChild(_cameraEaseTypeOption);
+            mapTab.AddChild(easeRow);
+
+            (_cameraEasePowerSlider, _cameraEasePowerValue) = CreateDebugSliderRow(mapTab, "缓动强度", 1.0f, 5.0f, 2.0f, 0.1f);
+
+            var debugRow = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+            _debugInfoCheck = new CheckButton { Text = "显示调试信息", ButtonPressed = true };
+            debugRow.AddChild(_debugInfoCheck);
+            mapTab.AddChild(debugRow);
+
+            var camDebugRow = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+            _cameraDebugCheck = new CheckButton { Text = "相机拖拽调试输出" };
+            camDebugRow.AddChild(_cameraDebugCheck);
+            mapTab.AddChild(camDebugRow);
+
+            // 附加高级动态控件
+            CreateFreeLookToggle(mapTab);
+            CreateLineWidthScaleSlider(mapTab);
+            CreateLineWidthCalibrationUI(mapTab);
+            CreateResponsiveUI(mapTab);
+            CreateEditorKeyConfigUI(mapTab);
+        }
+        #endregion
+
+        #region Player Debug UI Creation
+        private void CreatePlayerDebugUI()
+        {
+            var playerTab = GetNode<VBoxContainer>("Control/Panel/ScrollContainer/TabContainer/玩家");
+
+            var title = new Label { Text = "玩家样式", HorizontalAlignment = HorizontalAlignment.Center };
+            title.AddThemeFontSizeOverride("font_size", 13);
+            playerTab.AddChild(title);
+            playerTab.AddChild(new HSeparator());
+
+            (_playerSizeSlider, _playerSizeValue) = CreateDebugSliderRow(playerTab, "角色大小", 32, 256, 111, 1f);
+            (_playerSizeScaleSlider, _playerSizeScaleValue) = CreateDebugSliderRow(playerTab, "角色比例", 0.1f, 1.0f, 1.0f, 0.05f);
+            (_borderWidthSlider, _borderWidthValue) = CreateDebugSliderRow(playerTab, "边框粗细", 1.0f, 20.0f, 3.0f, 0.5f);
+            (_borderWidthScaleSlider, _borderWidthScaleValue) = CreateDebugSliderRow(playerTab, "边框比例", 0.0f, 0.2f, 3.0f / 111.0f, 0.01f);
+            (_cornerRadiusSlider, _cornerRadiusValue) = CreateDebugSliderRow(playerTab, "圆角半径", 0.0f, 30.0f, 0.0f, 1f);
+            (_bgOpacitySlider, _bgOpacityValue) = CreateDebugSliderRow(playerTab, "背景明度", 0.0f, 1.0f, 0.1f, 0.05f);
+
+            playerTab.AddChild(new HSeparator());
+
+            var fontRow = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+            fontRow.AddChild(new Label { Text = "字体:", CustomMinimumSize = new Vector2(40, 0) });
+            _fontOption = new OptionButton { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+            fontRow.AddChild(_fontOption);
+            _loadFontBtn = new Button { Text = "📂 加载", CustomMinimumSize = new Vector2(60, 26) };
+            fontRow.AddChild(_loadFontBtn);
+            playerTab.AddChild(fontRow);
+
+            (_fontSizeSlider, _fontSizeValue) = CreateDebugSliderRow(playerTab, "字体大小", 0, 48, 0, 1f);
+            (_lineSpacingSlider, _lineSpacingValue) = CreateDebugSliderRow(playerTab, "行间距", 0.5f, 1.5f, 0.8f, 0.1f);
+            (_letterSpacingSlider, _letterSpacingValue) = CreateDebugSliderRow(playerTab, "字间距", -5, 10, 0, 1f);
+
+            playerTab.AddChild(new Label { Text = "文字对齐:" });
+            var alignRow = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+            _alignLeftBtn = new Button { Text = "左对齐", SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+            _alignCenterBtn = new Button { Text = "居中", SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+            _alignRightBtn = new Button { Text = "右对齐", SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+            alignRow.AddChild(_alignLeftBtn);
+            alignRow.AddChild(_alignCenterBtn);
+            alignRow.AddChild(_alignRightBtn);
+            playerTab.AddChild(alignRow);
+
+            var styleRow = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+            _boldCheck = new CheckButton { Text = "加粗", SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+            _italicCheck = new CheckButton { Text = "斜体", SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+            _shadowCheck = new CheckButton { Text = "阴影", SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+            styleRow.AddChild(_boldCheck);
+            styleRow.AddChild(_italicCheck);
+            styleRow.AddChild(_shadowCheck);
+            playerTab.AddChild(styleRow);
+
+            playerTab.AddChild(new Label { Text = "行颜色:" });
+            _lineColorButtons = new List<Button>();
+            for (int i = 0; i < 4; i++)
+            {
+                var cRow = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+                cRow.AddChild(new Label { Text = $"行{i + 1}:", CustomMinimumSize = new Vector2(40, 0) });
+                var cBtn = new Button { Text = "", CustomMinimumSize = new Vector2(40, 24) };
+                cRow.AddChild(cBtn);
+                _lineColorButtons.Add(cBtn);
+                playerTab.AddChild(cRow);
+            }
+
+            CreateFontAutoSizeToggle(playerTab);
+            CreateLabelControlsUI(playerTab);
+        }
+        #endregion
+
+        #region Monster Debug UI Creation
+        private void CreateMonsterDebugUI()
+        {
+            var monsterTab = GetNode<VBoxContainer>("Control/Panel/ScrollContainer/TabContainer/怪物");
+
+            // 标题
+            var title = new Label { Text = "怪物全局样式", HorizontalAlignment = HorizontalAlignment.Center };
+            title.AddThemeFontSizeOverride("font_size", 13);
+            monsterTab.AddChild(title);
+
+            monsterTab.AddChild(new HSeparator());
+
+            // 滑块
+            (_monsterSizeSlider, _monsterSizeValue) = CreateMonsterSliderRow(monsterTab, "视觉大小", 32, 256, 111);
+            (_monsterSizeScaleSlider, _monsterSizeScaleValue) = CreateMonsterSliderRow(monsterTab, "角色比例", 0.1f, 1.0f, 1.0f);
+            (_monsterBorderWidthSlider, _monsterBorderWidthValue) = CreateMonsterSliderRow(monsterTab, "边框粗细", 0, 20, 3);
+            (_monsterBorderWidthScaleSlider, _monsterBorderWidthScaleValue) = CreateMonsterSliderRow(monsterTab, "边框比例", 0.0f, 0.2f, 3.0f / 111.0f, 0.01f);
+            (_monsterCornerRadiusSlider, _monsterCornerRadiusValue) = CreateMonsterSliderRow(monsterTab, "圆角半径", 0, 60, 12);
+            (_monsterBgOpacitySlider, _monsterBgOpacityValue) = CreateMonsterSliderRow(monsterTab, "背景不透明度", 0, 1, 0.9f);
+            (_monsterFontSizeSlider, _monsterFontSizeValue) = CreateMonsterSliderRow(monsterTab, "字体大小", 0, 48, 0);
+
+            // 颜色
+            var bcRow = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+            bcRow.AddChild(new Label { Text = "边框颜色:", CustomMinimumSize = new Vector2(80, 0) });
+            _monsterBorderColorPicker = new ColorPickerButton { Color = new Color(0.9f, 0.3f, 0.3f), CustomMinimumSize = new Vector2(60, 26) };
+            bcRow.AddChild(_monsterBorderColorPicker);
+            monsterTab.AddChild(bcRow);
+
+            var bgcRow = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+            bgcRow.AddChild(new Label { Text = "背景颜色:", CustomMinimumSize = new Vector2(80, 0) });
+            _monsterBgColorPicker = new ColorPickerButton { Color = new Color(0.8f, 0.2f, 0.2f), CustomMinimumSize = new Vector2(60, 26) };
+            bgcRow.AddChild(_monsterBgColorPicker);
+            monsterTab.AddChild(bgcRow);
+
+            var tcRow = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+            tcRow.AddChild(new Label { Text = "文字颜色:", CustomMinimumSize = new Vector2(80, 0) });
+            _monsterTextColorPicker = new ColorPickerButton { Color = new Color(1, 0.95f, 0.95f), CustomMinimumSize = new Vector2(60, 26) };
+            tcRow.AddChild(_monsterTextColorPicker);
+            monsterTab.AddChild(tcRow);
+
+            monsterTab.AddChild(new HSeparator());
+
+            // 4 行文字（每行含内容、字号、X偏移、X居中、Y偏移）
+            monsterTab.AddChild(new Label { Text = "显示文字:" });
+            for (int i = 0; i < 4; i++)
+            {
+                var row = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+                row.AddChild(new Label { Text = $"行{i + 1}:", CustomMinimumSize = new Vector2(40, 0) });
+                var edit = new LineEdit { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, CustomMinimumSize = new Vector2(0, 26) };
+                row.AddChild(edit);
+                _monsterLabelEdits[i] = edit;
+                monsterTab.AddChild(row);
+
+                // 字号行
+                var fsRow = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+                fsRow.AddChild(new Control { CustomMinimumSize = new Vector2(40, 0) }); // 缩进占位
+                var fsLbl = new Label { Text = "字号:", CustomMinimumSize = new Vector2(36, 0) };
+                fsRow.AddChild(fsLbl);
+                var fsSlider = new HSlider { MinValue = 0, MaxValue = 48, Value = 0, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, CustomMinimumSize = new Vector2(0, 20), Step = 1 };
+                fsRow.AddChild(fsSlider);
+                var fsVal = new Label { Text = "0", CustomMinimumSize = new Vector2(24, 0) };
+                fsRow.AddChild(fsVal);
+                fsSlider.ValueChanged += (v) => fsVal.Text = ((int)v).ToString();
+                _monsterLabelFontSizeSliders[i] = fsSlider;
+                _monsterLabelFontSizeValues[i] = fsVal;
+                monsterTab.AddChild(fsRow);
+
+                // X偏移 + 居中行
+                var xRow = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+                xRow.AddChild(new Control { CustomMinimumSize = new Vector2(40, 0) }); // 缩进占位
+                var xLbl = new Label { Text = "X:", CustomMinimumSize = new Vector2(24, 0) };
+                xRow.AddChild(xLbl);
+                var xSlider = new HSlider { MinValue = -40, MaxValue = 40, Value = 0, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, CustomMinimumSize = new Vector2(0, 20), Step = 1 };
+                xRow.AddChild(xSlider);
+                var xVal = new Label { Text = "0", CustomMinimumSize = new Vector2(28, 0) };
+                xRow.AddChild(xVal);
+                var centerCheck = new CheckButton { Text = "居中", ButtonPressed = true };
+                xRow.AddChild(centerCheck);
+                xSlider.ValueChanged += (v) => xVal.Text = ((int)v).ToString();
+                centerCheck.Toggled += (enabled) => { xSlider.Editable = !enabled; xSlider.Modulate = enabled ? new Color(0.5f, 0.5f, 0.5f, 1) : new Color(1, 1, 1, 1); };
+                _monsterLabelXOffsetSliders[i] = xSlider;
+                _monsterLabelXOffsetValues[i] = xVal;
+                _monsterLabelCenterXChecks[i] = centerCheck;
+                monsterTab.AddChild(xRow);
+
+                // Y偏移行
+                var yRow = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+                yRow.AddChild(new Control { CustomMinimumSize = new Vector2(40, 0) }); // 缩进占位
+                var yLbl = new Label { Text = "Y:", CustomMinimumSize = new Vector2(24, 0) };
+                yRow.AddChild(yLbl);
+                var ySlider = new HSlider { MinValue = -40, MaxValue = 40, Value = 0, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, CustomMinimumSize = new Vector2(0, 20), Step = 1 };
+                yRow.AddChild(ySlider);
+                var yVal = new Label { Text = "0", CustomMinimumSize = new Vector2(28, 0) };
+                yRow.AddChild(yVal);
+                ySlider.ValueChanged += (v) => yVal.Text = ((int)v).ToString();
+                _monsterLabelYOffsetSliders[i] = ySlider;
+                _monsterLabelYOffsetValues[i] = yVal;
+                monsterTab.AddChild(yRow);
+            }
+
+            // 事件绑定
+            _monsterSizeSlider.ValueChanged += (_) => ApplyMonsterDebugChanges();
+            _monsterSizeSlider.DragEnded += (_) => ApplyMonsterDebugChanges();
+            _monsterSizeScaleSlider.ValueChanged += (_) => ApplyMonsterDebugChanges();
+            _monsterSizeScaleSlider.DragEnded += (_) => ApplyMonsterDebugChanges();
+            _monsterBorderWidthSlider.ValueChanged += (v) => OnMonsterBorderWidthChanged(v);
+            _monsterBorderWidthSlider.DragEnded += (v) => OnMonsterBorderWidthDragEnded(v);
+            _monsterBorderWidthScaleSlider.ValueChanged += (v) => OnMonsterBorderWidthScaleChanged(v);
+            _monsterBorderWidthScaleSlider.DragEnded += (v) => OnMonsterBorderWidthScaleDragEnded(v);
+            _monsterCornerRadiusSlider.ValueChanged += (_) => ApplyMonsterDebugChanges();
+            _monsterCornerRadiusSlider.DragEnded += (_) => ApplyMonsterDebugChanges();
+            _monsterBgOpacitySlider.ValueChanged += (_) => ApplyMonsterDebugChanges();
+            _monsterBgOpacitySlider.DragEnded += (_) => ApplyMonsterDebugChanges();
+            _monsterFontSizeSlider.ValueChanged += (_) => ApplyMonsterDebugChanges();
+            _monsterFontSizeSlider.DragEnded += (_) => ApplyMonsterDebugChanges();
+            _monsterBorderColorPicker.ColorChanged += (_) => ApplyMonsterDebugChanges();
+            _monsterBgColorPicker.ColorChanged += (_) => ApplyMonsterDebugChanges();
+            _monsterTextColorPicker.ColorChanged += (_) => ApplyMonsterDebugChanges();
+            for (int i = 0; i < 4; i++)
+            {
+                _monsterLabelEdits[i].TextChanged += (_) => ApplyMonsterDebugChanges();
+                _monsterLabelFontSizeSliders[i].ValueChanged += (_) => ApplyMonsterDebugChanges();
+                _monsterLabelFontSizeSliders[i].DragEnded += (_) => ApplyMonsterDebugChanges();
+                _monsterLabelXOffsetSliders[i].ValueChanged += (_) => ApplyMonsterDebugChanges();
+                _monsterLabelXOffsetSliders[i].DragEnded += (_) => ApplyMonsterDebugChanges();
+                _monsterLabelCenterXChecks[i].Toggled += (_) => ApplyMonsterDebugChanges();
+                _monsterLabelYOffsetSliders[i].ValueChanged += (_) => ApplyMonsterDebugChanges();
+                _monsterLabelYOffsetSliders[i].DragEnded += (_) => ApplyMonsterDebugChanges();
+            }
+        }
+
+        private (HSlider slider, Label valueLabel) CreateMonsterSliderRow(Container parent, string label, float min, float max, float def, float? step = null)
+        {
+            var row = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+            row.AddChild(new Label { Text = label + ":", CustomMinimumSize = new Vector2(80, 0) });
+
+            var slider = new HSlider { MinValue = min, MaxValue = max, Value = def, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, CustomMinimumSize = new Vector2(0, 20), Step = step ?? (max <= 1 ? 0.05f : 1f) };
+            row.AddChild(slider);
+
+            var valLbl = new Label { Text = def.ToString("F1"), CustomMinimumSize = new Vector2(36, 0) };
+            row.AddChild(valLbl);
+
+            slider.ValueChanged += (v) => valLbl.Text = (max <= 1 ? v.ToString("F2") : ((int)v).ToString());
+            parent.AddChild(row);
+            return (slider, valLbl);
+        }
+
+        private void SyncMonsterDebugUI()
+        {
+            var mm = GetTree()?.GetFirstNodeInGroup("monster_manager") as MonsterManager;
+            if (mm == null) return;
+
+            _monsterSizeSlider.Value = mm.DefaultVisualSize;
+            _monsterSizeScaleSlider.Value = mm.DefaultVisualSizeScale;
+            _monsterBorderWidthSlider.Value = mm.DefaultBorderWidth;
+            _monsterBorderWidthScaleSlider.Value = mm.DefaultBorderWidthScale;
+            _monsterCornerRadiusSlider.Value = mm.DefaultCornerRadius;
+            _monsterBgOpacitySlider.Value = mm.DefaultBgOpacity;
+            _monsterFontSizeSlider.Value = mm.DefaultFontSize;
+            _monsterBorderColorPicker.Color = mm.DefaultBorderColor;
+            _monsterBgColorPicker.Color = mm.DefaultBgColor;
+            _monsterTextColorPicker.Color = mm.DefaultTextColor;
+            for (int i = 0; i < 4; i++)
+            {
+                _monsterLabelEdits[i].Text = mm.DefaultLabelTexts[i] ?? "";
+                _monsterLabelFontSizeSliders[i].Value = mm.DefaultLabelFontSizes[i];
+                _monsterLabelFontSizeValues[i].Text = mm.DefaultLabelFontSizes[i].ToString();
+                _monsterLabelXOffsetSliders[i].Value = mm.DefaultLabelXOffsets[i];
+                _monsterLabelXOffsetValues[i].Text = mm.DefaultLabelXOffsets[i].ToString("F0");
+                _monsterLabelCenterXChecks[i].ButtonPressed = mm.DefaultLabelCenterX[i];
+                _monsterLabelXOffsetSliders[i].Editable = !mm.DefaultLabelCenterX[i];
+                _monsterLabelXOffsetSliders[i].Modulate = mm.DefaultLabelCenterX[i] ? new Color(0.5f, 0.5f, 0.5f, 1) : new Color(1, 1, 1, 1);
+                _monsterLabelYOffsetSliders[i].Value = mm.DefaultLabelYOffsets[i];
+                _monsterLabelYOffsetValues[i].Text = mm.DefaultLabelYOffsets[i].ToString("F0");
+            }
+        }
+
+        private void OnMonsterBorderWidthChanged(double value)
+        {
+            if (_monsterBorderWidthValue != null)
+                _monsterBorderWidthValue.Text = ((int)value).ToString();
+        }
+
+        private void OnMonsterBorderWidthDragEnded(bool valueChanged)
+        {
+            if (!valueChanged) return;
+            int gridSize = (int)_gridSizeSlider.Value;
+            float scale = gridSize > 0 ? (float)(_monsterBorderWidthSlider.Value / gridSize) : 0.0f;
+            if (_monsterBorderWidthScaleSlider != null)
+            {
+                _monsterBorderWidthScaleSlider.SetBlockSignals(true);
+                _monsterBorderWidthScaleSlider.Value = scale;
+                _monsterBorderWidthScaleSlider.SetBlockSignals(false);
+                _monsterBorderWidthScaleValue.Text = scale.ToString("F2");
+            }
+            ApplyMonsterDebugChanges();
+        }
+
+        private void OnMonsterBorderWidthScaleChanged(double value)
+        {
+            if (_monsterBorderWidthScaleValue != null)
+                _monsterBorderWidthScaleValue.Text = value.ToString("F2");
+        }
+
+        private void OnMonsterBorderWidthScaleDragEnded(bool valueChanged)
+        {
+            if (!valueChanged) return;
+            int gridSize = (int)_gridSizeSlider.Value;
+            float newWidth = Mathf.Clamp((float)_monsterBorderWidthScaleSlider.Value * gridSize, 1.0f, 20.0f);
+            if (_monsterBorderWidthSlider != null)
+            {
+                _monsterBorderWidthSlider.SetBlockSignals(true);
+                _monsterBorderWidthSlider.Value = newWidth;
+                _monsterBorderWidthSlider.SetBlockSignals(false);
+                _monsterBorderWidthValue.Text = ((int)newWidth).ToString();
+            }
+            ApplyMonsterDebugChanges();
+        }
+
+        private void ApplyMonsterDebugChanges()
+        {
+            var mm = GetTree()?.GetFirstNodeInGroup("monster_manager") as MonsterManager;
+            if (mm == null) return;
+
+            mm.DefaultVisualSize = (int)_monsterSizeSlider.Value;
+            mm.DefaultVisualSizeScale = (float)_monsterSizeScaleSlider.Value;
+            mm.DefaultBorderWidth = (float)_monsterBorderWidthSlider.Value;
+            mm.DefaultBorderWidthScale = (float)_monsterBorderWidthScaleSlider.Value;
+            mm.DefaultCornerRadius = (float)_monsterCornerRadiusSlider.Value;
+            mm.DefaultBgOpacity = (float)_monsterBgOpacitySlider.Value;
+            mm.DefaultFontSize = (int)_monsterFontSizeSlider.Value;
+            mm.DefaultBorderColor = _monsterBorderColorPicker.Color;
+            mm.DefaultBgColor = _monsterBgColorPicker.Color;
+            mm.DefaultTextColor = _monsterTextColorPicker.Color;
+            for (int i = 0; i < 4; i++)
+            {
+                mm.DefaultLabelTexts[i] = _monsterLabelEdits[i].Text;
+                mm.DefaultLabelFontSizes[i] = (int)_monsterLabelFontSizeSliders[i].Value;
+                mm.DefaultLabelXOffsets[i] = (float)_monsterLabelXOffsetSliders[i].Value;
+                mm.DefaultLabelCenterX[i] = _monsterLabelCenterXChecks[i].ButtonPressed;
+                mm.DefaultLabelYOffsets[i] = (float)_monsterLabelYOffsetSliders[i].Value;
+            }
+
+            mm.ApplyStyleToAll();
+        }
+        #endregion
+
         #region Preset UI Creation
         private void CreatePresetUI()
         {
@@ -716,6 +1089,24 @@ namespace ClinetCSharp
             if (expand)
                 label.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
             return label;
+        }
+
+        private (HSlider slider, Label valueLabel) CreateDebugSliderRow(Container parent, string label, float min, float max, float def, float step = -1f)
+        {
+            float actualStep = step > 0 ? step : (max <= 1.0f ? 0.05f : 1f);
+            var row = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+            row.AddChild(new Label { Text = label + ":", CustomMinimumSize = new Vector2(80, 0) });
+
+            var slider = new HSlider { MinValue = min, MaxValue = max, Value = def, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, CustomMinimumSize = new Vector2(0, 20), Step = actualStep };
+            row.AddChild(slider);
+
+            string initialText = actualStep < 1.0f ? def.ToString("F1") : ((int)def).ToString();
+            var valLbl = new Label { Text = initialText, CustomMinimumSize = new Vector2(36, 0) };
+            row.AddChild(valLbl);
+
+            slider.ValueChanged += (v) => valLbl.Text = (actualStep < 1.0f ? v.ToString("F1") : ((int)v).ToString());
+            parent.AddChild(row);
+            return (slider, valLbl);
         }
 
         private SpinBox CreateSpinBox(double minV, double maxV, double step, double value, int width)

@@ -19,6 +19,11 @@ local enums =
      ---@field public AND integer
      ---@field public OR integer
     ['common.EBoolOperator'] = {   AND=0,  OR=1,  };
+    ---@class common.EMonsterAttr
+     ---@field public HP integer @生命值
+     ---@field public ATK integer @攻击力
+     ---@field public DEF integer @防御力
+    ['common.EMonsterAttr'] = {   HP=1,  ATK=2,  DEF=3,  };
     ---@class item.EClothersStarQualityType
      ---@field public ONE integer @一星
      ---@field public TWO integer @二星
@@ -200,6 +205,44 @@ local beans = {}
         beans['common.AccountConfig'] = class
     end
     do
+    ---@class common.Ai 
+     ---@field public id integer @AI配置ID
+     ---@field public ai_type string @AI类型
+     ---@field public aggro_range integer @警戒半径
+     ---@field public move_interval_ms integer @巡逻间隔毫秒
+     ---@field public chase_interval_ms integer @追击间隔毫秒
+     ---@field public max_chase_distance integer @最大追击距离
+     ---@field public patrol_range integer @巡逻范围
+     ---@field public param_1 integer @扩展参数1
+     ---@field public param_2 integer @扩展参数2
+     ---@field public param_3 number @扩展参数3
+        local class = {
+            { name='id', type='integer'},
+            { name='ai_type', type='string'},
+            { name='aggro_range', type='integer'},
+            { name='move_interval_ms', type='integer'},
+            { name='chase_interval_ms', type='integer'},
+            { name='max_chase_distance', type='integer'},
+            { name='patrol_range', type='integer'},
+            { name='param_1', type='integer'},
+            { name='param_2', type='integer'},
+            { name='param_3', type='number'},
+        }
+        beans['common.Ai'] = class
+    end
+    do
+    ---@class common.ChestConfig 
+     ---@field public id integer @宝箱ID
+     ---@field public name string @宝箱名称
+     ---@field public rewards string @奖励
+        local class = {
+            { name='id', type='integer'},
+            { name='name', type='string'},
+            { name='rewards', type='string'},
+        }
+        beans['common.ChestConfig'] = class
+    end
+    do
     ---@class common.DateTimeRange 
      ---@field public start_time integer
      ---@field public end_time integer
@@ -250,6 +293,76 @@ local beans = {}
         beans['common.IntRange'] = class
     end
     do
+    ---@class common.MapConfig 
+     ---@field public id integer @地图ID
+     ---@field public map_name string @地图标识
+     ---@field public display_name string @显示名称
+     ---@field public width integer @地图宽度
+     ---@field public height integer @地图高度
+     ---@field public spawn_x integer @出生点X
+     ---@field public spawn_y integer @出生点Y
+        local class = {
+            { name='id', type='integer'},
+            { name='map_name', type='string'},
+            { name='display_name', type='string'},
+            { name='width', type='integer'},
+            { name='height', type='integer'},
+            { name='spawn_x', type='integer'},
+            { name='spawn_y', type='integer'},
+        }
+        beans['common.MapConfig'] = class
+    end
+    do
+    ---@class common.MapMonster 
+     ---@field public id integer @配置ID
+     ---@field public map_id integer @地图ID
+     ---@field public monster_id integer @怪物ID
+     ---@field public x integer @出生X
+     ---@field public y integer @出生Y
+     ---@field public respawn_time integer @重生秒数
+     ---@field public is_active boolean @是否激活
+     ---@field public ai_id integer @AI配置ID
+        local class = {
+            { name='id', type='integer'},
+            { name='map_id', type='integer'},
+            { name='monster_id', type='integer'},
+            { name='x', type='integer'},
+            { name='y', type='integer'},
+            { name='respawn_time', type='integer'},
+            { name='is_active', type='boolean'},
+            { name='ai_id', type='integer'},
+        }
+        beans['common.MapMonster'] = class
+    end
+    do
+    ---@class common.Monster 
+     ---@field public id integer @怪物ID
+     ---@field public name string @名称
+     ---@field public level integer @等级
+     ---@field public exp integer @击杀经验
+     ---@field public drop_items string @掉落配置
+     ---@field public attrs common.MonsterAttr[] @属性列表
+        local class = {
+            { name='id', type='integer'},
+            { name='name', type='string'},
+            { name='level', type='integer'},
+            { name='exp', type='integer'},
+            { name='drop_items', type='string'},
+            { name='attrs', type='common.MonsterAttr[]'},
+        }
+        beans['common.Monster'] = class
+    end
+    do
+    ---@class common.MonsterAttr  @怪物属性项
+     ---@field public attr_key integer @属性键
+     ---@field public attr_value integer @属性值
+        local class = {
+            { name='attr_key', type='integer'},
+            { name='attr_value', type='integer'},
+        }
+        beans['common.MonsterAttr'] = class
+    end
+    do
     ---@class common.OneDayTimeRange 
      ---@field public start_time common.TimeOfDay
      ---@field public end_time common.TimeOfDay
@@ -286,43 +399,15 @@ local beans = {}
         beans['common.TimeOfDay'] = class
     end
     do
-    ---@class item.Item  @道具
-     ---@field public id integer @道具 id
-     ---@field public name string
-     ---@field public major_type integer
-     ---@field public minor_type integer
-     ---@field public max_pile_num integer
-     ---@field public quality integer
-     ---@field public icon string
-     ---@field public icon_backgroud string
-     ---@field public icon_mask string
-     ---@field public desc string
-     ---@field public show_order integer
-        local class = {
-            { name='id', type='integer'},
-            { name='name', type='string'},
-            { name='major_type', type='integer'},
-            { name='minor_type', type='integer'},
-            { name='max_pile_num', type='integer'},
-            { name='quality', type='integer'},
-            { name='icon', type='string'},
-            { name='icon_backgroud', type='string'},
-            { name='icon_mask', type='string'},
-            { name='desc', type='string'},
-            { name='show_order', type='integer'},
-        }
-        beans['item.Item'] = class
-    end
-    do
-    ---@class item.ItemConfig  @道具配置
-     ---@field public id integer @道具 ID
+    ---@class item.Item 
+     ---@field public id integer @道具ID
      ---@field public name string @道具名称
      ---@field public major_type integer @主类型
      ---@field public minor_type integer @子类型
+     ---@field public max_pile_num integer @最大堆叠
      ---@field public quality integer @品质
-     ---@field public max_pile_num integer @最大堆叠数
-     ---@field public icon string @图标路径
-     ---@field public icon_background string @图标背景
+     ---@field public icon string @图标
+     ---@field public icon_backgroud string @图标背景
      ---@field public icon_mask string @图标遮罩
      ---@field public desc string @描述
      ---@field public show_order integer @显示顺序
@@ -337,10 +422,10 @@ local beans = {}
             { name='name', type='string'},
             { name='major_type', type='integer'},
             { name='minor_type', type='integer'},
-            { name='quality', type='integer'},
             { name='max_pile_num', type='integer'},
+            { name='quality', type='integer'},
             { name='icon', type='string'},
-            { name='icon_background', type='string'},
+            { name='icon_backgroud', type='string'},
             { name='icon_mask', type='string'},
             { name='desc', type='string'},
             { name='show_order', type='integer'},
@@ -351,27 +436,7 @@ local beans = {}
             { name='obtain_methods', type='string'},
             { name='release_date', type='string'},
         }
-        beans['item.ItemConfig'] = class
-    end
-    do
-    ---@class l10n.L10NDemo 
-     ---@field public id integer
-     ---@field public text string
-        local class = {
-            { name='id', type='integer'},
-            { name='text', type='string'},
-        }
-        beans['l10n.L10NDemo'] = class
-    end
-    do
-    ---@class l10n.PatchDemo 
-     ---@field public id integer
-     ---@field public value integer
-        local class = {
-            { name='id', type='integer'},
-            { name='value', type='integer'},
-        }
-        beans['l10n.PatchDemo'] = class
+        beans['item.Item'] = class
     end
     do
     ---@class RoleInitConfig  @角色初始配置
@@ -406,16 +471,6 @@ local beans = {}
             { name='is_recommend', type='boolean'},
         }
         beans['ServerConfig'] = class
-    end
-    do
-    ---@class tag.TestTag 
-     ---@field public id integer
-     ---@field public value string
-        local class = {
-            { name='id', type='integer'},
-            { name='value', type='string'},
-        }
-        beans['tag.TestTag'] = class
     end
     do
     ---@class test.Shape 
@@ -507,14 +562,15 @@ local beans = {}
 local tables =
 {
     { name='TbGlobalConfig', file='common_tbglobalconfig', mode='one', value_type='common.GlobalConfig'},
-    { name='TbItem', file='item_tbitem', mode='map', index='id', value_type='item.Item' },
-    { name='TbItemConfig', file='item_tbitemconfig', mode='map', index='id', value_type='item.ItemConfig' },
-    { name='TbL10NDemo', file='l10n_tbl10ndemo', mode='map', index='id', value_type='l10n.L10NDemo' },
-    { name='TbPatchDemo', file='l10n_tbpatchdemo', mode='map', index='id', value_type='l10n.PatchDemo' },
-    { name='TbTestTag', file='tag_tbtesttag', mode='map', index='id', value_type='tag.TestTag' },
     { name='TbServerConfig', file='tbserverconfig', mode='map', index='id', value_type='ServerConfig' },
     { name='TbAccountConfig', file='common_tbaccountconfig', mode='map', index='id', value_type='common.AccountConfig' },
+    { name='TbAi', file='common_tbai', mode='map', index='id', value_type='common.Ai' },
+    { name='TbChestConfig', file='common_tbchestconfig', mode='map', index='id', value_type='common.ChestConfig' },
+    { name='TbMapConfig', file='common_tbmapconfig', mode='map', index='id', value_type='common.MapConfig' },
+    { name='TbMapMonster', file='common_tbmapmonster', mode='map', index='id', value_type='common.MapMonster' },
+    { name='TbMonster', file='common_tbmonster', mode='map', index='id', value_type='common.Monster' },
     { name='TbRoleInitConfig', file='common_tbroleinitconfig', mode='map', index='id', value_type='common.RoleInitConfig' },
+    { name='TbItem', file='item_tbitem', mode='map', index='id', value_type='item.Item' },
 }
 
 return { enums = enums, beans = beans, tables = tables }

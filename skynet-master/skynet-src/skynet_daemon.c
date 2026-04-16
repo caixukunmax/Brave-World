@@ -1,3 +1,26 @@
+/**
+ * ============================================================================
+ * Skynet 守护进程模块 - skynet_daemon.c
+ * ============================================================================
+ * 
+ * 【文件作用】
+ * 提供守护进程功能，让 Skynet 在后台运行
+ * 
+ * 【功能】
+ * 1. PID 文件管理（防止重复启动）
+ * 2. 守护进程化（fork 到后台）
+ * 3. 标准输入输出重定向到 /dev/null
+ * 
+ * 【配置文件】
+ * 在 skynet 配置文件中设置：
+ * daemon = "./skynet.pid"
+ * 
+ * 【实现细节】
+ * - 使用文件锁保证只有一个实例运行
+ * - 支持 macOS（使用 launchd 替代传统 daemon）
+ * ============================================================================
+ */
+
 #include <stdio.h>
 #include <unistd.h>
 #include <sys/types.h>
@@ -9,6 +32,12 @@
 
 #include "skynet_daemon.h"
 
+/**
+ * 【内部】检查 PID 文件，判断进程是否已在运行
+ * 
+ * @param pidfile  PID 文件路径
+ * @return         0 表示没有运行，否则返回正在运行的进程 PID
+ */
 static int
 check_pid(const char *pidfile) {
 	int pid = 0;
@@ -22,12 +51,19 @@ check_pid(const char *pidfile) {
 		return 0;
 	}
 
+	// 检查进程是否确实存在
 	if (kill(pid, 0) && errno == ESRCH)
 		return 0;
 
 	return pid;
 }
 
+/**
+ * 【内部】写入 PID 文件
+ * 
+ * @param pidfile  PID 文件路径
+ * @return         写入的 PID（0 表示失败）
+ */
 static int
 write_pid(const char *pidfile) {
 	FILE *f;
@@ -43,6 +79,7 @@ write_pid(const char *pidfile) {
 		return 0;
 	}
 
+	// 获取文件锁（非阻塞）
 	if (flock(fd, LOCK_EX|LOCK_NB) == -1) {
 		int n = fscanf(f, "%d", &pid);
 		fclose(f);
@@ -65,6 +102,9 @@ write_pid(const char *pidfile) {
 	return pid;
 }
 
+/**
+ * 【内部】重定向标准输入输出到 /dev/null
+ */
 static int
 redirect_fds() {
 	int nfd = open("/dev/null", O_RDWR);
@@ -90,6 +130,12 @@ redirect_fds() {
 	return 0;
 }
 
+/**
+ * 【接口】初始化守护进程
+ * 
+ * @param pidfile  PID 文件路径
+ * @return         0 成功，1 失败
+ */
 int
 daemon_init(const char *pidfile) {
 	int pid = check_pid(pidfile);
@@ -100,8 +146,10 @@ daemon_init(const char *pidfile) {
 	}
 
 #ifdef __APPLE__
+	// macOS 上 daemon() 已弃用，建议使用 launchd
 	fprintf(stderr, "'daemon' is deprecated: first deprecated in OS X 10.5 , use launchd instead.\n");
 #else
+	// 转为守护进程
 	if (daemon(1,1)) {
 		fprintf(stderr, "Can't daemonize.\n");
 		return 1;
@@ -120,6 +168,9 @@ daemon_init(const char *pidfile) {
 	return 0;
 }
 
+/**
+ * 【接口】退出守护进程，删除 PID 文件
+ */
 int
 daemon_exit(const char *pidfile) {
 	return unlink(pidfile);

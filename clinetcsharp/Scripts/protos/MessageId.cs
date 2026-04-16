@@ -24,7 +24,7 @@ namespace Protocol {
     static MessageIdReflection() {
       byte[] descriptorData = global::System.Convert.FromBase64String(
           string.Concat(
-            "ChBtZXNzYWdlX2lkLnByb3RvEghwcm90b2NvbCqrBQoJTWVzc2FnZUlkEgsK",
+            "ChBtZXNzYWdlX2lkLnByb3RvEghwcm90b2NvbCq9BgoJTWVzc2FnZUlkEgsK",
             "B1VOS05PV04QABIICgRQSU5HEAESCAoEUE9ORxACEhkKFUdBVEVXQVlfSEVB",
             "UlRCRUFUX1JFURBkEhkKFUdBVEVXQVlfSEVBUlRCRUFUX1JTUBBlEhcKE0dB",
             "VEVXQVlfQ09OTkVDVF9SRVEQZhIXChNHQVRFV0FZX0NPTk5FQ1RfUlNQEGcS",
@@ -39,8 +39,11 @@ namespace Protocol {
             "EhIKDUdBTUVfTU9WRV9SRVEQxAISEgoNR0FNRV9NT1ZFX1JTUBDFAhIWChFH",
             "QU1FX1VTRV9JVEVNX1JFURDKAhIWChFHQU1FX1VTRV9JVEVNX1JTUBDLAhIX",
             "ChJHQU1FX0RST1BfSVRFTV9SRVEQzAISFwoSR0FNRV9EUk9QX0lURU1fUlNQ",
-            "EM0CEhAKC0dBTUVfR01fUkVRENQCEhAKC0dBTUVfR01fUlNQENUCYgZwcm90",
-            "bzM="));
+            "EM0CEhAKC0dBTUVfR01fUkVRENQCEhAKC0dBTUVfR01fUlNQENUCEhgKE0dB",
+            "TUVfT1BFTl9DSEVTVF9SRVEQ3gISGAoTR0FNRV9PUEVOX0NIRVNUX1JTUBDf",
+            "AhIdChhHQU1FX0NIRVNUX1VQREFURV9OT1RJRlkQ4AISHgoZR0FNRV9NQVBf",
+            "SU5GT19TWU5DX05PVElGWRDoAhIdChhHQU1FX01PTlNURVJfTU9WRV9OT1RJ",
+            "RlkQ8gJiBnByb3RvMw=="));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { },
           new pbr::GeneratedClrTypeInfo(new[] {typeof(global::Protocol.MessageId), }, null, null));
@@ -98,6 +101,20 @@ namespace Protocol {
     [pbr::OriginalName("GAME_DROP_ITEM_RSP")] GameDropItemRsp = 333,
     [pbr::OriginalName("GAME_GM_REQ")] GameGmReq = 340,
     [pbr::OriginalName("GAME_GM_RSP")] GameGmRsp = 341,
+    /// <summary>
+    /// 宝箱 (350-359)
+    /// </summary>
+    [pbr::OriginalName("GAME_OPEN_CHEST_REQ")] GameOpenChestReq = 350,
+    [pbr::OriginalName("GAME_OPEN_CHEST_RSP")] GameOpenChestRsp = 351,
+    [pbr::OriginalName("GAME_CHEST_UPDATE_NOTIFY")] GameChestUpdateNotify = 352,
+    /// <summary>
+    /// 地图同步 (360-369)
+    /// </summary>
+    [pbr::OriginalName("GAME_MAP_INFO_SYNC_NOTIFY")] GameMapInfoSyncNotify = 360,
+    /// <summary>
+    /// 怪物AI (370-379)
+    /// </summary>
+    [pbr::OriginalName("GAME_MONSTER_MOVE_NOTIFY")] GameMonsterMoveNotify = 370,
   }
 
   #endregion

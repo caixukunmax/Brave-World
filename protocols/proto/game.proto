@@ -26,6 +26,9 @@ message FullRoleInfo {
   string job = 12;              // 职业
   string title = 13;            // 称号
   string status = 14;           // 状态
+  string current_map = 15;      // 当前地图
+  int32 grid_x = 16;            // 格子X
+  int32 grid_y = 17;            // 格子Y
 }
 
 /**
@@ -66,6 +69,7 @@ message EnterGameResponse {
   repeated ItemInfo items = 4;          // 背包道具
   repeated TaskInfo tasks = 5;          // 任务列表
   uint32 server_time = 6;               // 服务器时间
+  repeated ChestInfo chests = 7;        // 地图宝箱列表
 }
 
 /**
@@ -90,6 +94,14 @@ message CreateRoleResponse {
   repeated ItemInfo items = 4;          // 初始道具
   repeated TaskInfo tasks = 5;          // 初始任务
   uint32 server_time = 6;               // 服务器时间
+  repeated ChestInfo chests = 7;        // 地图宝箱列表
+}
+
+/**
+ * 宝箱更新推送（服务器主动推送新增/删除的宝箱）
+ */
+message ChestUpdateNotify {
+  repeated ChestInfo chests = 1;        // 当前地图完整宝箱列表
 }
 
 /**
@@ -174,4 +186,91 @@ message GmCommandResponse {
   common.ErrorCode code = 1;
   string message = 2;
   repeated ItemInfo items = 3;   // 如果影响背包，返回更新后的背包
+}
+
+/**
+ * ==================== 怪物系统 ====================
+ */
+
+/**
+ * 怪物属性项
+ */
+message MonsterAttr {
+  uint32 attr_key = 1;           // 属性键（对应 EMonsterAttr）
+  int32 attr_value = 2;          // 属性值
+}
+
+/**
+ * 地图上的怪物信息
+ */
+message MonsterInfo {
+  uint32 instance_id = 1;        // 实例配置ID（来自 TbMapMonster.id）
+  uint32 monster_id = 2;         // 怪物类型ID（来自 TbMonster.id）
+  int32 x = 3;                   // 格子 X
+  int32 y = 4;                   // 格子 Y
+  string name = 5;               // 怪物名称
+  uint32 level = 6;              // 等级
+  repeated MonsterAttr attrs = 7; // 属性列表
+}
+
+/**
+ * 怪物移动/状态更新推送（服务器主动广播）
+ */
+message MonsterMoveNotify {
+  uint32 instance_id = 1;        // 怪物实例ID
+  int32 from_x = 2;              // 起点 X
+  int32 from_y = 3;              // 起点 Y
+  int32 to_x = 4;                // 终点 X
+  int32 to_y = 5;                // 终点 Y
+  string state = 6;              // 状态：idle | patrol | chase | return
+}
+
+/**
+ * 怪物状态批量更新推送
+ */
+message MonsterStateBatchNotify {
+  repeated MonsterMoveNotify monsters = 1;
+}
+
+/**
+ * ==================== 地图信息同步 ====================
+ */
+
+/**
+ * 地图信息同步通知（进入/切换地图时推送）
+ */
+message MapInfoSyncNotify {
+  string map_name = 1;                  // 地图名
+  repeated ChestInfo chests = 2;        // 地图宝箱列表
+  repeated MonsterInfo monsters = 3;    // 地图怪物列表
+}
+
+/**
+ * ==================== 宝箱系统 ====================
+ */
+
+/**
+ * 地图上的宝箱信息
+ */
+message ChestInfo {
+  uint32 chest_id = 1;           // 宝箱实例ID
+  int32 x = 2;                  // 格子 X
+  int32 y = 3;                  // 格子 Y
+  bool opened = 4;              // 是否已打开
+}
+
+/**
+ * 开箱请求
+ */
+message OpenChestRequest {
+  uint32 chest_id = 1;           // 宝箱实例ID
+}
+
+/**
+ * 开箱响应
+ */
+message OpenChestResponse {
+  common.ErrorCode code = 1;
+  string message = 2;
+  repeated ItemInfo items = 3;   // 获得的物品
 }

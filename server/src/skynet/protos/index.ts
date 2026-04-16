@@ -7,7 +7,7 @@
 
 export { ServerStatus, ErrorCode } from './common';
 export type { Packet, Response } from './common';
-export type { FullRoleInfo, ItemInfo, TaskInfo, EnterGameRequest, EnterGameResponse, CreateRoleRequest, CreateRoleResponse } from './game';
+export type { FullRoleInfo, ItemInfo, TaskInfo, EnterGameRequest, EnterGameResponse, CreateRoleRequest, CreateRoleResponse, ChestUpdateNotify, MoveRequest, MoveResponse, UseItemRequest, UseItemResponse, DropItemRequest, DropItemResponse, GmCommandRequest, GmCommandResponse, MonsterAttr, MonsterInfo, MonsterMoveNotify, MonsterStateBatchNotify, MapInfoSyncNotify, ChestInfo, OpenChestRequest, OpenChestResponse } from './game';
 export { MessageType } from './gateway';
 export type { HeartbeatRequest, HeartbeatResponse, ClientInfo, ConnectRequest, ConnectResponse, DisconnectNotify } from './gateway';
 export type { AccountLoginRequest, AccountLoginResponse, SelectServerRequest, RoleBrief, SelectServerResponse } from './login';
@@ -16,7 +16,7 @@ export type { ServerInfo, GetServerListRequest, GetServerListResponse, ServerSta
 
 import { ServerStatus, ErrorCode } from './common';
 import type { Packet, Response } from './common';
-import type { FullRoleInfo, ItemInfo, TaskInfo, EnterGameRequest, EnterGameResponse, CreateRoleRequest, CreateRoleResponse } from './game';
+import type { FullRoleInfo, ItemInfo, TaskInfo, EnterGameRequest, EnterGameResponse, CreateRoleRequest, CreateRoleResponse, ChestUpdateNotify, MoveRequest, MoveResponse, UseItemRequest, UseItemResponse, DropItemRequest, DropItemResponse, GmCommandRequest, GmCommandResponse, MonsterAttr, MonsterInfo, MonsterMoveNotify, MonsterStateBatchNotify, MapInfoSyncNotify, ChestInfo, OpenChestRequest, OpenChestResponse } from './game';
 import { MessageType } from './gateway';
 import type { HeartbeatRequest, HeartbeatResponse, ClientInfo, ConnectRequest, ConnectResponse, DisconnectNotify } from './gateway';
 import type { AccountLoginRequest, AccountLoginResponse, SelectServerRequest, RoleBrief, SelectServerResponse } from './login';
@@ -53,7 +53,7 @@ export const proto = {
   game: {
     FullRoleInfo: {
       create: (init?: Partial<FullRoleInfo>): FullRoleInfo =>
-        createMessage({ role_id: 0, role_name: '', level: 0, exp: 0, avatar_id: 0, gold: 0, diamond: 0, total_power: 0, vip_level: 0, create_time: 0, last_login_time: 0 }, init),
+        createMessage({ role_id: 0, role_name: '', level: 0, exp: 0, avatar_id: 0, gold: 0, diamond: 0, total_power: 0, vip_level: 0, create_time: 0, last_login_time: 0, job: '', title: '', status: '', current_map: '', grid_x: 0, grid_y: 0 }, init),
       decode: (data: string): FullRoleInfo =>
         pb_decode("game.FullRoleInfo", data) as FullRoleInfo,
       encode: (msg: FullRoleInfo): string =>
@@ -85,7 +85,7 @@ export const proto = {
     },
     EnterGameResponse: {
       create: (init?: Partial<EnterGameResponse>): EnterGameResponse =>
-        createMessage({ code: ErrorCode.SUCCESS, message: '', items: [], tasks: [], server_time: 0 }, init),
+        createMessage({ code: ErrorCode.SUCCESS, message: '', items: [], tasks: [], server_time: 0, chests: [] }, init),
       decode: (data: string): EnterGameResponse =>
         pb_decode("game.EnterGameResponse", data) as EnterGameResponse,
       encode: (msg: EnterGameResponse): string =>
@@ -101,11 +101,147 @@ export const proto = {
     },
     CreateRoleResponse: {
       create: (init?: Partial<CreateRoleResponse>): CreateRoleResponse =>
-        createMessage({ code: ErrorCode.SUCCESS, message: '', items: [], tasks: [], server_time: 0 }, init),
+        createMessage({ code: ErrorCode.SUCCESS, message: '', items: [], tasks: [], server_time: 0, chests: [] }, init),
       decode: (data: string): CreateRoleResponse =>
         pb_decode("game.CreateRoleResponse", data) as CreateRoleResponse,
       encode: (msg: CreateRoleResponse): string =>
         pb_encode("game.CreateRoleResponse", msg),
+    },
+    ChestUpdateNotify: {
+      create: (init?: Partial<ChestUpdateNotify>): ChestUpdateNotify =>
+        createMessage({ chests: [] }, init),
+      decode: (data: string): ChestUpdateNotify =>
+        pb_decode("game.ChestUpdateNotify", data) as ChestUpdateNotify,
+      encode: (msg: ChestUpdateNotify): string =>
+        pb_encode("game.ChestUpdateNotify", msg),
+    },
+    MoveRequest: {
+      create: (init?: Partial<MoveRequest>): MoveRequest =>
+        createMessage({ from_x: 0, from_y: 0, to_x: 0, to_y: 0, map_name: '' }, init),
+      decode: (data: string): MoveRequest =>
+        pb_decode("game.MoveRequest", data) as MoveRequest,
+      encode: (msg: MoveRequest): string =>
+        pb_encode("game.MoveRequest", msg),
+    },
+    MoveResponse: {
+      create: (init?: Partial<MoveResponse>): MoveResponse =>
+        createMessage({ code: ErrorCode.SUCCESS, message: '', x: 0, y: 0 }, init),
+      decode: (data: string): MoveResponse =>
+        pb_decode("game.MoveResponse", data) as MoveResponse,
+      encode: (msg: MoveResponse): string =>
+        pb_encode("game.MoveResponse", msg),
+    },
+    UseItemRequest: {
+      create: (init?: Partial<UseItemRequest>): UseItemRequest =>
+        createMessage({ item_id: 0, count: 0 }, init),
+      decode: (data: string): UseItemRequest =>
+        pb_decode("game.UseItemRequest", data) as UseItemRequest,
+      encode: (msg: UseItemRequest): string =>
+        pb_encode("game.UseItemRequest", msg),
+    },
+    UseItemResponse: {
+      create: (init?: Partial<UseItemResponse>): UseItemResponse =>
+        createMessage({ code: ErrorCode.SUCCESS, message: '', items: [] }, init),
+      decode: (data: string): UseItemResponse =>
+        pb_decode("game.UseItemResponse", data) as UseItemResponse,
+      encode: (msg: UseItemResponse): string =>
+        pb_encode("game.UseItemResponse", msg),
+    },
+    DropItemRequest: {
+      create: (init?: Partial<DropItemRequest>): DropItemRequest =>
+        createMessage({ item_id: 0, count: 0 }, init),
+      decode: (data: string): DropItemRequest =>
+        pb_decode("game.DropItemRequest", data) as DropItemRequest,
+      encode: (msg: DropItemRequest): string =>
+        pb_encode("game.DropItemRequest", msg),
+    },
+    DropItemResponse: {
+      create: (init?: Partial<DropItemResponse>): DropItemResponse =>
+        createMessage({ code: ErrorCode.SUCCESS, message: '', items: [] }, init),
+      decode: (data: string): DropItemResponse =>
+        pb_decode("game.DropItemResponse", data) as DropItemResponse,
+      encode: (msg: DropItemResponse): string =>
+        pb_encode("game.DropItemResponse", msg),
+    },
+    GmCommandRequest: {
+      create: (init?: Partial<GmCommandRequest>): GmCommandRequest =>
+        createMessage({ command: '', args: '' }, init),
+      decode: (data: string): GmCommandRequest =>
+        pb_decode("game.GmCommandRequest", data) as GmCommandRequest,
+      encode: (msg: GmCommandRequest): string =>
+        pb_encode("game.GmCommandRequest", msg),
+    },
+    GmCommandResponse: {
+      create: (init?: Partial<GmCommandResponse>): GmCommandResponse =>
+        createMessage({ code: ErrorCode.SUCCESS, message: '', items: [] }, init),
+      decode: (data: string): GmCommandResponse =>
+        pb_decode("game.GmCommandResponse", data) as GmCommandResponse,
+      encode: (msg: GmCommandResponse): string =>
+        pb_encode("game.GmCommandResponse", msg),
+    },
+    MonsterAttr: {
+      create: (init?: Partial<MonsterAttr>): MonsterAttr =>
+        createMessage({ attr_key: 0, attr_value: 0 }, init),
+      decode: (data: string): MonsterAttr =>
+        pb_decode("game.MonsterAttr", data) as MonsterAttr,
+      encode: (msg: MonsterAttr): string =>
+        pb_encode("game.MonsterAttr", msg),
+    },
+    MonsterInfo: {
+      create: (init?: Partial<MonsterInfo>): MonsterInfo =>
+        createMessage({ instance_id: 0, monster_id: 0, x: 0, y: 0, name: '', level: 0, attrs: [] }, init),
+      decode: (data: string): MonsterInfo =>
+        pb_decode("game.MonsterInfo", data) as MonsterInfo,
+      encode: (msg: MonsterInfo): string =>
+        pb_encode("game.MonsterInfo", msg),
+    },
+    MonsterMoveNotify: {
+      create: (init?: Partial<MonsterMoveNotify>): MonsterMoveNotify =>
+        createMessage({ instance_id: 0, from_x: 0, from_y: 0, to_x: 0, to_y: 0, state: '' }, init),
+      decode: (data: string): MonsterMoveNotify =>
+        pb_decode("game.MonsterMoveNotify", data) as MonsterMoveNotify,
+      encode: (msg: MonsterMoveNotify): string =>
+        pb_encode("game.MonsterMoveNotify", msg),
+    },
+    MonsterStateBatchNotify: {
+      create: (init?: Partial<MonsterStateBatchNotify>): MonsterStateBatchNotify =>
+        createMessage({ monsters: [] }, init),
+      decode: (data: string): MonsterStateBatchNotify =>
+        pb_decode("game.MonsterStateBatchNotify", data) as MonsterStateBatchNotify,
+      encode: (msg: MonsterStateBatchNotify): string =>
+        pb_encode("game.MonsterStateBatchNotify", msg),
+    },
+    MapInfoSyncNotify: {
+      create: (init?: Partial<MapInfoSyncNotify>): MapInfoSyncNotify =>
+        createMessage({ map_name: '', chests: [], monsters: [] }, init),
+      decode: (data: string): MapInfoSyncNotify =>
+        pb_decode("game.MapInfoSyncNotify", data) as MapInfoSyncNotify,
+      encode: (msg: MapInfoSyncNotify): string =>
+        pb_encode("game.MapInfoSyncNotify", msg),
+    },
+    ChestInfo: {
+      create: (init?: Partial<ChestInfo>): ChestInfo =>
+        createMessage({ chest_id: 0, x: 0, y: 0, opened: false }, init),
+      decode: (data: string): ChestInfo =>
+        pb_decode("game.ChestInfo", data) as ChestInfo,
+      encode: (msg: ChestInfo): string =>
+        pb_encode("game.ChestInfo", msg),
+    },
+    OpenChestRequest: {
+      create: (init?: Partial<OpenChestRequest>): OpenChestRequest =>
+        createMessage({ chest_id: 0 }, init),
+      decode: (data: string): OpenChestRequest =>
+        pb_decode("game.OpenChestRequest", data) as OpenChestRequest,
+      encode: (msg: OpenChestRequest): string =>
+        pb_encode("game.OpenChestRequest", msg),
+    },
+    OpenChestResponse: {
+      create: (init?: Partial<OpenChestResponse>): OpenChestResponse =>
+        createMessage({ code: ErrorCode.SUCCESS, message: '', items: [] }, init),
+      decode: (data: string): OpenChestResponse =>
+        pb_decode("game.OpenChestResponse", data) as OpenChestResponse,
+      encode: (msg: OpenChestResponse): string =>
+        pb_encode("game.OpenChestResponse", msg),
     },
   },
   gateway: {

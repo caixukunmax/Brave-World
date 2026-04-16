@@ -21,15 +21,23 @@ namespace ClinetCSharp
             public string Name = "";
         }
 
-        public List<ItemSlot> Items { get; private set; } = new List<ItemSlot>();
+        // 物品配置：id → { name, desc, max_pile, quality }
+        private class ItemConfig
+        {
+            public string Name = "";
+            public string Desc = "";
+            public int MaxPile = 99;
+            public int Quality = 0;
+        }
 
-        // 物品名称本地缓存（从配置表获取）
-        private Dictionary<uint, string> _itemNameCache = new Dictionary<uint, string>();
+        public List<ItemSlot> Items { get; private set; } = new List<ItemSlot>();
+        private Dictionary<uint, ItemConfig> _itemConfig = new Dictionary<uint, ItemConfig>();
 
         public override void _Ready()
         {
             AddToGroup("inventory_manager");
             GD.Print("[InventoryManager] _Ready() called");
+            LoadItemConfig();
 
             var nm = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
             if (nm != null)
@@ -41,6 +49,41 @@ namespace ClinetCSharp
             {
                 GD.PrintErr("[InventoryManager] NetworkManager not found!");
             }
+        }
+
+        private void LoadItemConfig()
+        {
+            var file = FileAccess.Open("res://data/item_config.json", FileAccess.ModeFlags.Read);
+            if (file == null)
+            {
+                GD.PrintErr("[InventoryManager] item_config.json not found");
+                return;
+            }
+            var jsonText = file.GetAsText();
+            file.Close();
+
+            var json = new Godot.Json();
+            var err = json.Parse(jsonText);
+            if (err != Error.Ok)
+            {
+                GD.PrintErr("[InventoryManager] Failed to parse item_config.json");
+                return;
+            }
+
+            var data = json.Data.AsGodotDictionary();
+            foreach (var key in data.Keys)
+            {
+                var id = (uint)key.AsInt32();
+                var entry = data[key].AsGodotDictionary();
+                _itemConfig[id] = new ItemConfig
+                {
+                    Name = entry.ContainsKey("name") ? entry["name"].AsString() : "",
+                    Desc = entry.ContainsKey("desc") ? entry["desc"].AsString() : "",
+                    MaxPile = entry.ContainsKey("max_pile") ? entry["max_pile"].AsInt32() : 99,
+                    Quality = entry.ContainsKey("quality") ? entry["quality"].AsInt32() : 0,
+                };
+            }
+            GD.Print($"[InventoryManager] Loaded {_itemConfig.Count} item configs");
         }
 
         /// <summary>
@@ -73,6 +116,36 @@ namespace ClinetCSharp
                 });
             }
             Items = newItems;
+            EmitSignal(SignalName.InventoryChanged);
+        }
+
+        /// <summary>
+        /// 将新物品合并到现有背包中（累加数量或新增条目），用于开箱等只返回增量物品的场景
+        /// </summary>
+        public void AddOrUpdateItemsFromProto(RepeatedField<Game.ItemInfo> protoItems)
+        {
+            foreach (var item in protoItems)
+            {
+                bool found = false;
+                foreach (var slot in Items)
+                {
+                    if (slot.ItemId == item.ItemId)
+                    {
+                        slot.Count += item.Count;
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found)
+                {
+                    Items.Add(new ItemSlot
+                    {
+                        ItemId = item.ItemId,
+                        Count = item.Count,
+                        Name = GetItemName(item.ItemId),
+                    });
+                }
+            }
             EmitSignal(SignalName.InventoryChanged);
         }
 
@@ -124,19 +197,11 @@ namespace ClinetCSharp
             UpdateFromProto(rsp.Items);
         }
 
-        private string GetItemName(uint itemId)
+        public string GetItemName(uint itemId)
         {
-            if (_itemNameCache.TryGetValue(itemId, out string name))
-                return name;
+            if (_itemConfig.TryGetValue(itemId, out var cfg))
+                return cfg.Name;
             return $"物品{itemId}";
-        }
-
-        /// <summary>
-        /// 供外部设置物品名称缓存
-        /// </summary>
-        public void SetItemName(uint itemId, string name)
-        {
-            _itemNameCache[itemId] = name;
         }
     }
 }

@@ -68,9 +68,19 @@ function common.queryTable(name)
             break
         end
     end
-    if not file then return nil end
+    if not file then
+        -- 非 Luban 管理的内置表
+        if name == "TbMapChest" then
+            file = "common_tbmapchest"
+        else
+            return nil
+        end
+    end
 
-    data = sharetable.query("tables/data/" .. file)
+    data = sharetable.query("tables/data/" .. file .. ".lua")
+    if not data then
+        data = sharetable.query("tables/data/" .. file)
+    end
     if data then
         tableCache[name] = data
     end
@@ -85,7 +95,11 @@ function common.queryMap(mapName)
     local key = "map_" .. mapName
     local data = tableCache[key]
     if data then return data end
-    data = sharetable.query("tables/data/" .. key)
+    -- 尝试带 .lua 后缀（和 loadfile 一致）
+    data = sharetable.query("tables/data/" .. key .. ".lua")
+    if not data then
+        data = sharetable.query("tables/data/" .. key)
+    end
     if data then
         tableCache[key] = data
     end
@@ -94,14 +108,281 @@ end
 
 function common.isWalkable(mapName, x, y)
     local mapData = common.queryMap(mapName)
-    if not mapData then return false end
-    if x < 0 or x >= mapData.width or y < 0 or y >= mapData.height then return false end
+    if not mapData then
+        skynet.error("[isWalkable] mapData NIL for: " .. tostring(mapName))
+        return false
+    end
+    if x < 0 or x >= mapData.width or y < 0 or y >= mapData.height then
+        skynet.error("[isWalkable] out of bounds: (" .. x .. "," .. y .. ") w=" .. mapData.width .. " h=" .. mapData.height)
+        return false
+    end
     -- Lua 1-based array: index = y * width + x + 1
-    local cellStr = mapData.cells[y * mapData.width + x + 1]
-    if not cellStr then return false end
+    local idx = y * mapData.width + x + 1
+    local cellStr = mapData.cells[idx]
+    if not cellStr then
+        skynet.error("[isWalkable] cell NIL at idx=" .. idx)
+        return false
+    end
     -- 格式: "exists;walkable;visible;terrain;height;custom"
     local walkable = cellStr:match("^%d;(%d)")
     return walkable == "1"
+end
+
+function common.findNearestWalkable(mapName, x, y, maxRadius)
+    maxRadius = maxRadius or 10
+    if common.isWalkable(mapName, x, y) then
+        return x, y
+    end
+    -- 螺旋搜索：从近到远
+    for r = 1, maxRadius do
+        for dx = -r, r do
+            for dy = -r, r do
+                if math.abs(dx) == r or math.abs(dy) == r then
+                    local nx, ny = x + dx, y + dy
+                    if common.isWalkable(mapName, nx, ny) then
+                        return nx, ny
+                    end
+                end
+            end
+        end
+    end
+    return nil, nil
+end
+
+--------------------------------------------------------------------------------
+-- Map Registry: 地图注册表查询（Luban TbMapConfig）
+--------------------------------------------------------------------------------
+function common.getMapRegistry()
+    return common.queryTable("TbMapConfig")
+end
+
+function common.getFirstMap()
+    local registry = common.getMapRegistry()
+    if not registry then
+        return { map_name = "xinshoucun", display_name = "新手村", spawn_x = 25, spawn_y = 25 }
+    end
+    -- TbMapConfig is mode=map (indexed by id), 取第一个值
+    for _, v in pairs(registry) do
+        return v
+    end
+    return { map_name = "xinshoucun", display_name = "新手村", spawn_x = 25, spawn_y = 25 }
+end
+
+--------------------------------------------------------------------------------
+-- Map Entity: 地图实体实例ID体系
+--------------------------------------------------------------------------------
+common.EMapEntityType = {
+    CHEST   = 1,
+    NPC     = 2,
+    PORTAL  = 3,
+    MONSTER = 4,
+}
+
+function common.makeInstanceId(mapId, entityType, seq)
+    return mapId * 1000000 + entityType * 10000 + seq
+end
+
+function common.parseInstanceId(instanceId)
+    local mapId = math.floor(instanceId / 1000000)
+    local entityType = math.floor((instanceId % 1000000) / 10000)
+    local seq = instanceId % 10000
+    return { mapId = mapId, entityType = entityType, seq = seq }
+end
+
+--------------------------------------------------------------------------------
+-- Chest: 宝箱配置查询（Luban TbChestConfig + TbMapChest）
+--------------------------------------------------------------------------------
+
+local function trim(s)
+    if not s then return "" end
+    return (s:gsub("^%s+", ""):gsub("%s+$", ""))
+end
+
+-- 根据道具名称查找ID（缓存结果）
+local itemNameCache = {}
+function common.getItemIdByName(itemName)
+    if not itemName or itemName == "" then return nil end
+    itemName = trim(itemName)
+    
+    -- 检查缓存
+    if itemNameCache[itemName] then
+        return itemNameCache[itemName]
+    end
+    
+    -- 查询道具表
+    local itemTable = common.queryTable("TbItem")
+    if itemTable then
+        for id, item in pairs(itemTable) do
+            if item.name == itemName then
+                itemNameCache[itemName] = id
+                return id
+            end
+        end
+    end
+    
+    itemNameCache[itemName] = nil
+    return nil
+end
+
+-- 解析奖励字符串，支持多种格式：
+-- 1. 旧格式: "1001:5,1002:10" (冒号分隔)
+-- 2. ID格式: "1001*5,1002*10" (星号分隔)
+-- 3. 名称格式: "仙贝*5,精魔石*10" (中文名称)
+local function parseRewards(rewardStr)
+    local items = {}
+    if not rewardStr or rewardStr == "" then return items end
+    
+    for pair in rewardStr:gmatch("([^,]+)") do
+        local trimmed = trim(pair)
+        if trimmed ~= "" then
+            -- 匹配格式: id*count, id:count, name*count, name:count
+            local id_or_name, sep, count = trimmed:match("^([^*:]+)([*:])(%d+)$")
+            
+            if id_or_name and count then
+                count = tonumber(count)
+                local item_id
+                
+                -- 判断是ID还是名称
+                if id_or_name:match("^%d+$") then
+                    -- 纯数字，视为ID
+                    item_id = tonumber(id_or_name)
+                else
+                    -- 非数字，视为名称，需要查找ID
+                    item_id = common.getItemIdByName(id_or_name)
+                    if not item_id then
+                        skynet.error("[parseRewards] Unknown item name: " .. id_or_name)
+                    end
+                end
+                
+                if item_id and item_id > 0 then
+                    items[#items + 1] = { item_id = item_id, count = count }
+                end
+            else
+                -- 尝试旧格式兼容: "1001:5"
+                local old_id, old_count = pair:match("^(%d+):(%d+)$")
+                if old_id and old_count then
+                    items[#items + 1] = { item_id = tonumber(old_id), count = tonumber(old_count) }
+                else
+                    skynet.error("[parseRewards] Invalid format: " .. pair)
+                end
+            end
+        end
+    end
+    
+    return items
+end
+
+-- 获取宝箱类型配置（TbChestConfig）
+function common.getChestType(chestTypeId)
+    local configs = common.queryTable("TbChestConfig")
+    return configs and configs[chestTypeId]
+end
+
+-- 获取所有宝箱类型配置
+function common.getChestConfigs()
+    return common.queryTable("TbChestConfig") or {}
+end
+
+-- 获取地图上的宝箱实例列表（TbMapChest + GM 动态宝箱）
+function common.getMapChests(mapId, entityType)
+    local result = {}
+    entityType = entityType or common.EMapEntityType.CHEST
+    
+    -- 1. 从 TbMapChest 获取配置宝箱（扁平实例表）
+    local mapChests = common.queryTable("TbMapChest")
+    if mapChests then
+        for _, c in ipairs(mapChests) do
+            if c.map_id == mapId and c.entity_type == entityType then
+                result[#result + 1] = {
+                    chest_id = c.id,
+                    chest_type_id = c.chest_type_id,
+                    x = c.x,
+                    y = c.y,
+                }
+            end
+        end
+    end
+    
+    -- 2. 从 DB 获取 GM 动态添加的宝箱
+    local gmChests = common.platform.serviceCall("game/db", "getGmChestsByMapAndType", mapId, entityType)
+    if gmChests then
+        for _, c in ipairs(gmChests) do
+            result[#result + 1] = {
+                chest_id = c.id,
+                chest_type_id = c.chest_type_id,
+                x = c.x,
+                y = c.y,
+            }
+        end
+    end
+    
+    return result
+end
+
+-- 根据地图名获取 map_id
+function common.getMapIdByName(mapName)
+    local registry = common.getMapRegistry()
+    if registry then
+        for id, cfg in pairs(registry) do
+            if cfg.map_name == mapName then
+                return id
+            end
+        end
+    end
+    return 1  -- 默认新手村
+end
+
+-- 获取宝箱奖励（通过类型ID）
+function common.getChestRewards(chestTypeId)
+    local chestType = common.getChestType(chestTypeId)
+    if chestType and chestType.rewards then
+        return parseRewards(chestType.rewards)
+    end
+    return {}
+end
+
+common.parseRewards = parseRewards
+
+-- 根据地图名获取宝箱（兼容旧接口，返回格式适配 proto）
+function common.getChestConfigsByMap(mapName)
+    local mapId = common.getMapIdByName(mapName)
+    return common.getMapChests(mapId)
+end
+
+-- 获取地图上的怪物配置列表（TbMapMonster）
+function common.getMapMonsters(mapId)
+    local result = {}
+    local mapMonsters = common.queryTable("TbMapMonster")
+    local monsterConfigs = common.queryTable("TbMonster")
+    if mapMonsters then
+        for _, m in ipairs(mapMonsters) do
+            if m.map_id == mapId and m.is_active then
+                local monsterType = monsterConfigs and monsterConfigs[m.monster_id]
+                if monsterType then
+                    result[#result + 1] = {
+                        instance_id = m.id,
+                        monster_id = m.monster_id,
+                        x = m.x,
+                        y = m.y,
+                        name = monsterType.name or "",
+                        level = monsterType.level or 1,
+                        attrs = monsterType.attrs or {},
+                        ai_id = m.ai_id or 0,
+                    }
+                end
+            end
+        end
+    end
+    return result
+end
+
+-- 查询格子是否被怪物占据
+function common.isBlockedByMonster(mapName, x, y)
+    local ok, occupied = pcall(common.platform.serviceCall, "game/monster_pool", "isOccupied", x, y)
+    if ok then
+        return occupied
+    end
+    return false
 end
 
 --------------------------------------------------------------------------------

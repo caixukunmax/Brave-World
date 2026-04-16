@@ -17,6 +17,10 @@ namespace ClinetCSharp
         private const string SAVE_FILE = "user://login_data.cfg";
         private string _savedUsername = "";
 
+        // 测试直通流程状态
+        private enum TestFlowState { None, Login, SelectServer, EnterGame, CreateRole }
+        private TestFlowState _testFlowState = TestFlowState.None;
+
         public override void _Ready()
         {
             GD.Print("[LoginScene] _ready() called");
@@ -120,6 +124,17 @@ namespace ClinetCSharp
 
         private void OnPacketReceived(int msgId)
         {
+            var nm = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
+            if (nm == null) return;
+
+            // 测试直通流程
+            if (_testFlowState != TestFlowState.None)
+            {
+                HandleTestFlowPacket(msgId, nm);
+                return;
+            }
+
+            // 正常登录流程
             if ((MessageId)msgId != MessageId.LoginAccountLoginRsp)
                 return;
 
@@ -127,8 +142,7 @@ namespace ClinetCSharp
 
             try
             {
-                var nm = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
-                var payload = nm?.GetLastPayload() ?? new byte[0];
+                var payload = nm.GetLastPayload();
                 var rsp = Login.AccountLoginResponse.Parser.ParseFrom(payload);
                 GD.Print($"[LoginScene] Login response: code={rsp.Code}");
 
@@ -148,6 +162,143 @@ namespace ClinetCSharp
                 GD.PushError($"[LoginScene] Parse login response failed: {e.Message}");
                 _statusLabel.Text = "解析服务器响应失败";
             }
+        }
+
+        // ── 测试直通：走真实登录→选服→进游戏流程 ──
+
+        private void OnTestDirectPressed()
+        {
+            GD.Print("[LoginScene] Test direct entry pressed");
+            var nm = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
+            if (nm == null || !nm.IsServerConnected())
+            {
+                _statusLabel.Text = "未连接服务器";
+                return;
+            }
+
+            _testFlowState = TestFlowState.Login;
+            _loginButton.Disabled = true;
+            if (_testButton != null) _testButton.Disabled = true;
+            _statusLabel.Text = "[测试] 登录中...";
+
+            // 发送登录请求（服务器会自动注册账号）
+            var req = new Login.AccountLoginRequest
+            {
+                Username = "testdev",
+                Password = "testdev",
+                Platform = "pc",
+                DeviceId = "test_device",
+                ClientVersion = "1.0.0",
+            };
+            nm.SendPacket(MessageId.LoginAccountLoginReq, req);
+        }
+
+        private void HandleTestFlowPacket(int msgId, NetworkManager nm)
+        {
+            var mid = (MessageId)msgId;
+
+            // Step 1: LoginRsp → SelectServer
+            if (_testFlowState == TestFlowState.Login && mid == MessageId.LoginAccountLoginRsp)
+            {
+                var rsp = Login.AccountLoginResponse.Parser.ParseFrom(nm.GetLastPayload());
+                if (rsp.Code != Common.ErrorCode.Success)
+                {
+                    _statusLabel.Text = $"[测试] 登录失败: {rsp.Message}";
+                    ResetTestFlow();
+                    return;
+                }
+                GD.Print($"[TestFlow] Login OK, accountId={nm.AccountId}");
+
+                // 选服：取第一个服务器，或默认 serverId=1
+                uint serverId = nm.LastServerId;
+                if (serverId == 0 && nm.Servers.Count > 0)
+                    serverId = (uint)nm.Servers[0].AsGodotDictionary()["serverId"].AsInt32();
+                if (serverId == 0) serverId = 1;
+
+                _testFlowState = TestFlowState.SelectServer;
+                _statusLabel.Text = $"[测试] 选服中... (serverId={serverId})";
+
+                var req = new Login.SelectServerRequest
+                {
+                    AccountToken = nm.AccountToken,
+                    ServerId = serverId,
+                };
+                nm.SendPacket(MessageId.LoginSelectServerReq, req);
+                return;
+            }
+
+            // Step 2: SelectServerRsp → EnterGame or CreateRole
+            if (_testFlowState == TestFlowState.SelectServer && mid == MessageId.LoginSelectServerRsp)
+            {
+                var rsp = Login.SelectServerResponse.Parser.ParseFrom(nm.GetLastPayload());
+                if (rsp.Code != Common.ErrorCode.Success)
+                {
+                    _statusLabel.Text = $"[测试] 选服失败: {rsp.Message}";
+                    ResetTestFlow();
+                    return;
+                }
+                GD.Print($"[TestFlow] SelectServer OK, gatewayToken set, roles={nm.Roles.Count}");
+
+                if (nm.Roles.Count > 0)
+                {
+                    // 有角色，进入游戏
+                    long roleId = nm.Roles[0].AsGodotDictionary()["roleId"].AsInt64();
+                    _testFlowState = TestFlowState.EnterGame;
+                    _statusLabel.Text = $"[测试] 进入游戏... (roleId={roleId})";
+
+                    var req = new Game.EnterGameRequest { RoleId = (ulong)roleId };
+                    nm.SendPacket(MessageId.GameEnterGameReq, req);
+                }
+                else
+                {
+                    // 无角色，创建一个
+                    _testFlowState = TestFlowState.CreateRole;
+                    _statusLabel.Text = "[测试] 创建角色...";
+
+                    var req = new Game.CreateRoleRequest { RoleName = "测试勇者" };
+                    nm.SendPacket(MessageId.GameCreateRoleReq, req);
+                }
+                return;
+            }
+
+            // Step 3a: EnterGameRsp → 进入游戏
+            if (_testFlowState == TestFlowState.EnterGame && mid == MessageId.GameEnterGameRsp)
+            {
+                var rsp = Game.EnterGameResponse.Parser.ParseFrom(nm.GetLastPayload());
+                if (rsp.Code != Common.ErrorCode.Success)
+                {
+                    _statusLabel.Text = $"[测试] 进入游戏失败: {rsp.Message}";
+                    ResetTestFlow();
+                    return;
+                }
+                GD.Print($"[TestFlow] EnterGame OK, name={rsp.RoleInfo.RoleName}");
+                _statusLabel.Text = "[测试] 进入游戏成功!";
+                GetTree().ChangeSceneToFile("res://scenes/main.tscn");
+                return;
+            }
+
+            // Step 3b: CreateRoleRsp → 进入游戏
+            if (_testFlowState == TestFlowState.CreateRole && mid == MessageId.GameCreateRoleRsp)
+            {
+                var rsp = Game.CreateRoleResponse.Parser.ParseFrom(nm.GetLastPayload());
+                if (rsp.Code != Common.ErrorCode.Success)
+                {
+                    _statusLabel.Text = $"[测试] 创建角色失败: {rsp.Message}";
+                    ResetTestFlow();
+                    return;
+                }
+                GD.Print($"[TestFlow] CreateRole OK, name={rsp.RoleInfo.RoleName}");
+                _statusLabel.Text = "[测试] 创建角色成功!";
+                GetTree().ChangeSceneToFile("res://scenes/main.tscn");
+                return;
+            }
+        }
+
+        private void ResetTestFlow()
+        {
+            _testFlowState = TestFlowState.None;
+            _loginButton.Disabled = false;
+            if (_testButton != null) _testButton.Disabled = false;
         }
 
         private string GetDeviceId()
@@ -179,34 +330,6 @@ namespace ClinetCSharp
             config.SetValue("login", "username", username);
             config.SetValue("login", "last_login_time", Time.GetUnixTimeFromSystem());
             config.Save(SAVE_FILE);
-        }
-
-        /// <summary>
-        /// 测试直通：跳过登录流程，直接进入游戏
-        /// </summary>
-        private void OnTestDirectPressed()
-        {
-            GD.Print("[LoginScene] Test direct entry pressed");
-            var nm = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
-            if (nm != null)
-            {
-                nm.AccountToken = "test_bypass_" + Time.GetUnixTimeFromSystem();
-                nm.AccountId = 1;
-                nm.LastServerId = 1;
-                nm.CachedRoleInfo = new Game.FullRoleInfo
-                {
-                    RoleName = "测试勇者",
-                    Level = 1,
-                    Job = "勇者",
-                    Title = "冒险家",
-                    Status = "探索中...",
-                    Gold = 10000,
-                    Diamond = 100,
-                    TotalPower = 100,
-                };
-            }
-            _statusLabel.Text = "测试直通，跳转游戏...";
-            GetTree().ChangeSceneToFile("res://scenes/main.tscn");
         }
     }
 }

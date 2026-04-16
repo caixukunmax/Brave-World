@@ -304,6 +304,18 @@ function CMD.sendToClient(source, fd, msg_id, data)
     send_packet(fd, msg_id, 0, data)
 end
 
+function CMD.sendToAccount(source, account_id, server_id, msg_id, data)
+    local key = tostring(account_id) .. ":" .. tostring(server_id)
+    local fd = account_connections[key]
+    skynet.error(string.format("[Gateway] sendToAccount: account=%s server=%s key=%s fd=%s conn_count=%d",
+        tostring(account_id), tostring(server_id), key, tostring(fd), #connections))
+    if fd then
+        send_packet(fd, msg_id, 0, data)
+    else
+        skynet.error(string.format("[Gateway] sendToAccount failed: no fd for key=%s", key))
+    end
+end
+
 function CMD.kick(source, fd)
     close_connection(fd)
 end

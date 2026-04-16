@@ -47,7 +47,9 @@ namespace ClinetCSharp
                 ["camera_ease_type"] = _cameraEaseTypeOption.Selected,
                 ["camera_ease_power"] = _cameraEasePowerSlider.Value,
                 ["player_size"] = _playerSizeSlider.Value,
+                ["visual_size_scale"] = _playerSizeScaleSlider?.Value ?? 1.0,
                 ["border_width"] = _borderWidthSlider.Value,
+                ["border_width_scale"] = _borderWidthScaleSlider?.Value ?? (3.0 / 111.0),
                 ["corner_radius"] = _cornerRadiusSlider.Value,
                 ["bg_opacity"] = _bgOpacitySlider.Value,
                 ["font_size"] = _fontSizeSlider.Value,
@@ -59,6 +61,12 @@ namespace ClinetCSharp
                 state["line_width_scale"] = _lineWidthScaleSlider.Value;
             if (_fontAutoSizeCheck != null)
                 state["font_auto_size"] = _fontAutoSizeCheck.ButtonPressed;
+            if (_labelAutoCenterXCheck != null)
+                state["label_auto_center_x"] = _labelAutoCenterXCheck.ButtonPressed;
+            if (_healthBarLengthScaleSlider != null)
+                state["healthbar_length_scale"] = _healthBarLengthScaleSlider.Value;
+            if (_healthBarHeightScaleSlider != null)
+                state["healthbar_height_scale"] = _healthBarHeightScaleSlider.Value;
             if (_responsiveCheck != null)
             {
                 state["responsive_enabled"] = _responsiveCheck.ButtonPressed;
@@ -131,8 +139,20 @@ namespace ClinetCSharp
             // Player appearance
             if (state.ContainsKey("player_size"))
                 _playerSizeSlider.Value = (double)state["player_size"];
+            if (state.ContainsKey("visual_size_scale") && _playerSizeScaleSlider != null)
+            {
+                _playerSizeScaleSlider.SetBlockSignals(true);
+                _playerSizeScaleSlider.Value = (double)state["visual_size_scale"];
+                _playerSizeScaleSlider.SetBlockSignals(false);
+            }
             if (state.ContainsKey("border_width"))
                 _borderWidthSlider.Value = (double)state["border_width"];
+            if (state.ContainsKey("border_width_scale") && _borderWidthScaleSlider != null)
+            {
+                _borderWidthScaleSlider.SetBlockSignals(true);
+                _borderWidthScaleSlider.Value = (double)state["border_width_scale"];
+                _borderWidthScaleSlider.SetBlockSignals(false);
+            }
             if (state.ContainsKey("corner_radius"))
                 _cornerRadiusSlider.Value = (double)state["corner_radius"];
             if (state.ContainsKey("bg_opacity"))
@@ -155,6 +175,25 @@ namespace ClinetCSharp
             }
             if (state.ContainsKey("font_auto_size") && _fontAutoSizeCheck != null)
                 _fontAutoSizeCheck.ButtonPressed = (bool)state["font_auto_size"];
+            if (state.ContainsKey("label_auto_center_x") && _labelAutoCenterXCheck != null)
+            {
+                _labelAutoCenterXCheck.SetBlockSignals(true);
+                _labelAutoCenterXCheck.ButtonPressed = (bool)state["label_auto_center_x"];
+                _labelAutoCenterXCheck.SetBlockSignals(false);
+                OnLabelAutoCenterXToggled(_labelAutoCenterXCheck.ButtonPressed);
+            }
+            if (state.ContainsKey("healthbar_length_scale") && _healthBarLengthScaleSlider != null)
+            {
+                _healthBarLengthScaleSlider.SetBlockSignals(true);
+                _healthBarLengthScaleSlider.Value = (double)state["healthbar_length_scale"];
+                _healthBarLengthScaleSlider.SetBlockSignals(false);
+            }
+            if (state.ContainsKey("healthbar_height_scale") && _healthBarHeightScaleSlider != null)
+            {
+                _healthBarHeightScaleSlider.SetBlockSignals(true);
+                _healthBarHeightScaleSlider.Value = (double)state["healthbar_height_scale"];
+                _healthBarHeightScaleSlider.SetBlockSignals(false);
+            }
             if (state.ContainsKey("responsive_enabled") && _responsiveCheck != null)
                 _responsiveCheck.ButtonPressed = (bool)state["responsive_enabled"];
             if (state.ContainsKey("visible_grids_x") && _visibleGridsXSpin != null)
@@ -172,7 +211,9 @@ namespace ClinetCSharp
             OnCameraEaseTypeChanged(_cameraEaseTypeOption.Selected);
             OnCameraEasePowerDragEnded(true);
             OnPlayerSizeDragEnded(true);
+            OnPlayerSizeScaleDragEnded(true);
             OnBorderWidthDragEnded(true);
+            OnBorderWidthScaleDragEnded(true);
             OnCornerRadiusDragEnded(true);
             OnBgOpacityDragEnded(true);
             OnFontSizeDragEnded(true);

@@ -159,7 +159,7 @@ namespace ClinetCSharp
             }
 
             // Save current config to specified preset
-            string[] sections = { "meta", "map", "player", "calibration", "responsive", "editor", "sections", "panel_geo" };
+            string[] sections = { "meta", "map", "player", "calibration", "responsive", "editor", "panel_geo" };
             ConfigFile currentConfig = new ConfigFile();
             Error currentErr = currentConfig.Load(CONFIG_PATH);
 
@@ -348,8 +348,10 @@ namespace ClinetCSharp
 
             // Player settings
             config.SetValue("player", "player_size", _playerSizeSlider.Value);
+            config.SetValue("player", "visual_size_scale", _playerSizeScaleSlider?.Value ?? 1.0);
             GD.Print($"[DebugPanel] Saving player size: {_playerSizeSlider.Value}");
             config.SetValue("player", "border_width", _borderWidthSlider.Value);
+            config.SetValue("player", "border_width_scale", _borderWidthScaleSlider?.Value ?? (3.0 / 111.0));
             config.SetValue("player", "corner_radius", _cornerRadiusSlider.Value);
             config.SetValue("player", "bg_opacity", _bgOpacitySlider.Value);
             config.SetValue("player", "font_size", _fontSizeSlider.Value);
@@ -400,6 +402,8 @@ namespace ClinetCSharp
             // Label control settings (4 independent labels)
             if (_player != null)
             {
+                bool autoCenterX = _player.Get("LabelAutoCenterX").AsBool();
+                config.SetValue("labels", "auto_center_x", autoCenterX);
                 for (int i = 0; i < LabelCount; i++)
                 {
                     string prefix = $"label_{i}";
@@ -428,7 +432,9 @@ namespace ClinetCSharp
                 var hpOffset = (Vector2)_player.Call("GetHealthBarOffset");
                 config.SetValue("healthbar", "visible", _healthBarVisibleCheck?.ButtonPressed ?? true);
                 config.SetValue("healthbar", "length", _healthBarLengthSlider?.Value ?? 80);
+                config.SetValue("healthbar", "length_scale", _healthBarLengthScaleSlider?.Value ?? (80.0 / 111.0));
                 config.SetValue("healthbar", "height", _healthBarHeightSlider?.Value ?? 6);
+                config.SetValue("healthbar", "height_scale", _healthBarHeightScaleSlider?.Value ?? (6.0 / 111.0));
                 config.SetValue("healthbar", "fill", _healthBarFillSlider?.Value ?? 100);
                 config.SetValue("healthbar", "offset_x", (double)hpOffset.X);
                 config.SetValue("healthbar", "offset_y", (double)hpOffset.Y);
@@ -469,10 +475,36 @@ namespace ClinetCSharp
                 config.SetValue("levelbadge", "txt_b", lvTxtColor.B);
             }
 
-            // Section collapse states
-            foreach (var groupName in _sectionStates.Keys)
+            // Monster settings
             {
-                config.SetValue("sections", (string)groupName, _sectionStates[groupName]);
+                config.SetValue("monster", "visual_size", _monsterSizeSlider?.Value ?? 111);
+                config.SetValue("monster", "visual_size_scale", _monsterSizeScaleSlider?.Value ?? 1.0);
+                config.SetValue("monster", "border_width", _monsterBorderWidthSlider?.Value ?? 3.0);
+                config.SetValue("monster", "border_width_scale", _monsterBorderWidthScaleSlider?.Value ?? (3.0 / 111.0));
+                config.SetValue("monster", "corner_radius", _monsterCornerRadiusSlider?.Value ?? 12.0);
+                config.SetValue("monster", "bg_opacity", _monsterBgOpacitySlider?.Value ?? 0.9);
+                config.SetValue("monster", "font_size", _monsterFontSizeSlider?.Value ?? 0);
+                var mBorderColor = _monsterBorderColorPicker?.Color ?? new Color(0.9f, 0.3f, 0.3f);
+                config.SetValue("monster", "border_color_r", mBorderColor.R);
+                config.SetValue("monster", "border_color_g", mBorderColor.G);
+                config.SetValue("monster", "border_color_b", mBorderColor.B);
+                var mBgColor = _monsterBgColorPicker?.Color ?? new Color(0.8f, 0.2f, 0.2f);
+                config.SetValue("monster", "bg_color_r", mBgColor.R);
+                config.SetValue("monster", "bg_color_g", mBgColor.G);
+                config.SetValue("monster", "bg_color_b", mBgColor.B);
+                var mTextColor = _monsterTextColorPicker?.Color ?? new Color(1, 0.95f, 0.95f);
+                config.SetValue("monster", "text_color_r", mTextColor.R);
+                config.SetValue("monster", "text_color_g", mTextColor.G);
+                config.SetValue("monster", "text_color_b", mTextColor.B);
+                for (int i = 0; i < 4; i++)
+                {
+                    string prefix = $"monster_label_{i}";
+                    config.SetValue("monster", $"{prefix}_text", _monsterLabelEdits[i]?.Text ?? "");
+                    config.SetValue("monster", $"{prefix}_font_size", _monsterLabelFontSizeSliders[i]?.Value ?? 0);
+                    config.SetValue("monster", $"{prefix}_offset_x", _monsterLabelXOffsetSliders[i]?.Value ?? 0);
+                    config.SetValue("monster", $"{prefix}_center_x", _monsterLabelCenterXChecks[i]?.ButtonPressed ?? true);
+                    config.SetValue("monster", $"{prefix}_offset_y", _monsterLabelYOffsetSliders[i]?.Value ?? 0);
+                }
             }
 
             // Panel geometry (size/position)
@@ -553,14 +585,26 @@ namespace ClinetCSharp
                 double loadedGridSize = (double)config.GetValue("map", "grid_size", 111);
                 if (loadedGridSize < 32 || loadedGridSize > 256)
                 {
-                    GD.PushError($"[DebugPanel] Invalid grid_size in config: {loadedGridSize}, using default 111");
-                    loadedGridSize = 111;
+                    GD.PushError($"[DebugPanel] Invalid grid_size in config: {loadedGridSize}, resetting config");
+                    ResetConfigAndReload();
+                    return;
                 }
+
+                _gridSizeSlider.SetBlockSignals(true);
+                _zoomSlider.SetBlockSignals(true);
+                _gridLineWidthSlider.SetBlockSignals(true);
+                _gridLineBrightnessSlider.SetBlockSignals(true);
+
                 _gridSizeSlider.Value = loadedGridSize;
                 _zoomSlider.Value = (double)config.GetValue("map", "zoom", 1.0);
                 _gridLineWidthSlider.Value = (double)config.GetValue("map", "grid_line_width", 2.0);
                 _gridLineBrightnessSlider.Value = (double)config.GetValue("map", "grid_line_brightness", 0.7);
                 _gridCoordsCheck.ButtonPressed = (bool)config.GetValue("map", "show_grid_coords", false);
+
+                _gridSizeSlider.SetBlockSignals(false);
+                _zoomSlider.SetBlockSignals(false);
+                _gridLineWidthSlider.SetBlockSignals(false);
+                _gridLineBrightnessSlider.SetBlockSignals(false);
             }
 
             GD.Print($"[DebugPanel] Final grid_size slider value: {_gridSizeSlider.Value}");
@@ -588,9 +632,23 @@ namespace ClinetCSharp
             _playerSizeSlider.Value = savedPlayerSize;
             _playerSizeSlider.SetBlockSignals(false);
 
+            _playerSizeScaleSlider?.SetBlockSignals(true);
+            double loadedVisualScale = (double)config.GetValue("player", "visual_size_scale", 1.0);
+            _playerSizeScaleSlider?.SetValue(loadedVisualScale);
+            _playerSizeScaleSlider?.SetBlockSignals(false);
+            if (_playerSizeScaleValue != null)
+                _playerSizeScaleValue.Text = loadedVisualScale.ToString("F2");
+
             _borderWidthSlider.SetBlockSignals(true);
             _borderWidthSlider.Value = (double)config.GetValue("player", "border_width", 3.0);
             _borderWidthSlider.SetBlockSignals(false);
+
+            _borderWidthScaleSlider?.SetBlockSignals(true);
+            double loadedScale = (double)config.GetValue("player", "border_width_scale", 3.0 / 111.0);
+            _borderWidthScaleSlider?.SetValue(loadedScale);
+            _borderWidthScaleSlider?.SetBlockSignals(false);
+            if (_borderWidthScaleValue != null)
+                _borderWidthScaleValue.Text = loadedScale.ToString("F2");
 
             _cornerRadiusSlider.SetBlockSignals(true);
             _cornerRadiusSlider.Value = (double)config.GetValue("player", "corner_radius", 0.0);
@@ -651,7 +709,8 @@ namespace ClinetCSharp
             if (_player != null)
             {
                 _player.Call("SetTextAlignment", (int)savedAlignment);
-                _player.Call("SetBorderWidth", (float)_borderWidthSlider.Value);
+                _player.Call("SetVisualSizeScale", (float)(_playerSizeScaleSlider?.Value ?? 1.0));
+                _player.Call("SetBorderWidthScale", (float)(_borderWidthScaleSlider?.Value ?? (3.0 / 111.0)));
                 _player.Call("SetCornerRadius", (float)_cornerRadiusSlider.Value);
                 _player.Call("SetBgOpacity", (float)_bgOpacitySlider.Value);
                 _player.Call("SetLineSpacing", (float)_lineSpacingSlider.Value);
@@ -671,14 +730,14 @@ namespace ClinetCSharp
 
             if (_camera != null)
             {
-                if (_camera.HasMethod("set_return_delay"))
-                    _camera.Call("set_return_delay", _cameraReturnDelaySlider.Value);
-                if (_camera.HasMethod("set_return_speed"))
-                    _camera.Call("set_return_speed", _cameraReturnSpeedSlider.Value);
-                if (_camera.HasMethod("set_ease_type"))
-                    _camera.Call("set_ease_type", _cameraEaseTypeOption.Selected);
-                if (_camera.HasMethod("set_ease_power"))
-                    _camera.Call("set_ease_power", _cameraEasePowerSlider.Value);
+                if (_camera.HasMethod("SetReturnDelay"))
+                    _camera.Call("SetReturnDelay", _cameraReturnDelaySlider.Value);
+                if (_camera.HasMethod("SetReturnSpeed"))
+                    _camera.Call("SetReturnSpeed", _cameraReturnSpeedSlider.Value);
+                if (_camera.HasMethod("SetEaseType"))
+                    _camera.Call("SetEaseType", _cameraEaseTypeOption.Selected);
+                if (_camera.HasMethod("SetEasePower"))
+                    _camera.Call("SetEasePower", _cameraEasePowerSlider.Value);
             }
 
             if (_freeLookCheck != null)
@@ -718,10 +777,11 @@ namespace ClinetCSharp
             {
                 _responsiveCheck.ButtonPressed = (bool)config.GetValue("responsive", "enabled", false);
                 _visibleGridsXSpin.Value = (double)config.GetValue("responsive", "visible_grids_x", 5.0);
-                if (_responsiveCheck.ButtonPressed)
+                var gm = _gridManager as GridManager;
+                if (_responsiveCheck.ButtonPressed && gm != null)
                 {
-                    _gridManager.Set("visible_grids_x", _visibleGridsXSpin.Value);
-                    _gridManager.Call("set_responsive_mode", true);
+                    gm.VisibleGridsX = (float)_visibleGridsXSpin.Value;
+                    gm.SetResponsiveMode(true);
                 }
                 OnResponsiveToggled(_responsiveCheck.ButtonPressed);
             }
@@ -745,6 +805,14 @@ namespace ClinetCSharp
             // Load label control settings
             if (_player != null)
             {
+                bool autoCenterX = (bool)config.GetValue("labels", "auto_center_x", false);
+                _player.Call("SetLabelAutoCenterX", autoCenterX);
+                if (_labelAutoCenterXCheck != null)
+                {
+                    _labelAutoCenterXCheck.SetBlockSignals(true);
+                    _labelAutoCenterXCheck.ButtonPressed = autoCenterX;
+                    _labelAutoCenterXCheck.SetBlockSignals(false);
+                }
                 for (int i = 0; i < LabelCount; i++)
                 {
                     string prefix = $"label_{i}";
@@ -814,7 +882,9 @@ namespace ClinetCSharp
             {
                 bool hpVisible = (bool)config.GetValue("healthbar", "visible", true);
                 double hpLength = (double)config.GetValue("healthbar", "length", 80);
+                double hpLengthScale = (double)config.GetValue("healthbar", "length_scale", 80.0 / 111.0);
                 double hpHeight = (double)config.GetValue("healthbar", "height", 6);
+                double hpHeightScale = (double)config.GetValue("healthbar", "height_scale", 6.0 / 111.0);
                 double hpFill = (double)config.GetValue("healthbar", "fill", 100);
                 double hpOffX = (double)config.GetValue("healthbar", "offset_x", 0);
                 double hpOffY = (double)config.GetValue("healthbar", "offset_y", -70);
@@ -839,7 +909,11 @@ namespace ClinetCSharp
                     _healthBarVisibleCheck.SetBlockSignals(false);
                 }
                 if (_healthBarLengthSlider != null) { _healthBarLengthSlider.SetBlockSignals(true); _healthBarLengthSlider.Value = hpLength; _healthBarLengthSlider.SetBlockSignals(false); }
+                if (_healthBarLengthScaleSlider != null) { _healthBarLengthScaleSlider.SetBlockSignals(true); _healthBarLengthScaleSlider.Value = hpLengthScale; _healthBarLengthScaleSlider.SetBlockSignals(false); }
+                if (_healthBarLengthScaleValue != null) _healthBarLengthScaleValue.Text = hpLengthScale.ToString("F2");
                 if (_healthBarHeightSlider != null) { _healthBarHeightSlider.SetBlockSignals(true); _healthBarHeightSlider.Value = hpHeight; _healthBarHeightSlider.SetBlockSignals(false); }
+                if (_healthBarHeightScaleSlider != null) { _healthBarHeightScaleSlider.SetBlockSignals(true); _healthBarHeightScaleSlider.Value = hpHeightScale; _healthBarHeightScaleSlider.SetBlockSignals(false); }
+                if (_healthBarHeightScaleValue != null) _healthBarHeightScaleValue.Text = hpHeightScale.ToString("F2");
                 if (_healthBarFillSlider != null) { _healthBarFillSlider.SetBlockSignals(true); _healthBarFillSlider.Value = hpFill; _healthBarFillSlider.SetBlockSignals(false); }
                 if (_healthBarOffsetXSlider != null) { _healthBarOffsetXSlider.SetBlockSignals(true); _healthBarOffsetXSlider.Value = hpOffX; _healthBarOffsetXSlider.SetBlockSignals(false); }
                 if (_healthBarOffsetYSlider != null) { _healthBarOffsetYSlider.SetBlockSignals(true); _healthBarOffsetYSlider.Value = hpOffY; _healthBarOffsetYSlider.SetBlockSignals(false); }
@@ -918,26 +992,46 @@ namespace ClinetCSharp
                 if (_levelBadgeTextEdit != null) _levelBadgeTextEdit.Text = lvText;
             }
 
-            // Load section collapse states
-            foreach (var groupName in _sectionStates.Keys)
+            // Load monster settings
             {
-                bool isExpanded = (bool)config.GetValue("sections", (string)groupName, true);
-                _sectionStates[groupName] = isExpanded;
-                string mapPath = $"Control/Panel/ScrollContainer/TabContainer/地图/{groupName}";
-                string playerPath = $"Control/Panel/ScrollContainer/TabContainer/玩家/{groupName}";
-                Button button = _mapGroups.ContainsKey(groupName) ? GetNodeOrNull<Button>(mapPath) : GetNodeOrNull<Button>(playerPath);
-                if (button != null)
+                var mm = GetTree()?.GetFirstNodeInGroup("monster_manager") as MonsterManager;
+                if (mm != null)
                 {
-                    Node targetGroup = _mapGroups.ContainsKey(groupName) ? (Node)_mapGroups[groupName] : (_playerGroups.ContainsKey(groupName) ? (Node)_playerGroups[groupName] : null);
-                    if (targetGroup != null)
+                    mm.DefaultVisualSize = (int)(double)config.GetValue("monster", "visual_size", 111);
+                    mm.DefaultVisualSizeScale = (float)(double)config.GetValue("monster", "visual_size_scale", 1.0);
+                    mm.DefaultBorderWidth = (float)(double)config.GetValue("monster", "border_width", 3.0);
+                    mm.DefaultBorderWidthScale = (float)(double)config.GetValue("monster", "border_width_scale", 3.0 / 111.0);
+                    mm.DefaultCornerRadius = (float)(double)config.GetValue("monster", "corner_radius", 12.0);
+                    mm.DefaultBgOpacity = (float)(double)config.GetValue("monster", "bg_opacity", 0.9);
+                    mm.DefaultFontSize = (int)(double)config.GetValue("monster", "font_size", 0);
+                    float mbR = (float)(double)config.GetValue("monster", "border_color_r", 0.9);
+                    float mbG = (float)(double)config.GetValue("monster", "border_color_g", 0.3);
+                    float mbB = (float)(double)config.GetValue("monster", "border_color_b", 0.3);
+                    mm.DefaultBorderColor = new Color(mbR, mbG, mbB);
+                    float mbgR = (float)(double)config.GetValue("monster", "bg_color_r", 0.8);
+                    float mbgG = (float)(double)config.GetValue("monster", "bg_color_g", 0.2);
+                    float mbgB = (float)(double)config.GetValue("monster", "bg_color_b", 0.2);
+                    mm.DefaultBgColor = new Color(mbgR, mbgG, mbgB);
+                    float mtR = (float)(double)config.GetValue("monster", "text_color_r", 1.0);
+                    float mtG = (float)(double)config.GetValue("monster", "text_color_g", 0.95);
+                    float mtB = (float)(double)config.GetValue("monster", "text_color_b", 0.95);
+                    mm.DefaultTextColor = new Color(mtR, mtG, mtB);
+                    for (int i = 0; i < 4; i++)
                     {
-                        targetGroup.Set("visible", isExpanded);
-                        button.Text = (isExpanded ? "▼ " : "▶ ") + button.Text.Substring(2);
+                        string prefix = $"monster_label_{i}";
+                        mm.DefaultLabelTexts[i] = (string)config.GetValue("monster", $"{prefix}_text", "");
+                        mm.DefaultLabelFontSizes[i] = (int)(double)config.GetValue("monster", $"{prefix}_font_size", 0);
+                        mm.DefaultLabelXOffsets[i] = (float)(double)config.GetValue("monster", $"{prefix}_offset_x", 0);
+                        mm.DefaultLabelCenterX[i] = (bool)config.GetValue("monster", $"{prefix}_center_x", true);
+                        mm.DefaultLabelYOffsets[i] = (float)(double)config.GetValue("monster", $"{prefix}_offset_y", 0);
                     }
+                    mm.ApplyStyleToAll();
                 }
+                SyncMonsterDebugUI();
             }
 
             GD.Print("[DebugPanel] Using default settings");
+            UpdateControlStates();
         }
 
         private void MigrateConfig(ConfigFile config, int fromVersion)
@@ -952,6 +1046,20 @@ namespace ClinetCSharp
             // {
             //     // v1 -> v2 migration logic
             // }
+        }
+
+        private void ResetConfigAndReload()
+        {
+            GD.Print("[DebugPanel] Resetting config to defaults");
+            ConfigFile config = new ConfigFile();
+            config.SetValue("meta", "config_version", CONFIG_VERSION);
+            config.SetValue("meta", "last_save_time", Time.GetDatetimeStringFromSystem());
+            Error err = config.Save(CONFIG_PATH);
+            if (err != Error.Ok)
+            {
+                GD.PushError($"[DebugPanel] Failed to reset config: {err}");
+            }
+            LoadConfig();
         }
         #endregion
 
@@ -975,7 +1083,9 @@ namespace ClinetCSharp
                     double savedSize = (double)config.GetValue("player", "player_size", 111);
                     GD.Print($"[DebugPanel] Read player size from config: {savedSize}");
                     _player.Call("SetVisualSize", (int)savedSize);
+                    _player.Set("VisualSizeScale", (float)(double)config.GetValue("player", "visual_size_scale", 1.0));
                     _player.Call("SetBorderWidth", (float)(double)config.GetValue("player", "border_width", 3.0));
+                    _player.Set("BorderWidthScale", (float)(double)config.GetValue("player", "border_width_scale", 3.0 / 111.0));
                     _player.Call("SetCornerRadius", (float)(double)config.GetValue("player", "corner_radius", 0.0));
                     _player.Call("SetBgOpacity", (float)(double)config.GetValue("player", "bg_opacity", 0.1));
                     _player.Call("SetLineSpacing", (float)(double)config.GetValue("player", "line_spacing", 0.8));
@@ -1028,7 +1138,9 @@ namespace ClinetCSharp
                     // Apply health bar settings
                     _player.Call("SetHealthBarVisible", (bool)config.GetValue("healthbar", "visible", true));
                     _player.Call("SetHealthBarLength", (float)(double)config.GetValue("healthbar", "length", 80));
+                    _player.Set("HealthBarLengthScale", (float)(double)config.GetValue("healthbar", "length_scale", 80.0 / 111.0));
                     _player.Call("SetHealthBarHeight", (float)(double)config.GetValue("healthbar", "height", 6));
+                    _player.Set("HealthBarHeightScale", (float)(double)config.GetValue("healthbar", "height_scale", 6.0 / 111.0));
                     _player.Call("SetHealthBarFillPercent", (float)((double)config.GetValue("healthbar", "fill", 100) / 100.0));
                     _player.Call("SetHealthBarOffset", new Vector2(
                         (float)(double)config.GetValue("healthbar", "offset_x", 0),
@@ -1100,7 +1212,9 @@ namespace ClinetCSharp
             var playerData = new Godot.Collections.Dictionary
             {
                 ["player_size"] = _playerSizeSlider?.Value ?? 111,
+                ["visual_size_scale"] = _playerSizeScaleSlider?.Value ?? 1.0,
                 ["border_width"] = _borderWidthSlider?.Value ?? 3.0,
+                ["border_width_scale"] = _borderWidthScaleSlider?.Value ?? (3.0 / 111.0),
                 ["corner_radius"] = _cornerRadiusSlider?.Value ?? 0.0,
                 ["bg_opacity"] = _bgOpacitySlider?.Value ?? 0.1,
                 ["font_size"] = _fontSizeSlider?.Value ?? 0,
@@ -1165,6 +1279,31 @@ namespace ClinetCSharp
                 };
             }
             data["labels"] = labelsData;
+
+            var monsterData = new Godot.Collections.Dictionary
+            {
+                ["visual_size"] = _monsterSizeSlider?.Value ?? 111,
+                ["visual_size_scale"] = _monsterSizeScaleSlider?.Value ?? 1.0,
+                ["border_width"] = _monsterBorderWidthSlider?.Value ?? 3.0,
+                ["border_width_scale"] = _monsterBorderWidthScaleSlider?.Value ?? (3.0 / 111.0),
+                ["corner_radius"] = _monsterCornerRadiusSlider?.Value ?? 12.0,
+                ["bg_opacity"] = _monsterBgOpacitySlider?.Value ?? 0.9,
+                ["font_size"] = _monsterFontSizeSlider?.Value ?? 0
+            };
+            var mLabelsData = new Godot.Collections.Dictionary();
+            for (int i = 0; i < 4; i++)
+            {
+                mLabelsData[$"label_{i}"] = new Godot.Collections.Dictionary
+                {
+                    ["text"] = _monsterLabelEdits[i]?.Text ?? "",
+                    ["font_size"] = _monsterLabelFontSizeSliders[i]?.Value ?? 0,
+                    ["offset_x"] = _monsterLabelXOffsetSliders[i]?.Value ?? 0,
+                    ["center_x"] = _monsterLabelCenterXChecks[i]?.ButtonPressed ?? true,
+                    ["offset_y"] = _monsterLabelYOffsetSliders[i]?.Value ?? 0
+                };
+            }
+            monsterData["labels"] = mLabelsData;
+            data["monster"] = monsterData;
 
             return Json.Stringify(data, "  ");
         }

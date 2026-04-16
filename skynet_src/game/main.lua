@@ -33,5 +33,9 @@ skynet.start(function()
     skynet.uniqueservice("game/player_mgr")
     skynet.error("player_mgr_service started")
 
+    -- 7. 怪物 AI 服务
+    skynet.uniqueservice("game/monster_pool")
+    skynet.error("monster_pool_service started")
+
     skynet.error("======== skynet_src Server Ready ========")
 end)
