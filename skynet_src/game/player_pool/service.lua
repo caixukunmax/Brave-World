@@ -319,11 +319,14 @@ function handlers.move(msg, claims)
         return { msg_id = MessageId.GAME_MOVE_RSP, data = rspData }
     end
 
-    -- 校验目标格是否有怪物阻挡
+    -- 校验目标格是否有怪物阻挡（被阻挡则转为进攻）
+    local mapId = common.getMapIdByName(mapName)
     if common.isBlockedByMonster(mapName, toX, toY) then
+        -- 不移动，改为向该格子发起攻击
+        platform.serviceSend(common.getMapPoolName(mapId), "playerAttack", claims.account_id, mapName, toX, toY)
         local rspData = protos.game.MoveResponse.encode({
-            code = ErrorCode.FORBIDDEN,
-            message = "blocked by monster",
+            code = ErrorCode.SUCCESS,
+            message = "attack",
             x = fromX,
             y = fromY,
         })
@@ -331,7 +334,6 @@ function handlers.move(msg, claims)
     end
 
     -- 校验目标格是否有未开的宝箱阻挡
-    local mapId = common.getMapIdByName(mapName)
     local mapChests = common.getMapChests(mapId, common.EMapEntityType.CHEST)
     for _, instance in ipairs(mapChests) do
         if instance.x == toX and instance.y == toY then
@@ -354,7 +356,6 @@ function handlers.move(msg, claims)
         player.grid_x = toX
         player.grid_y = toY
         -- 同步到 map_pool
-        local mapId = common.getMapIdByName(mapName)
         platform.serviceSend(common.getMapPoolName(mapId), "playerMove", claims.account_id, mapName, toX, toY)
     end
 

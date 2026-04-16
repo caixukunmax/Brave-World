@@ -58,22 +58,10 @@ function handlers.playerEnter(snapshot)
     skynet.error(string.format("[map_pool_%d] playerEnter: account=%d map=%s pos=(%d,%d)",
         pool_id, snapshot.account_id, mapName, x, y))
     
-    -- 进入时若与怪物相邻，立即触发碰撞
-    checkCollisionPlayerVsMonster(snapshot.account_id, mapName, x, y)
+
 end
 
--- 碰撞检测辅助：相邻即触发战斗（曼哈顿距离 = 1）
-local function checkCollisionPlayerVsMonster(accountId, mapName, x, y)
-    local map = maps[mapName]
-    if not map then return end
-    for instanceId, m in pairs(map.monsters or {}) do
-        local dist = math.abs(m.x - x) + math.abs(m.y - y)
-        if dist == 1 then
-            CombatManager:onCollision(accountId, instanceId, maps)
-        end
-    end
-end
-
+-- 碰撞检测辅助：怪物移动后与玩家相邻时触发战斗
 local function checkCollisionMonsterVsPlayer(instanceId, mapName, x, y)
     local map = maps[mapName]
     if not map then return end
@@ -91,7 +79,6 @@ function handlers.playerMove(accountId, mapName, x, y)
     if map and map.players[accountId] then
         map.players[accountId].grid_x = x
         map.players[accountId].grid_y = y
-        checkCollisionPlayerVsMonster(accountId, mapName, x, y)
     end
 end
 
@@ -131,6 +118,18 @@ function handlers.monsterEnter(snapshot)
     }
     skynet.error(string.format("[map_pool_%d] monsterEnter: instance=%d map=%s pos=(%d,%d)",
         pool_id, snapshot.instance_id, mapName, snapshot.x or 0, snapshot.y or 0))
+end
+
+-- 玩家主动攻击：移动被怪物阻挡后转为进攻
+function handlers.playerAttack(accountId, mapName, x, y)
+    local map = maps[mapName]
+    if not map then return end
+    for instanceId, m in pairs(map.monsters or {}) do
+        if m.x == x and m.y == y then
+            CombatManager:onCollision(accountId, instanceId, maps)
+            break
+        end
+    end
 end
 
 -- 怪物移动后更新坐标
