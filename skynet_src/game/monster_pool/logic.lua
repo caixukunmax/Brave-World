@@ -17,6 +17,17 @@ local AI_HANDLERS = {
 function logic.createMonsterState(mapMonster)
     local aiConfig = common.queryTable("TbAi")[mapMonster.ai_id]
     local aiType = aiConfig and aiConfig.ai_type or "patrol"
+    local monsterConfigs = common.queryTable("TbMonster")
+    local monsterCfg = monsterConfigs and monsterConfigs[mapMonster.monster_id]
+    local maxHp = 100
+    if monsterCfg and monsterCfg.attrs then
+        for _, attr in ipairs(monsterCfg.attrs) do
+            if attr.attr_key == "hp" or attr.attr_key == "max_hp" then
+                maxHp = attr.attr_value or 100
+                break
+            end
+        end
+    end
     return {
         instanceId   = mapMonster.id, -- 与 MapInfoSyncNotify / buildMonstersProto 保持一致
         monsterId    = mapMonster.monster_id,
@@ -30,6 +41,8 @@ function logic.createMonsterState(mapMonster)
         state        = "idle",
         targetId     = nil,
         lastMoveTime = 0,
+        hp           = maxHp,
+        maxHp        = maxHp,
     }
 end
 
@@ -83,6 +96,8 @@ function logic.tick(monsters, mapId)
                     to_y = ny,
                     state = m.state,
                 }
+                -- 同步坐标到 map_pool
+                platform.serviceSend(common.getMapPoolName(mapId), "monsterMove", instanceId, nx, ny)
             end
         end
     end

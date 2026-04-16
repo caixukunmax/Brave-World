@@ -3,6 +3,7 @@
 
 local skynet = require "skynet"
 local common = require "common"
+local platform = common.platform
 local logic = require "game.monster_pool.logic"
 
 local monsters = {}     -- instanceId -> state
@@ -17,6 +18,26 @@ end
 
 function handlers.getMonsters()
     return monsters
+end
+
+-- 战斗伤害回调（由 map_pool/combat 调用）
+function handlers.onCombatDamage(instanceId, attackerId, damage)
+    local m = monsters[instanceId]
+    if not m then return end
+    m.hp = (m.hp or 100) - damage
+    skynet.error(string.format("[monster_pool] monster damaged: id=%d dmg=%d hp=%d", instanceId, damage, m.hp))
+    if m.hp <= 0 then
+        m.hp = 0
+        skynet.error(string.format("[monster_pool] monster died: id=%d", instanceId))
+        -- TODO: 死亡处理（掉落、经验分配、移除等）
+    end
+end
+
+-- 战斗回血回调（脱战后由 map_pool/combat 调用）
+function handlers.onCombatRegen(instanceId, regen)
+    local m = monsters[instanceId]
+    if not m then return end
+    m.hp = math.min(m.maxHp or 100, (m.hp or 100) + regen)
 end
 
 common.defineService("game/monster_pool", handlers, {
@@ -36,6 +57,21 @@ common.defineService("game/monster_pool", handlers, {
             skynet.error(string.format("[monster_pool] monster init: id=%d pos=(%d,%d) ai=%s ai_id=%d",
                 id, m.x, m.y, m.aiType, m.aiId))
             break
+        end
+
+        -- 同步怪物到 map_pool
+        local mapName = firstMap.map_name
+        for instanceId, m in pairs(monsters) do
+            platform.serviceSend(common.getMapPoolName(mapId), "monsterEnter", {
+                instance_id = instanceId,
+                monster_id  = m.monsterId,
+                map_name    = mapName,
+                x           = m.x,
+                y           = m.y,
+                hp          = m.hp or 100,
+                max_hp      = m.maxHp or 100,
+                level       = 1,
+            })
         end
 
         -- 启动 AI tick 循环（每 500ms）

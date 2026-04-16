@@ -13,7 +13,9 @@ if arg ~= nil then
     pool_id = tonumber(arg) or 0
 end
 
-local maps = {} -- mapName -> { map_id, players={accountId -> snapshot} }
+local CombatManager = require "game.map_pool.combat.manager"
+
+local maps = {} -- mapName -> { map_id, players={}, monsters={} }
 
 local handlers = {}
 
@@ -25,11 +27,12 @@ local function initMaps()
             maps[cfg.map_name] = {
                 map_id = mapId,
                 players = {},
+                monsters = {},
             }
         end
     end
     if not maps["xinshoucun"] then
-        maps["xinshoucun"] = { map_id = 1, players = {} }
+        maps["xinshoucun"] = { map_id = 1, players = {}, monsters = {} }
     end
 end
 
@@ -38,7 +41,7 @@ function handlers.playerEnter(snapshot)
     local mapName = snapshot.current_map or "xinshoucun"
     local map = maps[mapName]
     if not map then
-        map = { map_id = common.getMapIdByName(mapName), players = {} }
+        map = { map_id = common.getMapIdByName(mapName), players = {}, monsters = {} }
         maps[mapName] = map
     end
     map.players[snapshot.account_id] = {
@@ -69,6 +72,8 @@ function handlers.playerLeave(accountId, mapName)
     if map then
         map.players[accountId] = nil
     end
+    -- 通知 combat 模块清除该玩家的战斗关系
+    CombatManager:onEntityRemoved(accountId)
     skynet.error(string.format("[map_pool_%d] playerLeave: account=%d map=%s", pool_id, accountId, mapName))
 end
 
@@ -76,6 +81,52 @@ end
 function handlers.getPlayersOnMap(mapName)
     local map = maps[mapName]
     return map and map.players or {}
+end
+
+-- 怪物进入地图（由 monster_pool 同步）
+function handlers.monsterEnter(snapshot)
+    local mapName = snapshot.map_name or "xinshoucun"
+    local map = maps[mapName]
+    if not map then
+        map = { map_id = common.getMapIdByName(mapName), players = {}, monsters = {} }
+        maps[mapName] = map
+    end
+    map.monsters[snapshot.instance_id] = {
+        instance_id = snapshot.instance_id,
+        monster_id  = snapshot.monster_id,
+        x           = snapshot.x or 0,
+        y           = snapshot.y or 0,
+        hp          = snapshot.hp or 100,
+        max_hp      = snapshot.max_hp or 100,
+        level       = snapshot.level or 1,
+    }
+    skynet.error(string.format("[map_pool_%d] monsterEnter: instance=%d map=%s pos=(%d,%d)",
+        pool_id, snapshot.instance_id, mapName, snapshot.x or 0, snapshot.y or 0))
+end
+
+-- 怪物移动后更新坐标
+function handlers.monsterMove(instanceId, x, y)
+    for mapName, map in pairs(maps) do
+        map.monsters = map.monsters or {}
+        if map.monsters[instanceId] then
+            map.monsters[instanceId].x = x
+            map.monsters[instanceId].y = y
+            break
+        end
+    end
+end
+
+-- 怪物离开地图
+function handlers.monsterLeave(instanceId)
+    for mapName, map in pairs(maps) do
+        map.monsters = map.monsters or {}
+        if map.monsters[instanceId] then
+            map.monsters[instanceId] = nil
+            CombatManager:onEntityRemoved(instanceId)
+            skynet.error(string.format("[map_pool_%d] monsterLeave: instance=%d map=%s", pool_id, instanceId, mapName))
+            break
+        end
+    end
 end
 
 -- 向地图内所有在线玩家广播 Gateway 消息
@@ -94,5 +145,20 @@ common.defineService("game/map_pool_" .. pool_id, handlers, {
         local count = 0
         for _ in pairs(maps) do count = count + 1 end
         skynet.error(string.format("[map_pool_%d] initialized with %d maps", pool_id, count))
+        
+        -- 初始化战斗管理器
+        CombatManager:init()
+        skynet.error(string.format("[map_pool_%d] combat manager initialized", pool_id))
+        
+        -- 启动战斗 tick（每 100ms = 10 tick/秒）
+        skynet.fork(function()
+            while true do
+                skynet.sleep(10) -- 10 * 10ms = 100ms
+                local ok, err = pcall(CombatManager.tick, CombatManager, 0.1, maps)
+                if not ok then
+                    skynet.error("[map_pool_" .. pool_id .. "] combat tick error: " .. tostring(err))
+                end
+            end
+        end)
     end,
 })
