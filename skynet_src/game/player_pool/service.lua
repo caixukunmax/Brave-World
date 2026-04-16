@@ -232,6 +232,19 @@ function handlers.enterGame(msg, claims)
     platform.serviceSend("game/db", "updateRole", roleId, { last_login_time = now })
     onlinePlayers[claims.account_id] = role
 
+    -- 同步到 map_pool
+    local mapId2 = common.getMapIdByName(role.current_map or "xinshoucun")
+    platform.serviceSend(common.getMapPoolName(mapId2), "playerEnter", {
+        account_id = claims.account_id,
+        role_id = role.role_id,
+        role_name = role.role_name,
+        server_id = role.server_id,
+        grid_x = role.grid_x or 25,
+        grid_y = role.grid_y or 25,
+        level = role.level or 1,
+        current_map = role.current_map or "xinshoucun",
+    })
+
     local items = buildItemsProto(roleId)
 
     local response = {
@@ -340,6 +353,9 @@ function handlers.move(msg, claims)
     if player then
         player.grid_x = toX
         player.grid_y = toY
+        -- 同步到 map_pool
+        local mapId = common.getMapIdByName(mapName)
+        platform.serviceSend(common.getMapPoolName(mapId), "playerMove", claims.account_id, mapName, toX, toY)
     end
 
     local rspData = protos.game.MoveResponse.encode({
@@ -509,6 +525,8 @@ function handlers.gmCommand(msg, claims)
 
         player.grid_x = finalX
         player.grid_y = finalY
+        local tpMapId = common.getMapIdByName(mapName)
+        platform.serviceSend(common.getMapPoolName(tpMapId), "playerMove", claims.account_id, mapName, finalX, finalY)
         platform.log("info", "GM teleport: roleId=" .. tostring(player.role_id) .. " to (" .. finalX .. "," .. finalY .. ")")
 
         -- 返回实际坐标，客户端解析 TELEPORT:x:y 格式
@@ -673,6 +691,11 @@ function handlers.login(msg)
 end
 
 function handlers.kick(userId)
+    local player = onlinePlayers[userId]
+    if player then
+        local mapId = common.getMapIdByName(player.current_map or "xinshoucun")
+        platform.serviceSend(common.getMapPoolName(mapId), "playerLeave", userId, player.current_map or "xinshoucun")
+    end
     onlinePlayers[userId] = nil
     platform.serviceSend("game/gateway", "kick", userId)
     platform.log("info", "Player kicked (pool " .. pool_id .. ")", userId)

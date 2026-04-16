@@ -33,7 +33,11 @@ skynet.start(function()
     skynet.uniqueservice("game/player_mgr")
     skynet.error("player_mgr_service started")
 
-    -- 7. 怪物 AI 服务
+    -- 7. 地图管理服务（启动多个 map_pool 实例）
+    skynet.uniqueservice("game/map_mgr")
+    skynet.error("map_mgr_service started")
+
+    -- 8. 怪物 AI 服务
     skynet.uniqueservice("game/monster_pool")
     skynet.error("monster_pool_service started")
 

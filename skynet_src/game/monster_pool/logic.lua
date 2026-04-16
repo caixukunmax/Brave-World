@@ -18,7 +18,7 @@ function logic.createMonsterState(mapMonster)
     local aiConfig = common.queryTable("TbAi")[mapMonster.ai_id]
     local aiType = aiConfig and aiConfig.ai_type or "patrol"
     return {
-        instanceId   = common.makeInstanceId(mapMonster.map_id, common.EMapEntityType.MONSTER, mapMonster.id),
+        instanceId   = mapMonster.id, -- 与 MapInfoSyncNotify / buildMonstersProto 保持一致
         monsterId    = mapMonster.monster_id,
         x            = mapMonster.x,
         y            = mapMonster.y,
@@ -48,19 +48,17 @@ function logic.initMonsters(mapId)
 end
 
 -- 获取同地图在线玩家列表
--- 通过查询所有 player_pool 服务聚合
+-- 通过 map_pool 查询（player_pool 已同步玩家状态到 map_pool）
 function logic.getOnlinePlayersOnMap(mapId, mapName)
-    local players = {}
-    -- 简单做法：遍历 4 个 player_pool，收集 current_map 匹配的玩家
-    for i = 0, 3 do
-        local ok, poolPlayers = pcall(platform.serviceCall, "game/player_pool_" .. i, "getOnlinePlayersByMap", mapName)
-        if ok and poolPlayers then
-            for accountId, p in pairs(poolPlayers) do
-                players[accountId] = p
-            end
-        end
+    local serviceName = common.getMapPoolName(mapId)
+    local ok, players = pcall(platform.serviceCall, serviceName, "getPlayersOnMap", mapName)
+    if not ok then
+        skynet.error(string.format("[monster_pool] getOnlinePlayersOnMap failed: service=%s err=%s", serviceName, tostring(players)))
     end
-    return players
+    if ok and players then
+        return players
+    end
+    return {}
 end
 
 function logic.tick(monsters, mapId)
@@ -108,20 +106,10 @@ function logic.broadcastMonsterMoves(moves, mapName)
         }
     end
 
-    -- 使用 MonsterStateBatchNotify 或逐条 MonsterMoveNotify
-    -- 为了简化，这里逐条发送（Gateway 支持批量优化可后续改进）
+    -- 使用 map_pool 广播给同地图所有在线玩家
     for _, m in ipairs(notify) do
         local data = protos.game.MonsterMoveNotify.encode(m)
-        -- 广播给同地图所有在线玩家
-        -- 通过查询 player_pool 获取在线玩家并推送
-        for i = 0, 3 do
-            local ok, poolPlayers = pcall(platform.serviceCall, "game/player_pool_" .. i, "getOnlinePlayersByMap", mapName)
-            if ok and poolPlayers then
-                for accountId, p in pairs(poolPlayers) do
-                    platform.serviceSend("game/gateway", "sendToAccount", accountId, p.server_id, MessageId.GAME_MONSTER_MOVE_NOTIFY, data)
-                end
-            end
-        end
+        pcall(platform.serviceCall, common.getMapPoolName(common.getMapIdByName(mapName)), "broadcastToMap", mapName, MessageId.GAME_MONSTER_MOVE_NOTIFY, data)
     end
 end
 

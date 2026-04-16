@@ -332,6 +332,12 @@ function common.getMapIdByName(mapName)
     return 1  -- 默认新手村
 end
 
+-- 获取地图池服务名（支持未来按 map_id 分片）
+common.MAP_POOL_COUNT = 1
+function common.getMapPoolName(mapId)
+    return ".map_pool_" .. ((mapId - 1) % common.MAP_POOL_COUNT)
+end
+
 -- 获取宝箱奖励（通过类型ID）
 function common.getChestRewards(chestTypeId)
     local chestType = common.getChestType(chestTypeId)
@@ -393,7 +399,10 @@ local serviceCache = {}
 local function getServiceAddr(name)
     local addr = serviceCache[name]
     if not addr then
-        addr = skynet.queryservice(name)
+        addr = skynet.localname(name)
+        if not addr then
+            addr = skynet.queryservice(name)
+        end
         serviceCache[name] = addr
     end
     return addr

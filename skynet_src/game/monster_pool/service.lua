@@ -31,6 +31,13 @@ common.defineService("game/monster_pool", handlers, {
         for _ in pairs(monsters) do count = count + 1 end
         skynet.error(string.format("[monster_pool] map=%s id=%d monsters=%d", firstMap.map_name, mapId, count))
 
+        -- 打印第一个怪物状态用于诊断
+        for id, m in pairs(monsters) do
+            skynet.error(string.format("[monster_pool] monster init: id=%d pos=(%d,%d) ai=%s ai_id=%d",
+                id, m.x, m.y, m.aiType, m.aiId))
+            break
+        end
+
         -- 启动 AI tick 循环（每 500ms）
         skynet.fork(function()
             while true do
