@@ -58,18 +58,18 @@ function handlers.playerEnter(snapshot)
     skynet.error(string.format("[map_pool_%d] playerEnter: account=%d map=%s pos=(%d,%d)",
         pool_id, snapshot.account_id, mapName, x, y))
     
-    -- 进入时若与怪物同坐标，立即触发碰撞
+    -- 进入时若与怪物相邻，立即触发碰撞
     checkCollisionPlayerVsMonster(snapshot.account_id, mapName, x, y)
 end
 
--- 碰撞检测辅助
+-- 碰撞检测辅助：相邻即触发战斗（曼哈顿距离 = 1）
 local function checkCollisionPlayerVsMonster(accountId, mapName, x, y)
     local map = maps[mapName]
     if not map then return end
     for instanceId, m in pairs(map.monsters or {}) do
-        if m.x == x and m.y == y then
+        local dist = math.abs(m.x - x) + math.abs(m.y - y)
+        if dist == 1 then
             CombatManager:onCollision(accountId, instanceId, maps)
-            break
         end
     end
 end
@@ -78,9 +78,9 @@ local function checkCollisionMonsterVsPlayer(instanceId, mapName, x, y)
     local map = maps[mapName]
     if not map then return end
     for accountId, p in pairs(map.players or {}) do
-        if p.grid_x == x and p.grid_y == y then
+        local dist = math.abs(p.grid_x - x) + math.abs(p.grid_y - y)
+        if dist == 1 then
             CombatManager:onCollision(instanceId, accountId, maps)
-            break
         end
     end
 end

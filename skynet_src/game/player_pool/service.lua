@@ -319,6 +319,17 @@ function handlers.move(msg, claims)
         return { msg_id = MessageId.GAME_MOVE_RSP, data = rspData }
     end
 
+    -- 校验目标格是否有怪物阻挡
+    if common.isBlockedByMonster(mapName, toX, toY) then
+        local rspData = protos.game.MoveResponse.encode({
+            code = ErrorCode.FORBIDDEN,
+            message = "blocked by monster",
+            x = fromX,
+            y = fromY,
+        })
+        return { msg_id = MessageId.GAME_MOVE_RSP, data = rspData }
+    end
+
     -- 校验目标格是否有未开的宝箱阻挡
     local mapId = common.getMapIdByName(mapName)
     local mapChests = common.getMapChests(mapId, common.EMapEntityType.CHEST)
