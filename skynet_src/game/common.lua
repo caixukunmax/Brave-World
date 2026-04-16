@@ -384,7 +384,8 @@ end
 
 -- 查询格子是否被怪物占据
 function common.isBlockedByMonster(mapName, x, y)
-    local ok, occupied = pcall(common.platform.serviceCall, "game/monster_pool", "isOccupied", x, y)
+    local mapId = common.getMapIdByName(mapName)
+    local ok, occupied = pcall(common.platform.serviceCall, common.getMapPoolName(mapId), "isOccupied", x, y)
     if ok then
         return occupied
     end

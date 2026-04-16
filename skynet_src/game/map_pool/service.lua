@@ -44,17 +44,45 @@ function handlers.playerEnter(snapshot)
         map = { map_id = common.getMapIdByName(mapName), players = {}, monsters = {} }
         maps[mapName] = map
     end
+    local x = snapshot.grid_x or 0
+    local y = snapshot.grid_y or 0
     map.players[snapshot.account_id] = {
         account_id = snapshot.account_id,
         role_id    = snapshot.role_id,
         role_name  = snapshot.role_name,
         server_id  = snapshot.server_id,
-        grid_x     = snapshot.grid_x or 0,
-        grid_y     = snapshot.grid_y or 0,
+        grid_x     = x,
+        grid_y     = y,
         level      = snapshot.level or 1,
     }
     skynet.error(string.format("[map_pool_%d] playerEnter: account=%d map=%s pos=(%d,%d)",
-        pool_id, snapshot.account_id, mapName, snapshot.grid_x or 0, snapshot.grid_y or 0))
+        pool_id, snapshot.account_id, mapName, x, y))
+    
+    -- 进入时若与怪物同坐标，立即触发碰撞
+    checkCollisionPlayerVsMonster(snapshot.account_id, mapName, x, y)
+end
+
+-- 碰撞检测辅助
+local function checkCollisionPlayerVsMonster(accountId, mapName, x, y)
+    local map = maps[mapName]
+    if not map then return end
+    for instanceId, m in pairs(map.monsters or {}) do
+        if m.x == x and m.y == y then
+            CombatManager:onCollision(accountId, instanceId, maps)
+            break
+        end
+    end
+end
+
+local function checkCollisionMonsterVsPlayer(instanceId, mapName, x, y)
+    local map = maps[mapName]
+    if not map then return end
+    for accountId, p in pairs(map.players or {}) do
+        if p.grid_x == x and p.grid_y == y then
+            CombatManager:onCollision(instanceId, accountId, maps)
+            break
+        end
+    end
 end
 
 -- 玩家移动后更新坐标
@@ -63,6 +91,7 @@ function handlers.playerMove(accountId, mapName, x, y)
     if map and map.players[accountId] then
         map.players[accountId].grid_x = x
         map.players[accountId].grid_y = y
+        checkCollisionPlayerVsMonster(accountId, mapName, x, y)
     end
 end
 
@@ -111,6 +140,7 @@ function handlers.monsterMove(instanceId, x, y)
         if map.monsters[instanceId] then
             map.monsters[instanceId].x = x
             map.monsters[instanceId].y = y
+            checkCollisionMonsterVsPlayer(instanceId, mapName, x, y)
             break
         end
     end
@@ -127,6 +157,18 @@ function handlers.monsterLeave(instanceId)
             break
         end
     end
+end
+
+-- 查询格子是否被怪物占据（供 player_pool / AI 路径规划使用）
+function handlers.isOccupied(x, y)
+    for mapName, map in pairs(maps) do
+        for instanceId, m in pairs(map.monsters or {}) do
+            if m.x == x and m.y == y then
+                return true
+            end
+        end
+    end
+    return false
 end
 
 -- 向地图内所有在线玩家广播 Gateway 消息

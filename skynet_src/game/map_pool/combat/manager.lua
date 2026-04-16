@@ -176,6 +176,8 @@ function CombatManager:onCollision(entityA, entityB, maps)
     local canCombat = true
     if not canCombat then return end
     
+    skynet.error(string.format("[Combat] onCollision: A=%d B=%d", entityA, entityB))
+    
     -- 建立双向战斗关系
     self:createRelation(entityA, entityB)
     self:createRelation(entityB, entityA)
