@@ -242,7 +242,7 @@ end
 --------------------------------------------------------------------------------
 -- 6. 执行 Action 序列
 --------------------------------------------------------------------------------
-function SkillPipeline:executeActions(skillId, casterId, targets)
+function SkillPipeline:executeActions(skillId, casterId, targets, maps)
     local cfg = getSkillConfig(skillId)
     if not cfg then return end
     
@@ -250,6 +250,7 @@ function SkillPipeline:executeActions(skillId, casterId, targets)
         skillId = skillId,
         skillLevel = 1,
         combatManager = self.combatManager,
+        maps = maps,
     }
     
     for _, actionCfg in ipairs(cfg.actions) do
@@ -307,7 +308,7 @@ function SkillPipeline:cast(skillId, casterId, maps)
     end
     
     -- 阶段 5: Main Execution
-    self:executeActions(skillId, casterId, targets)
+    self:executeActions(skillId, casterId, targets, maps)
     
     -- 阶段 6: Cast End
     self:endCast(casterId, skillId, false)
@@ -347,7 +348,7 @@ function SkillPipeline:resumeCast(casterId, maps)
     end
     
     -- 阶段 5: Main Execution
-    self:executeActions(skillId, casterId, targets)
+    self:executeActions(skillId, casterId, targets, maps)
     
     -- 阶段 6: Cast End
     self:endCast(casterId, skillId, false)

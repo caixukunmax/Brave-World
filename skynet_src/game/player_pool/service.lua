@@ -232,6 +232,27 @@ function handlers.enterGame(msg, claims)
     platform.serviceSend("game/db", "updateRole", roleId, { last_login_time = now })
     onlinePlayers[claims.account_id] = role
 
+    -- 读取基础战斗属性（TODO: 后续接入等级成长公式）
+    local baseAttr = common.queryTable("TbPlayerAttr")[1] or {}
+    local hp = baseAttr.hp or 100
+    local mp = baseAttr.mp or 50
+    local agility = baseAttr.agility or 100
+    local patk = baseAttr.patk or 10
+    local matk = baseAttr.matk or 10
+    local pdef = baseAttr.pdef or 5
+    local mdef = baseAttr.mdef or 5
+    
+    -- 将战斗属性缓存到 onlinePlayers 中
+    role.hp = hp
+    role.max_hp = hp
+    role.mp = mp
+    role.max_mp = mp
+    role.agility = agility
+    role.patk = patk
+    role.matk = matk
+    role.pdef = pdef
+    role.mdef = mdef
+    
     -- 同步到 map_pool
     local mapId2 = common.getMapIdByName(role.current_map or "xinshoucun")
     platform.serviceSend(common.getMapPoolName(mapId2), "playerEnter", {
@@ -243,6 +264,15 @@ function handlers.enterGame(msg, claims)
         grid_y = role.grid_y or 25,
         level = role.level or 1,
         current_map = role.current_map or "xinshoucun",
+        hp = hp,
+        max_hp = hp,
+        mp = mp,
+        max_mp = mp,
+        agility = agility,
+        patk = patk,
+        matk = matk,
+        pdef = pdef,
+        mdef = mdef,
     })
 
     local items = buildItemsProto(roleId)
@@ -689,6 +719,18 @@ function handlers.login(msg)
     end
     onlinePlayers[msg.userId] = player
     return { success = true, sessionId = "s_" .. msg.userId }
+end
+
+function handlers.onCombatDamage(accountId, attackerId, damage)
+    local player = onlinePlayers[accountId]
+    if not player then return end
+    player.hp = math.max(0, (player.hp or 100) - damage)
+    platform.log("info", string.format("Player damaged: account=%d dmg=%d hp=%d/%d",
+        accountId, damage, player.hp, player.max_hp or 100))
+    if player.hp <= 0 then
+        platform.log("info", "Player died: account=" .. accountId)
+        -- TODO: 死亡处理（广播死亡、回出生点复活）
+    end
 end
 
 function handlers.kick(userId)

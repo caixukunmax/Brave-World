@@ -55,10 +55,23 @@ local function findEntityPosition(entityId, maps)
     return nil, nil
 end
 
--- 迅捷系数（简化版）
-local function getAgilityCoefficient(entityId)
-    -- TODO: 接入真实属性查询
-    return 1.0
+-- 从 maps 中读取 entity 的某个属性
+local function getEntityAttr(entityId, attrName, maps)
+    for mapName, map in pairs(maps) do
+        if map.players and map.players[entityId] then
+            return map.players[entityId][attrName]
+        end
+        if map.monsters and map.monsters[entityId] then
+            return map.monsters[entityId][attrName]
+        end
+    end
+    return nil
+end
+
+-- 迅捷系数：agility 100 = 1.0，每点敏捷 +0.01
+local function getAgilityCoefficient(entityId, maps)
+    local agility = getEntityAttr(entityId, "agility", maps) or 100
+    return 1.0 + (agility - 100) * 0.01
 end
 
 --------------------------------------------------------------------------------
@@ -203,7 +216,7 @@ function CombatManager:executeFirstStrike(attackerId, targetId, maps)
     if distance(attackerPos, targetPos) > 1 then return end
     
     -- 简化普攻：直接应用伤害
-    self:applyDamage(attackerId, targetId, 5, "physical")
+    self:applyDamage(attackerId, targetId, 5, "physical", maps)
     
     -- 更新 lastDamageTime
     for relationId, rel in pairs(self.relations) do
@@ -217,17 +230,28 @@ end
 --------------------------------------------------------------------------------
 -- 伤害与死亡
 --------------------------------------------------------------------------------
-function CombatManager:applyDamage(attackerId, targetId, damage, damageType)
-    -- 这里只记录/通知，真实血量由 player_pool / monster_pool 维护
-    -- TODO: 接入真实属性系统后，可以在 map_pool 本地维护一份战斗用 HP 快照
-    
+function CombatManager:applyDamage(attackerId, targetId, damage, damageType, maps)
     skynet.error(string.format("[Combat] damage: attacker=%d target=%d dmg=%d type=%s",
         attackerId, targetId, damage, damageType or "physical"))
+    
+    -- 本地扣除 HP（map_pool 维护一份战斗用 HP 快照）
+    if maps then
+        for mapName, map in pairs(maps) do
+            if map.players and map.players[targetId] then
+                map.players[targetId].hp = math.max(0, (map.players[targetId].hp or 100) - damage)
+                break
+            end
+            if map.monsters and map.monsters[targetId] then
+                map.monsters[targetId].hp = math.max(0, (map.monsters[targetId].hp or 100) - damage)
+                break
+            end
+        end
+    end
     
     -- 通知 player_pool / monster_pool
     if targetId < 1000000 then
         -- 玩家
-        -- platform.serviceSend("game/player_pool_" .. (targetId % 4), "onCombatDamage", targetId, attackerId, damage)
+        platform.serviceSend("game/player_pool_" .. (targetId % 4), "onCombatDamage", targetId, attackerId, damage)
     else
         -- 怪物
         platform.serviceSend("game/monster_pool", "onCombatDamage", targetId, attackerId, damage)
@@ -272,7 +296,7 @@ function CombatManager:tickATB(dt, maps)
                 ctx.postCastEndTime = nil
             end
             
-            local agilityCoef = getAgilityCoefficient(entityId)
+            local agilityCoef = getAgilityCoefficient(entityId, maps)
             local delta = BASE_ATB_RATE * agilityCoef * (1 + ctx.atbBoost) * dt
             ctx.atbValue = math.min(100, ctx.atbValue + delta)
             

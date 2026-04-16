@@ -45,4 +45,15 @@
 	
 	<table name="TbGlobalConfig" value="GlobalConfig" mode="one" input="common/全局常量配置表.xlsx"/>
 	
+	<bean name="PlayerAttrCfg">
+		<var name="id" type="int"/>
+		<var name="hp" type="int"/>
+		<var name="mp" type="int"/>
+		<var name="agility" type="int"/>
+		<var name="patk" type="int"/>
+		<var name="matk" type="int"/>
+		<var name="pdef" type="int"/>
+		<var name="mdef" type="int"/>
+	</bean>
+	
 </module>

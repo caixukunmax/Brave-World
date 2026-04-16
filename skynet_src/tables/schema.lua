@@ -373,6 +373,50 @@ local beans = {}
         beans['common.OneDayTimeRange'] = class
     end
     do
+    ---@class common.PlayerAttr 
+     ---@field public id integer @属性ID
+     ---@field public hp integer @基础生命值
+     ---@field public mp integer @基础魔法值
+     ---@field public agility integer @迅捷（影响ATB积累速度）
+     ---@field public patk integer @物理攻击
+     ---@field public matk integer @法术攻击
+     ---@field public pdef integer @物理防御
+     ---@field public mdef integer @法术防御
+        local class = {
+            { name='id', type='integer'},
+            { name='hp', type='integer'},
+            { name='mp', type='integer'},
+            { name='agility', type='integer'},
+            { name='patk', type='integer'},
+            { name='matk', type='integer'},
+            { name='pdef', type='integer'},
+            { name='mdef', type='integer'},
+        }
+        beans['common.PlayerAttr'] = class
+    end
+    do
+    ---@class common.PlayerAttrCfg 
+     ---@field public id integer
+     ---@field public hp integer
+     ---@field public mp integer
+     ---@field public agility integer
+     ---@field public patk integer
+     ---@field public matk integer
+     ---@field public pdef integer
+     ---@field public mdef integer
+        local class = {
+            { name='id', type='integer'},
+            { name='hp', type='integer'},
+            { name='mp', type='integer'},
+            { name='agility', type='integer'},
+            { name='patk', type='integer'},
+            { name='matk', type='integer'},
+            { name='pdef', type='integer'},
+            { name='mdef', type='integer'},
+        }
+        beans['common.PlayerAttrCfg'] = class
+    end
+    do
     ---@class common.RoleInitConfig 
      ---@field public id integer @配置ID
      ---@field public init_items string @初始道具
@@ -569,6 +613,7 @@ local tables =
     { name='TbMapConfig', file='common_tbmapconfig', mode='map', index='id', value_type='common.MapConfig' },
     { name='TbMapMonster', file='common_tbmapmonster', mode='map', index='id', value_type='common.MapMonster' },
     { name='TbMonster', file='common_tbmonster', mode='map', index='id', value_type='common.Monster' },
+    { name='TbPlayerAttr', file='common_tbplayerattr', mode='map', index='id', value_type='common.PlayerAttr' },
     { name='TbRoleInitConfig', file='common_tbroleinitconfig', mode='map', index='id', value_type='common.RoleInitConfig' },
     { name='TbItem', file='item_tbitem', mode='map', index='id', value_type='item.Item' },
 }

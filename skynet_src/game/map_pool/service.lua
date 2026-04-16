@@ -54,11 +54,18 @@ function handlers.playerEnter(snapshot)
         grid_x     = x,
         grid_y     = y,
         level      = snapshot.level or 1,
+        hp         = snapshot.hp or 100,
+        max_hp     = snapshot.max_hp or 100,
+        mp         = snapshot.mp or 50,
+        max_mp     = snapshot.max_mp or 50,
+        agility    = snapshot.agility or 100,
+        patk       = snapshot.patk or 10,
+        matk       = snapshot.matk or 10,
+        pdef       = snapshot.pdef or 5,
+        mdef       = snapshot.mdef or 5,
     }
     skynet.error(string.format("[map_pool_%d] playerEnter: account=%d map=%s pos=(%d,%d)",
         pool_id, snapshot.account_id, mapName, x, y))
-    
-
 end
 
 -- 碰撞检测辅助：怪物移动后与玩家相邻时触发战斗
