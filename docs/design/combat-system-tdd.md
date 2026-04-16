@@ -16,6 +16,7 @@
 - **独立战斗关系**：每对（角色 ↔ 目标）之间维护独立的战斗关系（CombatRelation）。
 - **移动友好**：默认读条期间允许移动；后摇期间允许移动且不影响移速。
 - **打空补偿**：Final Validation 失败时进入完整 CD，ATB 清零，下次积累加速（有上限）。
+- **Combat 内嵌 map_pool**：战斗模块作为 `map_pool` 的子模块运行，地图数据零跨服务访问。
 
 ---
 
@@ -512,12 +513,119 @@ end
 
 ---
 
-## 7. 碰撞与战斗触发
+## 7. 架构部署：Combat 内嵌于 map_pool
 
-### 7.1 碰撞检测入口
+### 7.1 为什么放在 map_pool 下
+
+战斗过程中需要极高频地访问地图数据：
+- `Target Selection` 和 `Final Validation` 需要实时计算距离
+- AOE 技能需要扫描范围内所有敌人
+- 脱战 tick 每秒都要计算双方坐标距离
+- 碰撞触发战斗需要同时知道玩家和怪物的位置
+
+如果 Combat 是独立服务，上述操作都会变成高频跨服务调用（`map_pool → combat` 或 `combat → map_pool`），不仅代码琐碎，还容易产生时序不一致。
+
+因此，**Combat 模块作为 `map_pool` 服务内部的子模块运行**。`map_pool` 升级为"单张地图的战场权威服务"：
+- 聚合玩家快照（由 `player_pool` 同步）
+- 聚合怪物快照（由 `monster_pool` 同步）
+- 在本地进程内直接执行 ATB tick、脱战 tick、技能管线、碰撞判定
+- 只有**战斗结果**（扣血、死亡、Buff）需要回写给 `player_pool` / `monster_pool`
+
+### 7.2 monster_pool → map_pool 同步接口
+
+`monster_pool` 需要像 `player_pool` 一样，将怪物状态同步到 `map_pool`。
 
 ```lua
--- 由大地图移动系统调用
+-- monster_pool/service.lua 初始化时
+for instanceId, m in pairs(monsters) do
+    platform.serviceSend(common.getMapPoolName(mapId), "monsterEnter", {
+        instance_id = instanceId,
+        monster_id  = m.monsterId,
+        x           = m.x,
+        y           = m.y,
+        hp          = m.hp or 100,
+        max_hp      = m.maxHp or 100,
+        level       = m.level or 1,
+    })
+end
+
+-- monster_pool/logic.lua 中怪物移动后
+function logic.tick(monsters, mapId)
+    -- ... AI 计算 ...
+    if nx and ny and (nx ~= m.x or ny ~= m.y) then
+        m.x, m.y = nx, ny
+        platform.serviceSend(common.getMapPoolName(mapId), "monsterMove", instanceId, nx, ny)
+    end
+end
+
+-- monster_pool 怪物死亡/移除时
+platform.serviceSend(common.getMapPoolName(mapId), "monsterLeave", instanceId)
+```
+
+### 7.3 map_pool 接收怪物同步
+
+```lua
+-- map_pool/service.lua
+function handlers.monsterEnter(snapshot)
+    local mapName = snapshot.map_name or "xinshoucun"
+    local map = maps[mapName]
+    if not map then
+        map = { map_id = common.getMapIdByName(mapName), players = {}, monsters = {} }
+        maps[mapName] = map
+    end
+    map.monsters[snapshot.instance_id] = {
+        instance_id = snapshot.instance_id,
+        monster_id  = snapshot.monster_id,
+        x           = snapshot.x or 0,
+        y           = snapshot.y or 0,
+        hp          = snapshot.hp or 100,
+        max_hp      = snapshot.max_hp or 100,
+        level       = snapshot.level or 1,
+    }
+end
+
+function handlers.monsterMove(instanceId, x, y)
+    for mapName, map in pairs(maps) do
+        if map.monsters[instanceId] then
+            map.monsters[instanceId].x = x
+            map.monsters[instanceId].y = y
+            break
+        end
+    end
+end
+
+function handlers.monsterLeave(instanceId)
+    for mapName, map in pairs(maps) do
+        if map.monsters[instanceId] then
+            map.monsters[instanceId] = nil
+            -- 同时通知 combat 模块清除相关战斗关系
+            CombatManager:onEntityRemoved(instanceId)
+            break
+        end
+    end
+end
+```
+
+### 7.4 战斗结果回写流向
+
+`map_pool` 内的 Combat 模块计算出战斗结果后，通过异步消息回写给数据所有者：
+
+| 结果类型 | 回写目标 | 方式 | 说明 |
+|---------|---------|------|------|
+| 玩家扣血/死亡 | `player_pool` | `serviceSend` | player_pool 更新 onlinePlayers 中的玩家数据 |
+| 玩家获得经验/掉落 | `player_pool` | `serviceCall` 或事件 | 需要持久化时可用 call |
+| 怪物扣血/死亡 | `monster_pool` | `serviceSend` | monster_pool 更新 monsters 表状态 |
+| 怪物脱战回血 | `monster_pool` | `serviceSend` | 通知 monster_pool 恢复怪物 HP |
+| Buff/Debuff 状态 | `player_pool` / `monster_pool` | `serviceSend` | 由各自服务维护状态持续时间 |
+
+---
+
+## 8. 碰撞与战斗触发
+
+### 8.1 碰撞检测入口
+
+```lua
+-- 由大地图移动系统调用（在 map_pool 进程内直接处理）
 function CombatManager:onCollision(entityA, entityB)
     -- 排除同阵营的非敌对碰撞（如玩家撞玩家是否 PVP，由业务规则决定）
     if not canCombat(entityA, entityB) then
@@ -568,7 +676,7 @@ end
 
 ---
 
-## 8. 脱战机制
+## 9. 脱战机制
 
 ### 8.1 脱战判定 Tick
 
@@ -653,7 +761,7 @@ end
 
 ---
 
-## 9. 死亡与复活
+## 10. 死亡与复活
 
 ### 9.1 死亡处理
 
@@ -703,7 +811,7 @@ end
 
 ---
 
-## 10. 怪物脱战后回血
+## 11. 怪物脱战后回血
 
 ```lua
 function CombatManager:tickMonsterRegen(dt)
@@ -728,7 +836,7 @@ MONSTER_REGEN_PERCENT_PER_SEC = 0.05  -- 每秒回血 5%
 
 ---
 
-## 11. 网络同步策略
+## 12. 网络同步策略
 
 ### 11.1 服务端广播原则
 
@@ -830,7 +938,7 @@ message RespawnNotify {
 
 ---
 
-## 12. 配置表 Schema
+## 13. 配置表 Schema
 
 ### 12.1 TbSkill（技能表）
 
@@ -870,10 +978,32 @@ message RespawnNotify {
 
 ---
 
-## 13. 目录结构建议
+## 14. 目录结构建议
 
 ```
-skynet_src/game/combat/
+skynet_src/game/map_pool/
+├── service.lua           -- map_pool 原有入口，新增 monsterEnter/monsterMove/monsterLeave handler
+├── combat/
+│   ├── manager.lua       -- CombatManager：关系管理、状态机、ATB tick、脱战 tick
+│   ├── pipeline.lua      -- SkillPipeline：6 阶段技能管线
+│   ├── atb.lua           -- ATB 计算与补偿加速
+│   ├── relation.lua      -- CombatRelation CRUD
+│   ├── disengage.lua     -- 脱战判定逻辑
+│   ├── actions/
+│   │   ├── init.lua      -- ActionRegistry
+│   │   ├── deal_damage.lua
+│   │   ├── heal.lua
+│   │   ├── apply_buff.lua
+│   │   ├── apply_debuff.lua
+│   │   ├── teleport.lua
+│   │   ├── knockback.lua
+│   │   ├── spawn_projectile.lua
+│   │   ├── spawn_area.lua
+│   │   ├── restore_mp.lua
+│   │   └── consume_hp.lua
+│   └── projectiles/
+│       └── manager.lua   -- 独立投射物管理器
+└── ... 其他 map_pool 文件
 ├── manager.lua           -- CombatManager：关系管理、状态机、ATB tick、脱战 tick
 ├── pipeline.lua          -- SkillPipeline：6 阶段技能管线
 ├── atb.lua               -- ATB 计算与补偿加速（可被 manager 直接包含）
@@ -897,8 +1027,12 @@ skynet_src/game/combat/
 
 ---
 
-## 14. 下一步
+## 15. 下一步
 
 1. 确认 TDD 中的常数取值（脱战距离、回血速率、ATB 基础速率等）。
-2. 确认是否需要独立的 `combat` 服务，还是将逻辑直接嵌入 `player_pool` 和 `monster_pool`。
-3. 开始开发第一批核心文件：`combat/manager.lua`、`combat/pipeline.lua`、`combat/actions/init.lua`。
+2. 开始开发第一批核心文件：
+   - `map_pool/combat/manager.lua`
+   - `map_pool/combat/pipeline.lua`
+   - `map_pool/combat/actions/init.lua`
+   - 修改 `monster_pool/service.lua` 和 `logic.lua` 增加怪物同步到 `map_pool`。
+   - 修改 `map_pool/service.lua` 增加怪物同步 handler 和 Combat 初始化。
