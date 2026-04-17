@@ -85,19 +85,38 @@ function logic.tick(monsters, mapId)
         if handler then
             local nx, ny = handler.run(m, mapId, players)
             if nx and ny and (nx ~= m.x or ny ~= m.y) then
-                -- 记录移动
-                local fromX, fromY = m.x, m.y
-                m.x, m.y = nx, ny
-                movedMonsters[#movedMonsters + 1] = {
-                    instance_id = instanceId,
-                    from_x = fromX,
-                    from_y = fromY,
-                    to_x = nx,
-                    to_y = ny,
-                    state = m.state,
-                }
-                -- 同步坐标到 map_pool
-                platform.serviceSend(common.getMapPoolName(mapId), "monsterMove", instanceId, nx, ny)
+                -- 检查目标格是否被其他角色（怪物或玩家）占据
+                local blocked = false
+                for otherId, other in pairs(monsters) do
+                    if otherId ~= instanceId and other.x == nx and other.y == ny then
+                        blocked = true
+                        break
+                    end
+                end
+                if not blocked then
+                    for accountId, p in pairs(players) do
+                        if p.grid_x == nx and p.grid_y == ny then
+                            blocked = true
+                            break
+                        end
+                    end
+                end
+                
+                if not blocked then
+                    -- 记录移动
+                    local fromX, fromY = m.x, m.y
+                    m.x, m.y = nx, ny
+                    movedMonsters[#movedMonsters + 1] = {
+                        instance_id = instanceId,
+                        from_x = fromX,
+                        from_y = fromY,
+                        to_x = nx,
+                        to_y = ny,
+                        state = m.state,
+                    }
+                    -- 同步坐标到 map_pool
+                    platform.serviceSend(common.getMapPoolName(mapId), "monsterMove", instanceId, nx, ny)
+                end
             end
         end
     end
