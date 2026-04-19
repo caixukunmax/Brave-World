@@ -15,6 +15,15 @@ namespace ClinetCSharp
             {
                 GD.Print("[AuthChecker] 未登录，跳转到登录界面");
                 GetTree().ChangeSceneToFile("res://scenes/login_scene.tscn");
+                return;
+            }
+
+            // 恢复综合面板位置
+            var panel = GetNodeOrNull<IntegratedPanel>("../IntegratedPanelCanvas/IntegratedPanel");
+            if (panel != null && nm.CachedRoleInfo != null)
+            {
+                var info = nm.CachedRoleInfo;
+                panel.RestorePosition(info.UiPanelPosX, info.UiPanelPosY, info.UiPanelWidth, info.UiPanelHeight);
             }
         }
     }

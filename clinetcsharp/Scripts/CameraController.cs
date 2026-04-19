@@ -86,17 +86,9 @@ namespace ClinetCSharp
             GD.Print("[Camera] 当前是否为当前相机: " + IsCurrent());
         }
 
-        private bool IsMouseOnDebugPanel()
-        {
-            var debugPanel = GetTree().GetFirstNodeInGroup("debug_panel");
-            if (debugPanel is DebugPanel dp)
-                return dp.IsMouseOverPanel();
-            return false;
-        }
-
         public override void _Input(InputEvent @event)
         {
-            // 处理拖拽结束（即使在调试面板上也要处理，防止拖拽状态卡住）
+            // 拖拽结束：必须在 _input 处理（即使鼠标在 UI 上也要释放，防止状态卡住）
             if (@event is InputEventMouseButton mb && !mb.Pressed)
             {
                 if (DragButtons.Contains(mb.ButtonIndex) && IsDragging)
@@ -106,61 +98,30 @@ namespace ClinetCSharp
                 }
             }
 
-            // 检查鼠标是否在调试面板上 - 如果在面板上，不处理其他输入
-            if (IsMouseOnDebugPanel())
-                return;
-
-            // 处理滚轮缩放（仅在自由视角模式下可用）
-            if (FreeLookMode && @event is InputEventMouseButton mouseBtn)
+            // 滚轮缩放（仅在自由视角模式下）
+            if (FreeLookMode && @event is InputEventMouseButton mouseBtn && mouseBtn.Pressed)
             {
-                if (mouseBtn.ButtonIndex == MouseButton.WheelUp && mouseBtn.Pressed)
+                if (mouseBtn.ButtonIndex == MouseButton.WheelUp)
                 {
                     ZoomAtMouse(ZoomSpeed);
                     return;
                 }
-                if (mouseBtn.ButtonIndex == MouseButton.WheelDown && mouseBtn.Pressed)
+                if (mouseBtn.ButtonIndex == MouseButton.WheelDown)
                 {
                     ZoomAtMouse(-ZoomSpeed);
                     return;
-                }
-            }
-
-            // 调试：打印所有鼠标按键事件
-            if (DebugDrag && @event is InputEventMouseButton debugMb)
-            {
-                if (debugMb.ButtonIndex >= MouseButton.Left && debugMb.ButtonIndex <= MouseButton.Middle)
-                {
-                    GD.Print("[Camera._input] 鼠标按键事件: button=" + debugMb.ButtonIndex + " pressed=" + debugMb.Pressed + " 支持的按键: [" + string.Join(", ", DragButtons) + "]");
-                }
-            }
-
-            // 处理拖拽按键（支持右键、左键、中键任意一个）
-            if (@event is InputEventMouseButton eventMb)
-            {
-                if (DragButtons.Contains(eventMb.ButtonIndex))
-                {
-                    if (eventMb.Pressed)
-                    {
-                        // 开始拖拽
-                        StartDrag();
-                    }
                 }
             }
         }
 
         public override void _UnhandledInput(InputEvent @event)
         {
-            // 检查鼠标是否在调试面板上
-            if (IsMouseOnDebugPanel())
-                return;
-
-            // 备选：如果 _input 被其他节点消耗，尝试在这里处理
+            // 拖拽开始：只在 _unhandled_input 处理，这样 GUI 控件（面板标题栏等）
+            // 有机会先消费事件，防止相机和面板同时拖拽
             if (@event is InputEventMouseButton mb)
             {
                 if (DragButtons.Contains(mb.ButtonIndex))
                 {
-                    if (DebugDrag)
-                        GD.Print("[Camera._unhandled_input] 接收到未处理事件: " + @event);
                     if (mb.Pressed)
                         StartDrag();
                     else
@@ -175,39 +136,23 @@ namespace ClinetCSharp
             if (IsDragging)
                 return;
 
+            // 如果有面板正在拖拽，不启动相机拖拽
+            if (DraggablePanel.IsAnyDragging)
+                return;
+
             // 如果正在回归倒计时中，再次拖拽会取消回归
             if (IsReturning)
             {
                 IsReturning = false;
                 _dragTimer = 0.0f;
-                if (DebugDrag)
-                    GD.Print("[Camera] 拖拽打断回归倒计时，重新开始");
             }
 
-            // 检查鼠标是否在调试面板上（最严格的检查）
-            if (IsMouseOnDebugPanel())
-            {
-                if (DebugDrag)
-                    GD.Print("[Camera] 鼠标在调试面板上，忽略拖拽");
-                return;
-            }
-
-            // 检查鼠标是否在交互式UI控件上（如Slider、Button等）
-            var hovered = GetViewport().GuiGetHoveredControl();
-            if (IsInteractiveUi(hovered))
-            {
-                if (DebugDrag)
-                    GD.Print("[Camera] 鼠标在交互式UI上，忽略拖拽: " + hovered.Name);
-                return;
-            }
+            // 注意：不需要检查 IsMouseOnDebugPanel() / GuiGetHoveredControl()，
+            // 因为拖拽开始已移到 _UnhandledInput，只有 GUI 未消费的事件才会到达这里
 
             // 编辑模式下，按住Ctrl时留给地图编辑器框选，不进行拖拽
             if (IsEditorMode && Input.IsKeyPressed(Key.Ctrl))
-            {
-                if (DebugDrag)
-                    GD.Print("[Camera] 编辑模式下按住Ctrl，留给编辑器框选，不进行拖拽");
                 return;
-            }
 
             IsDragging = true;
             IsReturning = false;
@@ -215,12 +160,6 @@ namespace ClinetCSharp
             _dragStartCameraPos = Position;
             if (DebugDrag)
                 GD.Print("[Camera] 开始拖拽 - 鼠标位置: " + _dragStartMousePos + " 相机位置: " + _dragStartCameraPos);
-        }
-
-        // 检查控件是否为交互式UI（应该阻止拖拽的）
-        private bool IsInteractiveUi(Control control)
-        {
-            return UiUtils.IsInteractiveControl(control);
         }
 
         private void EndDrag()
@@ -234,8 +173,6 @@ namespace ClinetCSharp
             _dragTimer = 0.0f;
             if (DebugDrag)
                 GD.Print("[Camera] 结束拖拽 - 开始恢复计时, 延迟: " + ReturnDelay + "秒");
-            else
-                GD.Print("[Camera] 拖拽结束，" + ReturnDelay + "秒后开始回归...");
         }
 
         public void SetReturnDelay(float delay)
@@ -360,67 +297,45 @@ namespace ClinetCSharp
 
         public override void _Process(double delta)
         {
-            // 检查鼠标是否在调试面板上
-            var onDebugPanel = IsMouseOnDebugPanel();
-
             if (IsEditorMode)
             {
-                // 编辑模式：不自动跟随，只处理拖拽
-                // 如果在调试面板上，停止拖拽更新（防止抖动）
-                if (IsDragging && !onDebugPanel)
+                if (IsDragging)
                 {
                     var currentMouse = GetGlobalMousePosition();
                     var offset = currentMouse - _dragStartMousePos;
                     Position = _dragStartCameraPos - offset;
-                }
-                // 编辑模式下也对齐像素
-                if (!IsDragging)
                     Position = Position.Round();
+                }
                 return;
             }
 
             if (IsDragging)
             {
-                // 拖拽模式：根据鼠标偏移移动相机
-                // 如果在调试面板上，停止拖拽更新（防止抖动）
-                if (!onDebugPanel)
-                {
-                    var currentMouse = GetGlobalMousePosition();
-                    var offset = currentMouse - _dragStartMousePos;
-                    Position = _dragStartCameraPos - offset;
-                    // 拖拽时也对齐像素，防止子像素闪烁
-                    Position = Position.Round();
+                var currentMouse = GetGlobalMousePosition();
+                var offset = currentMouse - _dragStartMousePos;
+                Position = _dragStartCameraPos - offset;
+                Position = Position.Round();
 
-                    // 调试：每60帧打印一次位置变化
-                    if (DebugDrag && Engine.GetProcessFrames() % 60 == 0)
-                        GD.Print("[Camera] 拖拽中 - 鼠标偏移: " + offset + " 当前位置: " + Position);
-                }
-
-                // 拖拽期间绝对不触发回归，重置计时器
                 IsReturning = false;
                 _dragTimer = 0.0f;
+
+                if (DebugDrag && Engine.GetProcessFrames() % 60 == 0)
+                    GD.Print("[Camera] 拖拽中 - 鼠标偏移: " + offset + " 当前位置: " + Position);
             }
             else if (IsReturning)
             {
-                // 延迟恢复期
                 _dragTimer += (float)delta;
                 if (_dragTimer >= ReturnDelay)
                 {
                     IsReturning = false;
                     if (DebugDrag)
                         GD.Print("[Camera] 恢复计时结束，恢复跟随模式");
-                    else
-                        GD.Print("[Camera] 开始回归...");
                 }
-                // 此期间不跟随，保持当前位置
             }
             else if (Target != null)
             {
-                // 使用缓动曲线计算回退
-                var distance = Position.DistanceTo(Target.Position);
                 var t = Mathf.Clamp(ReturnSpeed * (float)delta, 0.0f, 1.0f);
 
-                // 应用缓动曲线
                 t = CurrentEaseType switch
                 {
                     EaseType.Linear => t,
@@ -436,8 +351,7 @@ namespace ClinetCSharp
                 Position = Position.Lerp(Target.Position, t);
             }
 
-            // 像素对齐：防止子像素偏移导致的闪烁
-            // 只有当相机几乎静止时才对齐，保持移动时的平滑感
+            // 像素对齐
             if (Target != null && Position.DistanceSquaredTo(Target.Position) < 1.0f)
                 Position = Position.Round();
         }

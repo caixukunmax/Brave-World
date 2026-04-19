@@ -1303,5 +1303,46 @@ namespace ClinetCSharp
             }
         }
         #endregion
+
+        #region Monster Config Handlers
+        private void OnSaveMonsterConfigPressed()
+        {
+            var cm = GetTree()?.GetFirstNodeInGroup("monster_config_manager") as MonsterConfigManager;
+            if (cm == null)
+            {
+                GD.PushError("[DebugPanel] MonsterConfigManager not found");
+                return;
+            }
+
+            cm.SetMoveSpeedMs((int)_monsterMoveSpeedSlider.Value);
+            var ai = new AiDefaults
+            {
+                PatrolRange = (int)_monsterPatrolRangeSlider.Value,
+                AggroRange = (int)_monsterAggroRangeSlider.Value,
+                MoveIntervalMs = (int)_monsterMoveIntervalSlider.Value,
+                ChaseIntervalMs = (int)_monsterMoveIntervalSlider.Value / 4,
+            };
+            cm.SetAiDefaults("patrol_chase", ai);
+            cm.SetAiDefaults("patrol", new AiDefaults
+            {
+                PatrolRange = (int)_monsterPatrolRangeSlider.Value,
+                MoveIntervalMs = (int)_monsterMoveIntervalSlider.Value,
+            });
+            cm.SetAiDefaults("guard", new AiDefaults
+            {
+                PatrolRange = 0,
+                AggroRange = (int)_monsterAggroRangeSlider.Value,
+                MoveIntervalMs = (int)_monsterMoveIntervalSlider.Value,
+            });
+            cm.SetMoveSystem(new MoveSystem
+            {
+                CheckRatio = (int)_moveCheckRatioSlider.Value,
+                DualGridStartRatio = (int)_moveDualStartSlider.Value,
+                DualGridEndRatio = (int)_moveDualEndSlider.Value,
+            });
+            cm.SaveConfig();
+            GD.Print("[DebugPanel] Monster + Move config saved to JSON");
+        }
+        #endregion
     }
 }

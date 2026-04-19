@@ -1,5 +1,4 @@
 using System;
-using System.Linq;
 using Google.Protobuf;
 using Godot;
 using Protocol;
@@ -28,14 +27,28 @@ namespace ClinetCSharp
         public delegate void MapInfoReceivedEventHandler();
 
         [Signal]
-        public delegate void MonsterMoveReceivedEventHandler(uint instanceId, int fromX, int fromY, int toX, int toY, string state);
+        public delegate void MonsterMoveReceivedEventHandler(uint instanceId, int fromX, int fromY, int toX, int toY, string state, int durationMs);
+
+        [Signal]
+        public delegate void CombatLogReceivedEventHandler(Godot.Collections.Array entries);
+
+        [Signal]
+        public delegate void CombatStateReceivedEventHandler(Godot.Collections.Array units);
+
+        [Signal]
+        public delegate void MoveCancelReceivedEventHandler(ulong entityId, int rollbackX, int rollbackY);
+
+        [Signal]
+        public delegate void RoleAttrUpdatedEventHandler();
 
         public const string ServerHost = "127.0.0.1";
         public const int ServerPort = 8889;
 
         private StreamPeerTcp _tcp;
         private bool _connected = false;
-        private byte[] _readBuffer = new byte[0];
+        private byte[] _readBuffer = new byte[4096];
+        private int _bufferOffset = 0;
+        private int _bufferCount = 0;
         private int _expectedLength = -1;
         private uint _sessionCounter = 1;
 
@@ -157,7 +170,8 @@ namespace ClinetCSharp
             if (_tcp != null)
                 _tcp.DisconnectFromHost();
             _connected = false;
-            _readBuffer = new byte[0];
+            _bufferOffset = 0;
+            _bufferCount = 0;
             _expectedLength = -1;
         }
 
@@ -219,10 +233,26 @@ namespace ClinetCSharp
                 if (chunk[0].AsInt32() == (int)Error.Ok)
                 {
                     var chunkData = chunk[1].AsByteArray();
-                    var newBuffer = new byte[_readBuffer.Length + chunkData.Length];
-                    _readBuffer.CopyTo(newBuffer, 0);
-                    chunkData.CopyTo(newBuffer, _readBuffer.Length);
-                    _readBuffer = newBuffer;
+                    // 确保 buffer 有足够空间
+                    if (_bufferOffset + _bufferCount + chunkData.Length > _readBuffer.Length)
+                    {
+                        // 紧凑化：将未读数据移到 buffer 头部
+                        if (_bufferCount + chunkData.Length <= _readBuffer.Length)
+                        {
+                            System.Array.Copy(_readBuffer, _bufferOffset, _readBuffer, 0, _bufferCount);
+                            _bufferOffset = 0;
+                        }
+                        else
+                        {
+                            // 需要扩容
+                            var newBuf = new byte[Math.Max(_readBuffer.Length * 2, _bufferCount + chunkData.Length)];
+                            System.Array.Copy(_readBuffer, _bufferOffset, newBuf, 0, _bufferCount);
+                            _readBuffer = newBuf;
+                            _bufferOffset = 0;
+                        }
+                    }
+                    chunkData.CopyTo(_readBuffer, _bufferOffset + _bufferCount);
+                    _bufferCount += chunkData.Length;
                 }
             }
 
@@ -233,20 +263,33 @@ namespace ClinetCSharp
             {
                 if (_expectedLength < 0)
                 {
-                    if (_readBuffer.Length < 4)
+                    if (_bufferCount < 4)
                         return;
-                    var headerBytes = _readBuffer.Take(4).ToArray();
+                    // 直接从 buffer 读取 header，不分配新数组
                     if (!BitConverter.IsLittleEndian)
-                        System.Array.Reverse(headerBytes);
-                    _expectedLength = (int)BitConverter.ToUInt32(headerBytes, 0);
-                    _readBuffer = _readBuffer.Skip(4).ToArray();
+                    {
+                        byte b0 = _readBuffer[_bufferOffset];
+                        byte b1 = _readBuffer[_bufferOffset + 1];
+                        byte b2 = _readBuffer[_bufferOffset + 2];
+                        byte b3 = _readBuffer[_bufferOffset + 3];
+                        _expectedLength = b3 << 24 | b2 << 16 | b1 << 8 | b0;
+                    }
+                    else
+                    {
+                        _expectedLength = BitConverter.ToInt32(_readBuffer, _bufferOffset);
+                    }
+                    _bufferOffset += 4;
+                    _bufferCount -= 4;
                 }
 
-                if (_readBuffer.Length < _expectedLength)
+                if (_bufferCount < _expectedLength)
                     return;
 
-                var body = _readBuffer.Take(_expectedLength).ToArray();
-                _readBuffer = _readBuffer.Skip(_expectedLength).ToArray();
+                // 提取 body 数据
+                var body = new byte[_expectedLength];
+                System.Array.Copy(_readBuffer, _bufferOffset, body, 0, _expectedLength);
+                _bufferOffset += _expectedLength;
+                _bufferCount -= _expectedLength;
                 _expectedLength = -1;
                 packetsProcessed++;
 
@@ -325,7 +368,10 @@ namespace ClinetCSharp
                                 CurrentMapName = rsp.RoleInfo.CurrentMap;
                                 SpawnGridX = rsp.RoleInfo.GridX;
                                 SpawnGridY = rsp.RoleInfo.GridY;
-                                GD.Print($"[NetworkManager] EnterGame cached, name={rsp.RoleInfo.RoleName} map={rsp.RoleInfo.CurrentMap} pos=({rsp.RoleInfo.GridX},{rsp.RoleInfo.GridY})");
+                                GD.Print($"[NetworkManager] EnterGame cached, name={rsp.RoleInfo.RoleName} map={rsp.RoleInfo.CurrentMap} pos=({rsp.RoleInfo.GridX},{rsp.RoleInfo.GridY}) attrs={rsp.RoleInfo.Attrs.Count}");
+                                // 同步角色属性到 Player
+                                var enterPlayer = GetTree()?.GetFirstNodeInGroup("player") as Player;
+                                enterPlayer?.ApplyRoleInfo(rsp.RoleInfo);
                                 // 转发背包数据给 InventoryManager
                                 var inv = GetTree()?.GetFirstNodeInGroup("inventory_manager");
                                 if (inv is InventoryManager invObj && rsp.Items.Count > 0)
@@ -348,7 +394,10 @@ namespace ClinetCSharp
                                 CurrentMapName = rsp.RoleInfo.CurrentMap;
                                 SpawnGridX = rsp.RoleInfo.GridX;
                                 SpawnGridY = rsp.RoleInfo.GridY;
-                                GD.Print($"[NetworkManager] CreateRole cached, name={rsp.RoleInfo.RoleName} map={rsp.RoleInfo.CurrentMap}");
+                                GD.Print($"[NetworkManager] CreateRole cached, name={rsp.RoleInfo.RoleName} map={rsp.RoleInfo.CurrentMap} attrs={rsp.RoleInfo.Attrs.Count}");
+                                // 同步角色属性到 Player
+                                var createPlayer = GetTree()?.GetFirstNodeInGroup("player") as Player;
+                                createPlayer?.ApplyRoleInfo(rsp.RoleInfo);
                                 // 转发背包数据
                                 var inv = GetTree()?.GetFirstNodeInGroup("inventory_manager");
                                 if (inv is InventoryManager invObj && rsp.Items.Count > 0)
@@ -394,10 +443,6 @@ namespace ClinetCSharp
                                 cm3.OnOpenChestResponse(rsp, PendingOpenChestId.Value);
                                 PendingOpenChestId = null;
                             }
-                            // 同时更新背包（合并新增道具）
-                            var inv = GetTree()?.GetFirstNodeInGroup("inventory_manager");
-                            if (inv is InventoryManager invObj && rsp.Items.Count > 0)
-                                invObj.AddOrUpdateItemsFromProto(rsp.Items);
                         }
                         break;
 
@@ -428,10 +473,73 @@ namespace ClinetCSharp
                         }
                         break;
 
+                    case MessageId.GameMoveCancelNotify:
+                        {
+                            var notify = Game.MoveCancelNotify.Parser.ParseFrom(data);
+                            EmitSignal(SignalName.MoveCancelReceived, notify.EntityId, notify.RollbackX, notify.RollbackY);
+                        }
+                        break;
+
                     case MessageId.GameMonsterMoveNotify:
                         {
                             var notify = Game.MonsterMoveNotify.Parser.ParseFrom(data);
-                            EmitSignal(SignalName.MonsterMoveReceived, notify.InstanceId, notify.FromX, notify.FromY, notify.ToX, notify.ToY, notify.State);
+                            EmitSignal(SignalName.MonsterMoveReceived, notify.InstanceId, notify.FromX, notify.FromY, notify.ToX, notify.ToY, notify.State, notify.DurationMs);
+                        }
+                        break;
+
+                    case MessageId.GameCombatLogNotify:
+                        {
+                            var notify = Game.CombatLogNotify.Parser.ParseFrom(data);
+                            var arr = new Godot.Collections.Array();
+                            foreach (var e in notify.Entries)
+                            {
+                                var dict = new Godot.Collections.Dictionary
+                                {
+                                    ["log_type"] = (int)e.LogType,
+                                    ["timestamp"] = (long)e.Timestamp,
+                                    ["actor_name"] = e.ActorName,
+                                    ["target_name"] = e.TargetName,
+                                    ["skill_name"] = e.SkillName,
+                                    ["value"] = e.Value,
+                                    ["extra"] = e.Extra,
+                                };
+                                arr.Add(dict);
+                            }
+                            EmitSignal(SignalName.CombatLogReceived, arr);
+                        }
+                        break;
+
+                    case MessageId.GameCombatStateNotify:
+                        {
+                            var notify = Game.CombatStateNotify.Parser.ParseFrom(data);
+                            var arr = new Godot.Collections.Array();
+                            foreach (var u in notify.Units)
+                            {
+                                var dict = new Godot.Collections.Dictionary
+                                {
+                                    ["entity_id"] = (long)u.EntityId,
+                                    ["entity_name"] = u.EntityName,
+                                    ["atb"] = u.Atb,
+                                    ["is_player"] = u.IsPlayer,
+                                };
+                                arr.Add(dict);
+                            }
+                            GD.Print($"[NetworkManager] CombatStateNotify received, units={arr.Count}");
+                            EmitSignal(SignalName.CombatStateReceived, arr);
+                        }
+                        break;
+
+                    case MessageId.GameRoleAttrNotify:
+                        {
+                            var roleInfo = Game.FullRoleInfo.Parser.ParseFrom(data);
+                            CachedRoleInfo = roleInfo;
+                            GD.Print($"[NetworkManager] RoleAttrNotify received, attrs={roleInfo.Attrs.Count}");
+
+                            // 自动同步到 Player 节点
+                            var player = GetTree()?.GetFirstNodeInGroup("player") as Player;
+                            player?.ApplyRoleInfo(roleInfo);
+
+                            EmitSignal(SignalName.RoleAttrUpdated);
                         }
                         break;
                 }

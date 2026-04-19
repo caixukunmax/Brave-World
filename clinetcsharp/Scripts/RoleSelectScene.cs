@@ -302,5 +302,12 @@ namespace ClinetCSharp
                     break;
             }
         }
+
+        public override void _ExitTree()
+        {
+            var nm = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
+            if (nm != null)
+                nm.PacketReceived -= OnPacketReceived;
+        }
     }
 }

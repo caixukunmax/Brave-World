@@ -1,4 +1,4 @@
-[gd_scene load_steps=13 format=3]
+[gd_scene load_steps=20 format=3]
 
 [ext_resource type="Script" path="res://Scripts/GridManager.cs" id="1_grid"]
 [ext_resource type="Script" path="res://Scripts/Player.cs" id="2_player"]
@@ -8,12 +8,17 @@
 [ext_resource type="Script" path="res://Scripts/AuthChecker.cs" id="6_auth"]
 [ext_resource type="Script" path="res://Scripts/TestDebugButton.cs" id="7_test"]
 [ext_resource type="Script" path="res://Scripts/InventoryManager.cs" id="8_inv"]
-[ext_resource type="Script" path="res://Scripts/InventoryUI.cs" id="9_invui"]
-[ext_resource type="Script" path="res://Scripts/GMPanel.cs" id="10_gm"]
-[ext_resource type="Script" path="res://Scripts/ChestManager.cs" id="11_chest"]
-[ext_resource type="Script" path="res://Scripts/MonsterManager.cs" id="12_monster"]
-[ext_resource type="Script" path="res://Scripts/MapManager.cs" id="13_map"]
-[ext_resource type="Script" path="res://Scripts/EntityListPanel.cs" id="14_entity_list"]
+[ext_resource type="Script" path="res://Scripts/GMPanel.cs" id="9_gm"]
+[ext_resource type="Script" path="res://Scripts/ChestManager.cs" id="10_chest"]
+[ext_resource type="Script" path="res://Scripts/MonsterManager.cs" id="11_monster"]
+[ext_resource type="Script" path="res://Scripts/MapManager.cs" id="12_map"]
+[ext_resource type="Script" path="res://Scripts/MonsterConfigManager.cs" id="13_monstercfg"]
+[ext_resource type="Script" path="res://Scripts/PanelManager.cs" id="14_pm"]
+[ext_resource type="PackedScene" path="res://scenes/integrated_panel.tscn" id="15_panel"]
+[ext_resource type="PackedScene" path="res://scenes/character_panel.tscn" id="16_charpanel"]
+[ext_resource type="PackedScene" path="res://scenes/entity_list_panel.tscn" id="17_entity"]
+[ext_resource type="PackedScene" path="res://scenes/inventory_ui_panel.tscn" id="18_invui"]
+[ext_resource type="PackedScene" path="res://scenes/combat_atb_panel.tscn" id="19_atb"]
 
 [node name="Main" type="Node2D"]
 
@@ -79,21 +84,37 @@ script = ExtResource("5_editor")
 [node name="InventoryManager" type="Node" parent="." groups=["inventory_manager"]]
 script = ExtResource("8_inv")
 
-[node name="InventoryUI" type="CanvasLayer" parent="."]
-script = ExtResource("9_invui")
+[node name="ChestManager" type="Node" parent="." groups=["chest_manager"]]
+script = ExtResource("10_chest")
+
+[node name="MonsterManager" type="Node2D" parent="." groups=["monster_manager"]]
+script = ExtResource("11_monster")
+
+[node name="MonsterConfigManager" type="Node" parent="." groups=["monster_config_manager"]]
+script = ExtResource("13_monstercfg")
+
+[node name="MapManager" type="Node" parent="."]
+script = ExtResource("12_map")
 
 [node name="GMPanel" type="CanvasLayer" parent="."]
 layer = 100
-script = ExtResource("10_gm")
+script = ExtResource("9_gm")
 
-[node name="ChestManager" type="Node" parent="." groups=["chest_manager"]]
-script = ExtResource("11_chest")
+[node name="UICanvas" type="CanvasLayer" parent="."]
+layer = 100
 
-[node name="MonsterManager" type="Node" parent="." groups=["monster_manager"]]
-script = ExtResource("12_monster")
+[node name="PanelManager" type="Node" parent="UICanvas"]
+script = ExtResource("14_pm")
 
-[node name="MapManager" type="Node" parent="."]
-script = ExtResource("13_map")
+[node name="IntegratedPanel" parent="UICanvas" instance=ExtResource("15_panel")]
 
-[node name="EntityListPanel" type="CanvasLayer" parent="."]
-script = ExtResource("14_entity_list")
+[node name="CharacterPanel" parent="UICanvas" instance=ExtResource("16_charpanel")]
+
+[node name="EntityListPanel" parent="UICanvas" instance=ExtResource("17_entity")]
+
+[node name="InventoryUI" parent="UICanvas" instance=ExtResource("18_invui")]
+
+[node name="CombatATBCanvas" type="CanvasLayer" parent="."]
+layer = 50
+
+[node name="CombatATBPanel" parent="CombatATBCanvas" instance=ExtResource("19_atb")]

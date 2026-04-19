@@ -31,7 +31,7 @@ namespace ClinetCSharp
         public Vector2I GridPos => new Vector2I(GridX, GridY);
         public string MonsterName { get; private set; } = "";
         public uint Level { get; private set; } = 1;
-        public Array MonsterAttrs { get; private set; } = new Array();
+        public Godot.Collections.Array MonsterAttrs { get; private set; } = new Godot.Collections.Array();
 
         public bool IsMoving { get; set; } = false;
         public string CurrentState { get; set; } = "idle";
@@ -54,7 +54,7 @@ namespace ClinetCSharp
             Level = level;
             _gridSize = gridSize;
             VisualSize = gridSize;
-            Position = GridToWorld(x, y);
+            Position = UiUtils.GridToWorld(x, y, _gridSize);
 
             // 默认外观：红色系主题，实心背景（与玩家样式对齐）
             BorderColor = new Color(0.9f, 0.3f, 0.3f);
@@ -73,7 +73,7 @@ namespace ClinetCSharp
             QueueRedraw();
         }
 
-        public void Setup(uint instanceId, uint monsterId, int x, int y, string name, uint level, int gridSize, Array attrs)
+        public void Setup(uint instanceId, uint monsterId, int x, int y, string name, uint level, int gridSize, Godot.Collections.Array attrs)
         {
             MonsterAttrs = attrs ?? new Array();
             Setup(instanceId, monsterId, x, y, name, level, gridSize);
@@ -113,8 +113,8 @@ namespace ClinetCSharp
             {
                 var maxRadius = halfDraw - BorderWidth;
                 var actualRadius = Mathf.Min(CornerRadius, Mathf.Max(maxRadius, 0));
-                DrawRoundedRect(rect, actualBgColor, true, actualRadius);
-                DrawRoundedRect(rect, BorderColor, false, actualRadius, BorderWidth);
+                this.DrawRoundedRect(rect, actualBgColor, true, actualRadius);
+                this.DrawRoundedRect(rect, BorderColor, false, actualRadius, BorderWidth);
             }
             else
             {
@@ -151,15 +151,9 @@ namespace ClinetCSharp
         public bool HitTest(Vector2 worldPos)
         {
             float half = _gridSize / 2.0f;
-            var worldCenter = GridToWorld(GridX, GridY);
+            var worldCenter = UiUtils.GridToWorld(GridX, GridY, _gridSize);
             return Mathf.Abs(worldPos.X - worldCenter.X) < half &&
                    Mathf.Abs(worldPos.Y - worldCenter.Y) < half;
-        }
-
-        private Vector2 GridToWorld(int x, int y)
-        {
-            return new Vector2(x * _gridSize + _gridSize / 2.0f,
-                               y * _gridSize + _gridSize / 2.0f);
         }
 
         // ========== 公共接口（供调试面板调用）==========
@@ -169,7 +163,7 @@ namespace ClinetCSharp
             _gridSize = size;
             VisualSize = Mathf.Clamp((int)(size * VisualSizeScale), 10, size);
             BorderWidth = Mathf.Clamp(size * BorderWidthScale, 1.0f, 20.0f);
-            Position = GridToWorld(GridX, GridY);
+            Position = UiUtils.GridToWorld(GridX, GridY, _gridSize);
             QueueRedraw();
         }
 
@@ -181,7 +175,7 @@ namespace ClinetCSharp
             var tween = CreateTween();
             tween.SetTrans(Tween.TransitionType.Quad);
             tween.SetEase(Tween.EaseType.Out);
-            tween.TweenProperty(this, "position", GridToWorld(GridX, GridY), duration);
+            tween.TweenProperty(this, "position", UiUtils.GridToWorld(GridX, GridY, _gridSize), duration);
             tween.Finished += () => { IsMoving = false; };
         }
 
@@ -288,72 +282,5 @@ namespace ClinetCSharp
             return LabelTexts[index];
         }
 
-        // ========== 绘制辅助（与 Player 一致）==========
-
-        private void DrawCornerSector(float cx, float cy, float r, float startAngle, float endAngle, Color color)
-        {
-            var points = new Vector2[10];
-            points[0] = new Vector2(cx, cy);
-            const int segments = 8;
-            for (int i = 0; i <= segments; i++)
-            {
-                var angle = startAngle + (endAngle - startAngle) * (i / (float)segments);
-                points[i + 1] = new Vector2(cx + Mathf.Cos(angle) * r, cy + Mathf.Sin(angle) * r);
-            }
-            var colorArray = new Color[points.Length];
-            for (int i = 0; i < colorArray.Length; i++)
-                colorArray[i] = color;
-            DrawPolygon(points, colorArray);
-        }
-
-        private void DrawRoundedRect(Rect2 rect, Color color, bool filled, float radius, float width = -1.0f)
-        {
-            var x = rect.Position.X;
-            var y = rect.Position.Y;
-            var w = rect.Size.X;
-            var h = rect.Size.Y;
-            var r = Mathf.Min(radius, Mathf.Min(w, h) / 2.0f);
-
-            if (filled)
-            {
-                DrawRect(new Rect2(x + r, y + r, w - r * 2, h - r * 2), color, true);
-                DrawRect(new Rect2(x + r, y, w - r * 2, r), color, true);
-                DrawRect(new Rect2(x + r, y + h - r, w - r * 2, r), color, true);
-                DrawRect(new Rect2(x, y + r, r, h - r * 2), color, true);
-                DrawRect(new Rect2(x + w - r, y + r, r, h - r * 2), color, true);
-                DrawCornerSector(x + r, y + r, r, Mathf.Pi, 1.5f * Mathf.Pi, color);
-                DrawCornerSector(x + w - r, y + r, r, 1.5f * Mathf.Pi, 2 * Mathf.Pi, color);
-                DrawCornerSector(x + r, y + h - r, r, 0.5f * Mathf.Pi, Mathf.Pi, color);
-                DrawCornerSector(x + w - r, y + h - r, r, 0, 0.5f * Mathf.Pi, color);
-            }
-            else
-            {
-                const int segments = 8;
-                var points = new System.Collections.Generic.List<Vector2>();
-                for (int i = 0; i <= segments; i++)
-                {
-                    var angle = Mathf.Pi + (Mathf.Pi / 2) * (i / (float)segments);
-                    points.Add(new Vector2(x + r + Mathf.Cos(angle) * r, y + r + Mathf.Sin(angle) * r));
-                }
-                for (int i = 0; i <= segments; i++)
-                {
-                    var angle = 1.5f * Mathf.Pi + (Mathf.Pi / 2) * (i / (float)segments);
-                    points.Add(new Vector2(x + w - r + Mathf.Cos(angle) * r, y + r + Mathf.Sin(angle) * r));
-                }
-                for (int i = 0; i <= segments; i++)
-                {
-                    var angle = 0 + (Mathf.Pi / 2) * (i / (float)segments);
-                    points.Add(new Vector2(x + w - r + Mathf.Cos(angle) * r, y + h - r + Mathf.Sin(angle) * r));
-                }
-                for (int i = 0; i <= segments; i++)
-                {
-                    var angle = 0.5f * Mathf.Pi + (Mathf.Pi / 2) * (i / (float)segments);
-                    points.Add(new Vector2(x + r + Mathf.Cos(angle) * r, y + h - r + Mathf.Sin(angle) * r));
-                }
-                if (points.Count > 0)
-                    points.Add(points[0]);
-                DrawPolyline(points.ToArray(), color, width);
-            }
-        }
     }
 }

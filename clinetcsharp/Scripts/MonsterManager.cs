@@ -10,6 +10,7 @@ namespace ClinetCSharp
     public partial class MonsterManager : Node
     {
         private List<Monster> _monsters = new();
+        private HashSet<Vector2I> _monsterPositions = new();
         private int _gridSize = 111;
 
         // 默认样式配置（所有怪物共用）
@@ -49,6 +50,7 @@ namespace ClinetCSharp
             foreach (var m in _monsters)
                 m.QueueFree();
             _monsters.Clear();
+            _monsterPositions.Clear();
 
             _gridSize = gridSize;
             DefaultVisualSize = gridSize;
@@ -72,6 +74,7 @@ namespace ClinetCSharp
                 ApplyDefaultStyle(monster);
                 AddChild(monster);
                 _monsters.Add(monster);
+                _monsterPositions.Add(new Vector2I(dict["x"].AsInt32(), dict["y"].AsInt32()));
 
                 GD.Print($"[MonsterManager] Spawned monster {monster.InstanceId}({monster.MonsterName}) at ({monster.GridX},{monster.GridY})");
             }
@@ -110,6 +113,8 @@ namespace ClinetCSharp
 
         public Monster GetMonsterAt(Vector2I gridPos)
         {
+            if (!_monsterPositions.Contains(gridPos))
+                return null;
             foreach (var m in _monsters)
             {
                 if (m.GridX == gridPos.X && m.GridY == gridPos.Y)
@@ -118,17 +123,20 @@ namespace ClinetCSharp
             return null;
         }
 
-        public void OnMonsterMove(uint instanceId, Vector2I from, Vector2I to, string state)
+        public void OnMonsterMove(uint instanceId, Vector2I from, Vector2I to, string state, int durationMs)
         {
             var m = _monsters.Find(x => x.InstanceId == instanceId);
             if (m == null) return;
+            _monsterPositions.Remove(from);
+            _monsterPositions.Add(to);
             m.CurrentState = state;
-            m.MoveTo(to, 0.15f);
+            float durationSec = durationMs > 0 ? durationMs / 1000.0f : 0.15f;
+            m.MoveTo(to, durationSec);
         }
 
         public bool IsBlockedByMonster(Vector2I gridPos)
         {
-            return _monsters.Exists(m => m.GridPos == gridPos);
+            return _monsterPositions.Contains(gridPos);
         }
     }
 }

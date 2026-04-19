@@ -27,7 +27,7 @@ namespace ClinetCSharp
             _opened = opened;
             _gridSize = gridSize;
             _boxSize = gridSize * 0.6f;
-            Position = GridToWorld(x, y);
+            Position = UiUtils.GridToWorld(x, y, _gridSize);
             QueueRedraw();
         }
 
@@ -82,15 +82,10 @@ namespace ClinetCSharp
         public bool HitTest(Vector2 worldPos)
         {
             float half = _gridSize / 2.0f;
-            var worldCenter = GridToWorld(GridX, GridY);
+            var worldCenter = UiUtils.GridToWorld(GridX, GridY, _gridSize);
             return Mathf.Abs(worldPos.X - worldCenter.X) < half &&
                    Mathf.Abs(worldPos.Y - worldCenter.Y) < half;
         }
 
-        private Vector2 GridToWorld(int x, int y)
-        {
-            return new Vector2(x * _gridSize + _gridSize / 2.0f,
-                               y * _gridSize + _gridSize / 2.0f);
-        }
     }
 }

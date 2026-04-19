@@ -848,6 +848,34 @@ namespace ClinetCSharp
                 _monsterLabelYOffsetSliders[i].ValueChanged += (_) => ApplyMonsterDebugChanges();
                 _monsterLabelYOffsetSliders[i].DragEnded += (_) => ApplyMonsterDebugChanges();
             }
+
+            // ---- 怪物配置（AI / 移动） ----
+            monsterTab.AddChild(new HSeparator());
+            var configTitle = new Label { Text = "怪物配置 (JSON)", HorizontalAlignment = HorizontalAlignment.Center };
+            configTitle.AddThemeFontSizeOverride("font_size", 13);
+            monsterTab.AddChild(configTitle);
+
+            var cm = GetTree()?.GetFirstNodeInGroup("monster_config_manager") as MonsterConfigManager;
+            int moveSpeed = cm?.GetMoveSpeedMs() ?? 800;
+            int patrolRange = 3;
+            int aggroRange = 5;
+            int moveInterval = 2000;
+            if (cm != null)
+            {
+                var ai = cm.GetAiDefaults("patrol_chase");
+                patrolRange = ai.PatrolRange ?? 3;
+                aggroRange = ai.AggroRange ?? 5;
+                moveInterval = (int)(ai.MoveIntervalMs ?? 2000);
+            }
+
+            (_monsterMoveSpeedSlider, _monsterMoveSpeedValue) = CreateMonsterSliderRow(monsterTab, "怪物移速(ms)", 100, 3000, moveSpeed, 50f);
+            (_monsterPatrolRangeSlider, _monsterPatrolRangeValue) = CreateMonsterSliderRow(monsterTab, "巡逻范围", 0, 10, patrolRange, 1f);
+            (_monsterAggroRangeSlider, _monsterAggroRangeValue) = CreateMonsterSliderRow(monsterTab, "仇恨范围", 0, 20, aggroRange, 1f);
+            (_monsterMoveIntervalSlider, _monsterMoveIntervalValue) = CreateMonsterSliderRow(monsterTab, "移动间隔(ms)", 100, 10000, moveInterval, 100f);
+
+            _saveMonsterConfigBtn = new Button { Text = "保存配置到 JSON", CustomMinimumSize = new Vector2(0, 32) };
+            _saveMonsterConfigBtn.Pressed += OnSaveMonsterConfigPressed;
+            monsterTab.AddChild(_saveMonsterConfigBtn);
         }
 
         private (HSlider slider, Label valueLabel) CreateMonsterSliderRow(Container parent, string label, float min, float max, float def, float? step = null)
@@ -865,6 +893,30 @@ namespace ClinetCSharp
             parent.AddChild(row);
             return (slider, valLbl);
         }
+
+        #region System Debug UI Creation
+        private void CreateSystemDebugUI()
+        {
+            var sysTab = GetNode<VBoxContainer>("Control/Panel/ScrollContainer/TabContainer/系统");
+
+            var title = new Label { Text = "全局系统配置", HorizontalAlignment = HorizontalAlignment.Center };
+            title.AddThemeFontSizeOverride("font_size", 13);
+            sysTab.AddChild(title);
+            sysTab.AddChild(new HSeparator());
+
+            var cm = GetTree()?.GetFirstNodeInGroup("monster_config_manager") as MonsterConfigManager;
+
+            // 移动系统配置
+            var moveTitle = new Label { Text = "移动系统配置 (JSON)", HorizontalAlignment = HorizontalAlignment.Left };
+            moveTitle.AddThemeFontSizeOverride("font_size", 12);
+            sysTab.AddChild(moveTitle);
+
+            var ms = cm?.GetMoveSystem() ?? new MoveSystem();
+            (_moveCheckRatioSlider, _moveCheckRatioValue) = CreateMonsterSliderRow(sysTab, "检查点比例(%)", 0, 100, ms.CheckRatio, 5f);
+            (_moveDualStartSlider, _moveDualStartValue) = CreateMonsterSliderRow(sysTab, "双格开始(%)", 0, 100, ms.DualGridStartRatio, 5f);
+            (_moveDualEndSlider, _moveDualEndValue) = CreateMonsterSliderRow(sysTab, "双格结束(%)", 0, 100, ms.DualGridEndRatio, 5f);
+        }
+        #endregion
 
         private void SyncMonsterDebugUI()
         {

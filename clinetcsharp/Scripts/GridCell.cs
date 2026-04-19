@@ -82,7 +82,7 @@ namespace ClinetCSharp
         /// <summary>
         /// 转换为CSV行 (不包含坐标,用于简化格式)
         /// </summary>
-        public Array ToCsvValues()
+        public Godot.Collections.Array ToCsvValues()
         {
             return new Array
             {
@@ -98,7 +98,7 @@ namespace ClinetCSharp
         /// <summary>
         /// 从简化CSV格式加载 (exists,walkable,visible,terrain,height,custom)
         /// </summary>
-        public void FromCsvValues(Array values)
+        public void FromCsvValues(Godot.Collections.Array values)
         {
             if (values.Count >= 1)
             {

@@ -56,10 +56,20 @@ namespace ClinetCSharp
 
         public override void _Input(InputEvent @event)
         {
+            // 快捷键
             if (@event is InputEventKey key && key.Pressed && !key.Echo && key.Keycode == Key.F2)
             {
                 Toggle();
                 GetViewport().SetInputAsHandled();
+                return;
+            }
+
+            // 输入隔离：鼠标在面板上时消费事件，防止穿透到游戏世界
+            if (_isVisible && @event is InputEventMouseButton)
+            {
+                var hovered = GetViewport().GuiGetHoveredControl();
+                if (hovered != null && _panel != null && (_panel == hovered || _panel.IsAncestorOf(hovered)))
+                    GetViewport().SetInputAsHandled();
             }
         }
 

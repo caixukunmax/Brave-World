@@ -239,6 +239,25 @@ namespace ClinetCSharp
         private HSlider[] _monsterLabelYOffsetSliders = new HSlider[4];
         private Label[] _monsterLabelYOffsetValues = new Label[4];
         private CheckButton[] _monsterLabelCenterXChecks = new CheckButton[4];
+
+        // Monster Config Controls
+        private HSlider _monsterMoveSpeedSlider;
+        private Label _monsterMoveSpeedValue;
+        private HSlider _monsterPatrolRangeSlider;
+        private Label _monsterPatrolRangeValue;
+        private HSlider _monsterAggroRangeSlider;
+        private Label _monsterAggroRangeValue;
+        private HSlider _monsterMoveIntervalSlider;
+        private Label _monsterMoveIntervalValue;
+        private Button _saveMonsterConfigBtn;
+
+        // Move System Config Controls
+        private HSlider _moveCheckRatioSlider;
+        private Label _moveCheckRatioValue;
+        private HSlider _moveDualStartSlider;
+        private Label _moveDualStartValue;
+        private HSlider _moveDualEndSlider;
+        private Label _moveDualEndValue;
         #endregion
 
         #region Other References
@@ -285,6 +304,7 @@ namespace ClinetCSharp
             CreateMapDebugUI();
             CreatePlayerDebugUI();
             CreateMonsterDebugUI();
+            CreateSystemDebugUI();
 
             SetupFontOptions();
             SetupEaseOptions();

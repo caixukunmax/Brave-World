@@ -1,15 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "WebFetch(domain:cameron.stream)",
-      "Bash(/plugin install:*)",
-      "Bash(node \"c:\\\\code\\\\我是勇者\\\\tools\\\\generate_map.js\")",
-      "Bash(node tools/update_map_format.js)",
-      "Read(//c/code/我是勇者/$APPDATA/**)",
-      "Read(//c/Users/**)",
-      "Bash(: 遍历项目目录，查看整体结构)",
-      "Bash(:echo$line \"检查当前运行的 Claude Code 进程...\")",
-      "Bash(:Bash -r)"
+      "mcp__web-reader__webReader",
+      "mcp__zai-mcp-server__analyze_image",
+      "mcp__zai-mcp-server__extract_text_from_screenshot"
     ]
   }
 }

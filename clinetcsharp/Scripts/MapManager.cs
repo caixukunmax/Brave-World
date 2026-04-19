@@ -39,10 +39,10 @@ namespace ClinetCSharp
             SpawnMapEntities();
         }
 
-        private void OnMonsterMove(uint instanceId, int fromX, int fromY, int toX, int toY, string state)
+        private void OnMonsterMove(uint instanceId, int fromX, int fromY, int toX, int toY, string state, int durationMs)
         {
             var monsterMgr = GetTree()?.GetFirstNodeInGroup("monster_manager") as MonsterManager;
-            monsterMgr?.OnMonsterMove(instanceId, new Vector2I(fromX, fromY), new Vector2I(toX, toY), state);
+            monsterMgr?.OnMonsterMove(instanceId, new Vector2I(fromX, fromY), new Vector2I(toX, toY), state, durationMs);
         }
 
         private void SpawnMapEntities()

@@ -178,5 +178,12 @@ namespace ClinetCSharp
                 _selectedLabel.Text = "解析服务器响应失败";
             }
         }
+
+        public override void _ExitTree()
+        {
+            var nm = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
+            if (nm != null)
+                nm.PacketReceived -= OnPacketReceived;
+        }
     }
 }

@@ -331,5 +331,16 @@ namespace ClinetCSharp
             config.SetValue("login", "last_login_time", Time.GetUnixTimeFromSystem());
             config.Save(SAVE_FILE);
         }
+
+        public override void _ExitTree()
+        {
+            var nm = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
+            if (nm != null)
+            {
+                nm.Connected -= OnConnected;
+                nm.ConnectionError -= OnConnectionError;
+                nm.PacketReceived -= OnPacketReceived;
+            }
+        }
     }
 }

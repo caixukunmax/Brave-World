@@ -46,6 +46,9 @@ namespace ClinetCSharp
         public string Title { get; set; } = "普通人";
         public string Status { get; set; } = "闲逛中...";
 
+        // ========== 战斗属性（从服务器 attrs 同步） ==========
+        public System.Collections.Generic.Dictionary<uint, int> CombatAttrs { get; } = new();
+
         // ========== 血条 ==========
         public Vector2 HealthBarOffset { get; set; } = new Vector2(0, -70);
         public float HealthBarLength { get; set; } = 80;
@@ -111,12 +114,26 @@ namespace ClinetCSharp
 
         public override void _Ready()
         {
-            Position = GridToWorld(GridPos);
+            Position = UiUtils.GridToWorld(GridPos, GridSize);
             // 初始化默认偏移
             for (int i = 0; i < LabelCount; i++)
                 _labelOffsets[i] = DefaultOffsets[i];
             SetupLabels();
             QueueRedraw();
+
+            var nm = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
+            if (nm != null)
+                nm.MoveCancelReceived += OnMoveCancelReceived;
+        }
+
+        public override void _ExitTree()
+        {
+            var nm = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
+            if (nm != null)
+                nm.MoveCancelReceived -= OnMoveCancelReceived;
+            _checkTimer?.Stop();
+            _checkTimer?.QueueFree();
+            _checkTimer = null;
         }
 
         /// <summary>
@@ -417,7 +434,7 @@ namespace ClinetCSharp
             BorderWidth = Mathf.Clamp(newSize * BorderWidthScale, 1.0f, 20.0f);
             HealthBarLength = Mathf.Clamp(newSize * HealthBarLengthScale, 10.0f, newSize * 2.0f);
             HealthBarHeight = Mathf.Clamp(newSize * HealthBarHeightScale, 2.0f, newSize);
-            Position = GridToWorld(GridPos);
+            Position = UiUtils.GridToWorld(GridPos, GridSize);
             SetupLabels();
             QueueRedraw();
         }
@@ -733,12 +750,23 @@ namespace ClinetCSharp
 
             GD.Print($"[Player] ApplyRoleInfo: name={CharacterName}, level={Level}, job={Job}, title={Title}, status={Status}");
 
+            // 解析战斗属性集合
+            CombatAttrs.Clear();
+            foreach (var attr in roleInfo.Attrs)
+                CombatAttrs[attr.Key] = attr.Value;
+            if (roleInfo.Attrs.Count > 0)
+                GD.Print($"[Player] ApplyRoleInfo: attrs loaded, count={roleInfo.Attrs.Count}");
+
+            // 从属性中读取移动速度（EAttr.MOVE_SPEED=10，单位ms → 转为秒）
+            if (CombatAttrs.TryGetValue(10, out var moveSpeedMs) && moveSpeedMs > 0)
+                MoveDuration = moveSpeedMs / 1000f;
+
             // 从服务器设置初始位置
             if (roleInfo.GridX != 0 || roleInfo.GridY != 0)
             {
                 GridPos = new Vector2I(roleInfo.GridX, roleInfo.GridY);
-                _confirmedGridPos = GridPos;
-                Position = GridToWorld(GridPos);
+                _moveFromPos = GridPos;
+                Position = UiUtils.GridToWorld(GridPos, GridSize);
                 GD.Print($"[Player] Set position from server: ({GridPos.X}, {GridPos.Y})");
             }
 
@@ -761,8 +789,8 @@ namespace ClinetCSharp
             {
                 var maxRadius = halfDraw - BorderWidth;
                 var actualRadius = Mathf.Min(CornerRadius, Mathf.Max(maxRadius, 0));
-                DrawRoundedRect(rect, actualBgColor, true, actualRadius);
-                DrawRoundedRect(rect, BorderColor, false, actualRadius, BorderWidth);
+                this.DrawRoundedRect(rect, actualBgColor, true, actualRadius);
+                this.DrawRoundedRect(rect, BorderColor, false, actualRadius, BorderWidth);
             }
             else
             {
@@ -837,71 +865,6 @@ namespace ClinetCSharp
                 DrawDebugOverlay();
         }
 
-        private void DrawCornerSector(float cx, float cy, float r, float startAngle, float endAngle, Color color)
-        {
-            var points = new Vector2[10];
-            points[0] = new Vector2(cx, cy);
-            const int segments = 8;
-            for (int i = 0; i <= segments; i++)
-            {
-                var angle = startAngle + (endAngle - startAngle) * (i / (float)segments);
-                points[i + 1] = new Vector2(cx + Mathf.Cos(angle) * r, cy + Mathf.Sin(angle) * r);
-            }
-            var colorArray = new Color[points.Length];
-            for (int i = 0; i < colorArray.Length; i++)
-                colorArray[i] = color;
-            DrawPolygon(points, colorArray);
-        }
-
-        private void DrawRoundedRect(Rect2 rect, Color color, bool filled, float radius, float width = -1.0f)
-        {
-            var x = rect.Position.X;
-            var y = rect.Position.Y;
-            var w = rect.Size.X;
-            var h = rect.Size.Y;
-            var r = Mathf.Min(radius, Mathf.Min(w, h) / 2.0f);
-
-            if (filled)
-            {
-                DrawRect(new Rect2(x + r, y + r, w - r * 2, h - r * 2), color, true);
-                DrawRect(new Rect2(x + r, y, w - r * 2, r), color, true);
-                DrawRect(new Rect2(x + r, y + h - r, w - r * 2, r), color, true);
-                DrawRect(new Rect2(x, y + r, r, h - r * 2), color, true);
-                DrawRect(new Rect2(x + w - r, y + r, r, h - r * 2), color, true);
-                DrawCornerSector(x + r, y + r, r, Mathf.Pi, 1.5f * Mathf.Pi, color);
-                DrawCornerSector(x + w - r, y + r, r, 1.5f * Mathf.Pi, 2 * Mathf.Pi, color);
-                DrawCornerSector(x + r, y + h - r, r, 0.5f * Mathf.Pi, Mathf.Pi, color);
-                DrawCornerSector(x + w - r, y + h - r, r, 0, 0.5f * Mathf.Pi, color);
-            }
-            else
-            {
-                const int segments = 8;
-                var points = new System.Collections.Generic.List<Vector2>();
-                for (int i = 0; i <= segments; i++)
-                {
-                    var angle = Mathf.Pi + (Mathf.Pi / 2) * (i / (float)segments);
-                    points.Add(new Vector2(x + r + Mathf.Cos(angle) * r, y + r + Mathf.Sin(angle) * r));
-                }
-                for (int i = 0; i <= segments; i++)
-                {
-                    var angle = 1.5f * Mathf.Pi + (Mathf.Pi / 2) * (i / (float)segments);
-                    points.Add(new Vector2(x + w - r + Mathf.Cos(angle) * r, y + r + Mathf.Sin(angle) * r));
-                }
-                for (int i = 0; i <= segments; i++)
-                {
-                    var angle = 0 + (Mathf.Pi / 2) * (i / (float)segments);
-                    points.Add(new Vector2(x + w - r + Mathf.Cos(angle) * r, y + h - r + Mathf.Sin(angle) * r));
-                }
-                for (int i = 0; i <= segments; i++)
-                {
-                    var angle = 0.5f * Mathf.Pi + (Mathf.Pi / 2) * (i / (float)segments);
-                    points.Add(new Vector2(x + r + Mathf.Cos(angle) * r, y + h - r + Mathf.Sin(angle) * r));
-                }
-                if (points.Count > 0)
-                    points.Add(points[0]);
-                DrawPolyline(points.ToArray(), color, width);
-            }
-        }
 
         private void DrawDebugOverlay()
         {
@@ -945,7 +908,7 @@ namespace ClinetCSharp
             DrawLine(new Vector2(0, -crossSize), new Vector2(0, crossSize), crossColor, 1.0f);
 
             var posColor = new Color(0, 1, 1, 0.9f);
-            var targetPos = GridToWorld(GridPos);
+            var targetPos = UiUtils.GridToWorld(GridPos, GridSize);
             DrawString(ThemeDB.FallbackFont, new Vector2(-gridHalf + 2, gridHalf - 20),
                 $"Pos:{Position.X:F1},{Position.Y:F1} | Target:{targetPos.X:F1},{targetPos.Y:F1}",
                 HorizontalAlignment.Left, -1, 9, posColor);
@@ -953,14 +916,22 @@ namespace ClinetCSharp
 
         // ========== 移动系统 ==========
 
-        // 服务器校验前的位置（用于回滚）
-        private Vector2I _confirmedGridPos = new Vector2I(25, 25);
+        // 移动状态机
+        private Vector2I _moveFromPos;
+        private Vector2I _moveTargetPos;
+        private int _moveDurationMs;
+        private int _moveCheckRatio;
+        private int _moveDualStartRatio;
+        private int _moveDualEndRatio;
+        private Tween? _currentTween;
+        private Timer? _checkTimer;
+        private bool _movePending = false;
 
         public override void _Process(double _delta)
         {
             if (!IsMoving)
             {
-                var targetPos = GridToWorld(GridPos);
+                var targetPos = UiUtils.GridToWorld(GridPos, GridSize);
                 if (Position.DistanceTo(targetPos) > 0.5f)
                     Position = targetPos;
             }
@@ -969,7 +940,7 @@ namespace ClinetCSharp
 
         private void HandleInput()
         {
-            if (IsMoving) return;
+            if (IsMoving || _movePending) return;
 
             var direction = Vector2I.Zero;
             if (Input.IsActionJustPressed("move_up"))
@@ -990,7 +961,6 @@ namespace ClinetCSharp
             var gridManager = GetParent()?.GetNode<GridManager>("GridManager");
             if (gridManager != null && !gridManager.IsWalkable(targetGridPos))
             {
-                // 目标格有未开宝箱 → 自动开箱
                 if (gridManager.IsBlockedByChest(targetGridPos))
                 {
                     var chestMgr = GetTree()?.GetFirstNodeInGroup("chest_manager") as ChestManager;
@@ -999,36 +969,36 @@ namespace ClinetCSharp
                 return;
             }
 
-            // 记录校验前位置
-            _confirmedGridPos = GridPos;
+            _moveFromPos = GridPos;
+            _moveTargetPos = targetGridPos;
+            _movePending = true;
 
+            // 客户端预测：立即开始动画
             GridPos = targetGridPos;
-            var targetWorldPos = GridToWorld(GridPos);
+            var targetWorldPos = UiUtils.GridToWorld(GridPos, GridSize);
             IsMoving = true;
 
-            var tween = CreateTween();
-            tween.SetTrans(Tween.TransitionType.Quad);
-            tween.SetEase(Tween.EaseType.Out);
-            tween.TweenProperty(this, "position", targetWorldPos, MoveDuration);
-            tween.Finished += OnMoveFinished;
+            _currentTween = CreateTween();
+            _currentTween.SetTrans(Tween.TransitionType.Quad);
+            _currentTween.SetEase(Tween.EaseType.Out);
+            _currentTween.TweenProperty(this, "position", targetWorldPos, MoveDuration);
+            _currentTween.Finished += OnMoveFinished;
 
-            // 向服务器发送移动请求
-            SendMoveRequest(_confirmedGridPos, targetGridPos);
+            SendMoveStartRequest(_moveFromPos, targetGridPos);
         }
 
         private void OnMoveFinished()
         {
             IsMoving = false;
-            Position = GridToWorld(GridPos);
+            Position = UiUtils.GridToWorld(GridPos, GridSize);
+            SendMoveCompleteRequest();
         }
 
-        private void SendMoveRequest(Vector2I from, Vector2I to)
+        private void SendMoveStartRequest(Vector2I from, Vector2I to)
         {
             var nm = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
             if (nm == null || !nm.IsServerConnected())
                 return;
-
-            // 测试直通模式没有有效的 gateway token，跳过服务器校验
             if (string.IsNullOrEmpty(nm.GatewayToken))
                 return;
 
@@ -1040,7 +1010,6 @@ namespace ClinetCSharp
                 ToY = to.Y,
                 MapName = GetMapName(),
             };
-
             nm.SendPacket(MessageId.GameMoveReq, req);
         }
 
@@ -1051,33 +1020,113 @@ namespace ClinetCSharp
         }
 
         /// <summary>
-        /// 供 NetworkManager 收到 MoveResponse 时调用
+        /// 供 NetworkManager 收到 MoveResponse（即 MoveStartResponse）时调用
         /// </summary>
         public void OnMoveResponse(Game.MoveResponse rsp)
         {
-            if (rsp.Code != Common.ErrorCode.Success)
+            _movePending = false;
+
+            if (rsp.Code != Common.ErrorCode.Success || rsp.DurationMs <= 0)
             {
-                // 服务器拒绝，回滚到确认位置
+                // 服务器拒绝，回滚
                 var rollbackPos = new Vector2I((int)rsp.X, (int)rsp.Y);
-                // 防御：如果服务器返回 (0,0) 无效位置，用本地确认位置
                 if (rollbackPos.X == 0 && rollbackPos.Y == 0)
-                    rollbackPos = _confirmedGridPos;
+                    rollbackPos = _moveFromPos;
                 GD.Print($"[Player] Move rejected by server, rollback to ({rollbackPos.X}, {rollbackPos.Y})");
-                GridPos = rollbackPos;
-                _confirmedGridPos = rollbackPos;
-                Position = GridToWorld(GridPos);
-                IsMoving = false;
+                RollbackTo(rollbackPos);
+                return;
             }
-            else
+
+            // 保存服务器返回的移动参数
+            _moveDurationMs = rsp.DurationMs;
+            _moveCheckRatio = rsp.CheckRatio;
+            _moveDualStartRatio = rsp.DualStartRatio;
+            _moveDualEndRatio = rsp.DualEndRatio;
+
+            // 重新调整 tween 时长为服务器指定的时长
+            float durationSec = _moveDurationMs / 1000.0f;
+            if (Mathf.Abs(durationSec - MoveDuration) > 0.01f && _currentTween != null && GodotObject.IsInstanceValid(_currentTween))
             {
-                _confirmedGridPos = new Vector2I((int)rsp.X, (int)rsp.Y);
+                _currentTween?.Kill();
+                var targetWorldPos = UiUtils.GridToWorld(GridPos, GridSize);
+                _currentTween = CreateTween();
+                _currentTween.SetTrans(Tween.TransitionType.Quad);
+                _currentTween.SetEase(Tween.EaseType.Out);
+                _currentTween.TweenProperty(this, "position", targetWorldPos, durationSec);
+                _currentTween.Finished += OnMoveFinished;
+            }
+
+            // 启动检查点定时器
+            float checkDelay = _moveDurationMs * _moveCheckRatio / 100.0f / 1000.0f;
+            _checkTimer = new Timer();
+            _checkTimer.WaitTime = checkDelay;
+            _checkTimer.OneShot = true;
+            _checkTimer.Timeout += OnMoveCheckPoint;
+            AddChild(_checkTimer);
+            _checkTimer.Start();
+        }
+
+        private void OnMoveCheckPoint()
+        {
+            // 客户端本地检查目标格是否可行走
+            var gridManager = GetParent()?.GetNode<GridManager>("GridManager");
+            if (gridManager != null)
+            {
+                if (!gridManager.IsWalkable(_moveTargetPos))
+                {
+                    GD.Print($"[Player] Checkpoint: target {_moveTargetPos} not walkable, rolling back");
+                    RollbackTo(_moveFromPos);
+                    return;
+                }
+            }
+
+            // 通知服务器确认
+            var nm = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
+            if (nm != null && nm.IsServerConnected())
+            {
+                var req = new Game.MoveConfirmRequest
+                {
+                    TargetX = _moveTargetPos.X,
+                    TargetY = _moveTargetPos.Y,
+                };
+                nm.SendPacket(MessageId.GameMoveConfirmReq, req);
             }
         }
 
-        private Vector2 GridToWorld(Vector2I pos)
+        private void OnMoveCancelReceived(ulong entityId, int rollbackX, int rollbackY)
         {
-            return new Vector2(pos.X * GridSize + GridSize / 2.0f,
-                               pos.Y * GridSize + GridSize / 2.0f);
+            if (entityId != (ulong)GetInstanceId()) return; // 简单过滤，实际需要 accountId
+            GD.Print($"[Player] Server cancelled move, rollback to ({rollbackX}, {rollbackY})");
+            RollbackTo(new Vector2I(rollbackX, rollbackY));
         }
+
+        private void RollbackTo(Vector2I pos)
+        {
+            _currentTween?.Kill();
+            _currentTween = null;
+            _checkTimer?.Stop();
+            _checkTimer?.QueueFree();
+            _checkTimer = null;
+
+            GridPos = pos;
+            Position = UiUtils.GridToWorld(GridPos, GridSize);
+            IsMoving = false;
+            _movePending = false;
+        }
+
+        private void SendMoveCompleteRequest()
+        {
+            var nm = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
+            if (nm != null && nm.IsServerConnected())
+            {
+                var req = new Game.MoveCompleteRequest
+                {
+                    TargetX = _moveTargetPos.X,
+                    TargetY = _moveTargetPos.Y,
+                };
+                nm.SendPacket(MessageId.GameMoveCompleteReq, req);
+            }
+        }
+
     }
 }

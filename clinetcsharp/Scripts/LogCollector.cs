@@ -36,9 +36,11 @@ namespace ClinetCSharp
 
         // 文件日志读取
         private string _logFilePath = "user://logs/godot.log";
-        private FileAccess _logFile;
+        private Godot.FileAccess _logFile;
         private ulong _fileReadPos;
         private bool _fileLoggingEnabled = false;
+        private double _pollInterval = 1.0;
+        private double _pollTimer = 0.0;
 
         public override void _Ready()
         {
@@ -51,8 +53,13 @@ namespace ClinetCSharp
             GD.Print("[LogCollector] 日志收集器已启动");
         }
 
-        public override void _Process(double _delta)
+        public override void _Process(double delta)
         {
+            _pollTimer += delta;
+            if (_pollTimer < _pollInterval)
+                return;
+            _pollTimer = 0.0;
+
             if (_fileLoggingEnabled && _logFile != null)
             {
                 ReadNewLogs();
