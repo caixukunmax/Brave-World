@@ -1,7 +1,8 @@
 /**
  * 地图配置同步脚本
- * 扫描 clinetcsharp/maps/ 下的 CSV 地图，转换为 Lua table 格式
- * 输出到 skynet_src/tables/data/map_{name}.lua
+ * 扫描 tables/datas/maps/ 下的 CSV 地图，部署到两端：
+ *   1. C# 服务器:  servercsharp/data/maps/{name}/map.csv + map_registry.json
+ *   2. 客户端:     clinetcsharp/maps/{name}/map.csv
  */
 
 import * as fs from 'fs';
@@ -10,14 +11,33 @@ import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
-// 项目根目录
 const ROOT = path.resolve(__dirname, '..', '..');
-const MAPS_DIR = path.join(ROOT, 'clinetcsharp', 'maps');
-const OUTPUT_DIR = path.join(ROOT, 'skynet_src', 'tables', 'data');
+const PATHS_FILE = path.join(ROOT, 'paths.json');
+
+interface MapConfig {
+  map_name: string;
+  display_name: string;
+  width: number;
+  height: number;
+  spawn_x: number;
+  spawn_y: number;
+}
+
+interface PathsConfig {
+  maps: {
+    source_dir: string;
+    cs_output_dir: string;
+    client_output_dir: string;
+    cs_registry_path: string;
+  };
+}
+
+function loadPaths() {
+  const config: PathsConfig = JSON.parse(fs.readFileSync(PATHS_FILE, 'utf-8'));
+  return config.maps;
+}
 
 function toPinyin(name: string): string {
-  // 简单映射：中文名 → 拼音标识符
   const map: Record<string, string> = {
     '新手村': 'xinshoucun',
   };
@@ -41,7 +61,6 @@ function parseCsvFile(csvPath: string): { width: number; height: number; cells: 
   const firstCells = dataLines[0].split(',');
   const width = firstCells.length;
 
-  // 展平为一维数组 (index = y * width + x)，每个元素是 cell 的原始字符串
   const cells: string[] = [];
   for (let y = 0; y < height; y++) {
     const cols = dataLines[y].split(',');
@@ -53,56 +72,66 @@ function parseCsvFile(csvPath: string): { width: number; height: number; cells: 
   return { width, height, cells };
 }
 
-function generateLua(mapName: string, data: { width: number; height: number; cells: string[] }): string {
-  const lines: string[] = [];
-  lines.push('-- 地图数据 (由 sync-maps.ts 自动生成，勿手动编辑)');
-  lines.push(`-- 地图名: ${mapName}`);
-  lines.push(`return {`);
-  lines.push(`    width = ${data.width},`);
-  lines.push(`    height = ${data.height},`);
-  lines.push(`    cells = {`);
+function loadMapConfig(configPath: string, mapName: string, width: number, height: number): MapConfig {
+  const config: MapConfig = {
+    map_name: toPinyin(mapName),
+    display_name: mapName,
+    width,
+    height,
+    spawn_x: Math.floor(width / 2),
+    spawn_y: Math.floor(height / 2),
+  };
 
-  for (let y = 0; y < data.height; y++) {
-    const rowCells: string[] = [];
-    for (let x = 0; x < data.width; x++) {
-      const idx = y * data.width + x;
-      // Lua 1-based array: sharetable 要求 [key] = value 格式
-      rowCells.push(`[${idx + 1}] = "${data.cells[idx]}"`);
+  if (fs.existsSync(configPath)) {
+    const content = fs.readFileSync(configPath, 'utf-8');
+    for (const line of content.split('\n')) {
+      const trimmed = line.trim();
+      if (trimmed.startsWith('#') || trimmed.startsWith('[') || !trimmed.includes('=')) continue;
+      const eqIdx = trimmed.indexOf('=');
+      const key = trimmed.substring(0, eqIdx).trim();
+      const val = trimmed.substring(eqIdx + 1).trim();
+      if (key === 'width') config.width = parseInt(val) || config.width;
+      if (key === 'height') config.height = parseInt(val) || config.height;
+      if (key === 'spawn_x') config.spawn_x = parseInt(val) || config.spawn_x;
+      if (key === 'spawn_y') config.spawn_y = parseInt(val) || config.spawn_y;
+      if (key === 'display_name') config.display_name = val || config.display_name;
     }
-    lines.push(`        ${rowCells.join(', ')},`);
   }
 
-  lines.push(`    }`);
-  lines.push(`}`);
-  lines.push('');
-
-  return lines.join('\n');
+  return config;
 }
 
 function syncMaps() {
   console.log('[SyncMaps] 开始同步地图数据...');
-  console.log(`[SyncMaps] 地图目录: ${MAPS_DIR}`);
-  console.log(`[SyncMaps] 输出目录: ${OUTPUT_DIR}`);
 
-  if (!fs.existsSync(MAPS_DIR)) {
-    console.log('[SyncMaps] 地图目录不存在，跳过');
+  const paths = loadPaths();
+  const SOURCE_DIR = path.resolve(ROOT, paths.source_dir);
+  const CS_DIR = path.resolve(ROOT, paths.cs_output_dir);
+  const CLIENT_DIR = path.resolve(ROOT, paths.client_output_dir);
+  const REGISTRY_PATH = path.resolve(ROOT, paths.cs_registry_path);
+
+  console.log(`[SyncMaps] 地图源:   ${SOURCE_DIR}`);
+  console.log(`[SyncMaps] C# 输出:  ${CS_DIR}`);
+  console.log(`[SyncMaps] 客户端:   ${CLIENT_DIR}`);
+
+  if (!fs.existsSync(SOURCE_DIR)) {
+    console.log('[SyncMaps] 地图源目录不存在，跳过');
     return;
   }
 
-  // 确保输出目录存在
-  if (!fs.existsSync(OUTPUT_DIR)) {
-    fs.mkdirSync(OUTPUT_DIR, { recursive: true });
-  }
+  [CS_DIR, CLIENT_DIR].forEach(d => fs.mkdirSync(d, { recursive: true }));
 
-  // 扫描地图子目录
-  const entries = fs.readdirSync(MAPS_DIR, { withFileTypes: true });
+  const entries = fs.readdirSync(SOURCE_DIR, { withFileTypes: true });
+  const registry: MapConfig[] = [];
   let syncCount = 0;
 
   for (const entry of entries) {
     if (!entry.isDirectory()) continue;
 
     const mapName = entry.name;
-    const csvPath = path.join(MAPS_DIR, mapName, 'map.csv');
+    const mapSourceDir = path.join(SOURCE_DIR, mapName);
+    const csvPath = path.join(mapSourceDir, 'map.csv');
+    const configPath = path.join(mapSourceDir, 'config.cfg');
 
     if (!fs.existsSync(csvPath)) {
       console.log(`[SyncMaps] 跳过 ${mapName}: 没有 map.csv`);
@@ -116,13 +145,30 @@ function syncMaps() {
     }
 
     const luaName = toPinyin(mapName);
-    const luaContent = generateLua(mapName, data);
-    const outputPath = path.join(OUTPUT_DIR, `map_${luaName}.lua`);
+    const mapConfig = loadMapConfig(configPath, mapName, data.width, data.height);
 
-    fs.writeFileSync(outputPath, luaContent, 'utf-8');
-    console.log(`[SyncMaps] 同步: ${mapName} (${data.width}x${data.height}) → map_${luaName}.lua`);
+    // 1. C# 服务器 — CSV
+    const csMapDir = path.join(CS_DIR, luaName);
+    fs.mkdirSync(csMapDir, { recursive: true });
+    fs.copyFileSync(csvPath, path.join(csMapDir, 'map.csv'));
+
+    // 2. 客户端 — CSV + config.cfg
+    const clientMapDir = path.join(CLIENT_DIR, mapName);
+    fs.mkdirSync(clientMapDir, { recursive: true });
+    fs.copyFileSync(csvPath, path.join(clientMapDir, 'map.csv'));
+    if (fs.existsSync(configPath)) {
+      fs.copyFileSync(configPath, path.join(clientMapDir, 'config.cfg'));
+    }
+
+    registry.push(mapConfig);
+    console.log(`[SyncMaps] ${mapName} (${data.width}x${data.height}) → cs:${luaName} + client:${mapName}`);
     syncCount++;
   }
+
+  // 3. 生成 C# 地图注册表 JSON
+  fs.mkdirSync(path.dirname(REGISTRY_PATH), { recursive: true });
+  fs.writeFileSync(REGISTRY_PATH, JSON.stringify(registry, null, 2), 'utf-8');
+  console.log(`[SyncMaps] 注册表: ${REGISTRY_PATH} (${registry.length} 张地图)`);
 
   console.log(`[SyncMaps] 完成，共同步 ${syncCount} 张地图`);
 }

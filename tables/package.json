@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "tsx scripts/build_tables.ts",
-    "clean": "rm -rf ../docker/skynet/lualib/tables ../server/src/tables .tmp"
+    "clean": "rm -rf .tmp ../servercsharp/data/tables"
   },
   "keywords": [
     "luban",

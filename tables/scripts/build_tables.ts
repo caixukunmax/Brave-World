@@ -2,7 +2,7 @@
 /**
  * =============================================================================
  * Luban 配置表编译脚本
- * 功能：从 Excel 生成 Lua 配置代码（Skynet 端）和 JSON 数据（Node.js 端）
+ * 功能：从 Excel 生成 JSON 数据（C# 服务器端）
  * =============================================================================
  */
 
@@ -30,8 +30,6 @@ interface LubanConfig {
 
 interface PathsConfig {
   tables: {
-    lua_code_dir: string;
-    lua_data_dir: string;
     json_data_dir: string;
   };
 }
@@ -141,19 +139,13 @@ function main(): void {
   const ROOT_DIR = path.resolve(BASE_DIR, '..');
   const LUBAN_DLL = path.join(BASE_DIR, config.luban_dll);
   const CONFIG_PATH = path.join(BASE_DIR, config.input.config_file);
-  const LUA_CODE_DIR = path.resolve(ROOT_DIR, paths.tables.lua_code_dir);
-  const LUA_DATA_DIR = path.resolve(ROOT_DIR, paths.tables.lua_data_dir);
   const JSON_DATA_DIR = path.resolve(ROOT_DIR, paths.tables.json_data_dir);
 
-  // 临时目录（不能与输出目录有父子关系，否则 Luban 会误删文件）
+  // 临时目录
   const TMP_DIR = path.join(BASE_DIR, '.tmp');
-  const TMP_LUA_CODE = path.join(TMP_DIR, 'lua_code');
-  const TMP_LUA_DATA = path.join(TMP_DIR, 'lua_data');
   const TMP_JSON_DATA = path.join(TMP_DIR, 'json_data');
 
   console.log(`Luban DLL:       ${LUBAN_DLL}`);
-  console.log(`Lua code dir:    ${LUA_CODE_DIR}`);
-  console.log(`Lua data dir:    ${LUA_DATA_DIR}`);
   console.log(`JSON data dir:   ${JSON_DATA_DIR}`);
   console.log('');
 
@@ -186,48 +178,16 @@ function main(): void {
 
   // 清理临时目录
   removeDirSync(TMP_DIR);
-  fs.mkdirSync(TMP_LUA_CODE, { recursive: true });
-  fs.mkdirSync(TMP_LUA_DATA, { recursive: true });
   fs.mkdirSync(TMP_JSON_DATA, { recursive: true });
 
   // 创建输出目录
-  fs.mkdirSync(LUA_CODE_DIR, { recursive: true });
-  fs.mkdirSync(LUA_DATA_DIR, { recursive: true });
   fs.mkdirSync(JSON_DATA_DIR, { recursive: true });
 
   // --------------------------------------------------------------------------
-  // Step 1: 生成 Lua code + Lua data（Skynet 端）
+  // 生成 JSON data（C# 服务器端）
   // --------------------------------------------------------------------------
   console.log('----------------------------------------');
-  info('Generating Lua code and data (Skynet)...');
-  console.log('----------------------------------------');
-
-  const luaArgs = [
-    '-t', 'all',
-    '-c', 'lua-lua',
-    '-d', 'lua',
-    '-f',
-    '-x', `outputCodeDir=${TMP_LUA_CODE}`,
-    '-x', `outputDataDir=${TMP_LUA_DATA}`,
-    '-x', `l10n.textProviderFile=${config.luban_args.l10n_text_provider_file}`,
-  ];
-
-  let code = runLuban(dotnetCmd, LUBAN_DLL, CONFIG_PATH, luaArgs, BASE_DIR);
-  if (code !== 0) {
-    error('Failed to generate Lua output');
-    process.exit(1);
-  }
-
-  copyDirSync(TMP_LUA_CODE, LUA_CODE_DIR);
-  copyDirSync(TMP_LUA_DATA, LUA_DATA_DIR);
-  success(`Lua → ${paths.tables.lua_code_dir}`);
-
-  // --------------------------------------------------------------------------
-  // Step 2: 生成 JSON data（Node.js 端）
-  // --------------------------------------------------------------------------
-  console.log('');
-  console.log('----------------------------------------');
-  info('Generating JSON data (Node.js)...');
+  info('Generating JSON data (C# server)...');
   console.log('----------------------------------------');
 
   const jsonArgs = [
@@ -235,12 +195,12 @@ function main(): void {
     '-c', 'lua-lua',
     '-d', 'json',
     '-f',
-    '-x', `outputCodeDir=${TMP_LUA_CODE}`,
+    '-x', `outputCodeDir=${TMP_JSON_DATA}`,
     '-x', `outputDataDir=${TMP_JSON_DATA}`,
     '-x', `l10n.textProviderFile=${config.luban_args.l10n_text_provider_file}`,
   ];
 
-  code = runLuban(dotnetCmd, LUBAN_DLL, CONFIG_PATH, jsonArgs, BASE_DIR);
+  let code = runLuban(dotnetCmd, LUBAN_DLL, CONFIG_PATH, jsonArgs, BASE_DIR);
   if (code !== 0) {
     error('Failed to generate JSON output');
     process.exit(1);
