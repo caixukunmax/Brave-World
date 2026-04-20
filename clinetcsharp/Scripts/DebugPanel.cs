@@ -269,9 +269,9 @@ namespace ClinetCSharp
         #endregion
 
         #region State Variables
-        private Node2D _gridManager;
-        private Node2D _player;
-        private Camera2D _camera;
+        private GridManager _gridManager;
+        private Player _player;
+        private CameraController _camera;
         private bool _isPanelVisible = false;
         private bool _isPanelFocused = false;
         private bool _calibrationEnabled = false;
@@ -294,9 +294,9 @@ namespace ClinetCSharp
                 GD.Print("[DebugPanel] Button not found in scene, will create in SetupPanel");
 
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
-            _gridManager = GetTree().GetFirstNodeInGroup("grid_manager") as Node2D;
-            _player = GetTree().GetFirstNodeInGroup("player") as Node2D;
-            _camera = GetTree().GetFirstNodeInGroup("camera") as Camera2D;
+            _gridManager = GetTree().GetFirstNodeInGroup("grid_manager") as GridManager;
+            _player = GetTree().GetFirstNodeInGroup("player") as Player;
+            _camera = GetTree().GetFirstNodeInGroup("camera") as CameraController;
 
             SetupPanel();
             SetupSliders();
@@ -317,7 +317,7 @@ namespace ClinetCSharp
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
 
-            _player = GetTree().GetFirstNodeInGroup("player") as Node2D;
+            _player = GetTree().GetFirstNodeInGroup("player") as Player;
             GD.Print($"[DebugPanel] _Ready() player reference: {_player}");
 
             LoadConfig();
@@ -327,7 +327,7 @@ namespace ClinetCSharp
             if (_gridManager != null && (_responsiveCheck == null || !_responsiveCheck.ButtonPressed))
             {
                 int gridSize = (int)_gridSizeSlider.Value;
-                _gridManager.Call("SetGridSize", gridSize);
+                _gridManager.SetGridSize(gridSize);
                 GD.Print($"[DebugPanel] Re-applied grid size: {gridSize}");
             }
 

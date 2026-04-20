@@ -21,7 +21,7 @@ namespace ClinetCSharp
 
             if (_gridManager != null)
             {
-                _gridManager.Call("SetGridSize", newGridSize);
+                _gridManager.SetGridSize(newGridSize);
                 GD.Print($"[DebugPanel] Called GridManager.SetGridSize({newGridSize})");
             }
             else
@@ -32,8 +32,8 @@ namespace ClinetCSharp
             // 同步玩家大小滑块和比例滑块（SetGridSize 已自动按比例重算）
             if (_player != null)
             {
-                int newPlayerSize = _player.Get("VisualSize").AsInt32();
-                float newPlayerScale = _player.Get("VisualSizeScale").AsSingle();
+                int newPlayerSize = _player.VisualSize;
+                float newPlayerScale = _player.VisualSizeScale;
                 if (_playerSizeSlider != null)
                 {
                     _playerSizeSlider.SetBlockSignals(true);
@@ -49,8 +49,8 @@ namespace ClinetCSharp
                     _playerSizeScaleValue.Text = newPlayerScale.ToString("F2");
                 }
 
-                float newBorderWidth = _player.Get("BorderWidth").AsSingle();
-                float newBorderScale = _player.Get("BorderWidthScale").AsSingle();
+                float newBorderWidth = _player.BorderWidth;
+                float newBorderScale = _player.BorderWidthScale;
                 if (_borderWidthSlider != null)
                 {
                     _borderWidthSlider.SetBlockSignals(true);
@@ -66,8 +66,8 @@ namespace ClinetCSharp
                     _borderWidthScaleValue.Text = newBorderScale.ToString("F2");
                 }
 
-                float newHpLength = _player.Get("HealthBarLength").AsSingle();
-                float newHpLengthScale = _player.Get("HealthBarLengthScale").AsSingle();
+                float newHpLength = _player.HealthBarLength;
+                float newHpLengthScale = _player.HealthBarLengthScale;
                 if (_healthBarLengthSlider != null)
                 {
                     _healthBarLengthSlider.SetBlockSignals(true);
@@ -83,8 +83,8 @@ namespace ClinetCSharp
                     _healthBarLengthScaleValue.Text = newHpLengthScale.ToString("F2");
                 }
 
-                float newHpHeight = _player.Get("HealthBarHeight").AsSingle();
-                float newHpHeightScale = _player.Get("HealthBarHeightScale").AsSingle();
+                float newHpHeight = _player.HealthBarHeight;
+                float newHpHeightScale = _player.HealthBarHeightScale;
                 if (_healthBarHeightSlider != null)
                 {
                     _healthBarHeightSlider.SetBlockSignals(true);
@@ -130,7 +130,7 @@ namespace ClinetCSharp
         {
             if (_gridManager != null)
             {
-                _gridManager.Call("queue_redraw");
+                _gridManager.QueueRedraw();
             }
         }
 
@@ -140,9 +140,9 @@ namespace ClinetCSharp
             if (_gridManager != null)
             {
                 _gridSizeSlider.SetBlockSignals(true);
-                _gridSizeSlider.Value = (int)_gridManager.Get("grid_size");
-                bool responsiveMode = (bool)_gridManager.Get("responsive_mode");
-                _gridSizeValue.Text = responsiveMode ? $"{_gridManager.Get("grid_size")} (自动)" : _gridManager.Get("grid_size").ToString();
+                _gridSizeSlider.Value = (int)_gridManager.GridSize;
+                bool responsiveMode = _gridManager.ResponsiveMode;
+                _gridSizeValue.Text = responsiveMode ? $"{_gridManager.GridSize} (自动)" : _gridManager.GridSize.ToString();
                 _gridSizeSlider.SetBlockSignals(false);
             }
         }
@@ -165,13 +165,13 @@ namespace ClinetCSharp
                 if (_calibrationEnabled)
                 {
                     // Preview mode: set preview value
-                    _gridManager.Call("SetPreviewLineWidth", (float)_gridLineWidthSlider.Value);
+                    _gridManager.SetPreviewLineWidth((float)_gridLineWidthSlider.Value);
                     GD.Print($"[DebugPanel] Set preview line width: {_gridLineWidthSlider.Value}");
                 }
                 else
                 {
                     // Manual mode: set line_width_scale
-                    _gridManager.Call("SetLineWidthScale", (float)_gridLineWidthSlider.Value);
+                    _gridManager.SetLineWidthScale((float)_gridLineWidthSlider.Value);
                     GD.Print($"[DebugPanel] Set line width scale: {_gridLineWidthSlider.Value}");
                 }
             }
@@ -183,8 +183,8 @@ namespace ClinetCSharp
             if (_gridManager != null)
             {
                 float brightness = (float)_gridLineBrightnessSlider.Value;
-                _gridManager.Set("line_color", new Color(brightness, brightness, brightness));
-                _gridManager.Call("queue_redraw");
+                _gridManager.LineColor = new Color(brightness, brightness, brightness);
+                _gridManager.QueueRedraw();
             }
             PushCurrentStateToHistory();
         }
@@ -198,7 +198,7 @@ namespace ClinetCSharp
         {
             if (_gridManager != null)
             {
-                _gridManager.Call("SetShowGridCoords", enabled);
+                _gridManager.SetShowGridCoords(enabled);
             }
             PushCurrentStateToHistory();
         }
@@ -207,8 +207,8 @@ namespace ClinetCSharp
         {
             if (_gridManager != null)
             {
-                _gridManager.Call("SetLineWidthScale", value);
-                _gridManager.Call("queue_redraw");
+                _gridManager.SetLineWidthScale(value);
+                _gridManager.QueueRedraw();
             }
         }
 
@@ -226,9 +226,9 @@ namespace ClinetCSharp
 
         private void OnCameraReturnDelayDragEnded(bool valueChanged)
         {
-            if (_camera != null && _camera.HasMethod("SetReturnDelay"))
+            if (_camera != null)
             {
-                _camera.Call("SetReturnDelay", _cameraReturnDelaySlider.Value);
+                _camera.SetReturnDelay(_cameraReturnDelaySlider.Value);
             }
             PushCurrentStateToHistory();
         }
@@ -240,18 +240,18 @@ namespace ClinetCSharp
 
         private void OnCameraReturnSpeedDragEnded(bool valueChanged)
         {
-            if (_camera != null && _camera.HasMethod("SetReturnSpeed"))
+            if (_camera != null)
             {
-                _camera.Call("SetReturnSpeed", _cameraReturnSpeedSlider.Value);
+                _camera.SetReturnSpeed(_cameraReturnSpeedSlider.Value);
             }
             PushCurrentStateToHistory();
         }
 
         private void OnCameraEaseTypeChanged(long index)
         {
-            if (_camera != null && _camera.HasMethod("SetEaseType"))
+            if (_camera != null)
             {
-                _camera.Call("SetEaseType", (int)index);
+                _camera.SetEaseType((int)index);
             }
             PushCurrentStateToHistory();
         }
@@ -263,18 +263,18 @@ namespace ClinetCSharp
 
         private void OnCameraEasePowerDragEnded(bool valueChanged)
         {
-            if (_camera != null && _camera.HasMethod("SetEasePower"))
+            if (_camera != null)
             {
-                _camera.Call("SetEasePower", _cameraEasePowerSlider.Value);
+                _camera.SetEasePower(_cameraEasePowerSlider.Value);
             }
             PushCurrentStateToHistory();
         }
 
         private void OnFreeLookToggled(bool enabled)
         {
-            if (_camera != null && _camera.HasMethod("SetFreeLookMode"))
+            if (_camera != null)
             {
-                _camera.Call("SetFreeLookMode", enabled);
+                _camera.SetFreeLookMode(enabled);
             }
             UpdateControlStates();
         }
@@ -286,7 +286,7 @@ namespace ClinetCSharp
             GD.Print($"[DebugPanel] Debug info toggled: {enabled}");
             if (_player != null)
             {
-                _player.Call("SetShowDebugInfo", enabled);
+                _player.SetShowDebugInfo(enabled);
                 GD.Print($"[DebugPanel] Called Player.SetShowDebugInfo({enabled})");
             }
             else
@@ -297,9 +297,9 @@ namespace ClinetCSharp
 
         private void OnCameraDebugToggled(bool enabled)
         {
-            if (_camera != null && _camera.HasMethod("SetDebugDrag"))
+            if (_camera != null)
             {
-                _camera.Call("SetDebugDrag", enabled);
+                _camera.SetDebugDrag(enabled);
             }
         }
 
@@ -336,10 +336,10 @@ namespace ClinetCSharp
         {
             if (_player != null)
             {
-                _player.Call("SetVisualSize", (int)_playerSizeSlider.Value);
+                _player.SetVisualSize((int)_playerSizeSlider.Value);
                 int gridSize = (int)_gridSizeSlider.Value;
                 float scale = gridSize > 0 ? (float)(_playerSizeSlider.Value / gridSize) : 1.0f;
-                _player.Set("VisualSizeScale", scale);
+                _player.VisualSizeScale = scale;
                 if (_playerSizeScaleSlider != null)
                 {
                     _playerSizeScaleSlider.SetBlockSignals(true);
@@ -362,8 +362,8 @@ namespace ClinetCSharp
         {
             if (_player != null)
             {
-                _player.Call("SetVisualSizeScale", (float)_playerSizeScaleSlider.Value);
-                int newSize = _player.Get("VisualSize").AsInt32();
+                _player.SetVisualSizeScale((float)_playerSizeScaleSlider.Value);
+                int newSize = _player.VisualSize;
                 if (_playerSizeSlider != null)
                 {
                     _playerSizeSlider.SetBlockSignals(true);
@@ -391,8 +391,8 @@ namespace ClinetCSharp
             {
                 int gridSize = (int)_gridSizeSlider.Value;
                 float scale = gridSize > 0 ? (float)(_borderWidthSlider.Value / gridSize) : 0.0f;
-                _player.Call("SetBorderWidth", _borderWidthSlider.Value);
-                _player.Set("BorderWidthScale", scale);
+                _player.SetBorderWidth(_borderWidthSlider.Value);
+                _player.BorderWidthScale = scale;
                 if (_borderWidthScaleSlider != null)
                 {
                     _borderWidthScaleSlider.SetBlockSignals(true);
@@ -415,8 +415,8 @@ namespace ClinetCSharp
         {
             if (_player != null)
             {
-                _player.Call("SetBorderWidthScale", (float)_borderWidthScaleSlider.Value);
-                float newWidth = _player.Get("BorderWidth").AsSingle();
+                _player.SetBorderWidthScale((float)_borderWidthScaleSlider.Value);
+                float newWidth = _player.BorderWidth;
                 if (_borderWidthSlider != null)
                 {
                     _borderWidthSlider.SetBlockSignals(true);
@@ -442,7 +442,7 @@ namespace ClinetCSharp
         {
             if (_player != null)
             {
-                _player.Call("SetCornerRadius", _cornerRadiusSlider.Value);
+                _player.SetCornerRadius(_cornerRadiusSlider.Value);
             }
             if (pushToHistory)
                 PushCurrentStateToHistory();
@@ -462,8 +462,8 @@ namespace ClinetCSharp
         {
             if (_player != null)
             {
-                _player.Call("SetBgOpacity", (float)_bgOpacitySlider.Value);
-                _player.Call("queue_redraw");
+                _player.SetBgOpacity((float)_bgOpacitySlider.Value);
+                _player.QueueRedraw();
             }
             if (pushToHistory)
                 PushCurrentStateToHistory();
@@ -478,8 +478,8 @@ namespace ClinetCSharp
                 // Built-in font
                 if (_player != null)
                 {
-                    _player.Call("SetFont", FONT_LIST[index]);
-                    _player.Call("RefreshLabels");
+                    _player.SetFont(FONT_LIST[index]);
+                    _player.RefreshLabels();
                 }
             }
             else
@@ -498,8 +498,8 @@ namespace ClinetCSharp
         {
             if (_player != null)
             {
-                _player.Call("SetFont", path);
-                _player.Call("RefreshLabels");
+                _player.SetFont(path);
+                _player.RefreshLabels();
                 GD.Print($"[DebugPanel] Loaded custom font: {path}");
             }
         }
@@ -527,18 +527,18 @@ namespace ClinetCSharp
             {
                 if (_fontAutoSizeCheck != null && _fontAutoSizeCheck.ButtonPressed)
                 {
-                    _player.Call("SetFontSize", 0);
+                    _player.SetFontSize(0);
                 }
                 else
                 {
-                    _player.Call("SetFontSize", (int)_fontSizeSlider.Value);
-                    _player.Call("RefreshLabels");
+                    _player.SetFontSize((int)_fontSizeSlider.Value);
+                    _player.RefreshLabels();
                 }
             }
             if (pushToHistory)
             {
                 PushCurrentStateToHistory();
-                _player?.Call("RefreshLabels");
+                _player?.RefreshLabels();
             }
         }
 
@@ -556,8 +556,8 @@ namespace ClinetCSharp
         {
             if (_player != null)
             {
-                _player.Call("SetLineSpacing", (float)_lineSpacingSlider.Value);
-                _player.Call("RefreshLabels");
+                _player.SetLineSpacing((float)_lineSpacingSlider.Value);
+                _player.RefreshLabels();
             }
             if (pushToHistory)
                 PushCurrentStateToHistory();
@@ -577,8 +577,8 @@ namespace ClinetCSharp
         {
             if (_player != null)
             {
-                _player.Call("SetLetterSpacing", (float)_letterSpacingSlider.Value);
-                _player.Call("RefreshLabels");
+                _player.SetLetterSpacing((float)_letterSpacingSlider.Value);
+                _player.RefreshLabels();
             }
             if (pushToHistory)
                 PushCurrentStateToHistory();
@@ -588,8 +588,8 @@ namespace ClinetCSharp
         {
             if (_player != null)
             {
-                _player.Call("SetTextAlignment", (int)alignment);
-                _player.Call("RefreshLabels");
+                _player.SetTextAlignment((int)alignment);
+                _player.RefreshLabels();
             }
             PushCurrentStateToHistory();
         }
@@ -597,15 +597,15 @@ namespace ClinetCSharp
         private void OnLineColorButtonPressed(int lineIndex)
         {
             // Cycle through colors
-            Godot.Collections.Array<Color> lineColors = (Godot.Collections.Array<Color>)_player.Get("LineColors");
+            Godot.Collections.Array<Color> lineColors = _player.LineColors;
             Color currentColor = lineIndex < lineColors.Count ? lineColors[lineIndex] : Colors.Black;
             int currentIdx = System.Array.IndexOf(COLOR_PRESETS, currentColor);
             int nextIndex = (currentIdx + 1) % COLOR_PRESETS.Length;
 
             lineColors[lineIndex] = COLOR_PRESETS[nextIndex];
-            _player.Set("LineColors", lineColors);
+            _player.LineColors = lineColors;
             _lineColorButtons[lineIndex].Modulate = COLOR_PRESETS[nextIndex];
-            _player.Call("RefreshLabels");
+            _player.RefreshLabels();
             PushCurrentStateToHistory();
         }
 
@@ -613,8 +613,8 @@ namespace ClinetCSharp
         {
             if (_player != null)
             {
-                _player.Call("SetFontBold", enabled);
-                _player.Call("RefreshLabels");
+                _player.SetFontBold(enabled);
+                _player.RefreshLabels();
             }
             PushCurrentStateToHistory();
         }
@@ -623,8 +623,8 @@ namespace ClinetCSharp
         {
             if (_player != null)
             {
-                _player.Call("SetFontItalic", enabled);
-                _player.Call("RefreshLabels");
+                _player.SetFontItalic(enabled);
+                _player.RefreshLabels();
             }
             PushCurrentStateToHistory();
         }
@@ -633,8 +633,8 @@ namespace ClinetCSharp
         {
             if (_player != null)
             {
-                _player.Call("SetFontShadow", enabled);
-                _player.Call("RefreshLabels");
+                _player.SetFontShadow(enabled);
+                _player.RefreshLabels();
             }
             PushCurrentStateToHistory();
         }
@@ -644,40 +644,40 @@ namespace ClinetCSharp
         private void OnLabelVisibleToggled(int index, bool enabled)
         {
             if (_player != null)
-                _player.Call("SetLabelVisible", index, enabled);
+                _player.SetLabelVisible(index, enabled);
             PushCurrentStateToHistory();
         }
 
         private void OnLabelNameChanged(int index, string newName)
         {
             if (_player != null)
-                _player.Call("SetLabelName", index, newName);
+                _player.SetLabelName(index, newName);
         }
 
         private void OnLabelTextChanged(int index, string newText)
         {
             if (_player != null)
-                _player.Call("SetLabelText", index, newText);
+                _player.SetLabelText(index, newText);
         }
 
         private void OnLabelColorPressed(int index)
         {
             if (_player == null) return;
-            var lineColors = (Godot.Collections.Array<Color>)_player.Get("LineColors");
+            var lineColors = _player.LineColors;
             Color currentColor = index < lineColors.Count ? lineColors[index] : Colors.Black;
             int currentIdx = System.Array.IndexOf(COLOR_PRESETS, currentColor);
             int nextIndex = (currentIdx + 1) % COLOR_PRESETS.Length;
 
-            _player.Call("SetLineColor", index, COLOR_PRESETS[nextIndex]);
+            _player.SetLineColor(index, COLOR_PRESETS[nextIndex]);
             _labelColorButtons[index].Modulate = COLOR_PRESETS[nextIndex];
-            _player.Call("RefreshLabels");
+            _player.RefreshLabels();
             PushCurrentStateToHistory();
         }
 
         private void OnLabelResetPressed(int index)
         {
             if (_player == null) return;
-            _player.Call("ResetLabelOffset", index);
+            _player.ResetLabelOffset(index);
             SyncLabelOffsetSlidersFromPlayer();
             PushCurrentStateToHistory();
         }
@@ -691,8 +691,8 @@ namespace ClinetCSharp
         {
             if (_player != null)
             {
-                _player.Call("SetLabelFontSize", index, (int)_labelFontSizeSliders[index].Value);
-                _player.Call("RefreshLabels");
+                _player.SetLabelFontSize(index, (int)_labelFontSizeSliders[index].Value);
+                _player.RefreshLabels();
             }
             PushCurrentStateToHistory();
         }
@@ -703,8 +703,8 @@ namespace ClinetCSharp
             // Apply immediately for real-time feedback
             if (_player != null)
             {
-                var currentOffset = (Vector2)_player.Call("GetLabelOffset", index);
-                _player.Call("SetLabelOffset", index, new Vector2((float)value, currentOffset.Y));
+                var currentOffset = _player.GetLabelOffset(index);
+                _player.SetLabelOffset(index, new Vector2((float)value, currentOffset.Y));
             }
         }
 
@@ -713,8 +713,8 @@ namespace ClinetCSharp
             _labelOffsetYValues[index].Text = ((int)value).ToString();
             if (_player != null)
             {
-                var currentOffset = (Vector2)_player.Call("GetLabelOffset", index);
-                _player.Call("SetLabelOffset", index, new Vector2(currentOffset.X, (float)value));
+                var currentOffset = _player.GetLabelOffset(index);
+                _player.SetLabelOffset(index, new Vector2(currentOffset.X, (float)value));
             }
         }
 
@@ -729,7 +729,7 @@ namespace ClinetCSharp
         public void SyncLabelOffsetSlidersFromPlayer()
         {
             if (_player == null) return;
-            bool autoCenter = _player.Get("LabelAutoCenterX").AsBool();
+            bool autoCenter = _player.LabelAutoCenterX;
             if (_labelAutoCenterXCheck != null)
             {
                 _labelAutoCenterXCheck.SetBlockSignals(true);
@@ -738,7 +738,7 @@ namespace ClinetCSharp
             }
             for (int i = 0; i < LabelCount; i++)
             {
-                var offset = (Vector2)_player.Call("GetLabelOffset", i);
+                var offset = _player.GetLabelOffset(i);
                 _labelOffsetXSliders[i].SetBlockSignals(true);
                 _labelOffsetYSliders[i].SetBlockSignals(true);
                 if (autoCenter)
@@ -764,7 +764,7 @@ namespace ClinetCSharp
         {
             if (_player != null)
             {
-                _player.Call("SetLabelAutoCenterX", enabled);
+                _player.SetLabelAutoCenterX(enabled);
             }
             SyncLabelOffsetSlidersFromPlayer();
             PushCurrentStateToHistory();
@@ -778,7 +778,7 @@ namespace ClinetCSharp
 
             if (_gridManager != null)
             {
-                _gridManager.Call("SetAdaptiveCalibrationEnabled", enabled);
+                _gridManager.SetAdaptiveCalibrationEnabled(enabled);
                 GD.Print($"[DebugPanel] Calibration toggled: {enabled}");
             }
 
@@ -793,11 +793,11 @@ namespace ClinetCSharp
             {
                 if (_camera != null)
                 {
-                    _camera.Call("SetCalibrationZoomLimits", false);
+                    _camera.SetCalibrationZoomLimits(false);
                     GD.Print("[DebugPanel] Calibration zoom limit disabled");
                 }
                 if (_gridManager != null)
-                    _gridManager.Call("SetLineWidthScale", (float)_gridLineWidthSlider.Value);
+                    _gridManager.SetLineWidthScale((float)_gridLineWidthSlider.Value);
             }
             UpdateControlStates();
         }
@@ -822,7 +822,7 @@ namespace ClinetCSharp
             double widthA = _refWidthASpin.Value;
             double zoomB = _refZoomBSpin.Value;
             double widthB = _refWidthBSpin.Value;
-            _gridManager.Call("SetLineWidthCalibration", zoomA, widthA, zoomB, widthB);
+            _gridManager.SetLineWidthCalibration(zoomA, widthA, zoomB, widthB);
 
             // Update slider display to current zoom corresponding value
             SyncLineWidthToAdaptiveValue();
@@ -847,7 +847,7 @@ namespace ClinetCSharp
                 // Reference point A is usually farther view (smaller zoom), B is closer view (larger zoom)
                 double minZoomLimit = Mathf.Min((float)zoomA, (float)zoomB);
                 double maxZoomLimit = Mathf.Max((float)zoomA, (float)zoomB);
-                _camera.Call("SetCalibrationZoomLimits", true, minZoomLimit, maxZoomLimit);
+                _camera.SetCalibrationZoomLimits(true, minZoomLimit, maxZoomLimit);
                 GD.Print($"[DebugPanel] Calibration zoom limit enabled: zoom [{minZoomLimit:F1} - {maxZoomLimit:F1}]");
             }
         }
@@ -891,13 +891,9 @@ namespace ClinetCSharp
 
             // Update camera controller
             Godot.Collections.Array<MouseButton> buttons = new Godot.Collections.Array<MouseButton> { selectedButton };
-            if (_camera != null && _camera.HasMethod("SetDragButtons"))
+            if (_camera != null)
             {
-                _camera.Call("SetDragButtons", buttons);
-            }
-            else if (_camera != null)
-            {
-                _camera.Set("drag_buttons", buttons);
+                _camera.SetDragButtons(buttons);
             }
 
             string[] buttonNames = new string[] { "左键", "右键", "中键" };
@@ -922,16 +918,16 @@ namespace ClinetCSharp
             {
                 if (_player != null)
                 {
-                    _player.Call("SetFontSize", 0);
-                    _player.Call("RefreshLabels");
+                    _player.SetFontSize(0);
+                    _player.RefreshLabels();
                 }
             }
             else
             {
                 if (_player != null)
                 {
-                    _player.Call("SetFontSize", (int)_fontSizeSlider.Value);
-                    _player.Call("RefreshLabels");
+                    _player.SetFontSize((int)_fontSizeSlider.Value);
+                    _player.RefreshLabels();
                 }
             }
             UpdateControlStates();
@@ -1067,14 +1063,14 @@ namespace ClinetCSharp
         private void OnHealthBarVisibleToggled(bool enabled)
         {
             if (_player != null)
-                _player.Call("SetHealthBarVisible", enabled);
+                _player.SetHealthBarVisible(enabled);
             PushCurrentStateToHistory();
         }
 
         private void OnHealthBarColorPressed()
         {
             if (_player == null) return;
-            var currentColor = (Color)_player.Get("HealthBarColor");
+            var currentColor = _player.HealthBarColor;
             int currentIdx = System.Array.IndexOf(COLOR_PRESETS, currentColor);
             // Add green to cycle if not found
             Color[] hpColors = new Color[] { new Color(0, 0.8f, 0, 1), Colors.Red, Colors.Yellow, Colors.Cyan, Colors.White };
@@ -1084,7 +1080,7 @@ namespace ClinetCSharp
                 if (currentColor.IsEqualApprox(hpColors[i])) { idx = i; break; }
             }
             int nextIdx = (idx + 1) % hpColors.Length;
-            _player.Call("SetHealthBarColor", hpColors[nextIdx]);
+            _player.SetHealthBarColor(hpColors[nextIdx]);
             _healthBarColorBtn.Modulate = hpColors[nextIdx];
             PushCurrentStateToHistory();
         }
@@ -1096,8 +1092,8 @@ namespace ClinetCSharp
             {
                 int gridSize = (int)_gridSizeSlider.Value;
                 float scale = gridSize > 0 ? (float)(value / gridSize) : 0.0f;
-                _player.Call("SetHealthBarLength", (float)value);
-                _player.Set("HealthBarLengthScale", scale);
+                _player.SetHealthBarLength((float)value);
+                _player.HealthBarLengthScale = scale;
                 if (_healthBarLengthScaleSlider != null)
                 {
                     _healthBarLengthScaleSlider.SetBlockSignals(true);
@@ -1113,8 +1109,8 @@ namespace ClinetCSharp
             _healthBarLengthScaleValue.Text = value.ToString("F2");
             if (_player != null)
             {
-                _player.Call("SetHealthBarLengthScale", (float)value);
-                float newLength = _player.Get("HealthBarLength").AsSingle();
+                _player.SetHealthBarLengthScale((float)value);
+                float newLength = _player.HealthBarLength;
                 if (_healthBarLengthSlider != null)
                 {
                     _healthBarLengthSlider.SetBlockSignals(true);
@@ -1132,8 +1128,8 @@ namespace ClinetCSharp
             {
                 int gridSize = (int)_gridSizeSlider.Value;
                 float scale = gridSize > 0 ? (float)(value / gridSize) : 0.0f;
-                _player.Call("SetHealthBarHeight", (float)value);
-                _player.Set("HealthBarHeightScale", scale);
+                _player.SetHealthBarHeight((float)value);
+                _player.HealthBarHeightScale = scale;
                 if (_healthBarHeightScaleSlider != null)
                 {
                     _healthBarHeightScaleSlider.SetBlockSignals(true);
@@ -1149,8 +1145,8 @@ namespace ClinetCSharp
             _healthBarHeightScaleValue.Text = value.ToString("F2");
             if (_player != null)
             {
-                _player.Call("SetHealthBarHeightScale", (float)value);
-                float newHeight = _player.Get("HealthBarHeight").AsSingle();
+                _player.SetHealthBarHeightScale((float)value);
+                float newHeight = _player.HealthBarHeight;
                 if (_healthBarHeightSlider != null)
                 {
                     _healthBarHeightSlider.SetBlockSignals(true);
@@ -1165,7 +1161,7 @@ namespace ClinetCSharp
         {
             _healthBarFillValue.Text = $"{(int)value}%";
             if (_player != null)
-                _player.Call("SetHealthBarFillPercent", (float)(value / 100.0));
+                _player.SetHealthBarFillPercent((float)(value / 100.0));
         }
 
         private void OnHealthBarOffsetXChanged(double value)
@@ -1173,8 +1169,8 @@ namespace ClinetCSharp
             _healthBarOffsetXValue.Text = ((int)value).ToString();
             if (_player != null)
             {
-                var offset = (Vector2)_player.Call("GetHealthBarOffset");
-                _player.Call("SetHealthBarOffset", new Vector2((float)value, offset.Y));
+                var offset = _player.GetHealthBarOffset();
+                _player.SetHealthBarOffset(new Vector2((float)value, offset.Y));
             }
         }
 
@@ -1183,8 +1179,8 @@ namespace ClinetCSharp
             _healthBarOffsetYValue.Text = ((int)value).ToString();
             if (_player != null)
             {
-                var offset = (Vector2)_player.Call("GetHealthBarOffset");
-                _player.Call("SetHealthBarOffset", new Vector2(offset.X, (float)value));
+                var offset = _player.GetHealthBarOffset();
+                _player.SetHealthBarOffset(new Vector2(offset.X, (float)value));
             }
         }
         #endregion
@@ -1193,14 +1189,14 @@ namespace ClinetCSharp
         private void OnCastBarVisibleToggled(bool enabled)
         {
             if (_player != null)
-                _player.Call("SetCastBarVisible", enabled);
+                _player.SetCastBarVisible(enabled);
             PushCurrentStateToHistory();
         }
 
         private void OnCastBarColorPressed()
         {
             if (_player == null) return;
-            var currentColor = (Color)_player.Get("CastBarColor");
+            var currentColor = _player.CastBarColor;
             Color[] ctColors = new Color[] { new Color(0.3f, 0.5f, 1, 1), new Color(1, 0.5f, 0, 1), new Color(0.8f, 0.2f, 1, 1), Colors.White };
             int idx = 0;
             for (int i = 0; i < ctColors.Length; i++)
@@ -1208,7 +1204,7 @@ namespace ClinetCSharp
                 if (currentColor.IsEqualApprox(ctColors[i])) { idx = i; break; }
             }
             int nextIdx = (idx + 1) % ctColors.Length;
-            _player.Call("SetCastBarColor", ctColors[nextIdx]);
+            _player.SetCastBarColor(ctColors[nextIdx]);
             _castBarColorBtn.Modulate = ctColors[nextIdx];
             PushCurrentStateToHistory();
         }
@@ -1216,19 +1212,19 @@ namespace ClinetCSharp
         private void OnCastBarLengthChanged(double value)
         {
             _castBarLengthValue.Text = ((int)value).ToString();
-            if (_player != null) _player.Call("SetCastBarLength", (float)value);
+            if (_player != null) _player.SetCastBarLength((float)value);
         }
 
         private void OnCastBarHeightChanged(double value)
         {
             _castBarHeightValue.Text = ((int)value).ToString();
-            if (_player != null) _player.Call("SetCastBarHeight", (float)value);
+            if (_player != null) _player.SetCastBarHeight((float)value);
         }
 
         private void OnCastBarFillChanged(double value)
         {
             _castBarFillValue.Text = $"{(int)value}%";
-            if (_player != null) _player.Call("SetCastBarFillPercent", (float)(value / 100.0));
+            if (_player != null) _player.SetCastBarFillPercent((float)(value / 100.0));
         }
 
         private void OnCastBarOffsetXChanged(double value)
@@ -1236,8 +1232,8 @@ namespace ClinetCSharp
             _castBarOffsetXValue.Text = ((int)value).ToString();
             if (_player != null)
             {
-                var offset = (Vector2)_player.Call("GetCastBarOffset");
-                _player.Call("SetCastBarOffset", new Vector2((float)value, offset.Y));
+                var offset = _player.GetCastBarOffset();
+                _player.SetCastBarOffset(new Vector2((float)value, offset.Y));
             }
         }
 
@@ -1246,8 +1242,8 @@ namespace ClinetCSharp
             _castBarOffsetYValue.Text = ((int)value).ToString();
             if (_player != null)
             {
-                var offset = (Vector2)_player.Call("GetCastBarOffset");
-                _player.Call("SetCastBarOffset", new Vector2(offset.X, (float)value));
+                var offset = _player.GetCastBarOffset();
+                _player.SetCastBarOffset(new Vector2(offset.X, (float)value));
             }
         }
         #endregion
@@ -1255,32 +1251,32 @@ namespace ClinetCSharp
         #region Event Handlers - Level Badge
         private void OnLevelBadgeVisibleToggled(bool enabled)
         {
-            if (_player != null) _player.Call("SetLevelBadgeVisible", enabled);
+            if (_player != null) _player.SetLevelBadgeVisible(enabled);
             PushCurrentStateToHistory();
         }
 
         private void OnLevelBadgeTextColorPressed()
         {
             if (_player == null) return;
-            var current = (Color)_player.Get("LevelBadgeTextColor");
+            var current = _player.LevelBadgeTextColor;
             Color[] colors = new Color[] { Colors.Yellow, Colors.White, Colors.Cyan, new Color(1, 0.5f, 0, 1), Colors.Black };
             int idx = 0;
             for (int i = 0; i < colors.Length; i++) { if (current.IsEqualApprox(colors[i])) { idx = i; break; } }
             int next = (idx + 1) % colors.Length;
-            _player.Call("SetLevelBadgeTextColor", colors[next]);
+            _player.SetLevelBadgeTextColor(colors[next]);
             _levelBadgeTextColorBtn.Modulate = colors[next];
             PushCurrentStateToHistory();
         }
 
         private void OnLevelBadgeTextChanged(string newText)
         {
-            if (_player != null) _player.Call("SetLevelBadgeText", newText);
+            if (_player != null) _player.SetLevelBadgeText(newText);
         }
 
         private void OnLevelBadgeFontSizeChanged(double value)
         {
             _levelBadgeFontSizeValue.Text = ((int)value).ToString();
-            if (_player != null) _player.Call("SetLevelBadgeFontSize", (float)value);
+            if (_player != null) _player.SetLevelBadgeFontSize((float)value);
         }
 
         private void OnLevelBadgeOffsetXChanged(double value)
@@ -1288,8 +1284,8 @@ namespace ClinetCSharp
             _levelBadgeOffsetXValue.Text = ((int)value).ToString();
             if (_player != null)
             {
-                var offset = (Vector2)_player.Call("GetLevelBadgeOffset");
-                _player.Call("SetLevelBadgeOffset", new Vector2((float)value, offset.Y));
+                var offset = _player.GetLevelBadgeOffset();
+                _player.SetLevelBadgeOffset(new Vector2((float)value, offset.Y));
             }
         }
 
@@ -1298,8 +1294,8 @@ namespace ClinetCSharp
             _levelBadgeOffsetYValue.Text = ((int)value).ToString();
             if (_player != null)
             {
-                var offset = (Vector2)_player.Call("GetLevelBadgeOffset");
-                _player.Call("SetLevelBadgeOffset", new Vector2(offset.X, (float)value));
+                var offset = _player.GetLevelBadgeOffset();
+                _player.SetLevelBadgeOffset(new Vector2(offset.X, (float)value));
             }
         }
         #endregion

@@ -357,7 +357,7 @@ namespace ClinetCSharp
             config.SetValue("player", "font_size", _fontSizeSlider.Value);
             config.SetValue("player", "line_spacing", _lineSpacingSlider.Value);
             config.SetValue("player", "letter_spacing", _letterSpacingSlider.Value);
-            config.SetValue("player", "text_alignment", _player.Get("text_alignment"));
+            config.SetValue("player", "text_alignment", _player.TextAlignment);
             config.SetValue("player", "font_bold", _boldCheck.ButtonPressed);
             config.SetValue("player", "font_italic", _italicCheck.ButtonPressed);
             config.SetValue("player", "font_shadow", _shadowCheck.ButtonPressed);
@@ -402,19 +402,19 @@ namespace ClinetCSharp
             // Label control settings (4 independent labels)
             if (_player != null)
             {
-                bool autoCenterX = _player.Get("LabelAutoCenterX").AsBool();
+                bool autoCenterX = _player.LabelAutoCenterX;
                 config.SetValue("labels", "auto_center_x", autoCenterX);
                 for (int i = 0; i < LabelCount; i++)
                 {
                     string prefix = $"label_{i}";
                     config.SetValue("labels", $"{prefix}_visible", _labelVisibleChecks[i]?.ButtonPressed ?? true);
-                    config.SetValue("labels", $"{prefix}_name", _player.Call("GetLabelName", i).AsString());
-                    config.SetValue("labels", $"{prefix}_text", _player.Call("GetLabelText", i).AsString());
+                    config.SetValue("labels", $"{prefix}_name", _player.GetLabelName(i));
+                    config.SetValue("labels", $"{prefix}_text", _player.GetLabelText(i));
                     config.SetValue("labels", $"{prefix}_font_size", _labelFontSizeSliders[i]?.Value ?? 0);
-                    var offset = (Vector2)_player.Call("GetLabelOffset", i);
+                    var offset = _player.GetLabelOffset(i);
                     config.SetValue("labels", $"{prefix}_offset_x", (double)offset.X);
                     config.SetValue("labels", $"{prefix}_offset_y", (double)offset.Y);
-                    var lineColors = (Godot.Collections.Array<Color>)_player.Get("LineColors");
+                    var lineColors = _player.LineColors;
                     if (i < lineColors.Count)
                     {
                         var c = lineColors[i];
@@ -429,7 +429,7 @@ namespace ClinetCSharp
             // Health bar settings
             if (_player != null)
             {
-                var hpOffset = (Vector2)_player.Call("GetHealthBarOffset");
+                var hpOffset = _player.GetHealthBarOffset();
                 config.SetValue("healthbar", "visible", _healthBarVisibleCheck?.ButtonPressed ?? true);
                 config.SetValue("healthbar", "length", _healthBarLengthSlider?.Value ?? 80);
                 config.SetValue("healthbar", "length_scale", _healthBarLengthScaleSlider?.Value ?? (80.0 / 111.0));
@@ -438,7 +438,7 @@ namespace ClinetCSharp
                 config.SetValue("healthbar", "fill", _healthBarFillSlider?.Value ?? 100);
                 config.SetValue("healthbar", "offset_x", (double)hpOffset.X);
                 config.SetValue("healthbar", "offset_y", (double)hpOffset.Y);
-                var hpColor = (Color)_player.Get("HealthBarColor");
+                var hpColor = _player.HealthBarColor;
                 config.SetValue("healthbar", "color_r", hpColor.R);
                 config.SetValue("healthbar", "color_g", hpColor.G);
                 config.SetValue("healthbar", "color_b", hpColor.B);
@@ -447,14 +447,14 @@ namespace ClinetCSharp
             // Cast bar settings
             if (_player != null)
             {
-                var ctOffset = (Vector2)_player.Call("GetCastBarOffset");
+                var ctOffset = _player.GetCastBarOffset();
                 config.SetValue("castbar", "visible", _castBarVisibleCheck?.ButtonPressed ?? true);
                 config.SetValue("castbar", "length", _castBarLengthSlider?.Value ?? 60);
                 config.SetValue("castbar", "height", _castBarHeightSlider?.Value ?? 4);
                 config.SetValue("castbar", "fill", _castBarFillSlider?.Value ?? 60);
                 config.SetValue("castbar", "offset_x", (double)ctOffset.X);
                 config.SetValue("castbar", "offset_y", (double)ctOffset.Y);
-                var ctColor = (Color)_player.Get("CastBarColor");
+                var ctColor = _player.CastBarColor;
                 config.SetValue("castbar", "color_r", ctColor.R);
                 config.SetValue("castbar", "color_g", ctColor.G);
                 config.SetValue("castbar", "color_b", ctColor.B);
@@ -463,13 +463,13 @@ namespace ClinetCSharp
             // Level badge settings
             if (_player != null)
             {
-                var lvOffset = (Vector2)_player.Call("GetLevelBadgeOffset");
+                var lvOffset = _player.GetLevelBadgeOffset();
                 config.SetValue("levelbadge", "visible", _levelBadgeVisibleCheck?.ButtonPressed ?? true);
                 config.SetValue("levelbadge", "font_size", _levelBadgeFontSizeSlider?.Value ?? 12);
-                config.SetValue("levelbadge", "text", _player.Get("LevelBadgeText").AsString());
+                config.SetValue("levelbadge", "text", _player.LevelBadgeText);
                 config.SetValue("levelbadge", "offset_x", (double)lvOffset.X);
                 config.SetValue("levelbadge", "offset_y", (double)lvOffset.Y);
-                var lvTxtColor = (Color)_player.Get("LevelBadgeTextColor");
+                var lvTxtColor = _player.LevelBadgeTextColor;
                 config.SetValue("levelbadge", "txt_r", lvTxtColor.R);
                 config.SetValue("levelbadge", "txt_g", lvTxtColor.G);
                 config.SetValue("levelbadge", "txt_b", lvTxtColor.B);
@@ -536,7 +536,7 @@ namespace ClinetCSharp
             {
                 GD.Print("[DebugPanel] Player not ready, delaying config load...");
                 await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
-                _player = GetTree().GetFirstNodeInGroup("player") as Node2D;
+                _player = GetTree().GetFirstNodeInGroup("player") as Player;
                 if (_player == null)
                 {
                     GD.Print("[DebugPanel] Player still doesn't exist, skipping config load");
@@ -612,11 +612,11 @@ namespace ClinetCSharp
             // Apply map settings
             if (_gridManager != null)
             {
-                _gridManager.Call("SetGridSize", (int)_gridSizeSlider.Value);
-                _gridManager.Call("SetLineWidthScale", (float)_gridLineWidthSlider.Value);
+                _gridManager.SetGridSize((int)_gridSizeSlider.Value);
+                _gridManager.SetLineWidthScale((float)_gridLineWidthSlider.Value);
                 float brightness = (float)_gridLineBrightnessSlider.Value;
-                _gridManager.Call("SetLineBrightness", brightness);
-                _gridManager.Set("show_grid_coords", _gridCoordsCheck.ButtonPressed);
+                _gridManager.SetLineBrightness(brightness);
+                _gridManager.ShowGridCoords = _gridCoordsCheck.ButtonPressed;
                 GD.Print($"[DebugPanel] Applied settings to GridManager: grid_size={_gridSizeSlider.Value}, line_width={_gridLineWidthSlider.Value}");
             }
 
@@ -684,7 +684,7 @@ namespace ClinetCSharp
             {
                 if (_player != null)
                 {
-                    _player.Call("SetFontSize", (int)_fontSizeSlider.Value);
+                    _player.SetFontSize((int)_fontSizeSlider.Value);
                 }
             }
 
@@ -708,16 +708,16 @@ namespace ClinetCSharp
             GD.Print($"[DebugPanel] Preparing to apply player settings, player exists: {_player != null}");
             if (_player != null)
             {
-                _player.Call("SetTextAlignment", (int)savedAlignment);
-                _player.Call("SetVisualSizeScale", (float)(_playerSizeScaleSlider?.Value ?? 1.0));
-                _player.Call("SetBorderWidthScale", (float)(_borderWidthScaleSlider?.Value ?? (3.0 / 111.0)));
-                _player.Call("SetCornerRadius", (float)_cornerRadiusSlider.Value);
-                _player.Call("SetBgOpacity", (float)_bgOpacitySlider.Value);
-                _player.Call("SetLineSpacing", (float)_lineSpacingSlider.Value);
-                _player.Call("SetLetterSpacing", (float)_letterSpacingSlider.Value);
-                _player.Call("SetFontBold", _boldCheck.ButtonPressed);
-                _player.Call("SetFontItalic", _italicCheck.ButtonPressed);
-                _player.Call("SetFontShadow", _shadowCheck.ButtonPressed);
+                _player.SetTextAlignment((int)savedAlignment);
+                _player.SetVisualSizeScale((float)(_playerSizeScaleSlider?.Value ?? 1.0));
+                _player.SetBorderWidthScale((float)(_borderWidthScaleSlider?.Value ?? (3.0 / 111.0)));
+                _player.SetCornerRadius((float)_cornerRadiusSlider.Value);
+                _player.SetBgOpacity((float)_bgOpacitySlider.Value);
+                _player.SetLineSpacing((float)_lineSpacingSlider.Value);
+                _player.SetLetterSpacing((float)_letterSpacingSlider.Value);
+                _player.SetFontBold(_boldCheck.ButtonPressed);
+                _player.SetFontItalic(_italicCheck.ButtonPressed);
+                _player.SetFontShadow(_shadowCheck.ButtonPressed);
                 // Player settings will be applied in ApplyLoadedPlayerSettings() with delay
                 GD.Print("[DebugPanel] Player settings will be applied after delay");
             }
@@ -730,14 +730,10 @@ namespace ClinetCSharp
 
             if (_camera != null)
             {
-                if (_camera.HasMethod("SetReturnDelay"))
-                    _camera.Call("SetReturnDelay", _cameraReturnDelaySlider.Value);
-                if (_camera.HasMethod("SetReturnSpeed"))
-                    _camera.Call("SetReturnSpeed", _cameraReturnSpeedSlider.Value);
-                if (_camera.HasMethod("SetEaseType"))
-                    _camera.Call("SetEaseType", _cameraEaseTypeOption.Selected);
-                if (_camera.HasMethod("SetEasePower"))
-                    _camera.Call("SetEasePower", _cameraEasePowerSlider.Value);
+                _camera.SetReturnDelay((float)_cameraReturnDelaySlider.Value);
+                _camera.SetReturnSpeed((float)_cameraReturnSpeedSlider.Value);
+                _camera.SetEaseType((int)_cameraEaseTypeOption.Selected);
+                _camera.SetEasePower((float)_cameraEasePowerSlider.Value);
             }
 
             if (_freeLookCheck != null)
@@ -759,7 +755,7 @@ namespace ClinetCSharp
             if (_applyCalibrationBtn != null && _gridManager != null)
             {
                 _applyCalibrationBtn.ButtonPressed = _calibrationEnabled;
-                _gridManager.Call("SetAdaptiveCalibrationEnabled", _calibrationEnabled);
+                _gridManager.SetAdaptiveCalibrationEnabled(_calibrationEnabled);
             }
 
             if (_refZoomASpin != null)
@@ -777,11 +773,10 @@ namespace ClinetCSharp
             {
                 _responsiveCheck.ButtonPressed = (bool)config.GetValue("responsive", "enabled", false);
                 _visibleGridsXSpin.Value = (double)config.GetValue("responsive", "visible_grids_x", 5.0);
-                var gm = _gridManager as GridManager;
-                if (_responsiveCheck.ButtonPressed && gm != null)
+                if (_responsiveCheck.ButtonPressed)
                 {
-                    gm.VisibleGridsX = (float)_visibleGridsXSpin.Value;
-                    gm.SetResponsiveMode(true);
+                    _gridManager.VisibleGridsX = (float)_visibleGridsXSpin.Value;
+                    _gridManager.SetResponsiveMode(true);
                 }
                 OnResponsiveToggled(_responsiveCheck.ButtonPressed);
             }
@@ -806,7 +801,7 @@ namespace ClinetCSharp
             if (_player != null)
             {
                 bool autoCenterX = (bool)config.GetValue("labels", "auto_center_x", false);
-                _player.Call("SetLabelAutoCenterX", autoCenterX);
+                _player.SetLabelAutoCenterX(autoCenterX);
                 if (_labelAutoCenterXCheck != null)
                 {
                     _labelAutoCenterXCheck.SetBlockSignals(true);
@@ -824,18 +819,18 @@ namespace ClinetCSharp
                     double offsetY = (double)config.GetValue("labels", $"{prefix}_offset_y", Player.DefaultOffsets[i].Y);
 
                     // Apply to player
-                    _player.Call("SetLabelName", i, name);
-                    if (!string.IsNullOrEmpty(text)) _player.Call("SetLabelText", i, text);
-                    _player.Call("SetLabelVisible", i, visible);
-                    _player.Call("SetLabelFontSize", i, (int)fontSize);
-                    _player.Call("SetLabelOffset", i, new Vector2((float)offsetX, (float)offsetY));
+                    _player.SetLabelName(i, name);
+                    if (!string.IsNullOrEmpty(text)) _player.SetLabelText(i, text);
+                    _player.SetLabelVisible(i, visible);
+                    _player.SetLabelFontSize(i, (int)fontSize);
+                    _player.SetLabelOffset(i, new Vector2((float)offsetX, (float)offsetY));
 
                     // Load color
                     float cr = (float)(double)config.GetValue("labels", $"{prefix}_color_r", 0.0);
                     float cg = (float)(double)config.GetValue("labels", $"{prefix}_color_g", 0.0);
                     float cb = (float)(double)config.GetValue("labels", $"{prefix}_color_b", 0.0);
                     float ca = (float)(double)config.GetValue("labels", $"{prefix}_color_a", 1.0);
-                    _player.Call("SetLineColor", i, new Color(cr, cg, cb, ca));
+                    _player.SetLineColor(i, new Color(cr, cg, cb, ca));
 
                     // Update UI controls
                     if (_labelVisibleChecks[i] != null)
@@ -875,7 +870,7 @@ namespace ClinetCSharp
                     if (_labelOffsetYValues[i] != null)
                         _labelOffsetYValues[i].Text = ((int)offsetY).ToString();
                 }
-                _player.Call("RefreshLabels");
+                _player.RefreshLabels();
             }
 
             // Load health bar settings
@@ -894,12 +889,12 @@ namespace ClinetCSharp
 
                 if (_player != null)
                 {
-                    _player.Call("SetHealthBarVisible", hpVisible);
-                    _player.Call("SetHealthBarLength", (float)hpLength);
-                    _player.Call("SetHealthBarHeight", (float)hpHeight);
-                    _player.Call("SetHealthBarFillPercent", (float)(hpFill / 100.0));
-                    _player.Call("SetHealthBarOffset", new Vector2((float)hpOffX, (float)hpOffY));
-                    _player.Call("SetHealthBarColor", new Color(hpR, hpG, hpB));
+                    _player.SetHealthBarVisible(hpVisible);
+                    _player.SetHealthBarLength((float)hpLength);
+                    _player.SetHealthBarHeight((float)hpHeight);
+                    _player.SetHealthBarFillPercent((float)(hpFill / 100.0));
+                    _player.SetHealthBarOffset(new Vector2((float)hpOffX, (float)hpOffY));
+                    _player.SetHealthBarColor(new Color(hpR, hpG, hpB));
                 }
 
                 if (_healthBarVisibleCheck != null)
@@ -939,12 +934,12 @@ namespace ClinetCSharp
 
                 if (_player != null)
                 {
-                    _player.Call("SetCastBarVisible", ctVisible);
-                    _player.Call("SetCastBarLength", (float)ctLength);
-                    _player.Call("SetCastBarHeight", (float)ctHeight);
-                    _player.Call("SetCastBarFillPercent", (float)(ctFill / 100.0));
-                    _player.Call("SetCastBarOffset", new Vector2((float)ctOffX, (float)ctOffY));
-                    _player.Call("SetCastBarColor", new Color(ctR, ctG, ctB));
+                    _player.SetCastBarVisible(ctVisible);
+                    _player.SetCastBarLength((float)ctLength);
+                    _player.SetCastBarHeight((float)ctHeight);
+                    _player.SetCastBarFillPercent((float)(ctFill / 100.0));
+                    _player.SetCastBarOffset(new Vector2((float)ctOffX, (float)ctOffY));
+                    _player.SetCastBarColor(new Color(ctR, ctG, ctB));
                 }
 
                 if (_castBarVisibleCheck != null) { _castBarVisibleCheck.SetBlockSignals(true); _castBarVisibleCheck.ButtonPressed = ctVisible; _castBarVisibleCheck.SetBlockSignals(false); }
@@ -974,11 +969,11 @@ namespace ClinetCSharp
 
                 if (_player != null)
                 {
-                    _player.Call("SetLevelBadgeVisible", lvVisible);
-                    _player.Call("SetLevelBadgeFontSize", (float)lvFontSize);
-                    _player.Call("SetLevelBadgeText", lvText);
-                    _player.Call("SetLevelBadgeOffset", new Vector2((float)lvOffX, (float)lvOffY));
-                    _player.Call("SetLevelBadgeTextColor", new Color(lvTxtR, lvTxtG, lvTxtB));
+                    _player.SetLevelBadgeVisible(lvVisible);
+                    _player.SetLevelBadgeFontSize((float)lvFontSize);
+                    _player.SetLevelBadgeText(lvText);
+                    _player.SetLevelBadgeOffset(new Vector2((float)lvOffX, (float)lvOffY));
+                    _player.SetLevelBadgeTextColor(new Color(lvTxtR, lvTxtG, lvTxtB));
                 }
 
                 if (_levelBadgeVisibleCheck != null) { _levelBadgeVisibleCheck.SetBlockSignals(true); _levelBadgeVisibleCheck.ButtonPressed = lvVisible; _levelBadgeVisibleCheck.SetBlockSignals(false); }
@@ -1069,7 +1064,7 @@ namespace ClinetCSharp
             GD.Print($"[DebugPanel] ApplyLoadedPlayerSettings() called, player={_player}");
             if (_player == null)
             {
-                _player = GetTree().GetFirstNodeInGroup("player") as Node2D;
+                _player = GetTree().GetFirstNodeInGroup("player") as Player;
                 GD.Print($"[DebugPanel] Re-acquired player: {_player}");
             }
 
@@ -1082,33 +1077,33 @@ namespace ClinetCSharp
                     // Read and apply directly from config
                     double savedSize = (double)config.GetValue("player", "player_size", 111);
                     GD.Print($"[DebugPanel] Read player size from config: {savedSize}");
-                    _player.Call("SetVisualSize", (int)savedSize);
-                    _player.Set("VisualSizeScale", (float)(double)config.GetValue("player", "visual_size_scale", 1.0));
-                    _player.Call("SetBorderWidth", (float)(double)config.GetValue("player", "border_width", 3.0));
-                    _player.Set("BorderWidthScale", (float)(double)config.GetValue("player", "border_width_scale", 3.0 / 111.0));
-                    _player.Call("SetCornerRadius", (float)(double)config.GetValue("player", "corner_radius", 0.0));
-                    _player.Call("SetBgOpacity", (float)(double)config.GetValue("player", "bg_opacity", 0.1));
-                    _player.Call("SetLineSpacing", (float)(double)config.GetValue("player", "line_spacing", 0.8));
-                    _player.Call("SetLetterSpacing", (float)(double)config.GetValue("player", "letter_spacing", 0.0));
-                    _player.Call("SetFontBold", (bool)config.GetValue("player", "font_bold", false));
-                    _player.Call("SetFontItalic", (bool)config.GetValue("player", "font_italic", false));
-                    _player.Call("SetFontShadow", (bool)config.GetValue("player", "font_shadow", false));
-                    _player.Call("SetTextAlignment", (int)(HorizontalAlignment)(int)config.GetValue("player", "text_alignment", (int)HorizontalAlignment.Center));
+                    _player.SetVisualSize((int)savedSize);
+                    _player.VisualSizeScale = (float)(double)config.GetValue("player", "visual_size_scale", 1.0);
+                    _player.SetBorderWidth((float)(double)config.GetValue("player", "border_width", 3.0));
+                    _player.BorderWidthScale = (float)(double)config.GetValue("player", "border_width_scale", 3.0 / 111.0);
+                    _player.SetCornerRadius((float)(double)config.GetValue("player", "corner_radius", 0.0));
+                    _player.SetBgOpacity((float)(double)config.GetValue("player", "bg_opacity", 0.1));
+                    _player.SetLineSpacing((float)(double)config.GetValue("player", "line_spacing", 0.8));
+                    _player.SetLetterSpacing((float)(double)config.GetValue("player", "letter_spacing", 0.0));
+                    _player.SetFontBold((bool)config.GetValue("player", "font_bold", false));
+                    _player.SetFontItalic((bool)config.GetValue("player", "font_italic", false));
+                    _player.SetFontShadow((bool)config.GetValue("player", "font_shadow", false));
+                    _player.SetTextAlignment((int)(HorizontalAlignment)(int)config.GetValue("player", "text_alignment", (int)HorizontalAlignment.Center));
 
                     // Apply font size
                     double savedFontSize = (double)config.GetValue("player", "font_size", 0);
                     bool savedAutoSize = (bool)config.GetValue("player", "font_auto_size", false);
                     if (savedAutoSize)
                     {
-                        _player.Call("SetFontSize", 0);
+                        _player.SetFontSize(0);
                     }
                     else if (savedFontSize > 0)
                     {
-                        _player.Call("SetFontSize", (int)savedFontSize);
+                        _player.SetFontSize((int)savedFontSize);
                     }
 
-                    _player.Call("RefreshLabels");
-                    _player.Call("queue_redraw");
+                    _player.RefreshLabels();
+                    _player.QueueRedraw();
 
                     // Apply label control settings
                     for (int i = 0; i < LabelCount; i++)
@@ -1121,61 +1116,61 @@ namespace ClinetCSharp
                         double offsetX = (double)config.GetValue("labels", $"{prefix}_offset_x", Player.DefaultOffsets[i].X);
                         double offsetY = (double)config.GetValue("labels", $"{prefix}_offset_y", Player.DefaultOffsets[i].Y);
 
-                        _player.Call("SetLabelName", i, name);
-                        if (!string.IsNullOrEmpty(text)) _player.Call("SetLabelText", i, text);
-                        _player.Call("SetLabelVisible", i, visible);
-                        _player.Call("SetLabelFontSize", i, (int)fontSize);
-                        _player.Call("SetLabelOffset", i, new Vector2((float)offsetX, (float)offsetY));
+                        _player.SetLabelName(i, name);
+                        if (!string.IsNullOrEmpty(text)) _player.SetLabelText(i, text);
+                        _player.SetLabelVisible(i, visible);
+                        _player.SetLabelFontSize(i, (int)fontSize);
+                        _player.SetLabelOffset(i, new Vector2((float)offsetX, (float)offsetY));
 
                         float cr = (float)(double)config.GetValue("labels", $"{prefix}_color_r", 0.0);
                         float cg = (float)(double)config.GetValue("labels", $"{prefix}_color_g", 0.0);
                         float cb = (float)(double)config.GetValue("labels", $"{prefix}_color_b", 0.0);
                         float ca = (float)(double)config.GetValue("labels", $"{prefix}_color_a", 1.0);
-                        _player.Call("SetLineColor", i, new Color(cr, cg, cb, ca));
+                        _player.SetLineColor(i, new Color(cr, cg, cb, ca));
                     }
-                    _player.Call("RefreshLabels");
+                    _player.RefreshLabels();
 
                     // Apply health bar settings
-                    _player.Call("SetHealthBarVisible", (bool)config.GetValue("healthbar", "visible", true));
-                    _player.Call("SetHealthBarLength", (float)(double)config.GetValue("healthbar", "length", 80));
-                    _player.Set("HealthBarLengthScale", (float)(double)config.GetValue("healthbar", "length_scale", 80.0 / 111.0));
-                    _player.Call("SetHealthBarHeight", (float)(double)config.GetValue("healthbar", "height", 6));
-                    _player.Set("HealthBarHeightScale", (float)(double)config.GetValue("healthbar", "height_scale", 6.0 / 111.0));
-                    _player.Call("SetHealthBarFillPercent", (float)((double)config.GetValue("healthbar", "fill", 100) / 100.0));
-                    _player.Call("SetHealthBarOffset", new Vector2(
+                    _player.SetHealthBarVisible((bool)config.GetValue("healthbar", "visible", true));
+                    _player.SetHealthBarLength((float)(double)config.GetValue("healthbar", "length", 80));
+                    _player.HealthBarLengthScale = (float)(double)config.GetValue("healthbar", "length_scale", 80.0 / 111.0);
+                    _player.SetHealthBarHeight((float)(double)config.GetValue("healthbar", "height", 6));
+                    _player.HealthBarHeightScale = (float)(double)config.GetValue("healthbar", "height_scale", 6.0 / 111.0);
+                    _player.SetHealthBarFillPercent((float)((double)config.GetValue("healthbar", "fill", 100) / 100.0));
+                    _player.SetHealthBarOffset(new Vector2(
                         (float)(double)config.GetValue("healthbar", "offset_x", 0),
                         (float)(double)config.GetValue("healthbar", "offset_y", -70)));
                     float hr = (float)(double)config.GetValue("healthbar", "color_r", 0.0);
                     float hg = (float)(double)config.GetValue("healthbar", "color_g", 0.8);
                     float hb = (float)(double)config.GetValue("healthbar", "color_b", 0.0);
-                    _player.Call("SetHealthBarColor", new Color(hr, hg, hb));
+                    _player.SetHealthBarColor(new Color(hr, hg, hb));
 
                     // Apply cast bar settings
-                    _player.Call("SetCastBarVisible", (bool)config.GetValue("castbar", "visible", true));
-                    _player.Call("SetCastBarLength", (float)(double)config.GetValue("castbar", "length", 60));
-                    _player.Call("SetCastBarHeight", (float)(double)config.GetValue("castbar", "height", 4));
-                    _player.Call("SetCastBarFillPercent", (float)((double)config.GetValue("castbar", "fill", 60) / 100.0));
-                    _player.Call("SetCastBarOffset", new Vector2(
+                    _player.SetCastBarVisible((bool)config.GetValue("castbar", "visible", true));
+                    _player.SetCastBarLength((float)(double)config.GetValue("castbar", "length", 60));
+                    _player.SetCastBarHeight((float)(double)config.GetValue("castbar", "height", 4));
+                    _player.SetCastBarFillPercent((float)((double)config.GetValue("castbar", "fill", 60) / 100.0));
+                    _player.SetCastBarOffset(new Vector2(
                         (float)(double)config.GetValue("castbar", "offset_x", 0),
                         (float)(double)config.GetValue("castbar", "offset_y", -80)));
                     float cr2 = (float)(double)config.GetValue("castbar", "color_r", 0.3);
                     float cg2 = (float)(double)config.GetValue("castbar", "color_g", 0.5);
                     float cb2 = (float)(double)config.GetValue("castbar", "color_b", 1.0);
-                    _player.Call("SetCastBarColor", new Color(cr2, cg2, cb2));
+                    _player.SetCastBarColor(new Color(cr2, cg2, cb2));
 
                     // Apply level badge settings
-                    _player.Call("SetLevelBadgeVisible", (bool)config.GetValue("levelbadge", "visible", true));
-                    _player.Call("SetLevelBadgeFontSize", (float)(double)config.GetValue("levelbadge", "font_size", 12));
-                    _player.Call("SetLevelBadgeText", (string)config.GetValue("levelbadge", "text", "Lv.{level}"));
-                    _player.Call("SetLevelBadgeOffset", new Vector2(
+                    _player.SetLevelBadgeVisible((bool)config.GetValue("levelbadge", "visible", true));
+                    _player.SetLevelBadgeFontSize((float)(double)config.GetValue("levelbadge", "font_size", 12));
+                    _player.SetLevelBadgeText((string)config.GetValue("levelbadge", "text", "Lv.{level}"));
+                    _player.SetLevelBadgeOffset(new Vector2(
                         (float)(double)config.GetValue("levelbadge", "offset_x", -35),
                         (float)(double)config.GetValue("levelbadge", "offset_y", -35)));
                     float lvTxtR = (float)(double)config.GetValue("levelbadge", "txt_r", 1.0);
                     float lvTxtG = (float)(double)config.GetValue("levelbadge", "txt_g", 1.0);
                     float lvTxtB = (float)(double)config.GetValue("levelbadge", "txt_b", 0.0);
-                    _player.Call("SetLevelBadgeTextColor", new Color(lvTxtR, lvTxtG, lvTxtB));
+                    _player.SetLevelBadgeTextColor(new Color(lvTxtR, lvTxtG, lvTxtB));
 
-                    GD.Print($"[DebugPanel] Player settings applied, visual_size={_player.Get("visual_size")}");
+                    GD.Print($"[DebugPanel] Player settings applied, visual_size={_player.VisualSize}");
                 }
                 else
                 {
