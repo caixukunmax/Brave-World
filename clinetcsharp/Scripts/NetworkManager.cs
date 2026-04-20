@@ -16,6 +16,8 @@ namespace ClinetCSharp
         public event Action Connected;
         public event Action<string> ConnectionError;
         public event Action Disconnected;
+        public event Action<string> Kicked;          // 被服务器踢下线（含原因）
+        public event Action<Game.ChangeMapResponse> ChangeMapResponse;
 
         // ── Typed message events (proto objects) ──
         public event Action<Login.AccountLoginResponse> LoginResponse;
@@ -40,11 +42,19 @@ namespace ClinetCSharp
 
         private StreamPeerTcp _tcp;
         private bool _connected = false;
-        private byte[] _readBuffer = new byte[4096];
+        private byte[] _readBuffer = new byte[8192];
         private int _bufferOffset = 0;
         private int _bufferCount = 0;
         private int _expectedLength = -1;
         private uint _sessionCounter = 1;
+
+        // ── 心跳 ──
+        private double _heartbeatInterval = 30.0;   // 秒
+        private double _heartbeatTimer = 0.0;
+
+        // ── 帧级缓存时间戳（避免每次 SendPacket 都系统调用） ──
+        private ulong _cachedTimestamp = 0;
+        private bool _timestampDirty = true;
 
         // ── 登录相关缓存 ──
         public string AccountToken { get; set; } = "";
@@ -82,6 +92,9 @@ namespace ClinetCSharp
 
         public override void _Process(double _delta)
         {
+            // 帧首标记时间戳需要刷新
+            _timestampDirty = true;
+
             if (_tcp == null)
                 return;
 
@@ -90,6 +103,17 @@ namespace ClinetCSharp
             {
                 _tcp.Poll();
                 ReadPackets();
+
+                // 心跳
+                if (_connected)
+                {
+                    _heartbeatTimer += _delta;
+                    if (_heartbeatTimer >= _heartbeatInterval)
+                    {
+                        _heartbeatTimer = 0.0;
+                        SendHeartbeat();
+                    }
+                }
             }
             else if (status == StreamPeerTcp.Status.Connecting)
             {
@@ -157,6 +181,7 @@ namespace ClinetCSharp
             if (_tcp != null)
                 _tcp.DisconnectFromHost();
             _connected = false;
+            _heartbeatTimer = 0.0;
             _bufferOffset = 0;
             _bufferCount = 0;
             _expectedLength = -1;
@@ -173,12 +198,17 @@ namespace ClinetCSharp
         /// </summary>
         public bool SendPacket(MessageId msgId, IMessage data)
         {
-            GD.Print($"[NetworkManager] SendPacket called, msgId: {msgId}, connected: {IsServerConnected()}");
-
             if (!IsServerConnected())
             {
                 GD.PushError("[NetworkManager] 未连接到服务器，无法发送消息");
                 return false;
+            }
+
+            // 帧级缓存时间戳，避免每次 SendPacket 都系统调用
+            if (_timestampDirty)
+            {
+                _cachedTimestamp = (ulong)Time.GetUnixTimeFromSystem();
+                _timestampDirty = false;
             }
 
             var packet = new Common.Packet
@@ -186,7 +216,7 @@ namespace ClinetCSharp
                 MsgId = (uint)msgId,
                 Session = _sessionCounter++,
                 Data = ByteString.CopyFrom(data.ToByteArray()),
-                Timestamp = (ulong)Time.GetUnixTimeFromSystem()
+                Timestamp = _cachedTimestamp
             };
 
             var body = packet.ToByteArray();
@@ -198,8 +228,6 @@ namespace ClinetCSharp
             header.CopyTo(combined, 0);
             body.CopyTo(combined, header.Length);
 
-            GD.Print($"[NetworkManager] Sending {combined.Length} bytes (protobuf Packet, msgId={msgId})");
-
             var err = _tcp.PutData(combined);
             if (err != Error.Ok)
             {
@@ -207,8 +235,17 @@ namespace ClinetCSharp
                 ConnectionError?.Invoke("发送消息失败: " + err);
                 return false;
             }
-            GD.Print("[NetworkManager] Packet sent successfully");
             return true;
+        }
+
+        private void SendHeartbeat()
+        {
+            if (!IsServerConnected()) return;
+            var req = new Gateway.HeartbeatRequest
+            {
+                ClientTime = (ulong)Time.GetUnixTimeFromSystem()
+            };
+            SendPacket(MessageId.GatewayHeartbeatReq, req);
         }
 
         private void ReadPackets()
@@ -272,9 +309,8 @@ namespace ClinetCSharp
                 if (_bufferCount < _expectedLength)
                     return;
 
-                // 提取 body 数据
-                var body = new byte[_expectedLength];
-                System.Array.Copy(_readBuffer, _bufferOffset, body, 0, _expectedLength);
+                // 提取 body：直接从 buffer 创建 ByteString，省掉中间 byte[]
+                var body = ByteString.CopyFrom(_readBuffer, _bufferOffset, _expectedLength);
                 _bufferOffset += _expectedLength;
                 _bufferCount -= _expectedLength;
                 _expectedLength = -1;
@@ -284,7 +320,6 @@ namespace ClinetCSharp
                 {
                     var packet = Common.Packet.Parser.ParseFrom(body);
                     int msgId = (int)packet.MsgId;
-                    GD.Print($"[NetworkManager] Received Packet: msgId={msgId}, session={packet.Session}, dataLen={packet.Data.Length}");
 
                     DispatchMessage(msgId, packet.Data);
                 }
@@ -304,6 +339,33 @@ namespace ClinetCSharp
             {
                 switch ((MessageId)msgId)
                 {
+                    // ── Gateway ──
+                    case MessageId.GatewayHeartbeatRsp:
+                    {
+                        var rsp = Gateway.HeartbeatResponse.Parser.ParseFrom(data);
+                        ServerTime = rsp.ServerTime;
+                        break;
+                    }
+
+                    case MessageId.GatewayKickNotify:
+                    {
+                        var notify = Gateway.DisconnectNotify.Parser.ParseFrom(data);
+                        GD.Print($"[NetworkManager] Kicked by server: reason={notify.Reason}");
+                        _connected = false;
+                        Kicked?.Invoke(notify.Reason);
+                        break;
+                    }
+
+                    case MessageId.GatewayDisconnectNotify:
+                    {
+                        var notify = Gateway.DisconnectNotify.Parser.ParseFrom(data);
+                        GD.Print($"[NetworkManager] Server disconnect: reason={notify.Reason}");
+                        _connected = false;
+                        Disconnected?.Invoke();
+                        break;
+                    }
+
+                    // ── Login ──
                     case MessageId.LoginAccountLoginRsp:
                     {
                         var rsp = Login.AccountLoginResponse.Parser.ParseFrom(data);
@@ -314,7 +376,6 @@ namespace ClinetCSharp
                             LastServerId = rsp.LastServerId;
                             LastRoleName = rsp.LastRoleName;
                             Servers = new List<Server.ServerInfo>(rsp.Servers);
-                            GD.Print($"[NetworkManager] Login cached, accountId={AccountId}");
                         }
                         LoginResponse?.Invoke(rsp);
                         break;
@@ -329,26 +390,17 @@ namespace ClinetCSharp
                             MaxRoleCount = rsp.MaxRoleCount;
                             ServerTime = rsp.ServerTime;
                             Roles = new List<Login.RoleBrief>(rsp.Roles);
-                            GD.Print("[NetworkManager] SelectServer cached");
                         }
                         SelectServerResponse?.Invoke(rsp);
                         break;
                     }
 
+                    // ── Game entry (shared cache logic) ──
                     case MessageId.GameEnterGameRsp:
                     {
                         var rsp = Game.EnterGameResponse.Parser.ParseFrom(data);
                         if (rsp.Code == Common.ErrorCode.Success && rsp.RoleInfo != null)
-                        {
-                            CachedRoleInfo = rsp.RoleInfo;
-                            ServerTime = rsp.ServerTime;
-                            CurrentMapName = rsp.RoleInfo.CurrentMap;
-                            SpawnGridX = rsp.RoleInfo.GridX;
-                            SpawnGridY = rsp.RoleInfo.GridY;
-                            CachedItems = new List<Game.ItemInfo>(rsp.Items);
-                            Chests = new List<Game.ChestInfo>(rsp.Chests);
-                            GD.Print($"[NetworkManager] EnterGame cached, name={rsp.RoleInfo.RoleName} map={rsp.RoleInfo.CurrentMap} pos=({rsp.RoleInfo.GridX},{rsp.RoleInfo.GridY})");
-                        }
+                            CacheRoleAndMapData(rsp.RoleInfo, rsp.Items, rsp.Chests, rsp.ServerTime);
                         EnterGameResponse?.Invoke(rsp);
                         break;
                     }
@@ -357,24 +409,48 @@ namespace ClinetCSharp
                     {
                         var rsp = Game.CreateRoleResponse.Parser.ParseFrom(data);
                         if (rsp.Code == Common.ErrorCode.Success && rsp.RoleInfo != null)
-                        {
-                            CachedRoleInfo = rsp.RoleInfo;
-                            ServerTime = rsp.ServerTime;
-                            CurrentMapName = rsp.RoleInfo.CurrentMap;
-                            SpawnGridX = rsp.RoleInfo.GridX;
-                            SpawnGridY = rsp.RoleInfo.GridY;
-                            CachedItems = new List<Game.ItemInfo>(rsp.Items);
-                            Chests = new List<Game.ChestInfo>(rsp.Chests);
-                            GD.Print($"[NetworkManager] CreateRole cached, name={rsp.RoleInfo.RoleName}");
-                        }
+                            CacheRoleAndMapData(rsp.RoleInfo, rsp.Items, rsp.Chests, rsp.ServerTime);
                         CreateRoleResponse?.Invoke(rsp);
                         break;
                     }
 
+                    // ── Map ──
+                    case MessageId.GameMapInfoSyncNotify:
+                    {
+                        var notify = Game.MapInfoSyncNotify.Parser.ParseFrom(data);
+                        CurrentMapName = notify.MapName;
+                        Chests = new List<Game.ChestInfo>(notify.Chests);
+                        Monsters = new List<Game.MonsterInfo>(notify.Monsters);
+                        MapInfoReceived?.Invoke(notify);
+                        break;
+                    }
+
+                    case MessageId.GameChangeMapRsp:
+                    {
+                        var rsp = Game.ChangeMapResponse.Parser.ParseFrom(data);
+                        if (rsp.Code == Common.ErrorCode.Success)
+                        {
+                            CurrentMapName = rsp.MapName;
+                            SpawnGridX = rsp.SpawnX;
+                            SpawnGridY = rsp.SpawnY;
+                        }
+                        ChangeMapResponse?.Invoke(rsp);
+                        break;
+                    }
+
+                    case MessageId.GameChestUpdateNotify:
+                    {
+                        var notify = Game.ChestUpdateNotify.Parser.ParseFrom(data);
+                        Chests = new List<Game.ChestInfo>(Chests);
+                        Chests.AddRange(notify.Chests);
+                        ChestUpdateNotify?.Invoke(notify);
+                        break;
+                    }
+
+                    // ── Movement ──
                     case MessageId.GameMoveRsp:
                     {
                         var rsp = Game.MoveResponse.Parser.ParseFrom(data);
-                        GD.Print($"[NetworkManager] MoveResponse: code={rsp.Code}, pos=({rsp.X},{rsp.Y})");
                         MoveResponse?.Invoke(rsp);
                         break;
                     }
@@ -393,34 +469,7 @@ namespace ClinetCSharp
                         break;
                     }
 
-                    case MessageId.GameMapInfoSyncNotify:
-                    {
-                        var notify = Game.MapInfoSyncNotify.Parser.ParseFrom(data);
-                        CurrentMapName = notify.MapName;
-                        Chests = new List<Game.ChestInfo>(notify.Chests);
-                        Monsters = new List<Game.MonsterInfo>(notify.Monsters);
-                        GD.Print($"[NetworkManager] MapInfoSyncNotify: map={notify.MapName}, chests={notify.Chests.Count}, monsters={notify.Monsters.Count}");
-                        MapInfoReceived?.Invoke(notify);
-                        break;
-                    }
-
-                    case MessageId.GameChestUpdateNotify:
-                    {
-                        var notify = Game.ChestUpdateNotify.Parser.ParseFrom(data);
-                        Chests.AddRange(notify.Chests);
-                        GD.Print($"[NetworkManager] ChestUpdateNotify: +{notify.Chests.Count} chests");
-                        ChestUpdateNotify?.Invoke(notify);
-                        break;
-                    }
-
-                    case MessageId.GameOpenChestRsp:
-                    {
-                        var rsp = Game.OpenChestResponse.Parser.ParseFrom(data);
-                        GD.Print($"[NetworkManager] OpenChest response: code={rsp.Code}, items={rsp.Items.Count}");
-                        OpenChestResponse?.Invoke(rsp);
-                        break;
-                    }
-
+                    // ── Combat ──
                     case MessageId.GameCombatLogNotify:
                     {
                         var notify = Game.CombatLogNotify.Parser.ParseFrom(data);
@@ -431,32 +480,30 @@ namespace ClinetCSharp
                     case MessageId.GameCombatStateNotify:
                     {
                         var notify = Game.CombatStateNotify.Parser.ParseFrom(data);
-                        GD.Print($"[NetworkManager] CombatStateNotify: units={notify.Units.Count}");
                         CombatStateNotify?.Invoke(notify);
                         break;
                     }
 
+                    // ── Role ──
                     case MessageId.GameRoleAttrNotify:
                     {
                         var roleInfo = Game.FullRoleInfo.Parser.ParseFrom(data);
                         CachedRoleInfo = roleInfo;
-                        GD.Print($"[NetworkManager] RoleAttrNotify: attrs={roleInfo.Attrs.Count}");
                         RoleAttrUpdated?.Invoke(roleInfo);
                         break;
                     }
 
-                    case MessageId.GameGmRsp:
+                    // ── Items ──
+                    case MessageId.GameOpenChestRsp:
                     {
-                        var rsp = Game.GmCommandResponse.Parser.ParseFrom(data);
-                        GD.Print($"[NetworkManager] GM response: code={rsp.Code}, msg={rsp.Message}");
-                        GmResponse?.Invoke(rsp);
+                        var rsp = Game.OpenChestResponse.Parser.ParseFrom(data);
+                        OpenChestResponse?.Invoke(rsp);
                         break;
                     }
 
                     case MessageId.GameUseItemRsp:
                     {
                         var rsp = Game.UseItemResponse.Parser.ParseFrom(data);
-                        GD.Print($"[NetworkManager] UseItem response: code={rsp.Code}");
                         UseItemResponse?.Invoke(rsp);
                         break;
                     }
@@ -464,16 +511,46 @@ namespace ClinetCSharp
                     case MessageId.GameDropItemRsp:
                     {
                         var rsp = Game.DropItemResponse.Parser.ParseFrom(data);
-                        GD.Print($"[NetworkManager] DropItem response: code={rsp.Code}");
                         DropItemResponse?.Invoke(rsp);
                         break;
                     }
+
+                    // ── GM ──
+                    case MessageId.GameGmRsp:
+                    {
+                        var rsp = Game.GmCommandResponse.Parser.ParseFrom(data);
+                        GmResponse?.Invoke(rsp);
+                        break;
+                    }
+
+                    default:
+                        GD.Print($"[NetworkManager] Unhandled msgId={msgId}");
+                        break;
                 }
             }
             catch (Exception e)
             {
-                GD.PushError($"[NetworkManager] DispatchMessage failed: {e.Message}");
+                GD.PushError($"[NetworkManager] DispatchMessage failed for msgId={msgId}: {e.Message}");
             }
+        }
+
+        /// <summary>
+        /// 统一缓存角色/背包/宝箱数据（EnterGame 和 CreateRole 共用）
+        /// </summary>
+        private void CacheRoleAndMapData(
+            Game.FullRoleInfo roleInfo,
+            Google.Protobuf.Collections.RepeatedField<Game.ItemInfo> items,
+            Google.Protobuf.Collections.RepeatedField<Game.ChestInfo> chests,
+            uint serverTime)
+        {
+            CachedRoleInfo = roleInfo;
+            ServerTime = serverTime;
+            CurrentMapName = roleInfo.CurrentMap;
+            SpawnGridX = roleInfo.GridX;
+            SpawnGridY = roleInfo.GridY;
+            CachedItems = new List<Game.ItemInfo>(items);
+            Chests = new List<Game.ChestInfo>(chests);
+            GD.Print($"[NetworkManager] Cached role={roleInfo.RoleName} map={roleInfo.CurrentMap} pos=({roleInfo.GridX},{roleInfo.GridY})");
         }
     }
 }

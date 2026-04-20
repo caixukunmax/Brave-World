@@ -51,6 +51,7 @@ namespace ClinetCSharp
             {
                 nm.Connected += OnConnected;
                 nm.ConnectionError += OnConnectionError;
+                nm.Kicked += OnKicked;
                 nm.LoginResponse += OnLoginResponse;
                 nm.SelectServerResponse += OnSelectServerResponse;
                 nm.EnterGameResponse += OnEnterGameResponse;
@@ -78,6 +79,13 @@ namespace ClinetCSharp
         {
             GD.Print("[LoginScene] Connection error: " + error);
             _statusLabel.Text = "连接失败: " + error;
+            _loginButton.Disabled = false;
+        }
+
+        private void OnKicked(string reason)
+        {
+            GD.Print("[LoginScene] Kicked: " + reason);
+            _statusLabel.Text = "被服务器踢下线: " + reason;
             _loginButton.Disabled = false;
         }
 
@@ -324,6 +332,7 @@ namespace ClinetCSharp
             {
                 nm.Connected -= OnConnected;
                 nm.ConnectionError -= OnConnectionError;
+                nm.Kicked -= OnKicked;
                 nm.LoginResponse -= OnLoginResponse;
                 nm.SelectServerResponse -= OnSelectServerResponse;
                 nm.EnterGameResponse -= OnEnterGameResponse;
