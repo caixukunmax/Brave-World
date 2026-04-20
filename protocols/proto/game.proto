@@ -5,6 +5,83 @@ package game;
 import "common.proto";
 
 /**
+ * ==================== UI 面板 ====================
+ */
+
+/**
+ * 更新面板位置请求
+ */
+message UpdateUIPanelPosRequest {
+  float pos_x = 1;
+  float pos_y = 2;
+  float width = 3;
+  float height = 4;
+}
+
+/**
+ * 更新面板位置响应
+ */
+message UpdateUIPanelPosResponse {
+  common.ErrorCode code = 1;
+  string message = 2;
+}
+
+/**
+ * ==================== 战斗日志 ====================
+ */
+
+/**
+ * 战斗日志条目类型
+ */
+enum CombatLogType {
+  COMBAT_LOG_START = 0;      // 战斗开始
+  COMBAT_LOG_SKILL = 1;      // 释放技能
+  COMBAT_LOG_DAMAGE = 2;     // 造成伤害
+  COMBAT_LOG_HEAL = 3;       // 治疗/回血
+  COMBAT_LOG_BUFF = 4;       // 获得 Buff/Debuff
+  COMBAT_LOG_DODGE = 5;      // 闪避/打空
+  COMBAT_LOG_DEATH = 6;      // 死亡
+  COMBAT_LOG_END = 7;        // 战斗结束/脱战
+}
+
+/**
+ * 单条战斗日志
+ */
+message CombatLogEntry {
+  CombatLogType log_type = 1;    // 日志类型
+  uint64 timestamp = 2;            // 服务器时间戳（秒）
+  string actor_name = 3;           // 行为发起者名称
+  string target_name = 4;          // 目标名称（可选）
+  string skill_name = 5;           // 技能名称（可选）
+  int32 value = 6;                 // 数值（伤害/治疗量，可选）
+  string extra = 7;                // 额外文本（可选）
+}
+
+/**
+ * 战斗日志批量推送
+ */
+message CombatLogNotify {
+  repeated CombatLogEntry entries = 1;
+}
+
+/**
+ * 战斗 ATB 状态推送
+ */
+message CombatStateNotify {
+  message CombatUnit {
+    uint64 entity_id = 1;      // account_id 或 instance_id
+    string entity_name = 2;    // 显示名称
+    float atb = 3;             // 0.0 ~ 100.0
+    bool is_player = 4;        // true=玩家, false=怪物
+    int32 hp = 5;              // 当前血量
+    int32 max_hp = 6;          // 最大血量
+    string casting_skill = 7;  // 正在蓄力的技能名（空=不在蓄力）
+    float cast_progress = 8;   // 蓄力进度 0.0~1.0
+  }
+  repeated CombatUnit units = 1;
+}
+
+/**
  * ==================== 角色信息定义 ====================
  */
 
@@ -29,6 +106,11 @@ message FullRoleInfo {
   string current_map = 15;      // 当前地图
   int32 grid_x = 16;            // 格子X
   int32 grid_y = 17;            // 格子Y
+  float ui_panel_pos_x = 18;    // 综合面板位置X
+  float ui_panel_pos_y = 19;    // 综合面板位置Y
+  float ui_panel_width = 20;    // 综合面板宽度
+  float ui_panel_height = 21;   // 综合面板高度
+  repeated AttrItem attrs = 22; // 战斗属性集合（key-value，接 luban 枚举）
 }
 
 /**
@@ -127,6 +209,35 @@ message MoveResponse {
   string message = 2;
   int32 x = 3;                  // 服务器确认的位置 X（失败时为合法位置）
   int32 y = 4;                  // 服务器确认的位置 Y
+  int32 duration_ms = 5;        // 移动总时长（毫秒）
+  int32 check_ratio = 6;        // 检查点比例 0-100
+  int32 dual_start_ratio = 7;   // 双格开始比例 0-100
+  int32 dual_end_ratio = 8;     // 双格结束比例 0-100
+}
+
+/**
+ * 移动确认请求（客户端在检查点发送，无需等待回复）
+ */
+message MoveConfirmRequest {
+  int32 target_x = 1;
+  int32 target_y = 2;
+}
+
+/**
+ * 移动完成请求（客户端在移动结束时发送）
+ */
+message MoveCompleteRequest {
+  int32 target_x = 1;
+  int32 target_y = 2;
+}
+
+/**
+ * 移动取消通知（服务器主动推送）
+ */
+message MoveCancelNotify {
+  uint64 entity_id = 1;
+  int32 rollback_x = 2;
+  int32 rollback_y = 3;
 }
 
 /**
@@ -193,7 +304,16 @@ message GmCommandResponse {
  */
 
 /**
- * 怪物属性项
+ * 通用属性项（角色/怪物共用，key 对应枚举）
+ * 角色属性枚举约定: 1=HP 2=MaxHP 3=MP 4=MaxMP 5=Agility 6=PAtk 7=MAtk 8=PDef 9=MDef
+ */
+message AttrItem {
+  uint32 key = 1;
+  int32 value = 2;
+}
+
+/**
+ * 怪物属性项（兼容旧字段，后续可迁移到 AttrItem）
  */
 message MonsterAttr {
   uint32 attr_key = 1;           // 属性键（对应 EMonsterAttr）
@@ -223,6 +343,7 @@ message MonsterMoveNotify {
   int32 to_x = 4;                // 终点 X
   int32 to_y = 5;                // 终点 Y
   string state = 6;              // 状态：idle | patrol | chase | return
+  int32 duration_ms = 7;         // 移动耗时（毫秒），客户端据此播放动画
 }
 
 /**
@@ -243,6 +364,24 @@ message MapInfoSyncNotify {
   string map_name = 1;                  // 地图名
   repeated ChestInfo chests = 2;        // 地图宝箱列表
   repeated MonsterInfo monsters = 3;    // 地图怪物列表
+}
+
+/**
+ * 切换地图请求
+ */
+message ChangeMapRequest {
+  string target_map = 1;                // 目标地图名
+}
+
+/**
+ * 切换地图响应
+ */
+message ChangeMapResponse {
+  common.ErrorCode code = 1;
+  string message = 2;
+  string map_name = 3;                  // 当前地图名
+  int32 spawn_x = 4;                    // 出生点 X
+  int32 spawn_y = 5;                    // 出生点 Y
 }
 
 /**

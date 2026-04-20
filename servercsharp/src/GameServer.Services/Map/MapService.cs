@@ -1,0 +1,301 @@
+using GameServer.Common.Events;
+using GameServer.Services.Core;
+using GameServer.Services.World;
+using Microsoft.Extensions.Logging;
+using INetworkSender = GameServer.Services.Core.INetworkSender;
+
+namespace GameServer.Services.Map;
+
+/// <summary>
+/// 地图服务 — 移植自 map_pool/service.lua
+/// 委托 WorldState 管理坐标，CollisionDetector 发布碰撞事件
+/// </summary>
+public class MapService
+{
+    private readonly ILogger<MapService> _logger;
+    private readonly WorldState _worldState;
+    private readonly CollisionDetector _collision;
+    private readonly INetworkSender _network;
+
+    public MapService(ILogger<MapService> logger, WorldState worldState, CollisionDetector collision, INetworkSender network)
+    {
+        _logger = logger;
+        _worldState = worldState;
+        _collision = collision;
+        _network = network;
+    }
+
+    // 暴露 WorldState 供需要旧接口的地方使用
+    public WorldState World => _worldState;
+
+    // ---- 玩家 ----
+
+    public void PlayerEnter(PlayerSnapshot snapshot)
+    {
+        _worldState.PlayerEnter(snapshot.CurrentMap, new MapPlayerState
+        {
+            AccountId = snapshot.AccountId,
+            RoleId = snapshot.RoleId,
+            RoleName = snapshot.RoleName,
+            ServerId = snapshot.ServerId,
+            GridX = snapshot.GridX,
+            GridY = snapshot.GridY,
+            Level = snapshot.Level,
+            Hp = snapshot.Hp,
+            MaxHp = snapshot.MaxHp,
+            Mp = snapshot.Mp,
+            MaxMp = snapshot.MaxMp,
+            Agility = snapshot.Agility,
+            Patk = snapshot.Patk,
+            Matk = snapshot.Matk,
+            Pdef = snapshot.Pdef,
+            Mdef = snapshot.Mdef,
+            Job = snapshot.Job,
+            MoveSpeedMs = snapshot.MoveSpeedMs,
+        });
+        _logger.LogInformation("PlayerEnter: account={AccountId} map={Map} pos=({X},{Y})",
+            snapshot.AccountId, snapshot.CurrentMap, snapshot.GridX, snapshot.GridY);
+    }
+
+    public void PlayerMove(long accountId, string mapName, int x, int y)
+    {
+        _worldState.PlayerMove(accountId, mapName, x, y);
+    }
+
+    public void PlayerLeave(long accountId, string mapName)
+    {
+        _worldState.PlayerLeave(accountId, mapName);
+    }
+
+    // ---- 怪物 ----
+
+    public void MonsterEnter(long instanceId, int monsterId, string mapName, string name, int x, int y,
+        int hp, int maxHp, int level, int patk, int matk, int pdef, int mdef, int agility)
+    {
+        _worldState.MonsterEnter(mapName, new MapMonsterState
+        {
+            InstanceId = instanceId,
+            MonsterId = monsterId,
+            Name = name,
+            X = x,
+            Y = y,
+            Hp = hp,
+            MaxHp = maxHp,
+            Level = level,
+            Patk = patk,
+            Matk = matk,
+            Pdef = pdef,
+            Mdef = mdef,
+            Agility = agility,
+        });
+    }
+
+    public void MonsterMove(long instanceId, string mapName, int x, int y)
+    {
+        _worldState.MonsterMove(instanceId, mapName, x, y);
+    }
+
+    public void MonsterLeave(long instanceId)
+    {
+        foreach (var (mapName, _) in _worldState.GetAllMaps())
+            _worldState.MonsterLeave(instanceId, mapName);
+    }
+
+    /// <summary>
+    /// 统一碰撞检测：实体到达 (x,y) 后检查相邻敌方实体
+    /// 所有实体类型（玩家、怪物、未来新类型）共用
+    /// </summary>
+    public void CheckEntityCollision(long entityId, string mapName, int x, int y)
+    {
+        var maps = _worldState.GetAllMaps();
+        if (maps.TryGetValue(mapName, out var map))
+            _collision.CheckEntityCollision(entityId, mapName, x, y, map);
+    }
+
+    // ---- 查询/广播 ----
+
+    public bool IsWalkable(string mapName, int x, int y) => _worldState.IsWalkable(mapName, x, y);
+    public (int x, int y)? FindNearestWalkable(string mapName, int x, int y) => _worldState.FindNearestWalkable(mapName, x, y);
+    public bool IsOccupied(string mapName, int x, int y) => _worldState.IsOccupied(mapName, x, y);
+
+    public Dictionary<long, PlayerState> GetPlayersOnMap(string mapName)
+    {
+        var corePlayers = _worldState.GetPlayersOnMap(mapName);
+        var result = new Dictionary<long, PlayerState>();
+        foreach (var (id, p) in corePlayers)
+        {
+            result[id] = new PlayerState
+            {
+                AccountId = p.AccountId, RoleId = p.RoleId, RoleName = p.RoleName,
+                ServerId = p.ServerId, GridX = p.GridX, GridY = p.GridY, Level = p.Level,
+                Hp = p.Hp, MaxHp = p.MaxHp, Agility = p.Agility,
+                Patk = p.Patk, Matk = p.Matk, Pdef = p.Pdef, Mdef = p.Mdef,
+                Job = p.Job,
+                MoveSpeedMs = p.MoveSpeedMs,
+            };
+        }
+        return result;
+    }
+
+    /// <summary>获取地图上指定玩家的运行时状态（可直接修改属性，战斗系统实时生效）</summary>
+    public MapPlayerState? GetPlayerOnMap(string mapName, long accountId)
+    {
+        return _worldState.GetPlayerOnMap(mapName, accountId);
+    }
+
+    public void BroadcastToMap(string mapName, int msgId, byte[] data)
+    {
+        var players = _worldState.GetPlayersOnMap(mapName);
+        foreach (var p in players.Values)
+            _network.SendToAccount(p.AccountId, p.ServerId, msgId, data);
+    }
+
+    // ---- 向后兼容旧接口 ----
+    public Dictionary<string, MapState> GetAllMapsLegacy()
+    {
+        var result = new Dictionary<string, MapState>();
+        foreach (var (name, instance) in _worldState.GetAllMaps())
+        {
+            var ms = new MapState { MapId = instance.MapId };
+            foreach (var (id, p) in instance.Players)
+            {
+                var combatPos = _worldState.GetCombatPositions(id)
+                    .Where(cp => cp.mapName == name)
+                    .Select(cp => (cp.x, cp.y))
+                    .ToList();
+                if (combatPos.Count == 0)
+                    combatPos = new List<(int, int)> { (p.GridX, p.GridY) };
+
+                ms.Players[id] = new PlayerState
+                {
+                    AccountId = p.AccountId, RoleId = p.RoleId, RoleName = p.RoleName,
+                    ServerId = p.ServerId, GridX = p.GridX, GridY = p.GridY, Level = p.Level,
+                    Hp = p.Hp, MaxHp = p.MaxHp, Agility = p.Agility,
+                    Patk = p.Patk, Matk = p.Matk, Pdef = p.Pdef, Mdef = p.Mdef,
+                    Job = p.Job,
+                    CombatPositions = combatPos,
+                };
+            }
+            foreach (var (id, m) in instance.Monsters)
+            {
+                var combatPos = _worldState.GetCombatPositions(id)
+                    .Where(cp => cp.mapName == name)
+                    .Select(cp => (cp.x, cp.y))
+                    .ToList();
+                if (combatPos.Count == 0)
+                    combatPos = new List<(int, int)> { (m.X, m.Y) };
+
+                ms.Monsters[id] = new MonsterState
+                {
+                    InstanceId = m.InstanceId, MonsterId = m.MonsterId, Name = m.Name,
+                    X = m.X, Y = m.Y, Hp = m.Hp, MaxHp = m.MaxHp, Level = m.Level,
+                    Patk = m.Patk, Matk = m.Matk, Pdef = m.Pdef, Mdef = m.Mdef, Agility = m.Agility,
+                    CombatPositions = combatPos,
+                };
+            }
+            result[name] = ms;
+        }
+        return result;
+    }
+
+    /// <summary>
+    /// 战斗 tick 后，将 legacy MapState 中的 HP 变更同步回权威的 MapPlayerState/MapMonsterState
+    /// </summary>
+    public void SyncCombatHp(Dictionary<string, MapState> legacyMaps)
+    {
+        foreach (var (mapName, legacyMap) in legacyMaps)
+        {
+            var instance = _worldState.GetMapInstance(mapName);
+            if (instance == null) continue;
+
+            foreach (var (id, p) in legacyMap.Players)
+            {
+                if (instance.Players.TryGetValue(id, out var auth))
+                {
+                    if (auth.Hp != p.Hp) auth.Hp = p.Hp;
+                }
+            }
+
+            foreach (var (id, m) in legacyMap.Monsters)
+            {
+                if (instance.Monsters.TryGetValue(id, out var auth))
+                {
+                    if (auth.Hp != m.Hp) auth.Hp = m.Hp;
+                }
+            }
+        }
+    }
+}
+
+// ---- 旧状态类型（向后兼容，后续 Phase 删除）----
+
+public class PlayerSnapshot
+{
+    public long AccountId { get; set; }
+    public long RoleId { get; set; }
+    public string RoleName { get; set; } = "";
+    public int ServerId { get; set; }
+    public int GridX { get; set; }
+    public int GridY { get; set; }
+    public int Level { get; set; }
+    public string CurrentMap { get; set; } = "xinshoucun";
+    public int Hp { get; set; }
+    public int MaxHp { get; set; }
+    public int Mp { get; set; }
+    public int MaxMp { get; set; }
+    public int Agility { get; set; }
+    public int Patk { get; set; }
+    public int Matk { get; set; }
+    public int Pdef { get; set; }
+    public int Mdef { get; set; }
+    public string Job { get; set; } = "";
+    public int MoveSpeedMs { get; set; }
+}
+
+public class MapState
+{
+    public int MapId { get; set; }
+    public Dictionary<long, PlayerState> Players { get; } = new();
+    public Dictionary<long, MonsterState> Monsters { get; } = new();
+}
+
+public class PlayerState
+{
+    public long AccountId { get; set; }
+    public long RoleId { get; set; }
+    public string RoleName { get; set; } = "";
+    public int ServerId { get; set; }
+    public int GridX { get; set; }
+    public int GridY { get; set; }
+    public int Level { get; set; }
+    public int Hp { get; set; }
+    public int MaxHp { get; set; }
+    public int Agility { get; set; }
+    public int Patk { get; set; }
+    public int Matk { get; set; }
+    public int Pdef { get; set; }
+    public int Mdef { get; set; }
+    public string Job { get; set; } = "";
+    public int MoveSpeedMs { get; set; }
+    /// <summary>战斗有效位置（双格区间时为两个格子）</summary>
+    public List<(int x, int y)> CombatPositions { get; set; } = new();
+}
+
+public class MonsterState
+{
+    public long InstanceId { get; set; }
+    public int MonsterId { get; set; }
+    public string Name { get; set; } = "";
+    public int X { get; set; }
+    public int Y { get; set; }
+    public int Hp { get; set; }
+    public int MaxHp { get; set; }
+    public int Level { get; set; }
+    public int Patk { get; set; } = 10;
+    public int Matk { get; set; } = 10;
+    public int Pdef { get; set; } = 5;
+    public int Mdef { get; set; } = 5;
+    public int Agility { get; set; } = 100;
+    /// <summary>战斗有效位置（双格区间时为两个格子）</summary>
+    public List<(int x, int y)> CombatPositions { get; set; } = new();
+}

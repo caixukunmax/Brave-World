@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\GameServer.Common\GameServer.Common.csproj" />
+    <ProjectReference Include="..\GameServer.Proto\GameServer.Proto.csproj" />
+    <ProjectReference Include="..\GameServer.Database\GameServer.Database.csproj" />
+    <ProjectReference Include="..\GameServer.Services\GameServer.Services.csproj" />
+    <ProjectReference Include="..\GameServer.Tables\GameServer.Tables.csproj" />
+  </ItemGroup>
+  <Target Name="CopyGameLogic" AfterTargets="Build">
+    <Copy SourceFiles="..\GameServer.GameLogic\bin\$(Configuration)\$(TargetFramework)\GameServer.GameLogic.dll" DestinationFolder="$(OutputPath)" SkipUnchangedFiles="true" />
+  </Target>
+  <ItemGroup>
+    <None Include="..\..\data\**\*" LinkBase="data\" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.1" />
+    <PackageReference Include="Serilog.Extensions.Hosting" Version="8.0.0" />
+    <PackageReference Include="Serilog.Sinks.Console" Version="6.0.0" />
+    <PackageReference Include="Serilog.Sinks.File" Version="6.0.0" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Google.Protobuf" Version="3.28.3" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="8.0.1" />
+    <PackageReference Include="MongoDB.Driver" Version="3.2.1" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\GameServer.Services\GameServer.Services.csproj" />
+    <ProjectReference Include="..\GameServer.Common\GameServer.Common.csproj" />
+    <ProjectReference Include="..\GameServer.Database\GameServer.Database.csproj" />
+    <ProjectReference Include="..\GameServer.Tables\GameServer.Tables.csproj" />
+  </ItemGroup>
+</Project>

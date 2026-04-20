@@ -47,7 +47,11 @@ namespace ClinetCSharp
 
                 // 应用缓存的初始背包数据
                 if (nm.CachedItems.Count > 0)
-                    UpdateFromProto(new Google.Protobuf.Collections.RepeatedField<Game.ItemInfo>(nm.CachedItems));
+                {
+                    var items = new Google.Protobuf.Collections.RepeatedField<Game.ItemInfo>();
+                    items.AddRange(nm.CachedItems);
+                    UpdateFromProto(items);
+                }
 
                 GD.Print("[InventoryManager] Connected to NetworkManager");
             }

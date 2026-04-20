@@ -1,0 +1,69 @@
+syntax = "proto3";
+
+package gateway;
+
+import "common.proto";
+
+/**
+ * 心跳请求
+ */
+message HeartbeatRequest {
+  uint64 client_time = 1;   // 客户端时间戳
+}
+
+/**
+ * 心跳响应
+ */
+message HeartbeatResponse {
+  uint64 server_time = 1;   // 服务器时间戳
+  uint32 online_count = 2;  // 在线人数
+}
+
+/**
+ * 客户端信息
+ */
+message ClientInfo {
+  string ip = 1;            // IP地址
+  uint32 port = 2;          // 端口
+  string version = 3;       // 客户端版本
+  string platform = 4;      // 平台（iOS/Android/Web）
+  string device_id = 5;     // 设备ID
+}
+
+/**
+ * 连接请求
+ */
+message ConnectRequest {
+  ClientInfo client_info = 1;
+  string token = 2;         // 登录token（可选）
+}
+
+/**
+ * 连接响应
+ */
+message ConnectResponse {
+  common.ErrorCode code = 1;
+  string message = 2;
+  uint32 conn_id = 3;       // 连接ID
+  uint64 server_time = 4;   // 服务器时间
+}
+
+/**
+ * 断开连接通知
+ */
+message DisconnectNotify {
+  uint32 conn_id = 1;
+  string reason = 2;        // 断开原因
+}
+
+/**
+ * 消息类型枚举
+ */
+enum MessageType {
+  HEARTBEAT = 0;            // 心跳
+  CONNECT = 1;              // 连接
+  DISCONNECT = 2;           // 断开
+  FORWARD = 3;              // 转发
+  BROADCAST = 4;            // 广播
+  KICK = 5;                 // 踢出
+}

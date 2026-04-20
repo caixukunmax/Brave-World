@@ -21,6 +21,8 @@ namespace ClinetCSharp
             public float TargetAtb;
             public float CurrentAtb;
             public bool IsPlayer;
+            public string CastingSkill = "";
+            public float CastProgress;
         }
 
         private readonly Dictionary<ulong, UnitState> _units = new();
@@ -92,9 +94,21 @@ namespace ClinetCSharp
             Visible = anyVisible;
         }
 
+        private Game.CombatStateNotify _pendingState;
+
         private void OnCombatStateNotify(Game.CombatStateNotify notify)
         {
-            CallDeferred(nameof(ApplyState), notify);
+            _pendingState = notify;
+            CallDeferred(nameof(ApplyStateDeferred));
+        }
+
+        private void ApplyStateDeferred()
+        {
+            if (_pendingState != null)
+            {
+                ApplyState(_pendingState);
+                _pendingState = null;
+            }
         }
 
         private void ApplyState(Game.CombatStateNotify notify)
@@ -118,6 +132,8 @@ namespace ClinetCSharp
                 state.Name = u.EntityName;
                 state.TargetAtb = u.Atb;
                 state.IsPlayer = u.IsPlayer;
+                state.CastingSkill = u.CastingSkill;
+                state.CastProgress = u.CastProgress;
             }
 
             // 移除不再存在的单位
@@ -152,6 +168,7 @@ namespace ClinetCSharp
                 }
                 marker.EntityId = state.EntityId;
                 marker.SetStyle(state.IsPlayer, state.Name);
+                marker.UpdateCastBar(state.CastingSkill, state.CastProgress);
                 marker.Node.Visible = true;
                 index++;
             }
@@ -180,8 +197,33 @@ namespace ClinetCSharp
             label.AddThemeFontSizeOverride("font_size", 12);
             node.AddChild(label);
 
+            // 蓄力进度条背景
+            var castBarBg = new ColorRect();
+            castBarBg.Size = new Vector2(60, 4);
+            castBarBg.Position = new Vector2(10, 22);
+            castBarBg.Color = new Color(0.2f, 0.2f, 0.2f, 0.8f);
+            castBarBg.Visible = false;
+            node.AddChild(castBarBg);
+
+            // 蓄力进度条填充
+            var castBarFill = new ColorRect();
+            castBarFill.Size = new Vector2(60, 4);
+            castBarFill.Position = new Vector2(10, 22);
+            castBarFill.Color = new Color("#FFD700");
+            castBarFill.Visible = false;
+            node.AddChild(castBarFill);
+
+            // 蓄力技能名
+            var castLabel = new Label();
+            castLabel.HorizontalAlignment = HorizontalAlignment.Center;
+            castLabel.Size = new Vector2(80, 12);
+            castLabel.Position = new Vector2(0, 25);
+            castLabel.AddThemeFontSizeOverride("font_size", 10);
+            castLabel.Visible = false;
+            node.AddChild(castLabel);
+
             _markersContainer.AddChild(node);
-            return new Marker { Node = node, Shape = shape, Label = label };
+            return new Marker { Node = node, Shape = shape, Label = label, CastBarBg = castBarBg, CastBarFill = castBarFill, CastLabel = castLabel };
         }
 
         private class Marker
@@ -189,6 +231,9 @@ namespace ClinetCSharp
             public Control Node;
             public ColorRect Shape;
             public Label Label;
+            public ColorRect CastBarBg;
+            public ColorRect CastBarFill;
+            public Label CastLabel;
             public ulong EntityId;
             public bool IsValid => Node != null && GodotObject.IsInstanceValid(Node);
 
@@ -207,7 +252,6 @@ namespace ClinetCSharp
                     Shape.Size = new Vector2(10, 10);
                     Label.Position = new Vector2(0, 12);
                 }
-                // 圆点 vs 方块：敌人用圆角
                 var style = new StyleBoxFlat
                 {
                     BgColor = Shape.Color,
@@ -218,6 +262,19 @@ namespace ClinetCSharp
                 };
                 Shape.AddThemeStyleboxOverride("panel", style);
                 Shape.Position = new Vector2(35, 10);
+            }
+
+            public void UpdateCastBar(string castingSkill, float progress)
+            {
+                bool casting = !string.IsNullOrEmpty(castingSkill);
+                CastBarBg.Visible = casting;
+                CastBarFill.Visible = casting;
+                CastLabel.Visible = casting;
+                if (casting)
+                {
+                    CastBarFill.Size = new Vector2(60 * Mathf.Clamp(progress, 0f, 1f), 4);
+                    CastLabel.Text = castingSkill;
+                }
             }
 
             public void TriggerFlash()

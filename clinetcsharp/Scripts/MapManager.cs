@@ -70,5 +70,15 @@ namespace ClinetCSharp
                 GD.Print($"[MapManager] Spawned {nm.Monsters.Count} monsters");
             }
         }
+
+        public override void _ExitTree()
+        {
+            var nm = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
+            if (nm != null)
+            {
+                nm.MapInfoReceived -= OnMapInfoReceived;
+                nm.MonsterMoveNotify -= OnMonsterMove;
+            }
+        }
     }
 }

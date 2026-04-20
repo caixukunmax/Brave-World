@@ -127,6 +127,7 @@ namespace ClinetCSharp
                 nm.MoveCancelNotify += OnMoveCancelReceived;
                 nm.MoveResponse += OnMoveResponse;
                 nm.RoleAttrUpdated += OnRoleAttrUpdated;
+                nm.CombatStateNotify += OnCombatStateNotify;
 
                 // 应用缓存的角色数据
                 if (nm.CachedRoleInfo != null)
@@ -142,6 +143,7 @@ namespace ClinetCSharp
                 nm.MoveCancelNotify -= OnMoveCancelReceived;
                 nm.MoveResponse -= OnMoveResponse;
                 nm.RoleAttrUpdated -= OnRoleAttrUpdated;
+                nm.CombatStateNotify -= OnCombatStateNotify;
             }
             _checkTimer?.Stop();
             _checkTimer?.QueueFree();
@@ -973,6 +975,18 @@ namespace ClinetCSharp
             var gridManager = GetParent()?.GetNode<GridManager>("GridManager");
             if (gridManager != null && !gridManager.IsWalkable(targetGridPos))
             {
+                // 被怪物阻挡 → 先做 bump 动画，同时发送请求让服务器判定
+                var mm = GetTree()?.GetFirstNodeInGroup("monster_manager") as MonsterManager;
+                if (mm != null && mm.IsBlockedByMonster(targetGridPos))
+                {
+                    _moveFromPos = GridPos;
+                    _moveTargetPos = targetGridPos;
+                    PlayBumpAnimation(GridPos, targetGridPos);
+                    SendMoveStartRequest(GridPos, targetGridPos);
+                    return;
+                }
+
+                // 被宝箱阻挡 → 自动开箱
                 if (gridManager.IsBlockedByChest(targetGridPos))
                 {
                     var chestMgr = GetTree()?.GetFirstNodeInGroup("chest_manager") as ChestManager;
@@ -1034,6 +1048,16 @@ namespace ClinetCSharp
         private void OnMoveResponse(Game.MoveResponse rsp)
         {
             _movePending = false;
+
+            if (rsp.Message == "attack")
+            {
+                // 服务器判定目标格被占 → bump 动画弹回原位
+                GD.Print($"[Player] Server acknowledged attack at ({rsp.X}, {rsp.Y})");
+                var originPos = new Vector2I((int)rsp.X, (int)rsp.Y);
+                GridPos = originPos;
+                PlayBumpAnimation(originPos, _moveTargetPos);
+                return;
+            }
 
             if (rsp.Code != Common.ErrorCode.Success || rsp.DurationMs <= 0)
             {
@@ -1112,6 +1136,62 @@ namespace ClinetCSharp
         private void OnRoleAttrUpdated(Game.FullRoleInfo roleInfo)
         {
             ApplyRoleInfo(roleInfo);
+        }
+
+        private void OnCombatStateNotify(Game.CombatStateNotify notify)
+        {
+            var nm = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
+            if (nm == null || nm.AccountId == 0) return;
+
+            foreach (var unit in notify.Units)
+            {
+                if (unit.IsPlayer && unit.EntityId == nm.AccountId)
+                {
+                    // 更新血条
+                    if (unit.MaxHp > 0)
+                    {
+                        HealthBarFillPercent = (float)unit.Hp / unit.MaxHp;
+                        CombatAttrs[1] = unit.Hp;   // HP
+                        CombatAttrs[2] = unit.MaxHp; // MaxHp
+                        QueueRedraw();
+                    }
+                    break;
+                }
+            }
+        }
+
+        /// <summary>
+        /// 播放撞墙弹回动画：先向目标移动30%，再弹回原位
+        /// </summary>
+        private void PlayBumpAnimation(Vector2I fromPos, Vector2I targetPos)
+        {
+            _currentTween?.Kill();
+            _checkTimer?.Stop();
+            _checkTimer?.QueueFree();
+            _checkTimer = null;
+
+            var fromWorld = UiUtils.GridToWorld(fromPos, GridSize);
+            var toWorld = UiUtils.GridToWorld(targetPos, GridSize);
+            // 30% 位置
+            var bumpPos = fromWorld + (toWorld - fromWorld) * 0.3f;
+
+            IsMoving = true;
+            float bumpDuration = 0.08f;  // 前30%用时
+            float returnDuration = 0.07f; // 弹回用时
+
+            _currentTween = CreateTween();
+            _currentTween.SetTrans(Tween.TransitionType.Sine);
+            _currentTween.SetEase(Tween.EaseType.Out);
+            _currentTween.TweenProperty(this, "position", bumpPos, bumpDuration);
+            _currentTween.SetTrans(Tween.TransitionType.Sine);
+            _currentTween.SetEase(Tween.EaseType.In);
+            _currentTween.TweenProperty(this, "position", fromWorld, returnDuration);
+            _currentTween.Finished += () =>
+            {
+                IsMoving = false;
+                Position = fromWorld;
+                GridPos = fromPos;
+            };
         }
 
         private void RollbackTo(Vector2I pos)

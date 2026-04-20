@@ -1,0 +1,413 @@
+syntax = "proto3";
+
+package game;
+
+import "common.proto";
+
+/**
+ * ==================== UI 面板 ====================
+ */
+
+/**
+ * 更新面板位置请求
+ */
+message UpdateUIPanelPosRequest {
+  float pos_x = 1;
+  float pos_y = 2;
+  float width = 3;
+  float height = 4;
+}
+
+/**
+ * 更新面板位置响应
+ */
+message UpdateUIPanelPosResponse {
+  common.ErrorCode code = 1;
+  string message = 2;
+}
+
+/**
+ * ==================== 战斗日志 ====================
+ */
+
+/**
+ * 战斗日志条目类型
+ */
+enum CombatLogType {
+  COMBAT_LOG_START = 0;      // 战斗开始
+  COMBAT_LOG_SKILL = 1;      // 释放技能
+  COMBAT_LOG_DAMAGE = 2;     // 造成伤害
+  COMBAT_LOG_HEAL = 3;       // 治疗/回血
+  COMBAT_LOG_BUFF = 4;       // 获得 Buff/Debuff
+  COMBAT_LOG_DODGE = 5;      // 闪避/打空
+  COMBAT_LOG_DEATH = 6;      // 死亡
+  COMBAT_LOG_END = 7;        // 战斗结束/脱战
+}
+
+/**
+ * 单条战斗日志
+ */
+message CombatLogEntry {
+  CombatLogType log_type = 1;    // 日志类型
+  uint64 timestamp = 2;            // 服务器时间戳（秒）
+  string actor_name = 3;           // 行为发起者名称
+  string target_name = 4;          // 目标名称（可选）
+  string skill_name = 5;           // 技能名称（可选）
+  int32 value = 6;                 // 数值（伤害/治疗量，可选）
+  string extra = 7;                // 额外文本（可选）
+}
+
+/**
+ * 战斗日志批量推送
+ */
+message CombatLogNotify {
+  repeated CombatLogEntry entries = 1;
+}
+
+/**
+ * 战斗 ATB 状态推送
+ */
+message CombatStateNotify {
+  message CombatUnit {
+    uint64 entity_id = 1;      // account_id 或 instance_id
+    string entity_name = 2;    // 显示名称
+    float atb = 3;             // 0.0 ~ 100.0
+    bool is_player = 4;        // true=玩家, false=怪物
+    int32 hp = 5;              // 当前血量
+    int32 max_hp = 6;          // 最大血量
+  }
+  repeated CombatUnit units = 1;
+}
+
+/**
+ * ==================== 角色信息定义 ====================
+ */
+
+/**
+ * 完整角色信息（进入游戏后返回）
+ */
+message FullRoleInfo {
+  uint64 role_id = 1;           // 角色ID
+  string role_name = 2;         // 角色名
+  uint32 level = 3;             // 等级
+  uint64 exp = 4;               // 经验值
+  uint32 avatar_id = 5;         // 头像ID
+  uint64 gold = 6;              // 金币
+  uint64 diamond = 7;           // 钻石
+  uint64 total_power = 8;       // 总战力
+  uint32 vip_level = 9;         // VIP等级
+  uint64 create_time = 10;      // 创建时间
+  uint64 last_login_time = 11;  // 上次登录时间
+  string job = 12;              // 职业
+  string title = 13;            // 称号
+  string status = 14;           // 状态
+  string current_map = 15;      // 当前地图
+  int32 grid_x = 16;            // 格子X
+  int32 grid_y = 17;            // 格子Y
+  float ui_panel_pos_x = 18;    // 综合面板位置X
+  float ui_panel_pos_y = 19;    // 综合面板位置Y
+  float ui_panel_width = 20;    // 综合面板宽度
+  float ui_panel_height = 21;   // 综合面板高度
+  repeated AttrItem attrs = 22; // 战斗属性集合（key-value，接 luban 枚举）
+}
+
+/**
+ * 道具信息
+ */
+message ItemInfo {
+  uint32 item_id = 1;           // 道具ID
+  uint32 count = 2;             // 数量
+}
+
+/**
+ * 任务信息
+ */
+message TaskInfo {
+  uint32 task_id = 1;           // 任务ID
+  uint32 status = 2;            // 状态：0未接 1进行中 2已完成
+  uint32 progress = 3;          // 进度
+}
+
+/**
+ * ==================== 进入游戏流程 ====================
+ */
+
+/**
+ * 进入游戏请求（选择已有角色）
+ */
+message EnterGameRequest {
+  uint64 role_id = 1;           // 角色ID
+}
+
+/**
+ * 进入游戏响应
+ */
+message EnterGameResponse {
+  common.ErrorCode code = 1;
+  string message = 2;
+  FullRoleInfo role_info = 3;           // 完整角色信息
+  repeated ItemInfo items = 4;          // 背包道具
+  repeated TaskInfo tasks = 5;          // 任务列表
+  uint32 server_time = 6;               // 服务器时间
+  repeated ChestInfo chests = 7;        // 地图宝箱列表
+}
+
+/**
+ * ==================== 创建角色流程 ====================
+ */
+
+/**
+ * 创建角色请求
+ */
+message CreateRoleRequest {
+  string role_name = 1;         // 角色名
+}
+
+/**
+ * 创建角色响应
+ * 创建成功后直接返回角色信息，自动进入游戏
+ */
+message CreateRoleResponse {
+  common.ErrorCode code = 1;
+  string message = 2;
+  FullRoleInfo role_info = 3;           // 新创建的角色信息
+  repeated ItemInfo items = 4;          // 初始道具
+  repeated TaskInfo tasks = 5;          // 初始任务
+  uint32 server_time = 6;               // 服务器时间
+  repeated ChestInfo chests = 7;        // 地图宝箱列表
+}
+
+/**
+ * 宝箱更新推送（服务器主动推送新增/删除的宝箱）
+ */
+message ChestUpdateNotify {
+  repeated ChestInfo chests = 1;        // 当前地图完整宝箱列表
+}
+
+/**
+ * ==================== 移动系统 ====================
+ */
+
+/**
+ * 移动请求（客户端预测：先移动后确认）
+ */
+message MoveRequest {
+  int32 from_x = 1;             // 起点 X
+  int32 from_y = 2;             // 起点 Y
+  int32 to_x = 3;               // 终点 X
+  int32 to_y = 4;               // 终点 Y
+  string map_name = 5;          // 地图名
+}
+
+/**
+ * 移动响应
+ */
+message MoveResponse {
+  common.ErrorCode code = 1;
+  string message = 2;
+  int32 x = 3;                  // 服务器确认的位置 X（失败时为合法位置）
+  int32 y = 4;                  // 服务器确认的位置 Y
+  int32 duration_ms = 5;        // 移动总时长（毫秒）
+  int32 check_ratio = 6;        // 检查点比例 0-100
+  int32 dual_start_ratio = 7;   // 双格开始比例 0-100
+  int32 dual_end_ratio = 8;     // 双格结束比例 0-100
+}
+
+/**
+ * 移动确认请求（客户端在检查点发送，无需等待回复）
+ */
+message MoveConfirmRequest {
+  int32 target_x = 1;
+  int32 target_y = 2;
+}
+
+/**
+ * 移动完成请求（客户端在移动结束时发送）
+ */
+message MoveCompleteRequest {
+  int32 target_x = 1;
+  int32 target_y = 2;
+}
+
+/**
+ * 移动取消通知（服务器主动推送）
+ */
+message MoveCancelNotify {
+  uint64 entity_id = 1;
+  int32 rollback_x = 2;
+  int32 rollback_y = 3;
+}
+
+/**
+ * ==================== 背包系统 ====================
+ */
+
+/**
+ * 使用物品请求
+ */
+message UseItemRequest {
+  uint32 item_id = 1;            // 物品ID
+  uint32 count = 2;              // 使用数量
+}
+
+/**
+ * 使用物品响应
+ */
+message UseItemResponse {
+  common.ErrorCode code = 1;
+  string message = 2;
+  repeated ItemInfo items = 3;   // 更新后的完整背包
+}
+
+/**
+ * 丢弃物品请求
+ */
+message DropItemRequest {
+  uint32 item_id = 1;            // 物品ID
+  uint32 count = 2;              // 丢弃数量
+}
+
+/**
+ * 丢弃物品响应
+ */
+message DropItemResponse {
+  common.ErrorCode code = 1;
+  string message = 2;
+  repeated ItemInfo items = 3;   // 更新后的完整背包
+}
+
+/**
+ * ==================== GM 系统 ====================
+ */
+
+/**
+ * GM 命令请求
+ */
+message GmCommandRequest {
+  string command = 1;            // 命令名（如 "additem"）
+  string args = 2;               // 参数（如 "1001:5"）
+}
+
+/**
+ * GM 命令响应
+ */
+message GmCommandResponse {
+  common.ErrorCode code = 1;
+  string message = 2;
+  repeated ItemInfo items = 3;   // 如果影响背包，返回更新后的背包
+}
+
+/**
+ * ==================== 怪物系统 ====================
+ */
+
+/**
+ * 通用属性项（角色/怪物共用，key 对应枚举）
+ * 角色属性枚举约定: 1=HP 2=MaxHP 3=MP 4=MaxMP 5=Agility 6=PAtk 7=MAtk 8=PDef 9=MDef
+ */
+message AttrItem {
+  uint32 key = 1;
+  int32 value = 2;
+}
+
+/**
+ * 怪物属性项（兼容旧字段，后续可迁移到 AttrItem）
+ */
+message MonsterAttr {
+  uint32 attr_key = 1;           // 属性键（对应 EMonsterAttr）
+  int32 attr_value = 2;          // 属性值
+}
+
+/**
+ * 地图上的怪物信息
+ */
+message MonsterInfo {
+  uint32 instance_id = 1;        // 实例配置ID（来自 TbMapMonster.id）
+  uint32 monster_id = 2;         // 怪物类型ID（来自 TbMonster.id）
+  int32 x = 3;                   // 格子 X
+  int32 y = 4;                   // 格子 Y
+  string name = 5;               // 怪物名称
+  uint32 level = 6;              // 等级
+  repeated MonsterAttr attrs = 7; // 属性列表
+}
+
+/**
+ * 怪物移动/状态更新推送（服务器主动广播）
+ */
+message MonsterMoveNotify {
+  uint32 instance_id = 1;        // 怪物实例ID
+  int32 from_x = 2;              // 起点 X
+  int32 from_y = 3;              // 起点 Y
+  int32 to_x = 4;                // 终点 X
+  int32 to_y = 5;                // 终点 Y
+  string state = 6;              // 状态：idle | patrol | chase | return
+  int32 duration_ms = 7;         // 移动耗时（毫秒），客户端据此播放动画
+}
+
+/**
+ * 怪物状态批量更新推送
+ */
+message MonsterStateBatchNotify {
+  repeated MonsterMoveNotify monsters = 1;
+}
+
+/**
+ * ==================== 地图信息同步 ====================
+ */
+
+/**
+ * 地图信息同步通知（进入/切换地图时推送）
+ */
+message MapInfoSyncNotify {
+  string map_name = 1;                  // 地图名
+  repeated ChestInfo chests = 2;        // 地图宝箱列表
+  repeated MonsterInfo monsters = 3;    // 地图怪物列表
+}
+
+/**
+ * 切换地图请求
+ */
+message ChangeMapRequest {
+  string target_map = 1;                // 目标地图名
+}
+
+/**
+ * 切换地图响应
+ */
+message ChangeMapResponse {
+  common.ErrorCode code = 1;
+  string message = 2;
+  string map_name = 3;                  // 当前地图名
+  int32 spawn_x = 4;                    // 出生点 X
+  int32 spawn_y = 5;                    // 出生点 Y
+}
+
+/**
+ * ==================== 宝箱系统 ====================
+ */
+
+/**
+ * 地图上的宝箱信息
+ */
+message ChestInfo {
+  uint32 chest_id = 1;           // 宝箱实例ID
+  int32 x = 2;                  // 格子 X
+  int32 y = 3;                  // 格子 Y
+  bool opened = 4;              // 是否已打开
+}
+
+/**
+ * 开箱请求
+ */
+message OpenChestRequest {
+  uint32 chest_id = 1;           // 宝箱实例ID
+}
+
+/**
+ * 开箱响应
+ */
+message OpenChestResponse {
+  common.ErrorCode code = 1;
+  string message = 2;
+  repeated ItemInfo items = 3;   // 获得的物品
+}

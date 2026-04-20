@@ -73,7 +73,7 @@ namespace ClinetCSharp
             QueueRedraw();
         }
 
-        public void Setup(uint instanceId, uint monsterId, int x, int y, string name, uint level, int gridSize, Google.Protobuf.Collections.RepeatedField<Game.AttributePair> attrs)
+        public void Setup(uint instanceId, uint monsterId, int x, int y, string name, uint level, int gridSize, Google.Protobuf.Collections.RepeatedField<Game.MonsterAttr> attrs)
         {
             Setup(instanceId, monsterId, x, y, name, level, gridSize);
 

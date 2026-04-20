@@ -357,7 +357,7 @@ namespace ClinetCSharp
             config.SetValue("player", "font_size", _fontSizeSlider.Value);
             config.SetValue("player", "line_spacing", _lineSpacingSlider.Value);
             config.SetValue("player", "letter_spacing", _letterSpacingSlider.Value);
-            config.SetValue("player", "text_alignment", _player.TextAlignment);
+            config.SetValue("player", "text_alignment", (int)_player.TextAlignment);
             config.SetValue("player", "font_bold", _boldCheck.ButtonPressed);
             config.SetValue("player", "font_italic", _italicCheck.ButtonPressed);
             config.SetValue("player", "font_shadow", _shadowCheck.ButtonPressed);
@@ -708,7 +708,7 @@ namespace ClinetCSharp
             GD.Print($"[DebugPanel] Preparing to apply player settings, player exists: {_player != null}");
             if (_player != null)
             {
-                _player.SetTextAlignment((int)savedAlignment);
+                _player.SetTextAlignment(savedAlignment);
                 _player.SetVisualSizeScale((float)(_playerSizeScaleSlider?.Value ?? 1.0));
                 _player.SetBorderWidthScale((float)(_borderWidthScaleSlider?.Value ?? (3.0 / 111.0)));
                 _player.SetCornerRadius((float)_cornerRadiusSlider.Value);
@@ -732,7 +732,7 @@ namespace ClinetCSharp
             {
                 _camera.SetReturnDelay((float)_cameraReturnDelaySlider.Value);
                 _camera.SetReturnSpeed((float)_cameraReturnSpeedSlider.Value);
-                _camera.SetEaseType((int)_cameraEaseTypeOption.Selected);
+                _camera.SetEaseType((CameraController.EaseType)_cameraEaseTypeOption.Selected);
                 _camera.SetEasePower((float)_cameraEasePowerSlider.Value);
             }
 
@@ -1088,7 +1088,7 @@ namespace ClinetCSharp
                     _player.SetFontBold((bool)config.GetValue("player", "font_bold", false));
                     _player.SetFontItalic((bool)config.GetValue("player", "font_italic", false));
                     _player.SetFontShadow((bool)config.GetValue("player", "font_shadow", false));
-                    _player.SetTextAlignment((int)(HorizontalAlignment)(int)config.GetValue("player", "text_alignment", (int)HorizontalAlignment.Center));
+                    _player.SetTextAlignment((HorizontalAlignment)(int)config.GetValue("player", "text_alignment", (int)HorizontalAlignment.Center));
 
                     // Apply font size
                     double savedFontSize = (double)config.GetValue("player", "font_size", 0);

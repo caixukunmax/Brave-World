@@ -140,9 +140,21 @@ namespace ClinetCSharp
             }
         }
 
+        private Game.CombatLogNotify _pendingLog;
+
         private void OnCombatLogNotify(Game.CombatLogNotify notify)
         {
-            CallDeferred(nameof(AppendCombatLogs), notify);
+            _pendingLog = notify;
+            CallDeferred(nameof(AppendCombatLogsDeferred));
+        }
+
+        private void AppendCombatLogsDeferred()
+        {
+            if (_pendingLog != null)
+            {
+                AppendCombatLogs(_pendingLog);
+                _pendingLog = null;
+            }
         }
         #endregion
     }

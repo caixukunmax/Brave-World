@@ -192,34 +192,6 @@ namespace ClinetCSharp
 
             GD.Print($"[ChestManager] ChestUpdateNotify: +{notify.Chests.Count} chests");
         }
-        {
-            if (rsp.Code != Common.ErrorCode.Success)
-            {
-                GD.Print($"[ChestManager] OpenChest failed: {rsp.Message}");
-                return;
-            }
-
-            var gridMgr = GetTree()?.GetFirstNodeInGroup("grid_manager") as GridManager;
-
-            Chest openedChest = null;
-            foreach (var chest in _chests)
-            {
-                if (chest.ChestId == chestId)
-                {
-                    openedChest = chest;
-                    if (gridMgr != null)
-                        gridMgr.UnblockCell(new Vector2I(chest.GridX, chest.GridY));
-                    chest.MarkOpened();
-                    break;
-                }
-            }
-            if (openedChest != null)
-                _chests.Remove(openedChest);
-
-            ShowItemFloatingTexts(rsp.Items);
-
-            GD.Print($"[ChestManager] Opened chest, got {rsp.Items.Count} items");
-        }
 
         private void ShowItemFloatingTexts(Google.Protobuf.Collections.RepeatedField<Game.ItemInfo> items)
         {

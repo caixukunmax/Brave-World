@@ -343,7 +343,7 @@ namespace ClinetCSharp
                     case MessageId.GatewayHeartbeatRsp:
                     {
                         var rsp = Gateway.HeartbeatResponse.Parser.ParseFrom(data);
-                        ServerTime = rsp.ServerTime;
+                        ServerTime = (uint)rsp.ServerTime;
                         break;
                     }
 
@@ -388,7 +388,7 @@ namespace ClinetCSharp
                         {
                             GatewayToken = rsp.GatewayToken;
                             MaxRoleCount = rsp.MaxRoleCount;
-                            ServerTime = rsp.ServerTime;
+                            ServerTime = (uint)rsp.ServerTime;
                             Roles = new List<Login.RoleBrief>(rsp.Roles);
                         }
                         SelectServerResponse?.Invoke(rsp);
@@ -431,8 +431,8 @@ namespace ClinetCSharp
                         if (rsp.Code == Common.ErrorCode.Success)
                         {
                             CurrentMapName = rsp.MapName;
-                            SpawnGridX = rsp.SpawnX;
-                            SpawnGridY = rsp.SpawnY;
+                            SpawnGridX = (int)rsp.SpawnX;
+                            SpawnGridY = (int)rsp.SpawnY;
                         }
                         ChangeMapResponse?.Invoke(rsp);
                         break;

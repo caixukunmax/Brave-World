@@ -1,0 +1,62 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{D4A42462-4A91-497B-B36E-82AC16779E87}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GameServer", "src\GameServer\GameServer.csproj", "{1FE5252B-6101-4F36-9B53-BBEE5DA4D9A0}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GameServer.Common", "src\GameServer.Common\GameServer.Common.csproj", "{0A652BB1-9AE6-45A2-97CB-4E7D95C22CEE}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GameServer.Proto", "src\GameServer.Proto\GameServer.Proto.csproj", "{588CC7D9-B4E5-4BA3-BFB1-A73AA25C00EC}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GameServer.Database", "src\GameServer.Database\GameServer.Database.csproj", "{B8A7A828-940B-48D9-8844-0CB85CAA672C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GameServer.Services", "src\GameServer.Services\GameServer.Services.csproj", "{02B9FA44-CFD8-4D43-98CD-4015A05E88CF}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GameServer.Tables", "src\GameServer.Tables\GameServer.Tables.csproj", "{C06EE591-2F4E-4C6A-8D9C-4767F8A95FB0}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{1FE5252B-6101-4F36-9B53-BBEE5DA4D9A0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1FE5252B-6101-4F36-9B53-BBEE5DA4D9A0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1FE5252B-6101-4F36-9B53-BBEE5DA4D9A0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1FE5252B-6101-4F36-9B53-BBEE5DA4D9A0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0A652BB1-9AE6-45A2-97CB-4E7D95C22CEE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0A652BB1-9AE6-45A2-97CB-4E7D95C22CEE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0A652BB1-9AE6-45A2-97CB-4E7D95C22CEE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0A652BB1-9AE6-45A2-97CB-4E7D95C22CEE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{588CC7D9-B4E5-4BA3-BFB1-A73AA25C00EC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{588CC7D9-B4E5-4BA3-BFB1-A73AA25C00EC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{588CC7D9-B4E5-4BA3-BFB1-A73AA25C00EC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{588CC7D9-B4E5-4BA3-BFB1-A73AA25C00EC}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B8A7A828-940B-48D9-8844-0CB85CAA672C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B8A7A828-940B-48D9-8844-0CB85CAA672C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B8A7A828-940B-48D9-8844-0CB85CAA672C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B8A7A828-940B-48D9-8844-0CB85CAA672C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{02B9FA44-CFD8-4D43-98CD-4015A05E88CF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{02B9FA44-CFD8-4D43-98CD-4015A05E88CF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{02B9FA44-CFD8-4D43-98CD-4015A05E88CF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{02B9FA44-CFD8-4D43-98CD-4015A05E88CF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C06EE591-2F4E-4C6A-8D9C-4767F8A95FB0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C06EE591-2F4E-4C6A-8D9C-4767F8A95FB0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C06EE591-2F4E-4C6A-8D9C-4767F8A95FB0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C06EE591-2F4E-4C6A-8D9C-4767F8A95FB0}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{1FE5252B-6101-4F36-9B53-BBEE5DA4D9A0} = {D4A42462-4A91-497B-B36E-82AC16779E87}
+		{0A652BB1-9AE6-45A2-97CB-4E7D95C22CEE} = {D4A42462-4A91-497B-B36E-82AC16779E87}
+		{588CC7D9-B4E5-4BA3-BFB1-A73AA25C00EC} = {D4A42462-4A91-497B-B36E-82AC16779E87}
+		{B8A7A828-940B-48D9-8844-0CB85CAA672C} = {D4A42462-4A91-497B-B36E-82AC16779E87}
+		{02B9FA44-CFD8-4D43-98CD-4015A05E88CF} = {D4A42462-4A91-497B-B36E-82AC16779E87}
+		{C06EE591-2F4E-4C6A-8D9C-4767F8A95FB0} = {D4A42462-4A91-497B-B36E-82AC16779E87}
+	EndGlobalSection
+EndGlobal

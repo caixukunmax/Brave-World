@@ -16,3 +16,12 @@ Thumbs.db
 
 # Claude
 .claude/
+
+# Build artifacts
+bin/
+obj/
+*.user
+*.suo
+
+# Server logs
+servercsharp/logs/

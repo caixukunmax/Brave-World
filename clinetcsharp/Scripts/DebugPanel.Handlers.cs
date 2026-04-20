@@ -207,7 +207,7 @@ namespace ClinetCSharp
         {
             if (_gridManager != null)
             {
-                _gridManager.SetLineWidthScale(value);
+                _gridManager.SetLineWidthScale((float)value);
                 _gridManager.QueueRedraw();
             }
         }
@@ -228,7 +228,7 @@ namespace ClinetCSharp
         {
             if (_camera != null)
             {
-                _camera.SetReturnDelay(_cameraReturnDelaySlider.Value);
+                _camera.SetReturnDelay((float)_cameraReturnDelaySlider.Value);
             }
             PushCurrentStateToHistory();
         }
@@ -242,7 +242,7 @@ namespace ClinetCSharp
         {
             if (_camera != null)
             {
-                _camera.SetReturnSpeed(_cameraReturnSpeedSlider.Value);
+                _camera.SetReturnSpeed((float)_cameraReturnSpeedSlider.Value);
             }
             PushCurrentStateToHistory();
         }
@@ -251,7 +251,7 @@ namespace ClinetCSharp
         {
             if (_camera != null)
             {
-                _camera.SetEaseType((int)index);
+                _camera.SetEaseType((CameraController.EaseType)index);
             }
             PushCurrentStateToHistory();
         }
@@ -265,7 +265,7 @@ namespace ClinetCSharp
         {
             if (_camera != null)
             {
-                _camera.SetEasePower(_cameraEasePowerSlider.Value);
+                _camera.SetEasePower((float)_cameraEasePowerSlider.Value);
             }
             PushCurrentStateToHistory();
         }
@@ -391,7 +391,7 @@ namespace ClinetCSharp
             {
                 int gridSize = (int)_gridSizeSlider.Value;
                 float scale = gridSize > 0 ? (float)(_borderWidthSlider.Value / gridSize) : 0.0f;
-                _player.SetBorderWidth(_borderWidthSlider.Value);
+                _player.SetBorderWidth((float)_borderWidthSlider.Value);
                 _player.BorderWidthScale = scale;
                 if (_borderWidthScaleSlider != null)
                 {
@@ -442,7 +442,7 @@ namespace ClinetCSharp
         {
             if (_player != null)
             {
-                _player.SetCornerRadius(_cornerRadiusSlider.Value);
+                _player.SetCornerRadius((float)_cornerRadiusSlider.Value);
             }
             if (pushToHistory)
                 PushCurrentStateToHistory();
@@ -588,7 +588,7 @@ namespace ClinetCSharp
         {
             if (_player != null)
             {
-                _player.SetTextAlignment((int)alignment);
+                _player.SetTextAlignment(alignment);
                 _player.RefreshLabels();
             }
             PushCurrentStateToHistory();
@@ -822,7 +822,7 @@ namespace ClinetCSharp
             double widthA = _refWidthASpin.Value;
             double zoomB = _refZoomBSpin.Value;
             double widthB = _refWidthBSpin.Value;
-            _gridManager.SetLineWidthCalibration(zoomA, widthA, zoomB, widthB);
+            _gridManager.SetLineWidthCalibration((float)zoomA, (float)widthA, (float)zoomB, (float)widthB);
 
             // Update slider display to current zoom corresponding value
             SyncLineWidthToAdaptiveValue();
@@ -847,7 +847,7 @@ namespace ClinetCSharp
                 // Reference point A is usually farther view (smaller zoom), B is closer view (larger zoom)
                 double minZoomLimit = Mathf.Min((float)zoomA, (float)zoomB);
                 double maxZoomLimit = Mathf.Max((float)zoomA, (float)zoomB);
-                _camera.SetCalibrationZoomLimits(true, minZoomLimit, maxZoomLimit);
+                _camera.SetCalibrationZoomLimits(true, (float)minZoomLimit, (float)maxZoomLimit);
                 GD.Print($"[DebugPanel] Calibration zoom limit enabled: zoom [{minZoomLimit:F1} - {maxZoomLimit:F1}]");
             }
         }
@@ -890,7 +890,7 @@ namespace ClinetCSharp
             MouseButton selectedButton = buttonMap[index];
 
             // Update camera controller
-            Godot.Collections.Array<MouseButton> buttons = new Godot.Collections.Array<MouseButton> { selectedButton };
+            var buttons = new System.Collections.Generic.List<MouseButton> { selectedButton };
             if (_camera != null)
             {
                 _camera.SetDragButtons(buttons);
