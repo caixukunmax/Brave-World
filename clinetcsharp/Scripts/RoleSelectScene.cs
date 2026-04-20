@@ -1,5 +1,4 @@
 using Godot;
-using Godot.Collections;
 using Protocol;
 
 namespace ClinetCSharp
@@ -48,7 +47,8 @@ namespace ClinetCSharp
             _nameEdit.TextSubmitted += _ => OnCreateRole();
 
             var nm = GetNode<NetworkManager>("/root/NetworkManager");
-            nm.PacketReceived += OnPacketReceived;
+            nm.EnterGameResponse += OnEnterGameResponse;
+            nm.CreateRoleResponse += OnCreateRoleResponse;
 
             _serverLabel.Text = $"当前区服: {nm.LastServerId}服";
             LoadRoles();
@@ -81,23 +81,19 @@ namespace ClinetCSharp
 
             foreach (var role in nm.Roles)
             {
-                var roleDict = role.AsGodotDictionary();
-                if (roleDict != null)
-                {
-                    var card = CreateRoleCard(roleDict);
-                    _roleContainer.AddChild(card);
-                }
+                var card = CreateRoleCard(role);
+                _roleContainer.AddChild(card);
             }
 
             _createButton.Disabled = roleCount >= maxCount;
         }
 
-        private Button CreateRoleCard(Dictionary role)
+        private Button CreateRoleCard(Login.RoleBrief role)
         {
-            long roleId = role.GetValueOrDefault("roleId", Variant.From(0L)).AsInt64();
-            string roleName = role.GetValueOrDefault("roleName", Variant.From("未知")).AsString();
-            int level = role.GetValueOrDefault("level", Variant.From(1)).AsInt32();
-            long totalPower = role.GetValueOrDefault("totalPower", Variant.From(0L)).AsInt64();
+            long roleId = (long)role.RoleId;
+            string roleName = role.RoleName;
+            int level = (int)role.Level;
+            long totalPower = (long)role.TotalPower;
 
             var button = new Button();
             button.CustomMinimumSize = new Vector2(120, 160);
@@ -239,67 +235,44 @@ namespace ClinetCSharp
             nm.SendPacket(MessageId.GameEnterGameReq, req);
         }
 
-        private void OnPacketReceived(int msgId)
+        private void OnEnterGameResponse(Game.EnterGameResponse rsp)
         {
-            var nm = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
-            var payload = nm?.GetLastPayload() ?? new byte[0];
-            switch ((MessageId)msgId)
+            _enterButton.Disabled = false;
+            if (rsp.Code == Common.ErrorCode.Success)
             {
-                case MessageId.GameEnterGameRsp:
-                    _enterButton.Disabled = false;
-                    try
-                    {
-                        var rsp = Game.EnterGameResponse.Parser.ParseFrom(payload);
-                        if (rsp.Code == Common.ErrorCode.Success)
-                        {
-                            GetTree().ChangeSceneToFile("res://scenes/main.tscn");
-                        }
-                        else
-                        {
-                            GD.PushError("进入游戏失败: " + rsp.Message);
-                        }
-                    }
-                    catch (System.Exception e)
-                    {
-                        GD.PushError($"[RoleSelectScene] Parse EnterGameRsp failed: {e.Message}");
-                    }
-                    break;
+                GetTree().ChangeSceneToFile("res://scenes/main.tscn");
+            }
+            else
+            {
+                GD.PushError("进入游戏失败: " + rsp.Message);
+            }
+        }
 
-                case MessageId.GameCreateRoleRsp:
-                    _confirmCreateButton.Disabled = false;
-                    try
-                    {
-                        var rsp = Game.CreateRoleResponse.Parser.ParseFrom(payload);
-                        if (rsp.Code == Common.ErrorCode.Success)
-                        {
-                            var netMgr = GetNode<NetworkManager>("/root/NetworkManager");
-                            // 把新角色加到缓存
-                            netMgr.Roles.Add(new Godot.Collections.Dictionary
-                            {
-                                ["roleId"] = (long)rsp.RoleInfo.RoleId,
-                                ["roleName"] = rsp.RoleInfo.RoleName,
-                                ["level"] = (int)rsp.RoleInfo.Level,
-                                ["avatarId"] = (int)rsp.RoleInfo.AvatarId,
-                                ["totalPower"] = (long)rsp.RoleInfo.TotalPower,
-                            });
-                            HideCreateDialog();
-                            LoadRoles();
+        private void OnCreateRoleResponse(Game.CreateRoleResponse rsp)
+        {
+            _confirmCreateButton.Disabled = false;
+            if (rsp.Code == Common.ErrorCode.Success)
+            {
+                var netMgr = GetNode<NetworkManager>("/root/NetworkManager");
+                netMgr.Roles.Add(new Login.RoleBrief
+                {
+                    RoleId = rsp.RoleInfo.RoleId,
+                    RoleName = rsp.RoleInfo.RoleName,
+                    Level = rsp.RoleInfo.Level,
+                    AvatarId = rsp.RoleInfo.AvatarId,
+                    TotalPower = rsp.RoleInfo.TotalPower,
+                });
+                HideCreateDialog();
+                LoadRoles();
 
-                            long newRoleId = (long)rsp.RoleInfo.RoleId;
-                            if (newRoleId > 0 && _roleCards.ContainsKey(newRoleId))
-                                SelectRole(newRoleId, _roleCards[newRoleId]);
-                        }
-                        else
-                        {
-                            _nameEdit.PlaceholderText = rsp.Message;
-                            _nameEdit.Text = "";
-                        }
-                    }
-                    catch (System.Exception e)
-                    {
-                        GD.PushError($"[RoleSelectScene] Parse CreateRoleRsp failed: {e.Message}");
-                    }
-                    break;
+                long newRoleId = (long)rsp.RoleInfo.RoleId;
+                if (newRoleId > 0 && _roleCards.ContainsKey(newRoleId))
+                    SelectRole(newRoleId, _roleCards[newRoleId]);
+            }
+            else
+            {
+                _nameEdit.PlaceholderText = rsp.Message;
+                _nameEdit.Text = "";
             }
         }
 
@@ -307,7 +280,10 @@ namespace ClinetCSharp
         {
             var nm = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
             if (nm != null)
-                nm.PacketReceived -= OnPacketReceived;
+            {
+                nm.EnterGameResponse -= OnEnterGameResponse;
+                nm.CreateRoleResponse -= OnCreateRoleResponse;
+            }
         }
     }
 }

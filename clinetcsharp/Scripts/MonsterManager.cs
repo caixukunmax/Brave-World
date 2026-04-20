@@ -1,5 +1,6 @@
 using Godot;
 using System.Collections.Generic;
+using Protocol;
 
 namespace ClinetCSharp
 {
@@ -45,7 +46,7 @@ namespace ClinetCSharp
                 m.SetGridSize(size);
         }
 
-        public void SpawnMonsters(Godot.Collections.Array monsterData, int gridSize)
+        public void SpawnMonsters(List<Game.MonsterInfo> monsterData, int gridSize)
         {
             foreach (var m in _monsters)
                 m.QueueFree();
@@ -56,25 +57,23 @@ namespace ClinetCSharp
             DefaultVisualSize = gridSize;
             if (monsterData == null) return;
 
-            foreach (var entry in monsterData)
+            foreach (var m in monsterData)
             {
-                var dict = entry.AsGodotDictionary();
                 var monster = new Monster();
-                var attrs = dict.ContainsKey("attrs") ? dict["attrs"].AsGodotArray() : new Godot.Collections.Array();
                 monster.Setup(
-                    (uint)dict["instance_id"].AsInt32(),
-                    (uint)dict["monster_id"].AsInt32(),
-                    dict["x"].AsInt32(),
-                    dict["y"].AsInt32(),
-                    dict["name"].AsString(),
-                    (uint)dict["level"].AsInt32(),
+                    m.InstanceId,
+                    m.MonsterId,
+                    m.X,
+                    m.Y,
+                    m.Name,
+                    m.Level,
                     gridSize,
-                    attrs
+                    m.Attrs
                 );
                 ApplyDefaultStyle(monster);
                 AddChild(monster);
                 _monsters.Add(monster);
-                _monsterPositions.Add(new Vector2I(dict["x"].AsInt32(), dict["y"].AsInt32()));
+                _monsterPositions.Add(new Vector2I(m.X, m.Y));
 
                 GD.Print($"[MonsterManager] Spawned monster {monster.InstanceId}({monster.MonsterName}) at ({monster.GridX},{monster.GridY})");
             }

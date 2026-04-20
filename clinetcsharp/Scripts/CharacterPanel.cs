@@ -170,7 +170,7 @@ namespace ClinetCSharp
             GD.Print("[CharacterPanel] GM setattr all applied");
         }
 
-        private void OnRoleAttrUpdated()
+        private void OnRoleAttrUpdated(Game.FullRoleInfo roleInfo)
         {
             RefreshFromPlayer();
         }

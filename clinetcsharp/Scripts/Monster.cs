@@ -1,5 +1,5 @@
 using Godot;
-using Godot.Collections;
+using Protocol;
 
 namespace ClinetCSharp
 {
@@ -31,7 +31,7 @@ namespace ClinetCSharp
         public Vector2I GridPos => new Vector2I(GridX, GridY);
         public string MonsterName { get; private set; } = "";
         public uint Level { get; private set; } = 1;
-        public Godot.Collections.Array MonsterAttrs { get; private set; } = new Godot.Collections.Array();
+        public Godot.Collections.Array MonsterAttrs { get; private set; } = new Godot.Collections.Array(); // 保留兼容 DebugPanel
 
         public bool IsMoving { get; set; } = false;
         public string CurrentState { get; set; } = "idle";
@@ -73,19 +73,16 @@ namespace ClinetCSharp
             QueueRedraw();
         }
 
-        public void Setup(uint instanceId, uint monsterId, int x, int y, string name, uint level, int gridSize, Godot.Collections.Array attrs)
+        public void Setup(uint instanceId, uint monsterId, int x, int y, string name, uint level, int gridSize, Google.Protobuf.Collections.RepeatedField<Game.AttributePair> attrs)
         {
-            MonsterAttrs = attrs ?? new Array();
             Setup(instanceId, monsterId, x, y, name, level, gridSize);
 
-            // 从 attrs 解析默认属性文字
             int attrLine = 2;
-            foreach (var entry in MonsterAttrs)
+            foreach (var attr in attrs)
             {
                 if (attrLine > 3) break;
-                var dict = entry.AsGodotDictionary();
-                int key = dict["attr_key"].AsInt32();
-                int val = dict["attr_value"].AsInt32();
+                int key = (int)attr.AttrKey;
+                int val = attr.AttrValue;
                 string keyName = key switch
                 {
                     1 => "HP",

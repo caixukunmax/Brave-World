@@ -22,7 +22,25 @@ namespace ClinetCSharp
             _floatLayer = new CanvasLayer { Layer = 10 };
             AddChild(_floatLayer);
 
+            // 订阅网络事件
+            var nm = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
+            if (nm != null)
+            {
+                nm.OpenChestResponse += OnOpenChestResponse;
+                nm.ChestUpdateNotify += OnChestUpdateNotify;
+            }
+
             GD.Print("[ChestManager] _Ready");
+        }
+
+        public override void _ExitTree()
+        {
+            var nm = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
+            if (nm != null)
+            {
+                nm.OpenChestResponse -= OnOpenChestResponse;
+                nm.ChestUpdateNotify -= OnChestUpdateNotify;
+            }
         }
 
         public override void _Input(InputEvent @event)
@@ -39,7 +57,7 @@ namespace ClinetCSharp
             }
         }
 
-        public void SpawnChests(Godot.Collections.Array chestData, int gridSize)
+        public void SpawnChests(List<Game.ChestInfo> chestData, int gridSize)
         {
             foreach (var chest in _chests)
                 chest.QueueFree();
@@ -50,19 +68,12 @@ namespace ClinetCSharp
 
             var gridMgr = GetTree()?.GetFirstNodeInGroup("grid_manager") as GridManager;
 
-            foreach (var entry in chestData)
+            foreach (var c in chestData)
             {
-                var dict = entry.AsGodotDictionary();
-                if (dict["opened"].AsBool()) continue; // 已开启的宝箱不显示
+                if (c.Opened) continue;
 
                 var chest = new Chest();
-                chest.Setup(
-                    (uint)dict["chest_id"].AsInt32(),
-                    dict["x"].AsInt32(),
-                    dict["y"].AsInt32(),
-                    dict["opened"].AsBool(),
-                    gridSize
-                );
+                chest.Setup(c.ChestId, c.X, c.Y, c.Opened, gridSize);
                 AddChild(chest);
                 _chests.Add(chest);
 
@@ -127,7 +138,60 @@ namespace ClinetCSharp
             GD.Print($"[ChestManager] Sent OpenChest req, chestId={chest.ChestId}");
         }
 
-        public void OnOpenChestResponse(Game.OpenChestResponse rsp, uint chestId)
+        private void OnOpenChestResponse(Game.OpenChestResponse rsp)
+        {
+            var nm = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
+            uint chestId = nm?.PendingOpenChestId ?? 0;
+            nm.PendingOpenChestId = null;
+
+            if (chestId == 0) return;
+
+            if (rsp.Code != Common.ErrorCode.Success)
+            {
+                GD.Print($"[ChestManager] OpenChest failed: {rsp.Message}");
+                return;
+            }
+
+            var gridMgr = GetTree()?.GetFirstNodeInGroup("grid_manager") as GridManager;
+
+            Chest openedChest = null;
+            foreach (var chest in _chests)
+            {
+                if (chest.ChestId == chestId)
+                {
+                    openedChest = chest;
+                    if (gridMgr != null)
+                        gridMgr.UnblockCell(new Vector2I(chest.GridX, chest.GridY));
+                    chest.MarkOpened();
+                    break;
+                }
+            }
+            if (openedChest != null)
+                _chests.Remove(openedChest);
+
+            ShowItemFloatingTexts(rsp.Items);
+
+            GD.Print($"[ChestManager] Opened chest, got {rsp.Items.Count} items");
+        }
+
+        private void OnChestUpdateNotify(Game.ChestUpdateNotify notify)
+        {
+            var gridMgr = GetTree()?.GetFirstNodeInGroup("grid_manager") as GridManager;
+
+            foreach (var c in notify.Chests)
+            {
+                if (c.Opened) continue;
+                var chest = new Chest();
+                chest.Setup(c.ChestId, c.X, c.Y, c.Opened, _gridSize);
+                AddChild(chest);
+                _chests.Add(chest);
+
+                if (!chest.Opened && gridMgr != null)
+                    gridMgr.BlockCell(new Vector2I(chest.GridX, chest.GridY));
+            }
+
+            GD.Print($"[ChestManager] ChestUpdateNotify: +{notify.Chests.Count} chests");
+        }
         {
             if (rsp.Code != Common.ErrorCode.Success)
             {
@@ -152,30 +216,33 @@ namespace ClinetCSharp
             if (openedChest != null)
                 _chests.Remove(openedChest);
 
-            // 飘字显示获得的道具（屏幕中央偏上）
-            if (rsp.Items.Count > 0)
-            {
-                var screen = GetViewport().GetVisibleRect().Size;
-                float centerX = screen.X / 2;
-                float startY = screen.Y * 0.35f;
-
-                var inv = GetTree()?.GetFirstNodeInGroup("inventory_manager") as InventoryManager;
-                for (int i = 0; i < rsp.Items.Count; i++)
-                {
-                    var item = rsp.Items[i];
-                    string name = inv?.GetItemName(item.ItemId) ?? $"物品{item.ItemId}";
-                    var ft = new FloatingText();
-                    ft.Setup($"+{item.Count} {name}", new Color(1, 0.9f, 0.2f), 16);
-                    ft.Position = new Vector2(centerX - 60, startY + i * 28);
-                    ft.CustomMinimumSize = new Vector2(120, 24);
-                    _floatLayer.AddChild(ft);
-                }
-
-                if (inv != null)
-                    inv.AddOrUpdateItemsFromProto(rsp.Items);
-            }
+            ShowItemFloatingTexts(rsp.Items);
 
             GD.Print($"[ChestManager] Opened chest, got {rsp.Items.Count} items");
+        }
+
+        private void ShowItemFloatingTexts(Google.Protobuf.Collections.RepeatedField<Game.ItemInfo> items)
+        {
+            if (items.Count == 0) return;
+
+            var screen = GetViewport().GetVisibleRect().Size;
+            float centerX = screen.X / 2;
+            float startY = screen.Y * 0.35f;
+
+            var inv = GetTree()?.GetFirstNodeInGroup("inventory_manager") as InventoryManager;
+            for (int i = 0; i < items.Count; i++)
+            {
+                var item = items[i];
+                string name = inv?.GetItemName(item.ItemId) ?? $"物品{item.ItemId}";
+                var ft = new FloatingText();
+                ft.Setup($"+{item.Count} {name}", new Color(1, 0.9f, 0.2f), 16);
+                ft.Position = new Vector2(centerX - 60, startY + i * 28);
+                ft.CustomMinimumSize = new Vector2(120, 24);
+                _floatLayer.AddChild(ft);
+            }
+
+            if (inv != null)
+                inv.AddOrUpdateItemsFromProto(items);
         }
     }
 }

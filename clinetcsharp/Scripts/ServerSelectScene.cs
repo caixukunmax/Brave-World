@@ -1,5 +1,4 @@
 using Godot;
-using Godot.Collections;
 using Protocol;
 
 namespace ClinetCSharp
@@ -37,7 +36,7 @@ namespace ClinetCSharp
             _confirmButton.Pressed += OnConfirmPressed;
 
             var nm = GetNode<NetworkManager>("/root/NetworkManager");
-            nm.PacketReceived += OnPacketReceived;
+            nm.SelectServerResponse += OnSelectServerResponse;
 
             _accountLabel.Text = $"账号ID: {nm.AccountId}";
             LoadServerList();
@@ -67,15 +66,12 @@ namespace ClinetCSharp
 
             foreach (var server in nm.Servers)
             {
-                var serverDict = server.AsGodotDictionary();
-                if (serverDict == null) continue;
-
                 var btn = new Button();
-                int serverId = serverDict.GetValueOrDefault("serverId", Variant.From(0)).AsInt32();
-                string serverName = serverDict.GetValueOrDefault("serverName", Variant.From("未知区服")).AsString();
-                int status = serverDict.GetValueOrDefault("status", Variant.From(0)).AsInt32();
-                bool isRecommend = serverDict.GetValueOrDefault("isRecommend", Variant.From(false)).AsBool();
-                bool isNew = serverDict.GetValueOrDefault("isNew", Variant.From(false)).AsBool();
+                int serverId = (int)server.ServerId;
+                string serverName = server.ServerName;
+                int status = (int)server.Status;
+                bool isRecommend = server.IsRecommend;
+                bool isNew = server.IsNew;
 
                 var tags = new System.Collections.Generic.List<string>();
                 if (isNew) tags.Add("新服");
@@ -99,11 +95,9 @@ namespace ClinetCSharp
             {
                 foreach (var server in nm.Servers)
                 {
-                    var serverDict = server.AsGodotDictionary();
-                    if (serverDict == null) continue;
-                    if (serverDict.GetValueOrDefault("serverId", Variant.From(0)).AsInt32() == (int)nm.LastServerId)
+                    if (server.ServerId == nm.LastServerId)
                     {
-                        OnServerSelected((int)nm.LastServerId, serverDict.GetValueOrDefault("serverName", Variant.From("")).AsString());
+                        OnServerSelected((int)nm.LastServerId, server.ServerName);
                         break;
                     }
                 }
@@ -148,34 +142,19 @@ namespace ClinetCSharp
             nm.SendPacket(MessageId.LoginSelectServerReq, req);
         }
 
-        private void OnPacketReceived(int msgId)
+        private void OnSelectServerResponse(Login.SelectServerResponse rsp)
         {
-            if ((MessageId)msgId != MessageId.LoginSelectServerRsp)
-                return;
-
             _confirmButton.Disabled = false;
             _refreshButton.Disabled = false;
 
-            var nm = GetNode<NetworkManager>("/root/NetworkManager");
-            var payload = nm.GetLastPayload() ?? new byte[0];
-            try
+            if (rsp.Code == Common.ErrorCode.Success)
             {
-                var rsp = Login.SelectServerResponse.Parser.ParseFrom(payload);
-
-                if (rsp.Code == Common.ErrorCode.Success)
-                {
-                    _selectedLabel.Text = "选服成功，正在进入游戏...";
-                    GetTree().ChangeSceneToFile("res://scenes/role_select_scene.tscn");
-                }
-                else
-                {
-                    _selectedLabel.Text = "选服失败: " + rsp.Message;
-                }
+                _selectedLabel.Text = "选服成功，正在进入游戏...";
+                GetTree().ChangeSceneToFile("res://scenes/role_select_scene.tscn");
             }
-            catch (System.Exception e)
+            else
             {
-                GD.PushError($"[ServerSelectScene] Parse response failed: {e.Message}");
-                _selectedLabel.Text = "解析服务器响应失败";
+                _selectedLabel.Text = "选服失败: " + rsp.Message;
             }
         }
 
@@ -183,7 +162,7 @@ namespace ClinetCSharp
         {
             var nm = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
             if (nm != null)
-                nm.PacketReceived -= OnPacketReceived;
+                nm.SelectServerResponse -= OnSelectServerResponse;
         }
     }
 }

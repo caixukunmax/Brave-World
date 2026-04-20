@@ -1,5 +1,5 @@
 using Godot;
-using Godot.Collections;
+using Protocol;
 
 namespace ClinetCSharp
 {
@@ -50,7 +50,7 @@ namespace ClinetCSharp
             RefreshList();
         }
 
-        private void OnMapInfoReceived()
+        private void OnMapInfoReceived(Game.MapInfoSyncNotify notify)
         {
             if (Visible)
                 RefreshList();
@@ -106,18 +106,13 @@ namespace ClinetCSharp
             _contentBox.AddChild(MakeHeader("宝箱"));
             if (nm != null && nm.Chests.Count > 0)
             {
-                foreach (var entry in nm.Chests)
+                foreach (var c in nm.Chests)
                 {
-                    var dict = entry.AsGodotDictionary();
-                    int cid = dict["chest_id"].AsInt32();
-                    int cx = dict["x"].AsInt32();
-                    int cy = dict["y"].AsInt32();
-                    bool opened = dict["opened"].AsBool();
                     var chestLabel = new Label
                     {
-                        Text = $"  #{cid} ({cx},{cy}) {(opened ? "[已开]" : "[未开]")}",
+                        Text = $"  #{c.ChestId} ({c.X},{c.Y}) {(c.Opened ? "[已开]" : "[未开]")}",
                     };
-                    if (opened)
+                    if (c.Opened)
                         chestLabel.AddThemeColorOverride("font_color", new Color(0.6f, 0.6f, 0.6f));
                     else
                         chestLabel.AddThemeColorOverride("font_color", new Color(1, 0.85f, 0.4f));
@@ -135,16 +130,11 @@ namespace ClinetCSharp
             _contentBox.AddChild(MakeHeader("怪物"));
             if (nm != null && nm.Monsters.Count > 0)
             {
-                foreach (var entry in nm.Monsters)
+                foreach (var m in nm.Monsters)
                 {
-                    var dict = entry.AsGodotDictionary();
-                    string mname = dict["name"].AsString();
-                    int mx = dict["x"].AsInt32();
-                    int my = dict["y"].AsInt32();
-                    int level = dict["level"].AsInt32();
                     var monsterLabel = new Label
                     {
-                        Text = $"  {mname} (Lv.{level}) ({mx},{my})",
+                        Text = $"  {m.Name} (Lv.{m.Level}) ({m.X},{m.Y})",
                     };
                     monsterLabel.AddThemeColorOverride("font_color", new Color(1, 0.5f, 0.5f));
                     _contentBox.AddChild(monsterLabel);

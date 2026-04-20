@@ -1,4 +1,5 @@
 using Godot;
+using Protocol;
 
 namespace ClinetCSharp
 {
@@ -24,7 +25,7 @@ namespace ClinetCSharp
 
             // 连接地图信息同步信号
             nm.MapInfoReceived += OnMapInfoReceived;
-            nm.MonsterMoveReceived += OnMonsterMove;
+            nm.MonsterMoveNotify += OnMonsterMove;
 
             // 如果已经有缓存数据（热加载场景），直接生成
             if (nm.Chests.Count > 0 || nm.Monsters.Count > 0)
@@ -33,16 +34,16 @@ namespace ClinetCSharp
             }
         }
 
-        private void OnMapInfoReceived()
+        private void OnMapInfoReceived(Game.MapInfoSyncNotify notify)
         {
             GD.Print("[MapManager] MapInfoReceived");
             SpawnMapEntities();
         }
 
-        private void OnMonsterMove(uint instanceId, int fromX, int fromY, int toX, int toY, string state, int durationMs)
+        private void OnMonsterMove(Game.MonsterMoveNotify notify)
         {
             var monsterMgr = GetTree()?.GetFirstNodeInGroup("monster_manager") as MonsterManager;
-            monsterMgr?.OnMonsterMove(instanceId, new Vector2I(fromX, fromY), new Vector2I(toX, toY), state, durationMs);
+            monsterMgr?.OnMonsterMove(notify.InstanceId, new Vector2I(notify.FromX, notify.FromY), new Vector2I(notify.ToX, notify.ToY), notify.State, notify.DurationMs);
         }
 
         private void SpawnMapEntities()

@@ -52,6 +52,17 @@ namespace ClinetCSharp
         {
             BuildUI();
             AddDefaultGroups();
+
+            var nm = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
+            if (nm != null)
+                nm.GmResponse += OnGmResponse;
+        }
+
+        public override void _ExitTree()
+        {
+            var nm = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
+            if (nm != null)
+                nm.GmResponse -= OnGmResponse;
         }
 
         public override void _Input(InputEvent @event)
@@ -475,7 +486,7 @@ namespace ClinetCSharp
             _cmdEdit.Text = "";
         }
 
-        public void OnGmResponse(Game.GmCommandResponse rsp)
+        private void OnGmResponse(Game.GmCommandResponse rsp)
         {
             string color = rsp.Code == Common.ErrorCode.Success ? "green" : "red";
             AppendLog($"[color={color}]{rsp.Message}[/color]");

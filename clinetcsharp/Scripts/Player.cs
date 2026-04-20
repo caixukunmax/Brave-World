@@ -123,14 +123,26 @@ namespace ClinetCSharp
 
             var nm = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
             if (nm != null)
-                nm.MoveCancelReceived += OnMoveCancelReceived;
+            {
+                nm.MoveCancelNotify += OnMoveCancelReceived;
+                nm.MoveResponse += OnMoveResponse;
+                nm.RoleAttrUpdated += OnRoleAttrUpdated;
+
+                // 应用缓存的角色数据
+                if (nm.CachedRoleInfo != null)
+                    ApplyRoleInfo(nm.CachedRoleInfo);
+            }
         }
 
         public override void _ExitTree()
         {
             var nm = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
             if (nm != null)
-                nm.MoveCancelReceived -= OnMoveCancelReceived;
+            {
+                nm.MoveCancelNotify -= OnMoveCancelReceived;
+                nm.MoveResponse -= OnMoveResponse;
+                nm.RoleAttrUpdated -= OnRoleAttrUpdated;
+            }
             _checkTimer?.Stop();
             _checkTimer?.QueueFree();
             _checkTimer = null;
@@ -1019,10 +1031,7 @@ namespace ClinetCSharp
             return nm?.CurrentMapName ?? "xinshoucun";
         }
 
-        /// <summary>
-        /// 供 NetworkManager 收到 MoveResponse（即 MoveStartResponse）时调用
-        /// </summary>
-        public void OnMoveResponse(Game.MoveResponse rsp)
+        private void OnMoveResponse(Game.MoveResponse rsp)
         {
             _movePending = false;
 
@@ -1093,11 +1102,16 @@ namespace ClinetCSharp
             }
         }
 
-        private void OnMoveCancelReceived(ulong entityId, int rollbackX, int rollbackY)
+        private void OnMoveCancelReceived(Game.MoveCancelNotify notify)
         {
-            if (entityId != (ulong)GetInstanceId()) return; // 简单过滤，实际需要 accountId
-            GD.Print($"[Player] Server cancelled move, rollback to ({rollbackX}, {rollbackY})");
-            RollbackTo(new Vector2I(rollbackX, rollbackY));
+            if (notify.EntityId != (ulong)GetInstanceId()) return;
+            GD.Print($"[Player] Server cancelled move, rollback to ({notify.RollbackX}, {notify.RollbackY})");
+            RollbackTo(new Vector2I(notify.RollbackX, notify.RollbackY));
+        }
+
+        private void OnRoleAttrUpdated(Game.FullRoleInfo roleInfo)
+        {
+            ApplyRoleInfo(roleInfo);
         }
 
         private void RollbackTo(Vector2I pos)

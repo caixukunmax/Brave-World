@@ -42,7 +42,13 @@ namespace ClinetCSharp
             var nm = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
             if (nm != null)
             {
-                nm.PacketReceived += OnPacketReceived;
+                nm.UseItemResponse += OnUseItemResponse;
+                nm.DropItemResponse += OnDropItemResponse;
+
+                // 应用缓存的初始背包数据
+                if (nm.CachedItems.Count > 0)
+                    UpdateFromProto(new Google.Protobuf.Collections.RepeatedField<Game.ItemInfo>(nm.CachedItems));
+
                 GD.Print("[InventoryManager] Connected to NetworkManager");
             }
             else
@@ -167,32 +173,14 @@ namespace ClinetCSharp
             nm.SendPacket(MessageId.GameDropItemReq, req);
         }
 
-        private void OnPacketReceived(int msgId)
+        private void OnUseItemResponse(Game.UseItemResponse rsp)
         {
-            if ((MessageId)msgId == MessageId.GameUseItemRsp)
-                HandleUseItemResponse();
-            else if ((MessageId)msgId == MessageId.GameDropItemRsp)
-                HandleDropItemResponse();
-        }
-
-        private void HandleUseItemResponse()
-        {
-            var nm = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
-            var payload = nm?.GetLastPayload();
-            if (payload == null) return;
-
-            var rsp = Game.UseItemResponse.Parser.ParseFrom(payload);
             GD.Print($"[Inventory] UseItem response: code={rsp.Code}");
             UpdateFromProto(rsp.Items);
         }
 
-        private void HandleDropItemResponse()
+        private void OnDropItemResponse(Game.DropItemResponse rsp)
         {
-            var nm = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
-            var payload = nm?.GetLastPayload();
-            if (payload == null) return;
-
-            var rsp = Game.DropItemResponse.Parser.ParseFrom(payload);
             GD.Print($"[Inventory] DropItem response: code={rsp.Code}");
             UpdateFromProto(rsp.Items);
         }
