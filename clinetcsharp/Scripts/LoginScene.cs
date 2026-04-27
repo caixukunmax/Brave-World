@@ -16,6 +16,7 @@ namespace ClinetCSharp
 
         private const string SAVE_FILE = "user://login_data.cfg";
         private string _savedUsername = "";
+        private NetworkManager _network;
 
         // 测试直通流程状态
         private enum TestFlowState { None, Login, SelectServer, EnterGame, CreateRole }
@@ -23,8 +24,6 @@ namespace ClinetCSharp
 
         public override void _Ready()
         {
-            GD.Print("[LoginScene] _ready() called");
-
             _usernameEdit = GetNode<LineEdit>("CenterContainer/Panel/VBoxContainer/UsernameEdit");
             _passwordEdit = GetNode<LineEdit>("CenterContainer/Panel/VBoxContainer/PasswordEdit");
             _loginButton = GetNode<Button>("CenterContainer/Panel/VBoxContainer/LoginButton");
@@ -46,20 +45,20 @@ namespace ClinetCSharp
 
             LoadSavedAccount();
 
-            var nm = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
-            if (nm != null)
+            _network = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
+            if (_network != null)
             {
-                nm.Connected += OnConnected;
-                nm.ConnectionError += OnConnectionError;
-                nm.Kicked += OnKicked;
-                nm.LoginResponse += OnLoginResponse;
-                nm.SelectServerResponse += OnSelectServerResponse;
-                nm.EnterGameResponse += OnEnterGameResponse;
-                nm.CreateRoleResponse += OnCreateRoleResponse;
+                _network.Connected += OnConnected;
+                _network.ConnectionError += OnConnectionError;
+                _network.Kicked += OnKicked;
+                _network.LoginResponse += OnLoginResponse;
+                _network.SelectServerResponse += OnSelectServerResponse;
+                _network.EnterGameResponse += OnEnterGameResponse;
+                _network.CreateRoleResponse += OnCreateRoleResponse;
 
                 _statusLabel.Text = "正在连接服务器...";
                 _loginButton.Disabled = true;
-                nm.ConnectToServer();
+                _network.ConnectToServer();
             }
             else
             {
@@ -91,8 +90,6 @@ namespace ClinetCSharp
 
         private void OnLoginPressed()
         {
-            GD.Print("[LoginScene] OnLoginPressed() called");
-
             var username = _usernameEdit.Text.StripEdges();
             var password = _passwordEdit.Text;
 
@@ -119,10 +116,7 @@ namespace ClinetCSharp
                 ClientVersion = "1.0.0"
             };
 
-            GD.Print("[LoginScene] Sending login request: " + username);
-
-            var nm = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
-            if (nm == null)
+            if (_network == null)
             {
                 GD.PushError("[LoginScene] NetworkManager is null!");
                 _statusLabel.Text = "网络错误";
@@ -130,7 +124,7 @@ namespace ClinetCSharp
                 return;
             }
 
-            nm.SendPacket(MessageId.LoginAccountLoginReq, req);
+            _network.SendPacket(MessageId.LoginAccountLoginReq, req);
         }
 
         private void OnLoginResponse(Login.AccountLoginResponse rsp)
@@ -144,7 +138,6 @@ namespace ClinetCSharp
 
             // 正常登录流程
             _loginButton.Disabled = false;
-            GD.Print($"[LoginScene] Login response: code={rsp.Code}");
 
             if (rsp.Code == Common.ErrorCode.Success)
             {
@@ -202,9 +195,7 @@ namespace ClinetCSharp
 
         private void OnTestDirectPressed()
         {
-            GD.Print("[LoginScene] Test direct entry pressed");
-            var nm = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
-            if (nm == null || !nm.IsServerConnected())
+            if (_network == null || !_network.IsServerConnected())
             {
                 _statusLabel.Text = "未连接服务器";
                 return;
@@ -224,7 +215,7 @@ namespace ClinetCSharp
                 DeviceId = "test_device",
                 ClientVersion = "1.0.0",
             };
-            nm.SendPacket(MessageId.LoginAccountLoginReq, req);
+            _network.SendPacket(MessageId.LoginAccountLoginReq, req);
         }
 
         private void HandleTestFlowLogin(Login.AccountLoginResponse rsp)
@@ -236,13 +227,12 @@ namespace ClinetCSharp
                 return;
             }
 
-            var nm = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
-            GD.Print($"[TestFlow] Login OK, accountId={nm.AccountId}");
+            GD.Print($"[TestFlow] Login OK, accountId={_network.AccountId}");
 
             // 选服：取第一个服务器，或默认 serverId=1
-            uint serverId = nm.LastServerId;
-            if (serverId == 0 && nm.Servers.Count > 0)
-                serverId = nm.Servers[0].ServerId;
+            uint serverId = _network.LastServerId;
+            if (serverId == 0 && _network.Servers.Count > 0)
+                serverId = _network.Servers[0].ServerId;
             if (serverId == 0) serverId = 1;
 
             _testFlowState = TestFlowState.SelectServer;
@@ -250,10 +240,10 @@ namespace ClinetCSharp
 
             var req = new Login.SelectServerRequest
             {
-                AccountToken = nm.AccountToken,
+                AccountToken = _network.AccountToken,
                 ServerId = serverId,
             };
-            nm.SendPacket(MessageId.LoginSelectServerReq, req);
+            _network.SendPacket(MessageId.LoginSelectServerReq, req);
         }
 
         private void HandleTestFlowSelectServer(Login.SelectServerResponse rsp)
@@ -265,17 +255,16 @@ namespace ClinetCSharp
                 return;
             }
 
-            var nm = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
-            GD.Print($"[TestFlow] SelectServer OK, gatewayToken set, roles={nm.Roles.Count}");
+            GD.Print($"[TestFlow] SelectServer OK, gatewayToken set, roles={_network.Roles.Count}");
 
-            if (nm.Roles.Count > 0)
+            if (_network.Roles.Count > 0)
             {
-                long roleId = (long)nm.Roles[0].RoleId;
+                long roleId = (long)_network.Roles[0].RoleId;
                 _testFlowState = TestFlowState.EnterGame;
                 _statusLabel.Text = $"[测试] 进入游戏... (roleId={roleId})";
 
                 var req = new Game.EnterGameRequest { RoleId = (ulong)roleId };
-                nm.SendPacket(MessageId.GameEnterGameReq, req);
+                _network.SendPacket(MessageId.GameEnterGameReq, req);
             }
             else
             {
@@ -283,7 +272,7 @@ namespace ClinetCSharp
                 _statusLabel.Text = "[测试] 创建角色...";
 
                 var req = new Game.CreateRoleRequest { RoleName = "测试勇者" };
-                nm.SendPacket(MessageId.GameCreateRoleReq, req);
+                _network.SendPacket(MessageId.GameCreateRoleReq, req);
             }
         }
 
@@ -296,9 +285,21 @@ namespace ClinetCSharp
 
         private string GetDeviceId()
         {
-            var deviceId = Time.GetUnixTimeFromSystem().ToString();
-            deviceId += GD.Randi().ToString();
-            return deviceId.Md5Text().Substring(0, 16);
+            // 稳定设备 ID：基于持久化存储，首次生成后复用
+            const string DEVICE_FILE = "user://device_id.cfg";
+            var config = new ConfigFile();
+            Error err = config.Load(DEVICE_FILE);
+            if (err == Error.Ok)
+            {
+                var existing = config.GetValue("device", "id", "").AsString();
+                if (!string.IsNullOrEmpty(existing))
+                    return existing;
+            }
+
+            string newId = (OS.GetUniqueId() + ":" + System.Environment.MachineName).Md5Text().Substring(0, 16);
+            config.SetValue("device", "id", newId);
+            config.Save(DEVICE_FILE);
+            return newId;
         }
 
         private void LoadSavedAccount()
@@ -327,16 +328,15 @@ namespace ClinetCSharp
 
         public override void _ExitTree()
         {
-            var nm = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
-            if (nm != null)
+            if (_network != null)
             {
-                nm.Connected -= OnConnected;
-                nm.ConnectionError -= OnConnectionError;
-                nm.Kicked -= OnKicked;
-                nm.LoginResponse -= OnLoginResponse;
-                nm.SelectServerResponse -= OnSelectServerResponse;
-                nm.EnterGameResponse -= OnEnterGameResponse;
-                nm.CreateRoleResponse -= OnCreateRoleResponse;
+                _network.Connected -= OnConnected;
+                _network.ConnectionError -= OnConnectionError;
+                _network.Kicked -= OnKicked;
+                _network.LoginResponse -= OnLoginResponse;
+                _network.SelectServerResponse -= OnSelectServerResponse;
+                _network.EnterGameResponse -= OnEnterGameResponse;
+                _network.CreateRoleResponse -= OnCreateRoleResponse;
             }
         }
     }

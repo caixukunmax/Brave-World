@@ -14,7 +14,9 @@ public static class Pathfind
     /// BFS 寻找从 (startX, startY) 到 (goalX, goalY) 的下一步方向
     /// 返回 (nextX, nextY)，若不可达返回 null
     /// </summary>
-    public static (int x, int y)? BfsNextStep(int startX, int startY, int goalX, int goalY, string mapName, MapDataProvider mapData)
+    /// <param name="isBlocked">动态障碍回调，返回 true 表示该格被实体占据应跳过（不含自身）</param>
+    public static (int x, int y)? BfsNextStep(int startX, int startY, int goalX, int goalY,
+        string mapName, MapDataProvider mapData, Func<int, int, bool>? isBlocked = null)
     {
         if (startX == goalX && startY == goalY)
             return (startX, startY);
@@ -38,6 +40,7 @@ public static class Pathfind
 
                 if (visited.Contains(key)) continue;
                 if (!mapData.IsWalkable(mapName, nx, ny)) continue;
+                if (isBlocked != null && isBlocked(nx, ny)) continue;
 
                 visited.Add(key);
                 cameFrom[key] = cur;

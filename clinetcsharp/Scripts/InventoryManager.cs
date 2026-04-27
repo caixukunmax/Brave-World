@@ -32,32 +32,34 @@ namespace ClinetCSharp
 
         public List<ItemSlot> Items { get; private set; } = new List<ItemSlot>();
         private Dictionary<uint, ItemConfig> _itemConfig = new Dictionary<uint, ItemConfig>();
+        private NetworkManager _network;
 
         public override void _Ready()
         {
             AddToGroup("inventory_manager");
-            GD.Print("[InventoryManager] _Ready() called");
             LoadItemConfig();
 
-            var nm = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
-            if (nm != null)
+            _network = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
+            if (_network != null)
             {
-                nm.UseItemResponse += OnUseItemResponse;
-                nm.DropItemResponse += OnDropItemResponse;
+                _network.UseItemResponse += OnUseItemResponse;
+                _network.DropItemResponse += OnDropItemResponse;
 
-                // 应用缓存的初始背包数据
-                if (nm.CachedItems.Count > 0)
+                if (_network.CachedItems.Count > 0)
                 {
                     var items = new Google.Protobuf.Collections.RepeatedField<Game.ItemInfo>();
-                    items.AddRange(nm.CachedItems);
+                    items.AddRange(_network.CachedItems);
                     UpdateFromProto(items);
                 }
-
-                GD.Print("[InventoryManager] Connected to NetworkManager");
             }
-            else
+        }
+
+        public override void _ExitTree()
+        {
+            if (_network != null)
             {
-                GD.PrintErr("[InventoryManager] NetworkManager not found!");
+                _network.UseItemResponse -= OnUseItemResponse;
+                _network.DropItemResponse -= OnDropItemResponse;
             }
         }
 
@@ -94,14 +96,6 @@ namespace ClinetCSharp
                 };
             }
             GD.Print($"[InventoryManager] Loaded {_itemConfig.Count} item configs");
-        }
-
-        /// <summary>
-        /// 从服务器响应更新背包（进入游戏/创建角色时调用）
-        /// </summary>
-        public void LoadFromServer(Game.FullRoleInfo roleInfo)
-        {
-            // 进入游戏时背包通过 NetworkManager.CacheResponse 处理
         }
 
         public void UpdateItems(List<ItemSlot> newItems)
@@ -161,32 +155,28 @@ namespace ClinetCSharp
 
         public void SendUseItem(uint itemId, uint count)
         {
-            var nm = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
-            if (nm == null || !nm.IsServerConnected()) return;
-
+            if (_network == null || !_network.IsServerConnected()) return;
             var req = new Game.UseItemRequest { ItemId = itemId, Count = count };
-            nm.SendPacket(MessageId.GameUseItemReq, req);
+            _network.SendPacket(MessageId.GameUseItemReq, req);
         }
 
         public void SendDropItem(uint itemId, uint count)
         {
-            var nm = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
-            if (nm == null || !nm.IsServerConnected()) return;
-
+            if (_network == null || !_network.IsServerConnected()) return;
             var req = new Game.DropItemRequest { ItemId = itemId, Count = count };
-            nm.SendPacket(MessageId.GameDropItemReq, req);
+            _network.SendPacket(MessageId.GameDropItemReq, req);
         }
 
         private void OnUseItemResponse(Game.UseItemResponse rsp)
         {
-            GD.Print($"[Inventory] UseItem response: code={rsp.Code}");
-            UpdateFromProto(rsp.Items);
+            if (rsp.Code == Common.ErrorCode.Success)
+                UpdateFromProto(rsp.Items);
         }
 
         private void OnDropItemResponse(Game.DropItemResponse rsp)
         {
-            GD.Print($"[Inventory] DropItem response: code={rsp.Code}");
-            UpdateFromProto(rsp.Items);
+            if (rsp.Code == Common.ErrorCode.Success)
+                UpdateFromProto(rsp.Items);
         }
 
         public string GetItemName(uint itemId)

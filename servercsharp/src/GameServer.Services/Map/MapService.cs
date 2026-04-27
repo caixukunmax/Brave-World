@@ -1,4 +1,5 @@
 using GameServer.Common.Events;
+using System.Collections.Concurrent;
 using GameServer.Services.Core;
 using GameServer.Services.World;
 using Microsoft.Extensions.Logging;
@@ -50,8 +51,10 @@ public class MapService
             Matk = snapshot.Matk,
             Pdef = snapshot.Pdef,
             Mdef = snapshot.Mdef,
+            MpRegen = snapshot.MpRegen,
             Job = snapshot.Job,
             MoveSpeedMs = snapshot.MoveSpeedMs,
+            EquippedSkills = snapshot.EquippedSkills,
         });
         _logger.LogInformation("PlayerEnter: account={AccountId} map={Map} pos=({X},{Y})",
             snapshot.AccountId, snapshot.CurrentMap, snapshot.GridX, snapshot.GridY);
@@ -118,23 +121,9 @@ public class MapService
     public (int x, int y)? FindNearestWalkable(string mapName, int x, int y) => _worldState.FindNearestWalkable(mapName, x, y);
     public bool IsOccupied(string mapName, int x, int y) => _worldState.IsOccupied(mapName, x, y);
 
-    public Dictionary<long, PlayerState> GetPlayersOnMap(string mapName)
+    public ConcurrentDictionary<long, MapPlayerState> GetPlayersOnMap(string mapName)
     {
-        var corePlayers = _worldState.GetPlayersOnMap(mapName);
-        var result = new Dictionary<long, PlayerState>();
-        foreach (var (id, p) in corePlayers)
-        {
-            result[id] = new PlayerState
-            {
-                AccountId = p.AccountId, RoleId = p.RoleId, RoleName = p.RoleName,
-                ServerId = p.ServerId, GridX = p.GridX, GridY = p.GridY, Level = p.Level,
-                Hp = p.Hp, MaxHp = p.MaxHp, Agility = p.Agility,
-                Patk = p.Patk, Matk = p.Matk, Pdef = p.Pdef, Mdef = p.Mdef,
-                Job = p.Job,
-                MoveSpeedMs = p.MoveSpeedMs,
-            };
-        }
-        return result;
+        return _worldState.GetPlayersOnMap(mapName);
     }
 
     /// <summary>获取地图上指定玩家的运行时状态（可直接修改属性，战斗系统实时生效）</summary>
@@ -166,14 +155,15 @@ public class MapService
                 if (combatPos.Count == 0)
                     combatPos = new List<(int, int)> { (p.GridX, p.GridY) };
 
-                ms.Players[id] = new PlayerState
+                ms.Players[id] = new MapPlayerState
                 {
                     AccountId = p.AccountId, RoleId = p.RoleId, RoleName = p.RoleName,
                     ServerId = p.ServerId, GridX = p.GridX, GridY = p.GridY, Level = p.Level,
-                    Hp = p.Hp, MaxHp = p.MaxHp, Agility = p.Agility,
+                    Hp = p.Hp, MaxHp = p.MaxHp, Mp = p.Mp, MaxMp = p.MaxMp, Agility = p.Agility,
                     Patk = p.Patk, Matk = p.Matk, Pdef = p.Pdef, Mdef = p.Mdef,
                     Job = p.Job,
                     CombatPositions = combatPos,
+                    EquippedSkills = new List<int>(p.EquippedSkills),
                 };
             }
             foreach (var (id, m) in instance.Monsters)
@@ -185,7 +175,7 @@ public class MapService
                 if (combatPos.Count == 0)
                     combatPos = new List<(int, int)> { (m.X, m.Y) };
 
-                ms.Monsters[id] = new MonsterState
+                ms.Monsters[id] = new MapMonsterState
                 {
                     InstanceId = m.InstanceId, MonsterId = m.MonsterId, Name = m.Name,
                     X = m.X, Y = m.Y, Hp = m.Hp, MaxHp = m.MaxHp, Level = m.Level,
@@ -205,7 +195,7 @@ public class MapService
     {
         foreach (var (mapName, legacyMap) in legacyMaps)
         {
-            var instance = _worldState.GetMapInstance(mapName);
+            var instance = _worldState.GetMapState(mapName);
             if (instance == null) continue;
 
             foreach (var (id, p) in legacyMap.Players)
@@ -213,6 +203,7 @@ public class MapService
                 if (instance.Players.TryGetValue(id, out var auth))
                 {
                     if (auth.Hp != p.Hp) auth.Hp = p.Hp;
+                    if (auth.Mp != p.Mp) auth.Mp = p.Mp;
                 }
             }
 
@@ -248,54 +239,10 @@ public class PlayerSnapshot
     public int Matk { get; set; }
     public int Pdef { get; set; }
     public int Mdef { get; set; }
+    public int MpRegen { get; set; }
     public string Job { get; set; } = "";
     public int MoveSpeedMs { get; set; }
+    public List<int> EquippedSkills { get; set; } = new();
 }
 
-public class MapState
-{
-    public int MapId { get; set; }
-    public Dictionary<long, PlayerState> Players { get; } = new();
-    public Dictionary<long, MonsterState> Monsters { get; } = new();
-}
 
-public class PlayerState
-{
-    public long AccountId { get; set; }
-    public long RoleId { get; set; }
-    public string RoleName { get; set; } = "";
-    public int ServerId { get; set; }
-    public int GridX { get; set; }
-    public int GridY { get; set; }
-    public int Level { get; set; }
-    public int Hp { get; set; }
-    public int MaxHp { get; set; }
-    public int Agility { get; set; }
-    public int Patk { get; set; }
-    public int Matk { get; set; }
-    public int Pdef { get; set; }
-    public int Mdef { get; set; }
-    public string Job { get; set; } = "";
-    public int MoveSpeedMs { get; set; }
-    /// <summary>战斗有效位置（双格区间时为两个格子）</summary>
-    public List<(int x, int y)> CombatPositions { get; set; } = new();
-}
-
-public class MonsterState
-{
-    public long InstanceId { get; set; }
-    public int MonsterId { get; set; }
-    public string Name { get; set; } = "";
-    public int X { get; set; }
-    public int Y { get; set; }
-    public int Hp { get; set; }
-    public int MaxHp { get; set; }
-    public int Level { get; set; }
-    public int Patk { get; set; } = 10;
-    public int Matk { get; set; } = 10;
-    public int Pdef { get; set; } = 5;
-    public int Mdef { get; set; } = 5;
-    public int Agility { get; set; } = 100;
-    /// <summary>战斗有效位置（双格区间时为两个格子）</summary>
-    public List<(int x, int y)> CombatPositions { get; set; } = new();
-}

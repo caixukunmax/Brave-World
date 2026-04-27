@@ -27,15 +27,25 @@ namespace ClinetCSharp
         public event Action<Game.MoveResponse> MoveResponse;
         public event Action<Game.MoveCancelNotify> MoveCancelNotify;
         public event Action<Game.MonsterMoveNotify> MonsterMoveNotify;
+        public event Action<Game.MonsterMoveCancelNotify> MonsterMoveCancelNotify;
         public event Action<Game.MapInfoSyncNotify> MapInfoReceived;
         public event Action<Game.ChestUpdateNotify> ChestUpdateNotify;
         public event Action<Game.OpenChestResponse> OpenChestResponse;
         public event Action<Game.CombatLogNotify> CombatLogNotify;
         public event Action<Game.CombatStateNotify> CombatStateNotify;
+        public event Action<Game.CombatStartNotify> CombatStartNotify;
+        public event Action<Game.CombatEndNotify> CombatEndNotify;
         public event Action<Game.FullRoleInfo> RoleAttrUpdated;
         public event Action<Game.GmCommandResponse> GmResponse;
         public event Action<Game.UseItemResponse> UseItemResponse;
         public event Action<Game.DropItemResponse> DropItemResponse;
+        public event Action<Game.PlayerDeathNotify> PlayerDeathNotify;
+        public event Action<Game.EquipSkillResponse> EquipSkillResponse;
+        public event Action<Game.UnequipSkillResponse> UnequipSkillResponse;
+        public event Action<Game.NpcInteractNotify> NpcInteractNotify;
+        public event Action<Game.NpcCombatResponse> NpcCombatResponse;
+        public event Action<Game.ChangeJobResponse> ChangeJobResponse;
+        public event Action<Game.LevelUpNotify> LevelUpNotify;
 
         public const string ServerHost = "127.0.0.1";
         public const int ServerPort = 8889;
@@ -78,13 +88,17 @@ namespace ClinetCSharp
         public List<Login.RoleBrief> Roles { get; set; } = new();
         public List<Game.ChestInfo> Chests { get; set; } = new();
         public List<Game.MonsterInfo> Monsters { get; set; } = new();
+        public List<Game.NpcInfo> Npcs { get; set; } = new();
         public List<Game.ItemInfo> CachedItems { get; set; } = new();
+        public List<uint> CachedLearnedSkills { get; set; } = new();
+        public List<uint> CachedEquippedSkills { get; set; } = new();
 
         // ── 请求状态 ──
         public uint? PendingOpenChestId { get; set; } = null;
 
         public override void _Ready()
         {
+            SkillDataUtil.Load();
             GD.Print("[NetworkManager] _ready() initializing...");
             _tcp = new StreamPeerTcp();
             GD.Print("[NetworkManager] Initialized");
@@ -421,6 +435,7 @@ namespace ClinetCSharp
                         CurrentMapName = notify.MapName;
                         Chests = new List<Game.ChestInfo>(notify.Chests);
                         Monsters = new List<Game.MonsterInfo>(notify.Monsters);
+                        Npcs = new List<Game.NpcInfo>(notify.Npcs);
                         MapInfoReceived?.Invoke(notify);
                         break;
                     }
@@ -469,6 +484,13 @@ namespace ClinetCSharp
                         break;
                     }
 
+                    case MessageId.GameMonsterMoveCancelNotify:
+                    {
+                        var notify = Game.MonsterMoveCancelNotify.Parser.ParseFrom(data);
+                        MonsterMoveCancelNotify?.Invoke(notify);
+                        break;
+                    }
+
                     // ── Combat ──
                     case MessageId.GameCombatLogNotify:
                     {
@@ -484,11 +506,27 @@ namespace ClinetCSharp
                         break;
                     }
 
+                    case MessageId.GameCombatStartNotify:
+                    {
+                        var notify = Game.CombatStartNotify.Parser.ParseFrom(data);
+                        CombatStartNotify?.Invoke(notify);
+                        break;
+                    }
+
+                    case MessageId.GameCombatEndNotify:
+                    {
+                        var notify = Game.CombatEndNotify.Parser.ParseFrom(data);
+                        CombatEndNotify?.Invoke(notify);
+                        break;
+                    }
+
                     // ── Role ──
                     case MessageId.GameRoleAttrNotify:
                     {
                         var roleInfo = Game.FullRoleInfo.Parser.ParseFrom(data);
                         CachedRoleInfo = roleInfo;
+                        CachedLearnedSkills = new List<uint>(roleInfo.LearnedSkills);
+                        CachedEquippedSkills = new List<uint>(roleInfo.EquippedSkills);
                         RoleAttrUpdated?.Invoke(roleInfo);
                         break;
                     }
@@ -519,7 +557,66 @@ namespace ClinetCSharp
                     case MessageId.GameGmRsp:
                     {
                         var rsp = Game.GmCommandResponse.Parser.ParseFrom(data);
+                        // learnskill 命令会返回更新后的技能列表，同步缓存
+                        if (rsp.LearnedSkills.Count > 0)
+                            CachedLearnedSkills = new List<uint>(rsp.LearnedSkills);
+                        if (rsp.EquippedSkills.Count > 0)
+                            CachedEquippedSkills = new List<uint>(rsp.EquippedSkills);
                         GmResponse?.Invoke(rsp);
+                        break;
+                    }
+
+                    case MessageId.GamePlayerDeathNotify:
+                    {
+                        var notify = Game.PlayerDeathNotify.Parser.ParseFrom(data);
+                        PlayerDeathNotify?.Invoke(notify);
+                        break;
+                    }
+
+                    case MessageId.GameEquipSkillRsp:
+                    {
+                        var rsp = Game.EquipSkillResponse.Parser.ParseFrom(data);
+                        EquipSkillResponse?.Invoke(rsp);
+                        break;
+                    }
+
+                    case MessageId.GameUnequipSkillRsp:
+                    {
+                        var rsp = Game.UnequipSkillResponse.Parser.ParseFrom(data);
+                        UnequipSkillResponse?.Invoke(rsp);
+                        break;
+                    }
+
+                    case MessageId.GameNpcInteractNotify:
+                    {
+                        var notify = Game.NpcInteractNotify.Parser.ParseFrom(data);
+                        NpcInteractNotify?.Invoke(notify);
+                        break;
+                    }
+
+                    case MessageId.GameNpcCombatRsp:
+                    {
+                        var rsp = Game.NpcCombatResponse.Parser.ParseFrom(data);
+                        NpcCombatResponse?.Invoke(rsp);
+                        break;
+                    }
+
+                    case MessageId.GameChangeJobRsp:
+                    {
+                        var rsp = Game.ChangeJobResponse.Parser.ParseFrom(data);
+                        if (rsp.Code == Common.ErrorCode.Success)
+                        {
+                            CachedLearnedSkills = new List<uint>(rsp.LearnedSkills);
+                            CachedEquippedSkills = new List<uint>(rsp.EquippedSkills);
+                        }
+                        ChangeJobResponse?.Invoke(rsp);
+                        break;
+                    }
+
+                    case MessageId.GameLevelUpNotify:
+                    {
+                        var notify = Game.LevelUpNotify.Parser.ParseFrom(data);
+                        LevelUpNotify?.Invoke(notify);
                         break;
                     }
 
@@ -550,6 +647,8 @@ namespace ClinetCSharp
             SpawnGridY = roleInfo.GridY;
             CachedItems = new List<Game.ItemInfo>(items);
             Chests = new List<Game.ChestInfo>(chests);
+            CachedLearnedSkills = new List<uint>(roleInfo.LearnedSkills);
+            CachedEquippedSkills = new List<uint>(roleInfo.EquippedSkills);
             GD.Print($"[NetworkManager] Cached role={roleInfo.RoleName} map={roleInfo.CurrentMap} pos=({roleInfo.GridX},{roleInfo.GridY})");
         }
     }

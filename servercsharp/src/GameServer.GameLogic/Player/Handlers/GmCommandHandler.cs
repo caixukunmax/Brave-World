@@ -1,7 +1,11 @@
+using GameServer.Common;
 using GameServer.Common.Models;
 using GameServer.Common.Net;
 using GameServer.Database.Models;
+using GameServer.Services.Map.Combat;
 using GameServer.Services.Core;
+using GameServer.Tables;
+using MongoDB.Driver;
 using Google.Protobuf;
 using PCommon = global::Common;
 using PGame = global::Game;
@@ -14,11 +18,13 @@ public class GmCommandHandler : IMessageHandler
 {
     private readonly PlayerSessionManager _session;
     private readonly INetworkSender _network;
+    private readonly LubanTableLoader _tables;
 
-    public GmCommandHandler(PlayerSessionManager session, INetworkSender network)
+    public GmCommandHandler(PlayerSessionManager session, INetworkSender network, LubanTableLoader tables)
     {
         _session = session;
         _network = network;
+        _tables = tables;
     }
 
     public async Task<byte[]?> HandleAsync(MessageContext ctx, byte[] data)
@@ -90,9 +96,9 @@ public class GmCommandHandler : IMessageHandler
             if (!int.TryParse(parts[2], out var attrValue))
                 return new PGame.GmCommandResponse { Code = PCommon.ErrorCode.InvalidRequest, Message = "value must be integer" }.ToByteArray();
 
-            var attrKey = PlayerProtoMapper.RoleAttrs.NameToKey(attrName);
+            var attrKey = RoleAttrs.NameToKey(attrName);
             if (attrKey == null)
-                return new PGame.GmCommandResponse { Code = PCommon.ErrorCode.InvalidRequest, Message = $"unknown attr: {attrName}. valid: hp,max_hp,mp,max_mp,agility,patk,matk,pdef,mdef,move_speed" }.ToByteArray();
+                return new PGame.GmCommandResponse { Code = PCommon.ErrorCode.InvalidRequest, Message = $"unknown attr: {attrName}. valid: hp,max_hp,mp,max_mp,agility,patk,matk,pdef,mdef,mp_regen,move_speed" }.ToByteArray();
 
             // 更新 Role 内存对象
             ApplyAttrToRole(player, attrName, attrValue);
@@ -102,12 +108,52 @@ public class GmCommandHandler : IMessageHandler
             if (mapPlayer != null)
                 ApplyAttrToMapPlayer(mapPlayer, attrName, attrValue);
 
+            // 持久化到 MongoDB
+            await _session.Roles.Update(player.RoleId, u => BuildAttrUpdate(u, attrName, attrValue));
+
             // 广播更新后的 FullRoleInfo 给该玩家
             var now = (int)DateTimeOffset.UtcNow.ToUnixTimeSeconds();
             var roleInfo = PlayerProtoMapper.BuildRoleInfo(player, now);
             _network.SendToAccount(claims.AccountId, claims.ServerId, (int)PProtocol.MessageId.GameRoleAttrNotify, roleInfo.ToByteArray());
 
             return new PGame.GmCommandResponse { Code = PCommon.ErrorCode.Success, Message = $"setattr,{attrName},{attrValue},ok" }.ToByteArray();
+        }
+
+        if (cmd == "addexp")
+        {
+            var expValue = parts.Length > 1 ? int.Parse(parts[1]) : 0;
+            if (expValue <= 0)
+                return new PGame.GmCommandResponse { Code = PCommon.ErrorCode.InvalidRequest, Message = "usage: addexp,value (must be > 0)" }.ToByteArray();
+
+            var svc = new LevelUpService(
+                Microsoft.Extensions.Logging.Abstractions.NullLogger<LevelUpService>.Instance,
+                _session, _tables, _network, _session.MapService);
+
+            bool leveledUp = svc.AddExp(claims.AccountId, expValue);
+            string msg = $"added {expValue} exp, level={player.Level}, exp={player.Exp}" + (leveledUp ? " LEVELED UP!" : "");
+            return new PGame.GmCommandResponse { Code = PCommon.ErrorCode.Success, Message = msg }.ToByteArray();
+        }
+
+        if (cmd == "learnskill")
+        {
+            var skillId = parts.Length > 1 ? int.Parse(parts[1]) : 0;
+            if (skillId <= 1)
+                return new PGame.GmCommandResponse { Code = PCommon.ErrorCode.InvalidRequest, Message = "usage: learnskill,skillId (must be > 1)" }.ToByteArray();
+
+            var cfg = SkillPipeline.GetSkillConfigStatic(skillId);
+            if (cfg == null)
+                return new PGame.GmCommandResponse { Code = PCommon.ErrorCode.InvalidRequest, Message = $"skill {skillId} not found" }.ToByteArray();
+
+            if (player.LearnedSkills.Contains(skillId))
+                return new PGame.GmCommandResponse { Code = PCommon.ErrorCode.InvalidRequest, Message = $"skill {skillId} ({cfg.Name}) already learned" }.ToByteArray();
+
+            player.LearnedSkills.Add(skillId);
+            await _session.Roles.Update(player.RoleId, u => u.AddToSet(r => r.LearnedSkills, skillId));
+
+            var rsp = new PGame.GmCommandResponse { Code = PCommon.ErrorCode.Success, Message = $"learned skill {skillId} ({cfg.Name})" };
+            foreach (var sid in player.LearnedSkills) rsp.LearnedSkills.Add((uint)sid);
+            foreach (var sid in player.EquippedSkills) rsp.EquippedSkills.Add((uint)sid);
+            return rsp.ToByteArray();
         }
 
         return new PGame.GmCommandResponse { Code = PCommon.ErrorCode.InvalidRequest, Message = $"unknown command: {cmd}" }.ToByteArray();
@@ -126,8 +172,28 @@ public class GmCommandHandler : IMessageHandler
             case "matk": role.Matk = value; break;
             case "pdef": role.Pdef = value; break;
             case "mdef": role.Mdef = value; break;
+            case "mp_regen": role.MpRegen = value; break;
             case "move_speed": role.MoveSpeedMs = value; break;
         }
+    }
+
+    private static UpdateDefinition<Role> BuildAttrUpdate(UpdateDefinitionBuilder<Role> u, string attrName, int value)
+    {
+        return attrName switch
+        {
+            "hp" => u.Set(r => r.Hp, value),
+            "max_hp" => u.Set(r => r.MaxHp, value),
+            "mp" => u.Set(r => r.Mp, value),
+            "max_mp" => u.Set(r => r.MaxMp, value),
+            "agility" => u.Set(r => r.Agility, value),
+            "patk" => u.Set(r => r.Patk, value),
+            "matk" => u.Set(r => r.Matk, value),
+            "pdef" => u.Set(r => r.Pdef, value),
+            "mdef" => u.Set(r => r.Mdef, value),
+            "mp_regen" => u.Set(r => r.MpRegen, value),
+            "move_speed" => u.Set(r => r.MoveSpeedMs, value),
+            _ => u.Set(r => r.Hp, value), // fallback
+        };
     }
 
     private static void ApplyAttrToMapPlayer(MapPlayerState player, string attrName, int value)
@@ -143,6 +209,7 @@ public class GmCommandHandler : IMessageHandler
             case "matk": player.Matk = value; break;
             case "pdef": player.Pdef = value; break;
             case "mdef": player.Mdef = value; break;
+            case "mp_regen": player.MpRegen = value; break;
             case "move_speed": player.MoveSpeedMs = value; break;
         }
     }

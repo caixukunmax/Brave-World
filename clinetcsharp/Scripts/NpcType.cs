@@ -1,0 +1,12 @@
+namespace ClinetCSharp
+{
+    /// <summary>
+    /// NPC 类型枚举 — 与服务端 NpcType 一致
+    /// </summary>
+    public enum NpcType
+    {
+        None = 0,
+        JobMaster = 1,    // 转职大师
+        Combatant = 2,    // 可战斗NPC（对话触发战斗）
+    }
+}

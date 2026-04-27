@@ -1,6 +1,0 @@
-return
-{
-[1] = {id=1,name="史莱姆",level=1,exp=10,drop_items="1001:1",attrs={{attr_key=1,attr_value=100,},{attr_key=2,attr_value=5,},{attr_key=3,attr_value=2,},},},
-[2] = {id=2,name="哥布林",level=2,exp=20,drop_items="1001:2",attrs={{attr_key=1,attr_value=200,},{attr_key=2,attr_value=10,},{attr_key=3,attr_value=5,},},},
-[3] = {id=3,name="野狼",level=3,exp=30,drop_items="1002:1",attrs={{attr_key=1,attr_value=300,},{attr_key=2,attr_value=15,},{attr_key=3,attr_value=8,},},},
-}

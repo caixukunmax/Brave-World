@@ -6,6 +6,9 @@ using GameServer.Services.Map.Combat.Actions;
 using GameServer.Services.Monster;
 using GameServer.Services.Player;
 using GameServer.Services.Player.Handlers;
+using GameServer.GameLogic.Npc;
+using GameServer.GameLogic.Player.Handlers;
+using GameServer.Services.World;
 using GameServer.Tables;
 using Microsoft.Extensions.Logging;
 
@@ -44,12 +47,14 @@ public class GameLogicFactory : IGameLogicFactory
             _loggerFactory.CreateLogger<DealDamageAction>()));
         actionRegistry.Register(new InterruptCastAction(
             _loggerFactory.CreateLogger<InterruptCastAction>()));
+        actionRegistry.Register(new HealAction(
+            _loggerFactory.CreateLogger<HealAction>()));
 
         var pipeline = new SkillPipeline(
-            _loggerFactory.CreateLogger<SkillPipeline>(), actionRegistry);
+            _loggerFactory.CreateLogger<SkillPipeline>(), actionRegistry, Tables);
 
         var combatManager = new CombatManager(
-            _loggerFactory.CreateLogger<CombatManager>(), pipeline, actionRegistry, network);
+            _loggerFactory.CreateLogger<CombatManager>(), pipeline, actionRegistry, network, Tables);
 
         return new CombatServiceAdapter(combatManager);
     }
@@ -65,17 +70,60 @@ public class GameLogicFactory : IGameLogicFactory
     public void RegisterMessageHandlers(
         MessageHandlerRegistry registry, PlayerSessionManager session, INetworkSender network, MapDataProvider mapData, IMonsterAiService monsterAi)
     {
-        registry.Add((int)Protocol.MessageId.GameCreateRoleReq, new CreateRoleHandler(session, mapData));
+        registry.Add((int)Protocol.MessageId.GameCreateRoleReq, new CreateRoleHandler(session, mapData, Tables));
         registry.Add((int)Protocol.MessageId.GameEnterGameReq, new EnterGameHandler(session, network, monsterAi, Tables));
         registry.Add((int)Protocol.MessageId.GameMoveReq, new MoveStartHandler(session, network, _loggerFactory.CreateLogger<MoveStartHandler>()));
         registry.Add((int)Protocol.MessageId.GameMoveConfirmReq, new MoveConfirmHandler(session, network, _loggerFactory.CreateLogger<MoveConfirmHandler>()));
         registry.Add((int)Protocol.MessageId.GameMoveCompleteReq, new MoveCompleteHandler(session));
+        registry.Add((int)Protocol.MessageId.GameMoveCollisionNotify, new MoveCollisionHandler(session, network, _loggerFactory.CreateLogger<MoveCollisionHandler>()));
         registry.Add((int)Protocol.MessageId.GameUseItemReq, new UseItemHandler(session));
         registry.Add((int)Protocol.MessageId.GameDropItemReq, new DropItemHandler(session));
-        registry.Add((int)Protocol.MessageId.GameGmReq, new GmCommandHandler(session, network));
+        registry.Add((int)Protocol.MessageId.GameGmReq, new GmCommandHandler(session, network, Tables));
         registry.Add((int)Protocol.MessageId.GameOpenChestReq, new OpenChestHandler(session));
         registry.Add((int)Protocol.MessageId.GameUpdateUiPanelPosReq, new UpdateUIPanelPosHandler(session));
         registry.Add((int)Protocol.MessageId.GameChangeMapReq, new ChangeMapHandler(session, network, mapData, monsterAi, Tables));
+        registry.Add((int)Protocol.MessageId.GameEquipSkillReq, new EquipSkillHandler(session, network));
+        registry.Add((int)Protocol.MessageId.GameUnequipSkillReq, new UnequipSkillHandler(session, network));
+        registry.Add((int)Protocol.MessageId.GameChangeJobReq, new ChangeJobHandler(session, network, Tables));
+    }
+
+    public void BindDeathHandler(ICombatService combatService, MapService mapService, MapDataProvider mapData, PlayerSessionManager session, INetworkSender network)
+    {
+        if (combatService is not CombatServiceAdapter adapter) return;
+        var responder = new DeathResponder(
+            _loggerFactory.CreateLogger<DeathResponder>(),
+            mapService, mapData, session, Tables, network);
+        adapter.Inner.DeathCallback = responder.OnPlayerDeath;
+    }
+
+    public void BindMonsterRegistry(ICombatService combatService, IMonsterAiService monsterAi)
+    {
+        if (combatService is not CombatServiceAdapter combatAdapter) return;
+        if (monsterAi is IMonsterRegistry registry)
+            combatAdapter.Inner.MonsterRegistry = registry;
+    }
+
+    public void BindLevelUpService(
+        ICombatService combatService,
+        IMonsterAiService monsterAi,
+        MapService mapService,
+        PlayerSessionManager session,
+        INetworkSender network)
+    {
+        if (monsterAi is not MonsterAiServiceAdapter monsterAdapter) return;
+
+        var levelUpService = new LevelUpService(
+            _loggerFactory.CreateLogger<LevelUpService>(),
+            session, Tables, network, mapService);
+
+        monsterAdapter.Inner.OnMonsterDeath = levelUpService.OnMonsterDeath;
+    }
+
+    public INpcManager InitNpcs(WorldState worldState)
+    {
+        var npcManager = new NpcManager(worldState, _loggerFactory.CreateLogger<NpcManager>());
+        npcManager.Init();
+        return npcManager;
     }
 }
 

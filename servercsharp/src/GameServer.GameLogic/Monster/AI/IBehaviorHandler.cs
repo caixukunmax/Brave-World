@@ -1,3 +1,5 @@
+using GameServer.Services.Core;
+
 namespace GameServer.Services.Monster.AI;
 
 /// <summary>
@@ -8,7 +10,8 @@ public interface IBehaviorHandler
     /// <summary>
     /// 执行 AI 决策，返回下一步坐标 (nx, ny) 或 null
     /// </summary>
-    (int x, int y)? Run(MonsterRuntimeState m, string mapName, Dictionary<long, PlayerStateView> players);
+    /// <param name="world">世界状态，用于查询实体占据（寻路绕开动态障碍）</param>
+    (int x, int y)? Run(MonsterRuntimeState m, string mapName, Dictionary<long, PlayerStateView> players, IWorldState? world);
 }
 
 /// <summary>

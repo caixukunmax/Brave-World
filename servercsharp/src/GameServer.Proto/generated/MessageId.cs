@@ -24,7 +24,7 @@ namespace Protocol {
     static MessageIdReflection() {
       byte[] descriptorData = global::System.Convert.FromBase64String(
           string.Concat(
-            "ChBtZXNzYWdlX2lkLnByb3RvEghwcm90b2NvbCqxCQoJTWVzc2FnZUlkEgsK",
+            "ChBtZXNzYWdlX2lkLnByb3RvEghwcm90b2NvbCq/DAoJTWVzc2FnZUlkEgsK",
             "B1VOS05PV04QABIICgRQSU5HEAESCAoEUE9ORxACEhkKFUdBVEVXQVlfSEVB",
             "UlRCRUFUX1JFURBkEhkKFUdBVEVXQVlfSEVBUlRCRUFUX1JTUBBlEhcKE0dB",
             "VEVXQVlfQ09OTkVDVF9SRVEQZhIXChNHQVRFV0FZX0NPTk5FQ1RfUlNQEGcS",
@@ -38,20 +38,29 @@ namespace Protocol {
             "Q1JFQVRFX1JPTEVfUkVREMICEhkKFEdBTUVfQ1JFQVRFX1JPTEVfUlNQEMMC",
             "EhIKDUdBTUVfTU9WRV9SRVEQxAISEgoNR0FNRV9NT1ZFX1JTUBDFAhIaChVH",
             "QU1FX01PVkVfQ09ORklSTV9SRVEQxgISGwoWR0FNRV9NT1ZFX0NPTVBMRVRF",
-            "X1JFURDHAhIcChdHQU1FX01PVkVfQ0FOQ0VMX05PVElGWRDIAhIWChFHQU1F",
-            "X1VTRV9JVEVNX1JFURDKAhIWChFHQU1FX1VTRV9JVEVNX1JTUBDLAhIXChJH",
-            "QU1FX0RST1BfSVRFTV9SRVEQzAISFwoSR0FNRV9EUk9QX0lURU1fUlNQEM0C",
-            "EhAKC0dBTUVfR01fUkVRENQCEhAKC0dBTUVfR01fUlNQENUCEhgKE0dBTUVf",
-            "T1BFTl9DSEVTVF9SRVEQ3gISGAoTR0FNRV9PUEVOX0NIRVNUX1JTUBDfAhId",
-            "ChhHQU1FX0NIRVNUX1VQREFURV9OT1RJRlkQ4AISHgoZR0FNRV9NQVBfSU5G",
-            "T19TWU5DX05PVElGWRDoAhIYChNHQU1FX0NIQU5HRV9NQVBfUkVREOoCEhgK",
-            "E0dBTUVfQ0hBTkdFX01BUF9SU1AQ6wISHQoYR0FNRV9NT05TVEVSX01PVkVf",
-            "Tk9USUZZEPICEiMKHkdBTUVfTU9OU1RFUl9NT1ZFX1NUQVJUX05PVElGWRDz",
-            "AhIkCh9HQU1FX01PTlNURVJfTU9WRV9DQU5DRUxfTk9USUZZEPQCEhoKFUdB",
-            "TUVfUk9MRV9BVFRSX05PVElGWRD1AhIbChZHQU1FX0NPTUJBVF9MT0dfTk9U",
-            "SUZZEPwCEh0KGEdBTUVfQ09NQkFUX1NUQVRFX05PVElGWRD9AhIhChxHQU1F",
-            "X1VQREFURV9VSV9QQU5FTF9QT1NfUkVREIYDEiEKHEdBTUVfVVBEQVRFX1VJ",
-            "X1BBTkVMX1BPU19SU1AQhwNiBnByb3RvMw=="));
+            "X1JFURDHAhIcChdHQU1FX01PVkVfQ0FOQ0VMX05PVElGWRDIAhIfChpHQU1F",
+            "X01PVkVfQ09MTElTSU9OX05PVElGWRDJAhIWChFHQU1FX1VTRV9JVEVNX1JF",
+            "URDKAhIWChFHQU1FX1VTRV9JVEVNX1JTUBDLAhIXChJHQU1FX0RST1BfSVRF",
+            "TV9SRVEQzAISFwoSR0FNRV9EUk9QX0lURU1fUlNQEM0CEhAKC0dBTUVfR01f",
+            "UkVRENQCEhAKC0dBTUVfR01fUlNQENUCEhgKE0dBTUVfT1BFTl9DSEVTVF9S",
+            "RVEQ3gISGAoTR0FNRV9PUEVOX0NIRVNUX1JTUBDfAhIdChhHQU1FX0NIRVNU",
+            "X1VQREFURV9OT1RJRlkQ4AISHgoZR0FNRV9NQVBfSU5GT19TWU5DX05PVElG",
+            "WRDoAhIYChNHQU1FX0NIQU5HRV9NQVBfUkVREOoCEhgKE0dBTUVfQ0hBTkdF",
+            "X01BUF9SU1AQ6wISHQoYR0FNRV9NT05TVEVSX01PVkVfTk9USUZZEPICEiMK",
+            "HkdBTUVfTU9OU1RFUl9NT1ZFX1NUQVJUX05PVElGWRDzAhIkCh9HQU1FX01P",
+            "TlNURVJfTU9WRV9DQU5DRUxfTk9USUZZEPQCEhsKFkdBTUVfQ09NQkFUX0xP",
+            "R19OT1RJRlkQ/AISHQoYR0FNRV9DT01CQVRfU1RBVEVfTk9USUZZEP0CEh0K",
+            "GEdBTUVfQ09NQkFUX1NUQVJUX05PVElGWRD+AhIbChZHQU1FX0NPTUJBVF9F",
+            "TkRfTk9USUZZEP8CEhoKFUdBTUVfUk9MRV9BVFRSX05PVElGWRD1AhIhChxH",
+            "QU1FX1VQREFURV9VSV9QQU5FTF9QT1NfUkVREIYDEiEKHEdBTUVfVVBEQVRF",
+            "X1VJX1BBTkVMX1BPU19SU1AQhwMSHQoYR0FNRV9QTEFZRVJfREVBVEhfTk9U",
+            "SUZZEIgDEhkKFEdBTUVfRVFVSVBfU0tJTExfUkVREIsDEhkKFEdBTUVfRVFV",
+            "SVBfU0tJTExfUlNQEIwDEhsKFkdBTUVfVU5FUVVJUF9TS0lMTF9SRVEQjQMS",
+            "GwoWR0FNRV9VTkVRVUlQX1NLSUxMX1JTUBCOAxIdChhHQU1FX05QQ19JTlRF",
+            "UkFDVF9OT1RJRlkQkAMSGAoTR0FNRV9DSEFOR0VfSk9CX1JFURCRAxIYChNH",
+            "QU1FX0NIQU5HRV9KT0JfUlNQEJIDEhgKE0dBTUVfTlBDX0NPTUJBVF9SRVEQ",
+            "kwMSGAoTR0FNRV9OUENfQ09NQkFUX1JTUBCUAxIZChRHQU1FX0xFVkVMX1VQ",
+            "X05PVElGWRCVA2IGcHJvdG8z"));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { },
           new pbr::GeneratedClrTypeInfo(new[] {typeof(global::Protocol.MessageId), }, null, null));
@@ -106,6 +115,7 @@ namespace Protocol {
     [pbr::OriginalName("GAME_MOVE_CONFIRM_REQ")] GameMoveConfirmReq = 326,
     [pbr::OriginalName("GAME_MOVE_COMPLETE_REQ")] GameMoveCompleteReq = 327,
     [pbr::OriginalName("GAME_MOVE_CANCEL_NOTIFY")] GameMoveCancelNotify = 328,
+    [pbr::OriginalName("GAME_MOVE_COLLISION_NOTIFY")] GameMoveCollisionNotify = 329,
     [pbr::OriginalName("GAME_USE_ITEM_REQ")] GameUseItemReq = 330,
     [pbr::OriginalName("GAME_USE_ITEM_RSP")] GameUseItemRsp = 331,
     [pbr::OriginalName("GAME_DROP_ITEM_REQ")] GameDropItemReq = 332,
@@ -131,19 +141,41 @@ namespace Protocol {
     [pbr::OriginalName("GAME_MONSTER_MOVE_START_NOTIFY")] GameMonsterMoveStartNotify = 371,
     [pbr::OriginalName("GAME_MONSTER_MOVE_CANCEL_NOTIFY")] GameMonsterMoveCancelNotify = 372,
     /// <summary>
-    /// 角色属性同步 (373-379)
-    /// </summary>
-    [pbr::OriginalName("GAME_ROLE_ATTR_NOTIFY")] GameRoleAttrNotify = 373,
-    /// <summary>
     /// 战斗日志 (380-389)
     /// </summary>
     [pbr::OriginalName("GAME_COMBAT_LOG_NOTIFY")] GameCombatLogNotify = 380,
     [pbr::OriginalName("GAME_COMBAT_STATE_NOTIFY")] GameCombatStateNotify = 381,
+    [pbr::OriginalName("GAME_COMBAT_START_NOTIFY")] GameCombatStartNotify = 382,
+    [pbr::OriginalName("GAME_COMBAT_END_NOTIFY")] GameCombatEndNotify = 383,
+    /// <summary>
+    /// 角色属性同步 (373-379)
+    /// </summary>
+    [pbr::OriginalName("GAME_ROLE_ATTR_NOTIFY")] GameRoleAttrNotify = 373,
     /// <summary>
     /// UI 面板位置 (390-399)
     /// </summary>
     [pbr::OriginalName("GAME_UPDATE_UI_PANEL_POS_REQ")] GameUpdateUiPanelPosReq = 390,
     [pbr::OriginalName("GAME_UPDATE_UI_PANEL_POS_RSP")] GameUpdateUiPanelPosRsp = 391,
+    /// <summary>
+    /// 死亡重生 (392-399)
+    /// </summary>
+    [pbr::OriginalName("GAME_PLAYER_DEATH_NOTIFY")] GamePlayerDeathNotify = 392,
+    /// <summary>
+    /// 技能系统 (395-398)
+    /// </summary>
+    [pbr::OriginalName("GAME_EQUIP_SKILL_REQ")] GameEquipSkillReq = 395,
+    [pbr::OriginalName("GAME_EQUIP_SKILL_RSP")] GameEquipSkillRsp = 396,
+    [pbr::OriginalName("GAME_UNEQUIP_SKILL_REQ")] GameUnequipSkillReq = 397,
+    [pbr::OriginalName("GAME_UNEQUIP_SKILL_RSP")] GameUnequipSkillRsp = 398,
+    /// <summary>
+    /// NPC系统 (400-409)
+    /// </summary>
+    [pbr::OriginalName("GAME_NPC_INTERACT_NOTIFY")] GameNpcInteractNotify = 400,
+    [pbr::OriginalName("GAME_CHANGE_JOB_REQ")] GameChangeJobReq = 401,
+    [pbr::OriginalName("GAME_CHANGE_JOB_RSP")] GameChangeJobRsp = 402,
+    [pbr::OriginalName("GAME_NPC_COMBAT_REQ")] GameNpcCombatReq = 403,
+    [pbr::OriginalName("GAME_NPC_COMBAT_RSP")] GameNpcCombatRsp = 404,
+    [pbr::OriginalName("GAME_LEVEL_UP_NOTIFY")] GameLevelUpNotify = 405,
   }
 
   #endregion

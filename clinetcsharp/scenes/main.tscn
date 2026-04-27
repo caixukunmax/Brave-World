@@ -1,4 +1,4 @@
-[gd_scene load_steps=20 format=3]
+[gd_scene load_steps=23 format=3]
 
 [ext_resource type="Script" path="res://Scripts/GridManager.cs" id="1_grid"]
 [ext_resource type="Script" path="res://Scripts/Player.cs" id="2_player"]
@@ -6,11 +6,11 @@
 [ext_resource type="PackedScene" path="res://scenes/debug_panel.tscn" id="4_debug"]
 [ext_resource type="Script" path="res://Scripts/MapEditor.cs" id="5_editor"]
 [ext_resource type="Script" path="res://Scripts/AuthChecker.cs" id="6_auth"]
-[ext_resource type="Script" path="res://Scripts/TestDebugButton.cs" id="7_test"]
 [ext_resource type="Script" path="res://Scripts/InventoryManager.cs" id="8_inv"]
-[ext_resource type="Script" path="res://Scripts/GMPanel.cs" id="9_gm"]
+[ext_resource type="PackedScene" path="res://scenes/gm_panel.tscn" id="9_gm"]
 [ext_resource type="Script" path="res://Scripts/ChestManager.cs" id="10_chest"]
 [ext_resource type="Script" path="res://Scripts/MonsterManager.cs" id="11_monster"]
+[ext_resource type="Script" path="res://Scripts/NpcManager.cs" id="23_npc"]
 [ext_resource type="Script" path="res://Scripts/MapManager.cs" id="12_map"]
 [ext_resource type="Script" path="res://Scripts/MonsterConfigManager.cs" id="13_monstercfg"]
 [ext_resource type="Script" path="res://Scripts/PanelManager.cs" id="14_pm"]
@@ -19,6 +19,9 @@
 [ext_resource type="PackedScene" path="res://scenes/entity_list_panel.tscn" id="17_entity"]
 [ext_resource type="PackedScene" path="res://scenes/inventory_ui_panel.tscn" id="18_invui"]
 [ext_resource type="PackedScene" path="res://scenes/combat_atb_panel.tscn" id="19_atb"]
+[ext_resource type="PackedScene" path="res://scenes/skill_panel.tscn" id="20_skill"]
+[ext_resource type="PackedScene" path="res://scenes/skill_bar.tscn" id="21_skillbar"]
+[ext_resource type="Script" path="res://Scripts/FunctionButtonBar.cs" id="22_fnbar"]
 
 [node name="Main" type="Node2D"]
 
@@ -50,33 +53,9 @@ zoom = Vector2(1.4, 1.4)
 script = ExtResource("3_camera")
 smooth_speed = 10.0
 
-[node name="DebugPanel" parent="." instance=ExtResource("4_debug")]
-
-[node name="DebugButtonCanvas" type="CanvasLayer" parent="."]
-layer = 999
-
-[node name="ColorRect" type="ColorRect" parent="DebugButtonCanvas"]
-anchors_preset = 1
-anchor_left = 1.0
-anchor_right = 1.0
-offset_left = -140.0
-offset_top = 5.0
-offset_right = -10.0
-offset_bottom = 55.0
-grow_horizontal = 0
-color = Color(1, 0, 0, 0.5)
-
-[node name="DebugButton" type="Button" parent="DebugButtonCanvas"]
-anchors_preset = 1
-anchor_left = 1.0
-anchor_right = 1.0
-offset_left = -130.0
-offset_top = 10.0
-offset_right = -20.0
-offset_bottom = 50.0
-grow_horizontal = 0
-text = "⚙ 调试"
-script = ExtResource("7_test")
+[node name="FunctionButtonBar" type="CanvasLayer" parent="."]
+layer = 70
+script = ExtResource("22_fnbar")
 
 [node name="MapEditor" type="Node2D" parent="."]
 script = ExtResource("5_editor")
@@ -90,21 +69,24 @@ script = ExtResource("10_chest")
 [node name="MonsterManager" type="Node2D" parent="." groups=["monster_manager"]]
 script = ExtResource("11_monster")
 
+[node name="NpcManager" type="Node" parent="." groups=["npc_manager"]]
+script = ExtResource("23_npc")
+
 [node name="MonsterConfigManager" type="Node" parent="." groups=["monster_config_manager"]]
 script = ExtResource("13_monstercfg")
 
 [node name="MapManager" type="Node" parent="."]
 script = ExtResource("12_map")
 
-[node name="GMPanel" type="CanvasLayer" parent="."]
-layer = 100
-script = ExtResource("9_gm")
-
 [node name="UICanvas" type="CanvasLayer" parent="."]
 layer = 100
 
 [node name="PanelManager" type="Node" parent="UICanvas"]
 script = ExtResource("14_pm")
+
+[node name="DebugPanel" parent="UICanvas" instance=ExtResource("4_debug")]
+
+[node name="GMPanel" parent="UICanvas" instance=ExtResource("9_gm")]
 
 [node name="IntegratedPanel" parent="UICanvas" instance=ExtResource("15_panel")]
 
@@ -113,6 +95,13 @@ script = ExtResource("14_pm")
 [node name="EntityListPanel" parent="UICanvas" instance=ExtResource("17_entity")]
 
 [node name="InventoryUI" parent="UICanvas" instance=ExtResource("18_invui")]
+
+[node name="SkillPanel" parent="UICanvas" instance=ExtResource("20_skill")]
+
+[node name="SkillBarCanvas" type="CanvasLayer" parent="."]
+layer = 60
+
+[node name="SkillBar" parent="SkillBarCanvas" instance=ExtResource("21_skillbar")]
 
 [node name="CombatATBCanvas" type="CanvasLayer" parent="."]
 layer = 50

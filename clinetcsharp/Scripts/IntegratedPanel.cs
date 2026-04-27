@@ -1,6 +1,7 @@
 using Godot;
 using Protocol;
 using System;
+using System.Collections.Generic;
 
 namespace ClinetCSharp
 {
@@ -18,50 +19,15 @@ namespace ClinetCSharp
         [Export] public float DefaultWidth { get; set; } = 400;
         [Export] public float DefaultHeight { get; set; } = 220;
 
-        protected override void OnPanelReady()
+        protected override void OnPanelInitialized()
         {
             // 发现内容节点
             _content = GetNodeOrNull<RichTextLabel>("VBoxContainer/Content");
 
-            // 面板样式
-            var style = new StyleBoxFlat
-            {
-                BgColor = new Color(0, 0, 0, 0.85f),
-                BorderColor = new Color(0.2f, 0.2f, 0.2f),
-                BorderWidthBottom = 1,
-                BorderWidthLeft = 1,
-                BorderWidthRight = 1,
-                BorderWidthTop = 1,
-            };
-            AddThemeStyleboxOverride("panel", style);
-
-            // 标题栏样式
-            var titleBar = GetNodeOrNull<PanelContainer>("VBoxContainer/TitleBar");
-            if (titleBar != null)
-            {
-                titleBar.AddThemeStyleboxOverride("panel", new StyleBoxFlat
-                {
-                    BgColor = new Color(0.1f, 0.1f, 0.1f, 0.9f),
-                });
-            }
-
             // 获取 NetworkManager 并订阅战斗日志
-            var tree = GetTree();
-            if (tree != null)
-            {
-                foreach (var child in tree.Root.GetChildren())
-                {
-                    if (child is NetworkManager nm)
-                    {
-                        _network = nm;
-                        break;
-                    }
-                }
-                if (_network == null)
-                    _network = tree.Root.GetNodeOrNull<NetworkManager>("NetworkManager");
-                if (_network != null)
-                    _network.CombatLogNotify += OnCombatLogNotify;
-            }
+            _network = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
+            if (_network != null)
+                _network.CombatLogNotify += OnCombatLogNotify;
         }
 
         public override void _ExitTree()
@@ -105,31 +71,32 @@ namespace ClinetCSharp
 
         private string FormatLogLine(int logType, string time, string actor, string target, string skill, int value, string extra)
         {
-            return logType switch
+            string color = logType switch
             {
-                0 => $"[color=#FFD700]{time} [{actor}] 与 [{target}] {extra}[/color]",
-                1 => $"[color=#FFFFFF]{time} [{actor}] 使用了 {skill}[/color]",
-                2 => $"[color=#FFA500]{time} [{actor}] 对 [{target}] 造成了 {value} 点伤害[/color]",
-                3 => $"[color=#00FF00]{time} [{actor}] 恢复了 {value} 点生命[/color]",
-                5 => $"[color=#AAAAAA]{time} [{actor}] 的攻击打空了 ({extra})[/color]",
-                6 => $"[color=#FF0000]{time} [{actor}] {extra}[/color]",
-                7 => $"[color=#AAAAAA]{time} [{actor}] {extra}[/color]",
-                _ => $"[color=#AAAAAA]{time} [{actor}] {extra}[/color]",
+                0 => "#FFD700",  // 战斗开始 - 金色
+                1 => "#FFFFFF",  // 技能 - 白色
+                2 => "#FFA500",  // 伤害 - 橙色
+                3 => "#00FF00",  // 治疗 - 绿色
+                4 => "#FF00FF",  // Buff - 紫色
+                5 => "#AAAAAA",  // 闪避 - 灰色
+                6 => "#FF0000",  // 死亡 - 红色
+                7 => "#AAAAAA",  // 战斗结束 - 灰色
+                _ => "#AAAAAA",
             };
+            // 服务端已通过 CombatLogFormatter 格式化好完整句子，放在 extra 字段
+            // 客户端只需显示时间 + 格式化文本
+            string text = string.IsNullOrEmpty(extra) ? $"{actor}" : extra;
+            return $"[color={color}]{time} {text}[/color]";
         }
 
         private void TrimLogLines()
         {
             if (_content == null) return;
-            var text = _content.Text;
-            int lines = 0;
-            for (int i = 0; i < text.Length; i++)
+            int lineCount = _content.GetLineCount();
+            if (lineCount > MAX_LOG_LINES)
             {
-                if (text[i] == '\n') lines++;
-            }
-            if (lines > MAX_LOG_LINES)
-            {
-                int removeCount = lines - MAX_LOG_LINES;
+                int removeCount = lineCount - MAX_LOG_LINES;
+                var text = _content.Text;
                 int pos = 0;
                 for (int i = 0; i < text.Length && removeCount > 0; i++)
                 {
@@ -140,20 +107,26 @@ namespace ClinetCSharp
             }
         }
 
-        private Game.CombatLogNotify _pendingLog;
+        private readonly Queue<Game.CombatLogNotify> _pendingLogs = new();
 
         private void OnCombatLogNotify(Game.CombatLogNotify notify)
         {
-            _pendingLog = notify;
+            lock (_pendingLogs)
+                _pendingLogs.Enqueue(notify);
             CallDeferred(nameof(AppendCombatLogsDeferred));
         }
 
         private void AppendCombatLogsDeferred()
         {
-            if (_pendingLog != null)
+            while (true)
             {
-                AppendCombatLogs(_pendingLog);
-                _pendingLog = null;
+                Game.CombatLogNotify notify;
+                lock (_pendingLogs)
+                {
+                    if (_pendingLogs.Count == 0) return;
+                    notify = _pendingLogs.Dequeue();
+                }
+                AppendCombatLogs(notify);
             }
         }
         #endregion

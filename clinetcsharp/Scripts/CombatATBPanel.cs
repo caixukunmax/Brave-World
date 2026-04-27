@@ -1,5 +1,6 @@
 using Godot;
 using System.Collections.Generic;
+using System;
 using Protocol;
 
 namespace ClinetCSharp
@@ -11,8 +12,9 @@ namespace ClinetCSharp
         private readonly List<Marker> _markers = new();
         private NetworkManager _network;
 
-        private const float LINE_WIDTH = 600f;
+        private const float LINE_WIDTH_RATIO = 0.5f;
         private const float LERP_SPEED = 15f;
+        private float _lineWidth = 600f;
 
         private class UnitState
         {
@@ -23,39 +25,40 @@ namespace ClinetCSharp
             public bool IsPlayer;
             public string CastingSkill = "";
             public float CastProgress;
+            public int Mp;
+            public int MaxMp;
         }
 
         private readonly Dictionary<ulong, UnitState> _units = new();
 
+        private bool _lastVisible;
+
         public override void _Ready()
         {
-            _line = GetNode<Control>("Line");
-            _markersContainer = GetNode<Control>("MarkersContainer");
+            _line = GetNodeOrNull<Control>("Line");
+            _markersContainer = GetNodeOrNull<Control>("MarkersContainer");
 
-            var tree = GetTree();
-            if (tree != null)
+            _network = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
+            if (_network != null)
             {
-                foreach (var child in tree.Root.GetChildren())
-                {
-                    if (child is NetworkManager nm)
-                    {
-                        _network = nm;
-                        break;
-                    }
-                }
-                if (_network == null)
-                    _network = tree.Root.GetNodeOrNull<NetworkManager>("NetworkManager");
-                if (_network != null)
-                    _network.CombatStateNotify += OnCombatStateNotify;
+                _network.CombatStateNotify += OnCombatStateNotify;
+                _network.CombatEndNotify += OnCombatEndNotify;
             }
 
+            // 纯展示面板，鼠标事件穿透，不影响其他面板拖拽
+            UiUtils.SetMousePassthrough(this);
             Modulate = Colors.White;
+            Visible = false;
+            _lineWidth = _line != null ? _line.Size.X : 600f;
         }
 
         public override void _ExitTree()
         {
             if (_network != null)
+            {
                 _network.CombatStateNotify -= OnCombatStateNotify;
+                _network.CombatEndNotify -= OnCombatEndNotify;
+            }
         }
 
         public override void _Process(double delta)
@@ -82,7 +85,7 @@ namespace ClinetCSharp
                         state.CurrentAtb = state.TargetAtb;
 
                     float t = Mathf.Clamp(state.CurrentAtb / 100f, 0f, 1f);
-                    float x = t * LINE_WIDTH;
+                    float x = t * _lineWidth;
                     marker.Node.Position = new Vector2(x - marker.Node.Size.X * 0.5f, marker.Node.Position.Y);
                 }
                 else
@@ -91,23 +94,40 @@ namespace ClinetCSharp
                 }
             }
 
-            Visible = anyVisible;
+            if (anyVisible != _lastVisible)
+            {
+                Visible = anyVisible;
+                _lastVisible = anyVisible;
+            }
         }
 
-        private Game.CombatStateNotify _pendingState;
+        private readonly Queue<Game.CombatStateNotify> _pendingStates = new();
 
         private void OnCombatStateNotify(Game.CombatStateNotify notify)
         {
-            _pendingState = notify;
+            lock (_pendingStates)
+                _pendingStates.Enqueue(notify);
+            CallDeferred(nameof(ApplyStateDeferred));
+        }
+
+        private void OnCombatEndNotify(Game.CombatEndNotify notify)
+        {
+            lock (_pendingStates)
+                _pendingStates.Enqueue(new Game.CombatStateNotify()); // 空 notify 清除面板
             CallDeferred(nameof(ApplyStateDeferred));
         }
 
         private void ApplyStateDeferred()
         {
-            if (_pendingState != null)
+            while (true)
             {
-                ApplyState(_pendingState);
-                _pendingState = null;
+                Game.CombatStateNotify notify;
+                lock (_pendingStates)
+                {
+                    if (_pendingStates.Count == 0) return;
+                    notify = _pendingStates.Dequeue();
+                }
+                ApplyState(notify);
             }
         }
 
@@ -134,6 +154,8 @@ namespace ClinetCSharp
                 state.IsPlayer = u.IsPlayer;
                 state.CastingSkill = u.CastingSkill;
                 state.CastProgress = u.CastProgress;
+                state.Mp = u.Mp;
+                state.MaxMp = u.MaxMp;
             }
 
             // 移除不再存在的单位
@@ -173,9 +195,11 @@ namespace ClinetCSharp
                 index++;
             }
 
-            for (int i = index; i < _markers.Count; i++)
+            // 移除多余标记，防止内存泄漏
+            while (_markers.Count > index)
             {
-                _markers[i].Node.Visible = false;
+                _markers[^1].Node.QueueFree();
+                _markers.RemoveAt(_markers.Count - 1);
             }
         }
 
@@ -201,7 +225,7 @@ namespace ClinetCSharp
             var castBarBg = new ColorRect();
             castBarBg.Size = new Vector2(60, 4);
             castBarBg.Position = new Vector2(10, 22);
-            castBarBg.Color = new Color(0.2f, 0.2f, 0.2f, 0.8f);
+            castBarBg.Color = new Color(UiStyles.TextDimColor, 0.8f);
             castBarBg.Visible = false;
             node.AddChild(castBarBg);
 
@@ -209,7 +233,7 @@ namespace ClinetCSharp
             var castBarFill = new ColorRect();
             castBarFill.Size = new Vector2(60, 4);
             castBarFill.Position = new Vector2(10, 22);
-            castBarFill.Color = new Color("#FFD700");
+            castBarFill.Color = UiStyles.GoldColor;
             castBarFill.Visible = false;
             node.AddChild(castBarFill);
 
@@ -223,6 +247,7 @@ namespace ClinetCSharp
             node.AddChild(castLabel);
 
             _markersContainer.AddChild(node);
+            UiUtils.SetMousePassthrough(node);
             return new Marker { Node = node, Shape = shape, Label = label, CastBarBg = castBarBg, CastBarFill = castBarFill, CastLabel = castLabel };
         }
 

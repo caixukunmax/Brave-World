@@ -1,6 +1,10 @@
 {
   "proto": {
-    "cs_dir": "clinetcsharp/Scripts/protos"
+    "desc_dir": "servercsharp/data/proto",
+    "lua_enum_dir": "servercsharp/data/proto",
+    "ts_dir": "protocols/gen/ts",
+    "cs_dir": "clinetcsharp/Scripts/protos",
+    "cs_server_dir": "servercsharp/src/GameServer.Proto/generated"
   },
   "tables": {
     "json_data_dir": "servercsharp/data/tables"

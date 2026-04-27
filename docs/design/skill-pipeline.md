@@ -1,7 +1,7 @@
 # 技能管线设计稿（Skill Pipeline Design）
 
-> 版本：V0.3  
-> 状态：玩法已确认，边界条件已澄清，可进入技术设计
+> 版本：V0.4  
+> 状态：蓄力机制已实现，ATB 蓄力期间保持 100 不重置
 
 ---
 
@@ -130,13 +130,11 @@
 
 ## 4. 关键机制详解
 
-### 4.1 读条期间移动（移动不打断为默认）
+### 4.1 蓄力期间禁止移动
 
-- **绝大多数技能**的 `interruptOnMove = false`，允许玩家在读条期间继续风筝走位。
-- 只有极少数需要"站桩吟唱"的大技能（例如全屏 AOE、超长读条大招）才配置 `interruptOnMove = true`。
-- 读条期间如果玩家撞到新的怪物/玩家：
-  - **不影响当前读条**，正常进入阶段 4（Final Validation）。
-  - 新增的战斗关系由碰撞系统独立处理。
+- **蓄力（读条）期间角色不可移动**，移动请求会被服务端拒绝。
+- 蓄力期间 ATB 保持 100 不重置，蓄力完成（技能释放成功或打空）后才重置为 0。
+- 碰撞系统在蓄力期间不会检测该角色的碰撞（因为角色不能移动），但如果其他单位撞过来，仍由碰撞系统独立处理新增战斗关系。
 
 ### 4.2 "打空"机制（Final Validation 失败）
 
@@ -198,54 +196,14 @@ end
 
 ### 5.3 技能配置表示例
 
-```json
-{
-  "skillId": 1001,
-  "skillName": "火球术",
-  "castRange": 5,
-  "castTime": 0.5,
-  "interruptOnMove": false,
-  "postCastTime": 0.3,
-  "cooldown": 3.0,
-  "mpCost": 30,
-  "targetType": "SingleEnemy",
-  "actions": [
-    {
-      "type": "DealDamage",
-      "damageType": "magical",
-      "coefficient": 1.5,
-      "formulaId": 1
-    },
-    {
-      "type": "ApplyDebuff",
-      "debuffId": 2001,
-      "duration": 5
-    }
-  ]
-}
-```
+### 5.4 当前技能配置（已实现）
 
-```json
-{
-  "skillId": 1,
-  "skillName": "普通攻击",
-  "castRange": 1,
-  "castTime": 0,
-  "interruptOnMove": false,
-  "postCastTime": 0.1,
-  "cooldown": 0,
-  "mpCost": 0,
-  "targetType": "SingleEnemy",
-  "actions": [
-    {
-      "type": "DealDamage",
-      "damageType": "physical",
-      "coefficient": 1.0,
-      "formulaId": 2
-    }
-  ]
-}
-```
+| SkillId | 技能名 | CastTime | PostCastTime | Cooldown | MpCost | CastRange |
+|---------|--------|----------|-------------|----------|--------|-----------|
+| 1 | 普通攻击 | 0.5s | 0.1s | 0s | 0 | 1 |
+| 2 | 烈斩 | 0.8s | 0.2s | 3s | 10 | 1 |
+| 3 | 盾击 | 0.6s | 0.2s | 5s | 15 | 1 |
+| 4 | 旋风斩 | 1.0s | 0.3s | 8s | 20 | 1 |
 
 ---
 
@@ -255,8 +213,8 @@ end
 
 | 机制 | 兼容性说明 |
 |------|-----------|
-| **碰撞触发战斗** | 碰撞 = 立即执行一次简化管线（跳过读条，直接 DealDamage）。 |
-| **单角色单 ATB** | ATB 满时发起 `CastRequest`，整个管线只占用一条 ATB 周期。 |
+| **碰撞触发战斗** | 碰撞 = 立即执行一次简化管线（跳过读条，直接 DealDamage）。不消耗 ATB。 |
+| **单角色单 ATB** | ATB 满时发起 `CastRequest`，整个管线只占用一条 ATB 周期。蓄力期间 ATB 保持 100 不重置。 |
 | **普攻即技能** | 普攻是 `skillId=1` 的配置，完整走管线。 |
 | **大地图即时战斗** | 所有 Action 直接作用于大地图坐标，不切换场景。 |
 | **脱战机制** | 脱战后该角色的所有战斗关系清空，未完成的读条/后摇强制中断。 |
@@ -318,7 +276,7 @@ end
 | 状态 | 可移动 | 可释放技能 | 可被碰撞触发普攻 | 备注 |
 |------|--------|------------|------------------|------|
 | **空闲 (Idle)** | ✅ | ✅ (ATB 满时) | ✅ | 未进入战斗状态 |
-| **战斗中 + 读条 (Casting)** | ✅ (默认) | ❌ | ✅ | `interruptOnMove` 为 true 时移动打断 |
+| **战斗中 + 蓄力 (Casting)** | ❌ (禁止) | ❌ | ✅ | 移动请求被服务端拒绝，ATB 保持 100 |
 | **战斗中 + 后摇 (PostCast)** | ✅ | ❌ | ✅ | ATB 正常积累 |
 | **战斗中 + ATB 已满等待后摇** | ✅ | ❌ (等后摇) | ✅ | 后摇结束立即释放 |
 | **战斗中 + 非读条非后摇** | ✅ | ✅ (ATB 满时) | ✅ | 正常可释放 |

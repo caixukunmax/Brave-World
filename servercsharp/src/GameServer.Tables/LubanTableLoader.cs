@@ -16,6 +16,11 @@ public class LubanTableLoader
     public Dictionary<int, AiRow> AiConfigs { get; private set; } = new();
     public Dictionary<int, MapConfigRow> MapConfigs { get; private set; } = new();
     public Dictionary<int, PlayerAttrRow> PlayerAttrs { get; private set; } = new();
+    public Dictionary<int, CombatLogTextRow> CombatLogTexts { get; private set; } = new();
+    public Dictionary<int, SkillConfigRow> Skills { get; private set; } = new();
+    public Dictionary<int, JobRow> Jobs { get; private set; } = new();
+    public Dictionary<int, CombatNarrationRow> CombatNarrations { get; private set; } = new();
+    public Dictionary<int, LevelUpRow> LevelUps { get; private set; } = new();
 
     // 反向索引: mapName → mapId
     private Dictionary<string, int> _mapNameToId = new();
@@ -44,6 +49,11 @@ public class LubanTableLoader
         AiConfigs = LoadTable<AiRow>(dataDir, "common_tbai.json", opts);
         MapConfigs = LoadTable<MapConfigRow>(dataDir, "common_tbmapconfig.json", opts);
         PlayerAttrs = LoadTable<PlayerAttrRow>(dataDir, "common_tbplayerattr.json", opts);
+        CombatLogTexts = LoadTable<CombatLogTextRow>(dataDir, "common_tbcombatlogtext.json", opts);
+        Skills = LoadTable<SkillConfigRow>(dataDir, "common_tbskill.json", opts);
+        Jobs = LoadTable<JobRow>(dataDir, "common_tbjob.json", opts);
+        CombatNarrations = LoadTable<CombatNarrationRow>(dataDir, "common_tbcombatnarration.json", opts);
+        LevelUps = LoadTable<LevelUpRow>(dataDir, "common_tblevelup.json", opts);
 
         // 建立地图名→ID 反向索引
         _mapNameToId = MapConfigs.Values.ToDictionary(m => m.MapName, m => m.Id);
@@ -63,16 +73,66 @@ public class LubanTableLoader
 
     /// <summary>获取 AI 配置</summary>
     public AiRow? GetAi(int aiId) => AiConfigs.GetValueOrDefault(aiId);
+    public SkillConfigRow? GetSkill(int id) => Skills.GetValueOrDefault(id);
+    public JobRow? GetJob(int id) => Jobs.GetValueOrDefault(id);
+    public JobRow? GetJobByName(string name) => Jobs.Values.FirstOrDefault(j => j.Name == name);
+
+    /// <summary>
+    /// 获取指定职业的默认技能配置
+    /// </summary>
+    public (List<int> learned, List<int> equipped) GetJobDefaultSkills(string jobName)
+    {
+        var job = GetJobByName(jobName);
+        if (job == null) return (new List<int>(), new List<int>());
+        var learned = ParseIntList(job.DefaultLearnedSkills);
+        var equipped = ParseIntList(job.DefaultEquippedSkills);
+        return (learned, equipped);
+    }
+
+    /// <summary>获取指定职业的所有技能ID</summary>
+    public List<int> GetSkillsForJob(int jobId) => Skills.Values.Where(s => s.Job == jobId).Select(s => s.Id).ToList();
+
+    /// <summary>获取怪物的技能池（从怪物配置表读取）</summary>
+    public List<int> GetMonsterSkills(int monsterId)
+    {
+        var monster = Monsters.GetValueOrDefault(monsterId);
+        return monster?.Skills ?? new List<int>();
+    }
+
+    /// <summary>获取指定条件的叙事触发器列表</summary>
+    public List<CombatNarrationRow> GetNarrationsByCondition(string condition)
+    {
+        return CombatNarrations.Values.Where(n => n.Condition == condition).ToList();
+    }
+
+    /// <summary>获取指定等级的升级配置，找不到返回 null（已满级）</summary>
+    public LevelUpRow? GetLevelUp(int level) => LevelUps.GetValueOrDefault(level);
+
+    /// <summary>获取最大等级</summary>
+    public int GetMaxLevel() => LevelUps.Count > 0 ? LevelUps.Keys.Max() : 1;
+
+    /// <summary>获取怪物的经验奖励</summary>
+    public int GetMonsterExp(int monsterId)
+    {
+        var monster = Monsters.GetValueOrDefault(monsterId);
+        return monster?.Exp ?? 0;
+    }
+
+    private static List<int> ParseIntList(string s)
+    {
+        if (string.IsNullOrEmpty(s)) return new List<int>();
+        return s.Split(',').Where(p => !string.IsNullOrWhiteSpace(p)).Select(int.Parse).ToList();
+    }
 
     /// <summary>
     /// 获取玩家基础属性（从 TbPlayerAttr 表读取，默认 id=1）
-    /// 返回 (hp, mp, agility, patk, matk, pdef, mdef)
+    /// 返回 (hp, mp, agility, patk, matk, pdef, mdef, mpRegen)
     /// </summary>
-    public (int hp, int mp, int agility, int patk, int matk, int pdef, int mdef) GetPlayerBaseAttrs(int id = 1)
+    public (int hp, int mp, int agility, int patk, int matk, int pdef, int mdef, int mpRegen) GetPlayerBaseAttrs(int id = 1)
     {
         var row = PlayerAttrs.GetValueOrDefault(id);
-        if (row == null) return (100, 50, 100, 10, 10, 5, 5);
-        return (row.Hp, row.Mp, row.Agility, row.Patk, row.Matk, row.Pdef, row.Mdef);
+        if (row == null) return (100, 50, 100, 10, 10, 5, 5, 2);
+        return (row.Hp, row.Mp, row.Agility, row.Patk, row.Matk, row.Pdef, row.Mdef, row.MpRegen);
     }
 
     /// <summary>

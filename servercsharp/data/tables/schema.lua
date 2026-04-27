@@ -31,11 +31,22 @@ local enums =
      ---@field public AND integer
      ---@field public OR integer
     ['common.EBoolOperator'] = {   AND=0,  OR=1,  };
+    ---@class common.ECombatLogType @战斗日志文本类型
+     ---@field public Start integer @可用参数: {actor} {target}
+     ---@field public Skill integer @可用参数: {actor} {skill}
+     ---@field public Damage integer @可用参数: {actor} {target} {value}
+     ---@field public Heal integer @可用参数: {actor} {value}
+     ---@field public Buff integer @可用参数: {actor} {extra}
+     ---@field public Dodge integer @可用参数: {actor} {skill}
+     ---@field public Death integer @可用参数: {actor} {extra}
+     ---@field public End integer @可用参数: {actor} {extra}
+    ['common.ECombatLogType'] = {   Start=0,  Skill=1,  Damage=2,  Heal=3,  Buff=4,  Dodge=5,  Death=6,  End=7,  };
     ---@class common.EMonsterAttr
      ---@field public HP integer @生命值
      ---@field public ATK integer @攻击力
      ---@field public DEF integer @防御力
-    ['common.EMonsterAttr'] = {   HP=1,  ATK=2,  DEF=3,  };
+     ---@field public AGILITY integer @敏捷
+    ['common.EMonsterAttr'] = {   HP=1,  ATK=2,  DEF=3,  AGILITY=5,  };
     ---@class item.EClothersStarQualityType
      ---@field public ONE integer @一星
      ---@field public TWO integer @二星
@@ -253,6 +264,18 @@ local beans = {}
             { name='rewards', type='string'},
         }
         beans['common.ChestConfig'] = class
+    end
+    do
+    ---@class common.CombatLogTextRow 
+     ---@field public id integer
+     ---@field public template string @文本模板，支持 {actor} {target} {skill} {value} {extra} 占位符
+     ---@field public color string @显示颜色（十六进制，留作扩展）
+        local class = {
+            { name='id', type='integer'},
+            { name='template', type='string'},
+            { name='color', type='string'},
+        }
+        beans['common.CombatLogTextRow'] = class
     end
     do
     ---@class common.DateTimeRange 
@@ -620,6 +643,7 @@ local beans = {}
 local tables =
 {
     { name='TbGlobalConfig', file='common_tbglobalconfig', mode='one', value_type='common.GlobalConfig'},
+    { name='TbCombatLogText', file='common_tbcombatlogtext', mode='map', index='id', value_type='common.CombatLogTextRow' },
     { name='TbServerConfig', file='tbserverconfig', mode='map', index='id', value_type='ServerConfig' },
     { name='TbAccountConfig', file='common_tbaccountconfig', mode='map', index='id', value_type='common.AccountConfig' },
     { name='TbAi', file='common_tbai', mode='map', index='id', value_type='common.Ai' },

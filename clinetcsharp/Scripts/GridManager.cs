@@ -355,6 +355,9 @@ namespace ClinetCSharp
             var mm = GetTree()?.GetFirstNodeInGroup("monster_manager") as MonsterManager;
             if (mm != null && mm.IsBlockedByMonster(gridPos))
                 return false;
+            var nm = GetTree()?.GetFirstNodeInGroup("npc_manager") as NpcManager;
+            if (nm != null && nm.IsBlockedByNpc(gridPos))
+                return false;
             var cell = GridData[gridPos.Y][gridPos.X];
             return cell.Exists && cell.Walkable;
         }
@@ -593,12 +596,15 @@ namespace ClinetCSharp
             GD.Print($"[GridManager] GridSize set to: {GridSize}");
             QueueRedraw();
 
-            // 作为单一数据源，自动同步玩家和怪物
+            // 作为单一数据源，自动同步玩家、怪物和NPC
             var player = GetTree()?.GetFirstNodeInGroup("player") as Player;
             player?.SetGridSize(newSize);
 
             var mm = GetTree()?.GetFirstNodeInGroup("monster_manager") as MonsterManager;
             mm?.SetGridSize(newSize);
+
+            var nm = GetTree()?.GetFirstNodeInGroup("npc_manager") as NpcManager;
+            nm?.SetGridSize(newSize);
         }
 
         public void SetLineBrightness(float brightness)

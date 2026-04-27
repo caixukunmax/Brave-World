@@ -1,5 +1,6 @@
 using GameServer.Common.Net;
 using GameServer.Common.Security;
+using GameServer.Database.Models;
 using GameServer.Services.Core;
 using GameServer.Services.Map;
 using GameServer.Tables;
@@ -46,12 +47,36 @@ public class EnterGameHandler : IMessageHandler
         await _session.Roles.Update(roleId, u => u.Set(r => r.LastLoginTime, now));
         _session.SetOnline(claims.AccountId, role);
 
-        var (hp, mp, agility, patk, matk, pdef, mdef) = _tables.GetPlayerBaseAttrs();
+        var (hp, mp, agility, patk, matk, pdef, mdef, mpRegen) = _tables.GetPlayerBaseAttrs();
         role.Hp = hp; role.MaxHp = hp;
         role.Mp = mp; role.MaxMp = mp;
         role.Agility = agility;
         role.Patk = patk; role.Matk = matk;
         role.Pdef = pdef; role.Mdef = mdef;
+        role.MpRegen = mpRegen;
+
+        // 补初始化 JobSkills（老角色可能没有这个字段）
+        if (role.JobSkills.Count == 0 && !string.IsNullOrEmpty(role.Job))
+        {
+            role.JobSkills[role.Job] = new JobSkillData
+            {
+                LearnedSkills = new List<int>(role.LearnedSkills),
+                EquippedSkills = new List<int>(role.EquippedSkills),
+            };
+            await _session.Roles.Update(roleId, u => u.Set(r => r.JobSkills, role.JobSkills));
+        }
+
+        // 迁移：从 EquippedSkills 中移除普通攻击(id=1)，普通攻击不可装备
+        if (role.EquippedSkills.Remove(1))
+        {
+            await _session.Roles.Update(roleId, u => u.Set(r => r.EquippedSkills, role.EquippedSkills));
+        }
+        // 确保 LearnedSkills 包含普通攻击
+        if (!role.LearnedSkills.Contains(1))
+        {
+            role.LearnedSkills.Insert(0, 1);
+            await _session.Roles.Update(roleId, u => u.Set(r => r.LearnedSkills, role.LearnedSkills));
+        }
 
         var mapName = role.CurrentMap;
         _session.MapService.PlayerEnter(new PlayerSnapshot
@@ -66,8 +91,10 @@ public class EnterGameHandler : IMessageHandler
             CurrentMap = mapName,
             Hp = hp, MaxHp = hp, Mp = mp, MaxMp = mp,
             Agility = agility, Patk = patk, Matk = matk, Pdef = pdef, Mdef = mdef,
+            MpRegen = mpRegen,
             Job = role.Job,
             MoveSpeedMs = role.MoveSpeedMs > 0 ? role.MoveSpeedMs : GameConstants.BaseMoveSpeedMs,
+            EquippedSkills = role.EquippedSkills,
         });
 
         var rsp = new PGame.EnterGameResponse
@@ -105,6 +132,22 @@ public class EnterGameHandler : IMessageHandler
             info.Attrs.Add(new PGame.MonsterAttr { AttrKey = 2, AttrValue = m.Patk });
             info.Attrs.Add(new PGame.MonsterAttr { AttrKey = 3, AttrValue = m.Pdef });
             notify.Monsters.Add(info);
+        }
+
+        // 推送 NPC 列表
+        var npcMgr = _session.NpcManager;
+        if (npcMgr != null)
+        {
+            var npcs = npcMgr.GetNpcsOnMap(mapName);
+            foreach (var n in npcs)
+            {
+                notify.Npcs.Add(new PGame.NpcInfo
+                {
+                    NpcInstanceId = (ulong)n.InstanceId,
+                    NpcName = n.Name,
+                    NpcType = n.NpcType,
+                });
+            }
         }
 
         _network.SendToAccount(claims.AccountId, claims.ServerId,

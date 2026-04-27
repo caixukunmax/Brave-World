@@ -29,6 +29,7 @@ interface PathsConfig {
     lua_enum_dir: string;
     ts_dir: string;
     cs_dir: string;
+    cs_server_dir?: string;
   };
 }
 
@@ -88,6 +89,7 @@ function main(): void {
   const luaEnumDirs = [path.resolve(rootDir, paths.proto.lua_enum_dir)];
   const outputTsDirs = [path.resolve(rootDir, paths.proto.ts_dir)];
   const outputCsDir = path.resolve(rootDir, paths.proto.cs_dir);
+  const outputCsServerDir = paths.proto.cs_server_dir ? path.resolve(rootDir, paths.proto.cs_server_dir) : null;
 
   console.log('');
   console.log('========================================');
@@ -335,6 +337,16 @@ function main(): void {
           console.error(err.message);
         }
       }
+    }
+
+    // Copy C# files to server proto directory
+    if (outputCsServerDir && fs.existsSync(outputCsDir)) {
+      fs.mkdirSync(outputCsServerDir, { recursive: true });
+      const csFiles = fs.readdirSync(outputCsDir).filter(f => f.endsWith('.cs'));
+      for (const f of csFiles) {
+        fs.copyFileSync(path.join(outputCsDir, f), path.join(outputCsServerDir, f));
+      }
+      success(`C# server → ${paths.proto.cs_server_dir}`);
     }
   }
 

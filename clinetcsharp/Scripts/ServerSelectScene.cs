@@ -13,6 +13,7 @@ namespace ClinetCSharp
         private Button _refreshButton;
         private Label _selectedLabel;
         private Button _confirmButton;
+        private NetworkManager _network;
 
         private int _selectedServerId = 0;
         private Godot.Collections.Dictionary<int, Button> _serverButtons = new();
@@ -35,10 +36,10 @@ namespace ClinetCSharp
             _refreshButton.Pressed += LoadServerList;
             _confirmButton.Pressed += OnConfirmPressed;
 
-            var nm = GetNode<NetworkManager>("/root/NetworkManager");
-            nm.SelectServerResponse += OnSelectServerResponse;
+            _network = GetNode<NetworkManager>("/root/NetworkManager");
+            _network.SelectServerResponse += OnSelectServerResponse;
 
-            _accountLabel.Text = $"账号ID: {nm.AccountId}";
+            _accountLabel.Text = $"账号ID: {_network.AccountId}";
             LoadServerList();
         }
 
@@ -53,9 +54,7 @@ namespace ClinetCSharp
                 child.QueueFree();
             _serverButtons.Clear();
 
-            var nm = GetNode<NetworkManager>("/root/NetworkManager");
-
-            if (nm.Servers.Count == 0)
+            if (_network.Servers.Count == 0)
             {
                 var label = new Label();
                 label.Text = "暂无可用区服";
@@ -64,7 +63,7 @@ namespace ClinetCSharp
                 return;
             }
 
-            foreach (var server in nm.Servers)
+            foreach (var server in _network.Servers)
             {
                 var btn = new Button();
                 int serverId = (int)server.ServerId;
@@ -91,13 +90,13 @@ namespace ClinetCSharp
                 _serverList.AddChild(btn);
             }
 
-            if (nm.LastServerId > 0)
+            if (_network.LastServerId > 0)
             {
-                foreach (var server in nm.Servers)
+                foreach (var server in _network.Servers)
                 {
-                    if (server.ServerId == nm.LastServerId)
+                    if (server.ServerId == _network.LastServerId)
                     {
-                        OnServerSelected((int)nm.LastServerId, server.ServerName);
+                        OnServerSelected((int)_network.LastServerId, server.ServerName);
                         break;
                     }
                 }
@@ -133,13 +132,12 @@ namespace ClinetCSharp
             _confirmButton.Disabled = true;
             _refreshButton.Disabled = true;
 
-            var nm = GetNode<NetworkManager>("/root/NetworkManager");
             var req = new Login.SelectServerRequest
             {
-                AccountToken = nm.AccountToken,
+                AccountToken = _network.AccountToken,
                 ServerId = (uint)_selectedServerId
             };
-            nm.SendPacket(MessageId.LoginSelectServerReq, req);
+            _network.SendPacket(MessageId.LoginSelectServerReq, req);
         }
 
         private void OnSelectServerResponse(Login.SelectServerResponse rsp)
@@ -160,9 +158,8 @@ namespace ClinetCSharp
 
         public override void _ExitTree()
         {
-            var nm = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
-            if (nm != null)
-                nm.SelectServerResponse -= OnSelectServerResponse;
+            if (_network != null)
+                _network.SelectServerResponse -= OnSelectServerResponse;
         }
     }
 }

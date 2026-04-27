@@ -1,0 +1,11 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://Scripts/SkillPanel.cs" id="1_script"]
+
+[node name="SkillPanel" type="PanelContainer"]
+anchors_preset = 0
+offset_left = 460.0
+offset_top = 100.0
+offset_right = 880.0
+offset_bottom = 450.0
+script = ExtResource("1_script")

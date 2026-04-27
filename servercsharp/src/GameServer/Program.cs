@@ -15,7 +15,11 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using MongoDB.Bson;
+using MongoDB.Driver;
+using Google.Protobuf;
 using Serilog;
+using PGame = global::Game;
+using PProtocol = global::Protocol;
 
 namespace GameServer;
 
@@ -160,13 +164,48 @@ public class GameServerHostedService : IHostedService
             hotReloader.CombatService?.OnCollision(entityA, entityB, maps);
         });
 
+        // 订阅 NPC 碰撞事件 → 发送 NpcInteractNotify
+        eventBus.On("NpcCollisionDetected", (data) =>
+        {
+            var (playerId, npcInstanceId, npcMapName) = ((long playerId, long npcInstanceId, string npcMapName))data!;
+            var ws = _sp.GetRequiredService<WorldState>();
+            var mapInst = ws.GetMapState(npcMapName);
+            if (mapInst == null || !mapInst.Npcs.TryGetValue(npcInstanceId, out var npc)) return;
+
+            var notify = new PGame.NpcInteractNotify
+            {
+                NpcInstanceId = (ulong)npcInstanceId,
+                NpcName = npc.Name,
+                NpcType = npc.NpcType,
+            };
+            // 找到该玩家的 serverId
+            var player = mapInst.Players.GetValueOrDefault(playerId);
+            if (player == null) return;
+            network.SendToAccount(playerId, player.ServerId, (int)PProtocol.MessageId.GameNpcInteractNotify, notify.ToByteArray());
+        });
+
+        // 订阅 NPC 挑战事件 → 建立战斗关系（和碰撞触发一样）
+        eventBus.On("NpcCombatTriggered", (data) =>
+        {
+            var (playerId, npcInstanceId, combatMapName) = ((long playerId, long npcInstanceId, string combatMapName))data!;
+            var maps = mapService.GetAllMapsLegacy();
+            hotReloader.CombatService?.OnCollision(playerId, npcInstanceId, maps);
+        });
+
         // 初始化怪物
         hotReloader.MonsterService?.Init();
-        _logger.LogInformation("Combat & Monster initialized");
+
+        // 初始化 NPC
+        var worldState = _sp.GetRequiredService<WorldState>();
+        var npcManager = factory.InitNpcs(worldState);
+        hotReloader.NpcManager = npcManager;
+        playerSession.NpcManager = npcManager;
+        _logger.LogInformation("Combat & Monster & NPC initialized");
 
         // 6. 启动游戏 tick 定时器
         _ = MonsterTickLoop(hotReloader, _cts.Token);
         _ = CombatTickLoop(hotReloader, mapService, _cts.Token);
+        _ = PlayerAutoSaveLoop(playerSession, _cts.Token);
         _ = HotReloadCommandLoop(hotReloader, _logger, network, mapData, mapService, handlerRegistry, playerSession, router, _cts.Token);
         _logger.LogInformation("Game tick loops started");
 
@@ -219,6 +258,59 @@ public class GameServerHostedService : IHostedService
             var maps = mapService.GetAllMapsLegacy();
             hotReloader.CombatService?.Tick(0.1, maps, hotReloader.MonsterService as IMonsterRegistry);
             mapService.SyncCombatHp(maps);
+        }
+    }
+
+    private static async Task PlayerAutoSaveLoop(
+        PlayerSessionManager playerSession,
+        CancellationToken ct)
+    {
+        using var timer = new PeriodicTimer(TimeSpan.FromMinutes(5));
+        while (await timer.WaitForNextTickAsync(ct))
+        {
+            try
+            {
+                var players = playerSession.OnlinePlayers;
+                if (players.Count == 0) continue;
+
+                int saved = 0;
+                foreach (var (accountId, role) in players)
+                {
+                    try
+                    {
+                        await playerSession.Roles.Update(role.RoleId, u =>
+                            u.Set(r => r.Hp, role.Hp)
+                             .Set(r => r.MaxHp, role.MaxHp)
+                             .Set(r => r.Mp, role.Mp)
+                             .Set(r => r.MaxMp, role.MaxMp)
+                             .Set(r => r.Agility, role.Agility)
+                             .Set(r => r.Patk, role.Patk)
+                             .Set(r => r.Matk, role.Matk)
+                             .Set(r => r.Pdef, role.Pdef)
+                             .Set(r => r.Mdef, role.Mdef)
+                             .Set(r => r.MpRegen, role.MpRegen)
+                             .Set(r => r.MoveSpeedMs, role.MoveSpeedMs)
+                             .Set(r => r.GridX, role.GridX)
+                             .Set(r => r.GridY, role.GridY)
+                             .Set(r => r.CurrentMap, role.CurrentMap)
+                             .Set(r => r.Level, role.Level)
+                             .Set(r => r.Exp, role.Exp)
+                             .Set(r => r.Job, role.Job)
+                             .Set(r => r.LearnedSkills, role.LearnedSkills)
+                             .Set(r => r.EquippedSkills, role.EquippedSkills));
+                        saved++;
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[AutoSave] Failed for role {role.RoleId}: {ex.Message}");
+                    }
+                }
+                Console.WriteLine($"[AutoSave] Saved {saved}/{players.Count} online players");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[AutoSave] Error: {ex.Message}");
+            }
         }
     }
 

@@ -68,6 +68,11 @@ message CombatLogNotify {
  * 战斗 ATB 状态推送
  */
 message CombatStateNotify {
+  message SkillCdEntry {
+    uint32 skill_id = 1;
+    float remaining_cd = 2;  // 剩余CD（秒）
+    float total_cd = 3;      // 总CD时长（秒，用于遮罩百分比）
+  }
   message CombatUnit {
     uint64 entity_id = 1;      // account_id 或 instance_id
     string entity_name = 2;    // 显示名称
@@ -77,6 +82,9 @@ message CombatStateNotify {
     int32 max_hp = 6;          // 最大血量
     string casting_skill = 7;  // 正在蓄力的技能名（空=不在蓄力）
     float cast_progress = 8;   // 蓄力进度 0.0~1.0
+    repeated SkillCdEntry skill_cds = 9;  // 当前正在CD中的技能
+    int32 mp = 10;             // 当前魔法
+    int32 max_mp = 11;         // 最大魔法
   }
   repeated CombatUnit units = 1;
 }
@@ -111,6 +119,8 @@ message FullRoleInfo {
   float ui_panel_width = 20;    // 综合面板宽度
   float ui_panel_height = 21;   // 综合面板高度
   repeated AttrItem attrs = 22; // 战斗属性集合（key-value，接 luban 枚举）
+  repeated uint32 learned_skills = 23;  // 已学会的技能ID列表
+  repeated uint32 equipped_skills = 24; // 已装备的技能ID列表
 }
 
 /**
@@ -241,6 +251,14 @@ message MoveCancelNotify {
 }
 
 /**
+ * 碰撞通知（客户端30%检测到敌人后直接发送，服务端校验并触发战斗）
+ */
+message MoveCollisionNotify {
+  int32 target_x = 1;            // 碰撞目标格 X
+  int32 target_y = 2;            // 碰撞目标格 Y
+}
+
+/**
  * ==================== 背包系统 ====================
  */
 
@@ -297,6 +315,8 @@ message GmCommandResponse {
   common.ErrorCode code = 1;
   string message = 2;
   repeated ItemInfo items = 3;   // 如果影响背包，返回更新后的背包
+  repeated uint32 learned_skills = 4;  // 已学会的技能ID列表
+  repeated uint32 equipped_skills = 5; // 已装备的技能ID列表
 }
 
 /**
@@ -354,6 +374,111 @@ message MonsterStateBatchNotify {
 }
 
 /**
+ * ==================== NPC 系统 ====================
+ */
+
+message NpcInfo {
+  uint64 npc_instance_id = 1;
+  string npc_name        = 2;
+  int32  npc_type        = 3;   // NPC类型：1=转职大师
+  int32  x               = 4;
+  int32  y               = 5;
+}
+
+/**
+ * NPC交互通知（玩家撞向NPC时服务端推送）
+ */
+message NpcInteractNotify {
+  uint64 npc_instance_id = 1;
+  string npc_name        = 2;
+  int32  npc_type        = 3;
+}
+
+/**
+ * 转职请求
+ */
+message ChangeJobRequest {
+  string target_job = 1;
+}
+
+/**
+ * 转职响应
+ */
+message ChangeJobResponse {
+  common.ErrorCode code            = 1;
+  string           message         = 2;
+  string           current_job     = 3;
+  repeated uint32  learned_skills  = 4;
+  repeated uint32  equipped_skills = 5;
+}
+
+/**
+ * NPC挑战请求（玩家点击"挑战"按钮时发送）
+ */
+message NpcCombatRequest {
+  uint64 npc_instance_id = 1;  // NPC实例ID
+}
+
+/**
+ * NPC挑战响应
+ */
+message NpcCombatResponse {
+  common.ErrorCode code            = 1;
+  uint64           npc_instance_id = 2;  // NPC实例ID
+}
+
+/**
+ * 技能装备请求
+ */
+message EquipSkillRequest {
+  uint32 skill_id = 1;
+  uint32 slot_index = 2;  // 装备到哪个槽位
+}
+
+/**
+ * 技能装备响应
+ */
+message EquipSkillResponse {
+  common.ErrorCode code = 1;
+  string           message = 2;
+  repeated uint32  equipped_skills = 3;
+}
+
+/**
+ * 技能卸下请求
+ */
+message UnequipSkillRequest {
+  uint32 skill_id = 1;
+  uint32 slot_index = 2;  // 从哪个槽位卸下
+}
+
+/**
+ * 技能卸下响应
+ */
+message UnequipSkillResponse {
+  common.ErrorCode code = 1;
+  string           message = 2;
+  repeated uint32  equipped_skills = 3;
+}
+
+/**
+ * 升级通知
+ */
+message LevelUpNotify {
+  int32  old_level   = 1;
+  int32  new_level   = 2;
+  int32  max_hp      = 3;
+  int32  max_mp      = 4;
+  int32  hp          = 5;
+  int32  mp          = 6;
+  int32  patk        = 7;
+  int32  matk        = 8;
+  int32  pdef        = 9;
+  int32  mdef        = 10;
+  int32  agility     = 11;
+}
+
+/**
  * ==================== 地图信息同步 ====================
  */
 
@@ -364,6 +489,7 @@ message MapInfoSyncNotify {
   string map_name = 1;                  // 地图名
   repeated ChestInfo chests = 2;        // 地图宝箱列表
   repeated MonsterInfo monsters = 3;    // 地图怪物列表
+  repeated NpcInfo npcs = 4;            // 地图NPC列表
 }
 
 /**
@@ -412,4 +538,52 @@ message OpenChestResponse {
   common.ErrorCode code = 1;
   string message = 2;
   repeated ItemInfo items = 3;   // 获得的物品
+}
+
+/**
+ * ==================== 死亡重生 ====================
+ */
+
+/**
+ * 玩家死亡通知（服务器主动推送）
+ */
+message PlayerDeathNotify {
+  int32 spawn_x = 1;     // 重生点 X
+  int32 spawn_y = 2;     // 重生点 Y
+  int32 hp = 3;          // 恢复后的 HP
+  int32 max_hp = 4;      // 最大 HP
+  int32 mp = 5;          // 恢复后的 MP
+  int32 max_mp = 6;      // 最大 MP
+}
+
+/**
+ * 战斗开始通知（碰撞触发）
+ */
+message CombatStartNotify {
+  repeated uint64 entity_ids = 1;
+}
+
+/**
+ * 战斗结束原因
+ */
+enum CombatEndReason {
+  COMBAT_END_DISENGAGE = 0;  // 脱战
+  COMBAT_END_DEATH = 1;      // 死亡
+}
+
+/**
+ * 战斗结束通知
+ */
+message CombatEndNotify {
+  CombatEndReason reason = 1;
+  repeated uint64 entity_ids = 2;
+}
+
+/**
+ * 怪物移动取消通知（服务器主动推送）
+ */
+message MonsterMoveCancelNotify {
+  uint32 instance_id = 1;
+  int32 rollback_x = 2;
+  int32 rollback_y = 3;
 }

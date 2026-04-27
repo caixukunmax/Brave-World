@@ -47,6 +47,8 @@ namespace ClinetCSharp
         {
             if (@event is InputEventMouseButton mb && mb.Pressed && mb.ButtonIndex == MouseButton.Left)
             {
+                // 鼠标在 UI 上时不触发宝箱交互（防止面板穿透）
+                if (UiUtils.IsMouseOverAnyUi(GetViewport())) return;
                 var worldPos = mb.GlobalPosition;
                 var player = GetTree()?.GetFirstNodeInGroup("player");
                 if (player is Player p)

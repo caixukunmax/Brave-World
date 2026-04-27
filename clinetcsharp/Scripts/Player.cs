@@ -8,22 +8,15 @@ namespace ClinetCSharp
     /// 玩家角色类
     /// </summary>
     [GlobalClass]
-    public partial class Player : Node2D
+    public partial class Player : EntityBase
     {
-        [Export] public int GridSize { get; set; } = 111;
-        [Export] public int VisualSize { get; set; } = 111;
-        [Export] public float VisualSizeScale { get; set; } = 1.0f;
-        [Export] public float BorderWidth { get; set; } = 3.0f;
-        [Export] public float BorderWidthScale { get; set; } = 3.0f / 111.0f;
-        [Export] public Color BorderColor { get; set; } = Colors.White;
-        [Export] public Color BgColor { get; set; } = new Color(1, 1, 1, 0.1f);
-        [Export] public Color TextColor { get; set; } = Colors.Black;
+        private int _gridSize = 111;
+        public override int GridSize { get => _gridSize; set => _gridSize = value; }
+        // 外观属性已移至 EntityBase，Player 特有属性如下：
         [Export] public float MoveDuration { get; set; } = 0.15f;
         [Export] public int FontSizeOverride { get; set; } = 0;
         [Export] public float LineSpacing { get; set; } = 0.8f;
-        [Export] public float CornerRadius { get; set; } = 0.0f;
         [Export] public float LetterSpacing { get; set; } = 0.0f;
-        [Export] public float BgOpacity { get; set; } = 0.1f;
 
         // 字体设置
         public string CurrentFontPath { get; set; } = "";
@@ -49,25 +42,27 @@ namespace ClinetCSharp
         // ========== 战斗属性（从服务器 attrs 同步） ==========
         public System.Collections.Generic.Dictionary<uint, int> CombatAttrs { get; } = new();
 
-        // ========== 血条 ==========
-        public Vector2 HealthBarOffset { get; set; } = new Vector2(0, -70);
-        public float HealthBarLength { get; set; } = 80;
-        public float HealthBarHeight { get; set; } = 6;
-        public float HealthBarLengthScale { get; set; } = 80.0f / 111.0f;
-        public float HealthBarHeightScale { get; set; } = 6.0f / 111.0f;
-        public Color HealthBarColor { get; set; } = new Color(0, 0.8f, 0, 1);
-        public Color HealthBarBgColor { get; set; } = new Color(0.3f, 0.3f, 0.3f, 0.5f);
-        public bool HealthBarVisible { get; set; } = true;
-        public float HealthBarFillPercent { get; set; } = 1.0f;
-
         // ========== 施法条 ==========
         public Vector2 CastBarOffset { get; set; } = new Vector2(0, -80);
-        public float CastBarLength { get; set; } = 60;
-        public float CastBarHeight { get; set; } = 4;
+        public float CastBarLengthScale { get; set; } = 60.0f / 111.0f;
+        public float CastBarHeightScale { get; set; } = 4.0f / 111.0f;
         public Color CastBarColor { get; set; } = new Color(0.3f, 0.5f, 1, 1); // 蓝色
         public Color CastBarBgColor { get; set; } = new Color(0.3f, 0.3f, 0.3f, 0.4f);
         public bool CastBarVisible { get; set; } = true;
         public float CastBarFillPercent { get; set; } = 0.6f;
+
+        // 施法条 — 计算属性
+        public float CastBarLength => Mathf.Clamp(GridSize * CastBarLengthScale, 10.0f, GridSize * 2.0f);
+        public float CastBarHeight => Mathf.Clamp(GridSize * CastBarHeightScale, 2.0f, GridSize);
+
+        // 动作栏（角色下方）
+        public string CastingSkill { get; set; } = "";
+        public float CastProgress { get; set; } = 0f;
+        public float ActionBarTextYOffset { get; set; } = 0f;
+        public float ActionBarProgressHeight { get; set; } = 4f;
+
+        /// <summary>调试：强制显示动作栏（忽略 CastingSkill 为空的条件）</summary>
+        public bool ActionBarForceShow { get; set; } = false;
 
         // ========== 等级徽章 ==========
         public Vector2 LevelBadgeOffset { get; set; } = new Vector2(-35, -35);
@@ -78,6 +73,26 @@ namespace ClinetCSharp
 
         public Vector2I GridPos { get; set; } = new Vector2I(25, 25);
         public bool IsMoving { get; set; } = false;
+
+        /// <summary>
+        /// 直接传送到指定格子坐标（用于 GM 命令、死亡重生等场景）
+        /// </summary>
+        public void TeleportToGrid(int x, int y)
+        {
+            // 停止当前移动
+            _currentTween?.Kill();
+            _checkTimer?.Stop();
+            _checkTimer?.QueueFree();
+            _checkTimer = null;
+            IsMoving = false;
+            _bouncingBack = false;
+            _collisionMove = false;
+            _movePending = false;
+
+            GridPos = new Vector2I(x, y);
+            _moveFromPos = GridPos;
+            Position = UiUtils.GridToWorld(GridPos, GridSize);
+        }
         public HorizontalAlignment TextAlignment { get; set; } = HorizontalAlignment.Center;
 
         // ========== 独立文本系统 ==========
@@ -109,11 +124,14 @@ namespace ClinetCSharp
         // 文本名称（可编辑，调试面板标题）
         public string[] LabelNames = new string[LabelCount] { "名称", "职业", "称号", "状态" };
 
-        // 文本内容（可编辑）
-        public string[] LabelTexts = new string[LabelCount] { $"Lv.1 王建国", "农夫", "普通人", "闲逛中..." };
+        // 文本内容（可编辑）— Player 用 RichTextLabel 系统，不使用基类的 DrawLabels()
+        public string[] PlayerLabelTexts = new string[LabelCount] { $"Lv.1 王建国", "农夫", "普通人", "闲逛中..." };
 
         public override void _Ready()
         {
+            // 提前加载配置，确保 VisualSizeScale 等值在场景显示前就绪
+            LoadStyleConfig();
+
             Position = UiUtils.GridToWorld(GridPos, GridSize);
             // 初始化默认偏移
             for (int i = 0; i < LabelCount; i++)
@@ -128,6 +146,8 @@ namespace ClinetCSharp
                 nm.MoveResponse += OnMoveResponse;
                 nm.RoleAttrUpdated += OnRoleAttrUpdated;
                 nm.CombatStateNotify += OnCombatStateNotify;
+                nm.PlayerDeathNotify += OnPlayerDeath;
+                nm.LevelUpNotify += OnLevelUp;
 
                 // 应用缓存的角色数据
                 if (nm.CachedRoleInfo != null)
@@ -144,6 +164,8 @@ namespace ClinetCSharp
                 nm.MoveResponse -= OnMoveResponse;
                 nm.RoleAttrUpdated -= OnRoleAttrUpdated;
                 nm.CombatStateNotify -= OnCombatStateNotify;
+                nm.PlayerDeathNotify -= OnPlayerDeath;
+                nm.LevelUpNotify -= OnLevelUp;
             }
             _checkTimer?.Stop();
             _checkTimer?.QueueFree();
@@ -179,7 +201,7 @@ namespace ClinetCSharp
             // 创建文本行
             var lines = new string[LabelCount];
             for (int i = 0; i < LabelCount; i++)
-                lines[i] = LabelTexts[i];
+                lines[i] = PlayerLabelTexts[i];
 
             for (int i = 0; i < LabelCount; i++)
             {
@@ -295,6 +317,8 @@ namespace ClinetCSharp
             {
                 if (mb.Pressed)
                 {
+                    // 鼠标在 UI 上时不拖动标签（防止面板穿透）
+                    if (UiUtils.IsMouseOverAnyUi(GetViewport())) return;
                     var localMouse = ToLocal(mb.GlobalPosition);
                     // 从最上面的文本开始检测（后创建的在上面）
                     for (int i = LabelCount - 1; i >= 0; i--)
@@ -405,13 +429,13 @@ namespace ClinetCSharp
         public string GetLabelText(int index)
         {
             if (index < 0 || index >= LabelCount) return "";
-            return LabelTexts[index];
+            return PlayerLabelTexts[index];
         }
 
         public void SetLabelText(int index, string text)
         {
             if (index < 0 || index >= LabelCount) return;
-            LabelTexts[index] = text;
+            PlayerLabelTexts[index] = text;
             if (_labels[index] != null)
             {
                 _labels[index].Text = text;
@@ -444,33 +468,35 @@ namespace ClinetCSharp
         public void SetGridSize(int newSize)
         {
             GridSize = newSize;
-            VisualSize = Mathf.Clamp((int)(newSize * VisualSizeScale), 10, newSize);
-            BorderWidth = Mathf.Clamp(newSize * BorderWidthScale, 1.0f, 20.0f);
-            HealthBarLength = Mathf.Clamp(newSize * HealthBarLengthScale, 10.0f, newSize * 2.0f);
-            HealthBarHeight = Mathf.Clamp(newSize * HealthBarHeightScale, 2.0f, newSize);
+            // VisualSize/BorderWidth/HealthBarLength/Height 等都是计算属性，自动跟随 GridSize
             Position = UiUtils.GridToWorld(GridPos, GridSize);
             SetupLabels();
             QueueRedraw();
         }
 
-        public void SetVisualSize(int newSize)
+        /// <summary>
+        /// 从配置文件加载样式参数，确保 VisualSizeScale 等值在场景显示前就绪
+        /// </summary>
+        private void LoadStyleConfig()
         {
-            VisualSize = newSize;
-            SetupLabels();
-            QueueRedraw();
+            var config = new ConfigFile();
+            if (config.Load("user://debug_panel_config.cfg") != Error.Ok)
+                return;
+            if (!config.HasSection("player"))
+                return;
+
+            float scale = (float)(double)config.GetValue("player", "visual_size_scale", 1.0);
+            if (scale != 1.0f)
+                SetVisualSizeScale(scale);
+
+            float borderScale = (float)(double)config.GetValue("player", "border_width_scale", 3.0 / 111.0);
+            if (borderScale != (3.0f / 111.0f))
+                SetBorderWidthScale(borderScale);
         }
 
         public void SetVisualSizeScale(float scale)
         {
             VisualSizeScale = scale;
-            VisualSize = Mathf.Clamp((int)(GridSize * VisualSizeScale), 10, GridSize);
-            SetupLabels();
-            QueueRedraw();
-        }
-
-        public void SetBorderWidth(float newWidth)
-        {
-            BorderWidth = newWidth;
             SetupLabels();
             QueueRedraw();
         }
@@ -478,7 +504,6 @@ namespace ClinetCSharp
         public void SetBorderWidthScale(float scale)
         {
             BorderWidthScale = scale;
-            BorderWidth = Mathf.Clamp(GridSize * BorderWidthScale, 1.0f, 20.0f);
             SetupLabels();
             QueueRedraw();
         }
@@ -612,59 +637,7 @@ namespace ClinetCSharp
             QueueRedraw();
         }
 
-        // --- 血条控制 ---
-
-        public Vector2 GetHealthBarOffset() => HealthBarOffset;
-
-        public void SetHealthBarOffset(Vector2 offset)
-        {
-            HealthBarOffset = offset;
-            QueueRedraw();
-        }
-
-        public void SetHealthBarLength(float length)
-        {
-            HealthBarLength = length;
-            QueueRedraw();
-        }
-
-        public void SetHealthBarHeight(float height)
-        {
-            HealthBarHeight = height;
-            QueueRedraw();
-        }
-
-        public void SetHealthBarLengthScale(float scale)
-        {
-            HealthBarLengthScale = scale;
-            HealthBarLength = Mathf.Clamp(GridSize * scale, 10.0f, GridSize * 2.0f);
-            QueueRedraw();
-        }
-
-        public void SetHealthBarHeightScale(float scale)
-        {
-            HealthBarHeightScale = scale;
-            HealthBarHeight = Mathf.Clamp(GridSize * scale, 2.0f, GridSize);
-            QueueRedraw();
-        }
-
-        public void SetHealthBarColor(Color color)
-        {
-            HealthBarColor = color;
-            QueueRedraw();
-        }
-
-        public void SetHealthBarFillPercent(float percent)
-        {
-            HealthBarFillPercent = Mathf.Clamp(percent, 0, 1);
-            QueueRedraw();
-        }
-
-        public void SetHealthBarVisible(bool visible)
-        {
-            HealthBarVisible = visible;
-            QueueRedraw();
-        }
+        // --- 血条/MP条控制已移至 EntityBase ---
 
         // --- 施法条控制 ---
 
@@ -676,15 +649,15 @@ namespace ClinetCSharp
             QueueRedraw();
         }
 
-        public void SetCastBarLength(float length)
+        public void SetCastBarLengthScale(float scale)
         {
-            CastBarLength = length;
+            CastBarLengthScale = scale;
             QueueRedraw();
         }
 
-        public void SetCastBarHeight(float height)
+        public void SetCastBarHeightScale(float scale)
         {
-            CastBarHeight = height;
+            CastBarHeightScale = scale;
             QueueRedraw();
         }
 
@@ -703,6 +676,20 @@ namespace ClinetCSharp
         public void SetCastBarVisible(bool visible)
         {
             CastBarVisible = visible;
+            QueueRedraw();
+        }
+
+        // --- 动作栏控制 ---
+
+        public void SetActionBarTextYOffset(float offset)
+        {
+            ActionBarTextYOffset = offset;
+            QueueRedraw();
+        }
+
+        public void SetActionBarProgressHeight(float height)
+        {
+            ActionBarProgressHeight = Mathf.Max(height, 1f);
             QueueRedraw();
         }
 
@@ -754,10 +741,10 @@ namespace ClinetCSharp
             Status = roleInfo.Status;
 
             // 更新4个标签内容
-            LabelTexts[0] = $"Lv.{Level} {CharacterName}";
-            LabelTexts[1] = Job;
-            LabelTexts[2] = Title;
-            LabelTexts[3] = Status;
+            PlayerLabelTexts[0] = $"Lv.{Level} {CharacterName}";
+            PlayerLabelTexts[1] = Job;
+            PlayerLabelTexts[2] = Title;
+            PlayerLabelTexts[3] = Status;
 
             // 更新等级徽章
             LevelBadgeText = "Lv.{level}";
@@ -795,46 +782,8 @@ namespace ClinetCSharp
             var drawSize = VisualSize;
             if (drawSize < 10) drawSize = 10;
 
-            var halfDraw = drawSize / 2.0f;
-            var rect = new Rect2(new Vector2(-halfDraw, -halfDraw), new Vector2(drawSize, drawSize));
-            var actualBgColor = new Color(BgColor.R, BgColor.G, BgColor.B, BgOpacity);
-
-            if (CornerRadius > 0)
-            {
-                var maxRadius = halfDraw - BorderWidth;
-                var actualRadius = Mathf.Min(CornerRadius, Mathf.Max(maxRadius, 0));
-                this.DrawRoundedRect(rect, actualBgColor, true, actualRadius);
-                this.DrawRoundedRect(rect, BorderColor, false, actualRadius, BorderWidth);
-            }
-            else
-            {
-                DrawRect(rect, actualBgColor, true);
-                DrawRect(rect, BorderColor, false, BorderWidth);
-            }
-
-            // 血条
-            if (HealthBarVisible)
-            {
-                float halfLen = HealthBarLength / 2.0f;
-                float halfH = HealthBarHeight / 2.0f;
-                var bgRect = new Rect2(
-                    HealthBarOffset.X - halfLen,
-                    HealthBarOffset.Y - halfH,
-                    HealthBarLength,
-                    HealthBarHeight);
-                DrawRect(bgRect, HealthBarBgColor, true);
-
-                float fillWidth = HealthBarLength * Mathf.Clamp(HealthBarFillPercent, 0, 1);
-                if (fillWidth > 0)
-                {
-                    var fillRect = new Rect2(
-                        HealthBarOffset.X - halfLen,
-                        HealthBarOffset.Y - halfH,
-                        fillWidth,
-                        HealthBarHeight);
-                    DrawRect(fillRect, HealthBarColor, true);
-                }
-            }
+            EntityDrawUtils.DrawBody(this, drawSize, BgColor, BgOpacity, BorderColor, BorderWidth, CornerRadius);
+            DrawBars();
 
             // 施法条
             if (CastBarVisible)
@@ -877,6 +826,11 @@ namespace ClinetCSharp
 
             if (ShowDebugInfo)
                 DrawDebugOverlay();
+
+            // 动作栏（角色下方）
+            string abSkill = ActionBarForceShow ? "烈斩" : CastingSkill;
+            float abProgress = ActionBarForceShow ? 0.6f : CastProgress;
+            EntityDrawUtils.DrawActionBar(this, drawSize, abSkill, abProgress, ActionBarTextYOffset, ActionBarProgressHeight);
         }
 
 
@@ -940,6 +894,8 @@ namespace ClinetCSharp
         private Tween? _currentTween;
         private Timer? _checkTimer;
         private bool _movePending = false;
+        private bool _collisionMove = false;
+        private bool _bouncingBack = false;
 
         public override void _Process(double _delta)
         {
@@ -975,14 +931,26 @@ namespace ClinetCSharp
             var gridManager = GetParent()?.GetNode<GridManager>("GridManager");
             if (gridManager != null && !gridManager.IsWalkable(targetGridPos))
             {
-                // 被怪物阻挡 → 先做 bump 动画，同时发送请求让服务器判定
+                // 被怪物阻挡 → 碰撞性移动：开始动画，30% 时再检测
                 var mm = GetTree()?.GetFirstNodeInGroup("monster_manager") as MonsterManager;
                 if (mm != null && mm.IsBlockedByMonster(targetGridPos))
                 {
                     _moveFromPos = GridPos;
                     _moveTargetPos = targetGridPos;
-                    PlayBumpAnimation(GridPos, targetGridPos);
-                    SendMoveStartRequest(GridPos, targetGridPos);
+                    _collisionMove = true;
+                    _movePending = true;
+
+                    // 不预测 GridPos（碰撞移动大概率弹回）
+                    var targetWorldPos = UiUtils.GridToWorld(targetGridPos, GridSize);
+                    IsMoving = true;
+
+                    _currentTween = CreateTween();
+                    _currentTween.SetTrans(Tween.TransitionType.Quad);
+                    _currentTween.SetEase(Tween.EaseType.Out);
+                    _currentTween.TweenProperty(this, "position", targetWorldPos, MoveDuration);
+                    _currentTween.Finished += OnMoveFinished;
+
+                    SendMoveStartRequest(_moveFromPos, targetGridPos);
                     return;
                 }
 
@@ -992,22 +960,24 @@ namespace ClinetCSharp
                     var chestMgr = GetTree()?.GetFirstNodeInGroup("chest_manager") as ChestManager;
                     chestMgr?.TryOpenChestAt(targetGridPos);
                 }
+
                 return;
             }
 
             _moveFromPos = GridPos;
             _moveTargetPos = targetGridPos;
+            _collisionMove = false;
             _movePending = true;
 
             // 客户端预测：立即开始动画
             GridPos = targetGridPos;
-            var targetWorldPos = UiUtils.GridToWorld(GridPos, GridSize);
+            var targetWorldPos2 = UiUtils.GridToWorld(GridPos, GridSize);
             IsMoving = true;
 
             _currentTween = CreateTween();
             _currentTween.SetTrans(Tween.TransitionType.Quad);
             _currentTween.SetEase(Tween.EaseType.Out);
-            _currentTween.TweenProperty(this, "position", targetWorldPos, MoveDuration);
+            _currentTween.TweenProperty(this, "position", targetWorldPos2, MoveDuration);
             _currentTween.Finished += OnMoveFinished;
 
             SendMoveStartRequest(_moveFromPos, targetGridPos);
@@ -1016,8 +986,28 @@ namespace ClinetCSharp
         private void OnMoveFinished()
         {
             IsMoving = false;
+            if (_collisionMove)
+            {
+                // 碰撞移动到了终点（敌人已移走），更新 GridPos
+                GridPos = _moveTargetPos;
+                _collisionMove = false;
+            }
             Position = UiUtils.GridToWorld(GridPos, GridSize);
             SendMoveCompleteRequest();
+
+            // 移动完成后检测邻格 NPC，自动弹出交互面板
+            CheckAdjacentNpc();
+        }
+
+        private void CheckAdjacentNpc()
+        {
+            var npcMgr = GetTree()?.GetFirstNodeInGroup("npc_manager") as NpcManager;
+            if (npcMgr == null) return;
+            var npc = npcMgr.GetAdjacentNpc(GridPos);
+            if (npc != null)
+                npcMgr.ShowInteractMenu(npc, npc.NpcType, GridPos);
+            else
+                npcMgr.CloseInteractMenu();
         }
 
         private void SendMoveStartRequest(Vector2I from, Vector2I to)
@@ -1080,8 +1070,10 @@ namespace ClinetCSharp
             float durationSec = _moveDurationMs / 1000.0f;
             if (Mathf.Abs(durationSec - MoveDuration) > 0.01f && _currentTween != null && GodotObject.IsInstanceValid(_currentTween))
             {
+                // 碰撞移动用 _moveTargetPos（GridPos 没预测到目标）
+                var tweenTarget = _collisionMove ? _moveTargetPos : GridPos;
+                var targetWorldPos = UiUtils.GridToWorld(tweenTarget, GridSize);
                 _currentTween?.Kill();
-                var targetWorldPos = UiUtils.GridToWorld(GridPos, GridSize);
                 _currentTween = CreateTween();
                 _currentTween.SetTrans(Tween.TransitionType.Quad);
                 _currentTween.SetEase(Tween.EaseType.Out);
@@ -1101,7 +1093,28 @@ namespace ClinetCSharp
 
         private void OnMoveCheckPoint()
         {
-            // 客户端本地检查目标格是否可行走
+            // 碰撞性移动：30% 时检测目标格是否有敌人
+            if (_collisionMove)
+            {
+                var mm = GetTree()?.GetFirstNodeInGroup("monster_manager") as MonsterManager;
+                if (mm != null && mm.IsBlockedByMonster(_moveTargetPos))
+                {
+                    GD.Print($"[Player] Checkpoint: enemy detected at {_moveTargetPos}, bouncing back + collision notify");
+                    // 弹回原位动画
+                    PlayBounceBack(_moveFromPos);
+                    // 直接发送碰撞通知，服务端校验后触发战斗
+                    // 不再发 MoveConfirmRequest 等待 MoveCancelNotify 回滚
+                    SendMoveCollisionNotify(_moveTargetPos);
+                }
+                else
+                {
+                    // 30% 时敌人已移走，发正常 ConfirmRequest
+                    SendMoveConfirmRequest();
+                }
+                return;
+            }
+
+            // 正常移动：客户端本地检查目标格是否可行走
             var gridManager = GetParent()?.GetNode<GridManager>("GridManager");
             if (gridManager != null)
             {
@@ -1113,7 +1126,39 @@ namespace ClinetCSharp
                 }
             }
 
-            // 通知服务器确认
+            SendMoveConfirmRequest();
+        }
+
+        /// <summary>
+        /// 碰撞移动弹回：从当前位置平滑弹回原位
+        /// </summary>
+        private void PlayBounceBack(Vector2I originPos)
+        {
+            _currentTween?.Kill();
+            _checkTimer?.Stop();
+            _checkTimer?.QueueFree();
+            _checkTimer = null;
+
+            var originWorld = UiUtils.GridToWorld(originPos, GridSize);
+            float duration = 0.1f;
+
+            _bouncingBack = true;
+            _currentTween = CreateTween();
+            _currentTween.SetTrans(Tween.TransitionType.Quad);
+            _currentTween.SetEase(Tween.EaseType.In);
+            _currentTween.TweenProperty(this, "position", originWorld, duration);
+            _currentTween.Finished += () =>
+            {
+                IsMoving = false;
+                _bouncingBack = false;
+                Position = originWorld;
+                GridPos = originPos;
+                _collisionMove = false;
+            };
+        }
+
+        private void SendMoveConfirmRequest()
+        {
             var nm = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
             if (nm != null && nm.IsServerConnected())
             {
@@ -1126,11 +1171,43 @@ namespace ClinetCSharp
             }
         }
 
+        private void SendMoveCollisionNotify(Vector2I targetPos)
+        {
+            var nm = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
+            if (nm != null && nm.IsServerConnected())
+            {
+                var notify = new Game.MoveCollisionNotify
+                {
+                    TargetX = targetPos.X,
+                    TargetY = targetPos.Y,
+                };
+                nm.SendPacket(MessageId.GameMoveCollisionNotify, notify);
+            }
+        }
+
         private void OnMoveCancelReceived(Game.MoveCancelNotify notify)
         {
             if (notify.EntityId != (ulong)GetInstanceId()) return;
             GD.Print($"[Player] Server cancelled move, rollback to ({notify.RollbackX}, {notify.RollbackY})");
-            RollbackTo(new Vector2I(notify.RollbackX, notify.RollbackY));
+            _collisionMove = false;
+
+            var rollbackPos = new Vector2I(notify.RollbackX, notify.RollbackY);
+
+            if (_bouncingBack)
+            {
+                // 正在弹回动画中，只同步逻辑坐标，不中断动画
+                GridPos = rollbackPos;
+                return;
+            }
+
+            if (!IsMoving)
+            {
+                GridPos = rollbackPos;
+                Position = UiUtils.GridToWorld(rollbackPos, GridSize);
+                return;
+            }
+
+            RollbackTo(rollbackPos);
         }
 
         private void OnRoleAttrUpdated(Game.FullRoleInfo roleInfo)
@@ -1143,21 +1220,81 @@ namespace ClinetCSharp
             var nm = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
             if (nm == null || nm.AccountId == 0) return;
 
+            bool found = false;
             foreach (var unit in notify.Units)
             {
                 if (unit.IsPlayer && unit.EntityId == nm.AccountId)
                 {
-                    // 更新血条
                     if (unit.MaxHp > 0)
                     {
                         HealthBarFillPercent = (float)unit.Hp / unit.MaxHp;
-                        CombatAttrs[1] = unit.Hp;   // HP
-                        CombatAttrs[2] = unit.MaxHp; // MaxHp
-                        QueueRedraw();
+                        CombatAttrs[1] = unit.Hp;
+                        CombatAttrs[2] = unit.MaxHp;
                     }
+                    if (unit.MaxMp > 0)
+                    {
+                        MpBarFillPercent = (float)unit.Mp / unit.MaxMp;
+                        CombatAttrs[3] = unit.Mp;
+                        CombatAttrs[4] = unit.MaxMp;
+                    }
+                    CastingSkill = unit.CastingSkill;
+                    CastProgress = unit.CastProgress;
+                    found = true;
                     break;
                 }
             }
+            if (!found)
+            {
+                CastingSkill = "";
+                CastProgress = 0;
+            }
+            QueueRedraw();
+        }
+
+        private void OnLevelUp(Game.LevelUpNotify notify)
+        {
+            GD.Print("[Player] Level Up! ", notify.OldLevel, " → ", notify.NewLevel);
+            // LevelBadgeText 保持模板 "Lv.{level}"，_Draw 里会替换 {level}
+            QueueRedraw();
+        }
+
+        private void OnPlayerDeath(Game.PlayerDeathNotify notify)
+        {
+            GD.Print("[Player] Death! Respawning at (", notify.SpawnX, ",", notify.SpawnY, ")");
+
+            // 停止所有移动
+            _currentTween?.Kill();
+            _currentTween = null;
+            _checkTimer?.Stop();
+            _checkTimer?.QueueFree();
+            _checkTimer = null;
+            IsMoving = false;
+            _bouncingBack = false;
+            _collisionMove = false;
+            _movePending = false;
+
+            // 传送到出生点（死亡允许瞬移）
+            GridPos = new Vector2I(notify.SpawnX, notify.SpawnY);
+            _moveFromPos = GridPos;
+            Position = UiUtils.GridToWorld(GridPos, GridSize);
+
+            // 恢复满血满蓝
+            HealthBarFillPercent = 1.0f;
+            if (notify.MaxHp > 0)
+            {
+                CombatAttrs[1] = notify.Hp;
+                CombatAttrs[2] = notify.MaxHp;
+            }
+            if (notify.MaxMp > 0)
+            {
+                CombatAttrs[3] = notify.Mp;
+                CombatAttrs[4] = notify.MaxMp;
+            }
+
+            // 重置战斗状态
+            CastingSkill = "";
+            CastProgress = 0;
+            QueueRedraw();
         }
 
         /// <summary>
@@ -1202,10 +1339,38 @@ namespace ClinetCSharp
             _checkTimer?.QueueFree();
             _checkTimer = null;
 
-            GridPos = pos;
-            Position = UiUtils.GridToWorld(GridPos, GridSize);
-            IsMoving = false;
+            var targetWorld = UiUtils.GridToWorld(pos, GridSize);
+            float dist = Position.DistanceTo(targetWorld);
+
+            if (dist > 1.0f)
+            {
+                // 有视觉距离时平滑弹回，不瞬移
+                float duration = Mathf.Clamp(dist / 800f, 0.05f, 0.12f);
+                _bouncingBack = true;
+                _currentTween = CreateTween();
+                _currentTween.SetTrans(Tween.TransitionType.Quad);
+                _currentTween.SetEase(Tween.EaseType.In);
+                _currentTween.TweenProperty(this, "position", targetWorld, duration);
+                _currentTween.Finished += () =>
+                {
+                    IsMoving = false;
+                    _bouncingBack = false;
+                    GridPos = pos;
+                    Position = UiUtils.GridToWorld(pos, GridSize);
+                    _currentTween = null;
+                };
+                IsMoving = true;
+            }
+            else
+            {
+                IsMoving = false;
+                _bouncingBack = false;
+                GridPos = pos;
+                Position = targetWorld;
+            }
+
             _movePending = false;
+            _collisionMove = false;
         }
 
         private void SendMoveCompleteRequest()

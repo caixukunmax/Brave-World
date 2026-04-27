@@ -1,5 +1,6 @@
 using GameServer.Common.Net;
 using GameServer.Services.Core;
+using GameServer.Services.World;
 using Google.Protobuf;
 using Microsoft.Extensions.Logging;
 using PCommon = global::Common;
@@ -55,11 +56,21 @@ public class MoveStartHandler : IMessageHandler
 
         if (!reserved)
         {
-            // 目标格被占据（怪物/其他玩家/预占），检查碰撞触发战斗
-            _logger.LogWarning("[Move] reserve failed: player={PlayerId} from=({FX},{FY}) to=({TX},{TY}) — checking collision at from pos",
-                claims.AccountId, fromX, fromY, toX, toY);
-            _session.MapService.CheckEntityCollision(claims.AccountId, mapName, fromX, fromY);
-            return MoveRsp(PCommon.ErrorCode.Success, "attack", fromX, fromY);
+            // 目标格被占据 — 尝试碰撞性移动（移动 30% 后再检测）
+            bool collisionMove = _session.MapService.World.TryReserveCollisionMove(
+                claims.AccountId, mapName, fromX, fromY, toX, toY,
+                durationMs, GameConstants.MoveCheckRatio,
+                GameConstants.MoveDualGridStartRatio, GameConstants.MoveDualGridEndRatio);
+
+            if (collisionMove)
+            {
+                _logger.LogInformation("[Move] collision move: player={PlayerId} from=({FX},{FY}) to=({TX},{TY}) — deferring collision to 30%",
+                    claims.AccountId, fromX, fromY, toX, toY);
+                return MoveRsp(PCommon.ErrorCode.Success, "", fromX, fromY, durationMs);
+            }
+
+            // 碰撞移动也失败（极少见），按原有逻辑处理
+            return MoveRsp(PCommon.ErrorCode.Forbidden, "blocked", fromX, fromY);
         }
 
         return MoveRsp(PCommon.ErrorCode.Success, "", toX, toY, durationMs);
@@ -104,22 +115,53 @@ public class MoveConfirmHandler : IMessageHandler
         var claims = ctx.Claims!;
         var req = PGame.MoveConfirmRequest.Parser.ParseFrom(data);
 
-        bool ok = _session.MapService.World.ConfirmMove(claims.AccountId);
-        if (!ok)
+        var result = _session.MapService.World.ConfirmMoveEx(claims.AccountId);
+
+        if (result == ConfirmResult.Collision)
         {
-            // 确认失败，通知客户端回退
-            var res = _session.MapService.World.GetReservation(claims.AccountId);
-            if (res != null)
+            // 碰撞：服务端校验目标格有敌人 → 弹回 + 开战
+            var (mapName, pos) = _session.MapService.World.FindEntityPosition(claims.AccountId);
+            if (mapName != null && pos != null)
             {
+                _logger.LogInformation("[MoveConfirm] collision detected: player={PlayerId} at ({X},{Y}) map={Map}",
+                    claims.AccountId, pos.Value.x, pos.Value.y, mapName);
+
+                // 发送弹回通知
                 var notify = new PGame.MoveCancelNotify
                 {
                     EntityId = (ulong)claims.AccountId,
-                    RollbackX = res.FromX,
-                    RollbackY = res.FromY,
+                    RollbackX = pos.Value.x,
+                    RollbackY = pos.Value.y,
                 };
                 _network.SendToAccount(claims.AccountId, claims.ServerId,
                     (int)PProtocol.MessageId.GameMoveCancelNotify, notify.ToByteArray());
+
+                // 触发战斗
+                _session.MapService.CheckEntityCollision(claims.AccountId, mapName, pos.Value.x, pos.Value.y);
             }
+            return null;
+        }
+
+        if (result == ConfirmResult.Failed)
+        {
+            // 确认失败，通知客户端回退
+            var res = _session.MapService.World.GetReservation(claims.AccountId);
+            int rollbackX = res?.FromX ?? (int)req.TargetX;
+            int rollbackY = res?.FromY ?? (int)req.TargetY;
+
+            var notify = new PGame.MoveCancelNotify
+            {
+                EntityId = (ulong)claims.AccountId,
+                RollbackX = rollbackX,
+                RollbackY = rollbackY,
+            };
+            _network.SendToAccount(claims.AccountId, claims.ServerId,
+                (int)PProtocol.MessageId.GameMoveCancelNotify, notify.ToByteArray());
+
+            // 也检查碰撞（可能怪物移到了附近）
+            var (mapName2, pos2) = _session.MapService.World.FindEntityPosition(claims.AccountId);
+            if (mapName2 != null && pos2 != null)
+                _session.MapService.CheckEntityCollision(claims.AccountId, mapName2, pos2.Value.x, pos2.Value.y);
             return null;
         }
 
@@ -160,6 +202,69 @@ public class MoveCompleteHandler : IMessageHandler
             player.GridX = req.TargetX;
             player.GridY = req.TargetY;
         }
+
+        return null;
+    }
+}
+
+/// <summary>
+/// 碰撞通知（客户端30%检测到敌人后直接发送）
+/// 服务端校验并触发战斗，校验失败才发 MoveCancelNotify 强制回滚
+/// </summary>
+[HandlesMessage((int)PProtocol.MessageId.GameMoveCollisionNotify)]
+public class MoveCollisionHandler : IMessageHandler
+{
+    private readonly PlayerSessionManager _session;
+    private readonly INetworkSender _network;
+    private readonly ILogger<MoveCollisionHandler> _logger;
+
+    public MoveCollisionHandler(PlayerSessionManager session, INetworkSender network, ILogger<MoveCollisionHandler> logger)
+    {
+        _session = session;
+        _network = network;
+        _logger = logger;
+    }
+
+    public async Task<byte[]?> HandleAsync(MessageContext ctx, byte[] data)
+    {
+        var claims = ctx.Claims!;
+        var req = PGame.MoveCollisionNotify.Parser.ParseFrom(data);
+
+        // 取消移动预约（清理 WorldState 中的占用）
+        _session.MapService.World.CancelMove(claims.AccountId);
+
+        // 找到玩家当前位置
+        var (mapName, pos) = _session.MapService.World.FindEntityPosition(claims.AccountId);
+        if (mapName == null || pos == null)
+        {
+            _logger.LogWarning("[MoveCollision] player={PlayerId} position not found", claims.AccountId);
+            return null;
+        }
+
+        // 校验：目标格是否真有敌人（防止作弊或过时信息）
+        bool hasNearbyEnemy = _session.MapService.World.HasEnemyAt(mapName, req.TargetX, req.TargetY, claims.AccountId);
+
+        if (!hasNearbyEnemy)
+        {
+            // 校验失败：目标格已无敌人，通知客户端强制回滚
+            _logger.LogInformation("[MoveCollision] validation failed: no enemy at ({TX},{TY}) for player={PlayerId}",
+                req.TargetX, req.TargetY, claims.AccountId);
+
+            var notify = new PGame.MoveCancelNotify
+            {
+                EntityId = (ulong)claims.AccountId,
+                RollbackX = pos.Value.x,
+                RollbackY = pos.Value.y,
+            };
+            _network.SendToAccount(claims.AccountId, claims.ServerId,
+                (int)PProtocol.MessageId.GameMoveCancelNotify, notify.ToByteArray());
+            return null;
+        }
+
+        // 校验通过：触发战斗
+        _logger.LogInformation("[MoveCollision] validated: player={PlayerId} collided at ({TX},{TY}) map={Map}",
+            claims.AccountId, req.TargetX, req.TargetY, mapName);
+        _session.MapService.CheckEntityCollision(claims.AccountId, mapName, pos.Value.x, pos.Value.y);
 
         return null;
     }

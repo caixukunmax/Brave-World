@@ -35,6 +35,7 @@ public class MonsterRuntimeState
     public int MoveTargetX { get; set; }
     public int MoveTargetY { get; set; }
     public long MoveStartTime { get; set; }
+    public bool CheckpointConfirmed { get; set; } = false;
 
     /// <summary>是否处于战斗中 — 战斗中的怪物不做 AI 决策和碰撞检测</summary>
     public bool InCombat { get; set; }

@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using GameServer.Common.Config;
 using GameServer.Services.Core;
 
@@ -21,6 +22,17 @@ public class MovementReservation
     public int DualEndRatio { get; set; }
     public bool Confirmed { get; set; }
     public bool Completed { get; set; }
+    public bool CollisionPending { get; set; }
+}
+
+/// <summary>
+/// ConfirmMove 结果
+/// </summary>
+public enum ConfirmResult
+{
+    Ok,         // 正常确认成功
+    Collision,  // 碰撞：目标格有敌人
+    Failed,     // 确认失败
 }
 
 /// <summary>
@@ -29,9 +41,9 @@ public class MovementReservation
 public class WorldState : IWorldState
 {
     private readonly MapDataProvider _mapData;
-    private readonly Dictionary<string, MapInstance> _maps = new();
-    private readonly Dictionary<long, MovementReservation> _moveReservations = new();
-    private readonly Dictionary<string, HashSet<(int x, int y)>> _reservedCells = new();
+    private readonly ConcurrentDictionary<string, MapState> _maps = new();
+    private readonly ConcurrentDictionary<long, MovementReservation> _moveReservations = new();
+    private readonly ConcurrentDictionary<string, HashSet<(int x, int y)>> _reservedCells = new();
 
     public WorldState(MapDataProvider mapData)
     {
@@ -44,10 +56,10 @@ public class WorldState : IWorldState
         int mapId = 1;
         foreach (var (mapName, mapData) in _mapData.GetAllMaps())
         {
-            _maps[mapName] = new MapInstance { MapId = mapId++ };
+            _maps[mapName] = new MapState { MapId = mapId++ };
         }
         if (_maps.Count == 0)
-            _maps[GameConstants.DefaultMapName] = new MapInstance { MapId = GameConstants.DefaultMapId };
+            _maps[GameConstants.DefaultMapName] = new MapState { MapId = GameConstants.DefaultMapId };
     }
 
     // ---- 只读接口 ----
@@ -71,18 +83,20 @@ public class WorldState : IWorldState
             if (map.Players.TryGetValue(entityId, out var p))
                 return p.RoleName;
             if (map.Monsters.TryGetValue(entityId, out var m))
-                return $"monster_{m.InstanceId}";
+                return m.Name;
+            if (map.Npcs.TryGetValue(entityId, out var n))
+                return n.Name;
         }
         return $"entity_{entityId}";
     }
 
-    public Dictionary<long, MapPlayerState> GetPlayersOnMap(string mapName)
+    public ConcurrentDictionary<long, MapPlayerState> GetPlayersOnMap(string mapName)
         => _maps.TryGetValue(mapName, out var map) ? map.Players : new();
 
     public MapPlayerState? GetPlayerOnMap(string mapName, long accountId)
         => _maps.TryGetValue(mapName, out var map) && map.Players.TryGetValue(accountId, out var p) ? p : null;
 
-    public Dictionary<long, MapMonsterState> GetMonstersOnMap(string mapName)
+    public ConcurrentDictionary<long, MapMonsterState> GetMonstersOnMap(string mapName)
         => _maps.TryGetValue(mapName, out var map) ? map.Monsters : new();
 
     public bool IsWalkable(string mapName, int x, int y) => _mapData.IsWalkable(mapName, x, y);
@@ -97,14 +111,16 @@ public class WorldState : IWorldState
             if (m.X == x && m.Y == y) return true;
         foreach (var p in map.Players.Values)
             if (p.GridX == x && p.GridY == y) return true;
+        foreach (var n in map.Npcs.Values)
+            if (n.X == x && n.Y == y) return true;
         if (_reservedCells.TryGetValue(mapName, out var cells))
             if (cells.Contains((x, y))) return true;
         return false;
     }
 
-    public Dictionary<string, MapInstance> GetAllMaps() => _maps;
+    public ConcurrentDictionary<string, MapState> GetAllMaps() => _maps;
 
-    public MapInstance? GetMapInstance(string mapName)
+    public MapState? GetMapState(string mapName)
         => _maps.TryGetValue(mapName, out var inst) ? inst : null;
 
     public string? GetEntityMapName(long entityId)
@@ -123,7 +139,7 @@ public class WorldState : IWorldState
     {
         if (!_maps.TryGetValue(mapName, out var map))
         {
-            map = new MapInstance { MapId = GameConstants.DefaultMapId };
+            map = new MapState { MapId = GameConstants.DefaultMapId };
             _maps[mapName] = map;
         }
         map.Players[player.AccountId] = player;
@@ -141,14 +157,14 @@ public class WorldState : IWorldState
     public void PlayerLeave(long accountId, string mapName)
     {
         if (_maps.TryGetValue(mapName, out var map))
-            map.Players.Remove(accountId);
+            map.Players.TryRemove(accountId, out _);
     }
 
     public void MonsterEnter(string mapName, MapMonsterState monster)
     {
         if (!_maps.TryGetValue(mapName, out var map))
         {
-            map = new MapInstance { MapId = GameConstants.DefaultMapId };
+            map = new MapState { MapId = GameConstants.DefaultMapId };
             _maps[mapName] = map;
         }
         map.Monsters[monster.InstanceId] = monster;
@@ -166,7 +182,7 @@ public class WorldState : IWorldState
     public void MonsterLeave(long instanceId, string mapName)
     {
         if (_maps.TryGetValue(mapName, out var map))
-            map.Monsters.Remove(instanceId);
+            map.Monsters.TryRemove(instanceId, out _);
     }
 
     // ---- 移动预占系统 ----
@@ -187,7 +203,7 @@ public class WorldState : IWorldState
         if (cells.Contains((targetX, targetY)))
             return false;
 
-        // 检查目标格是否有其他玩家/怪物（不含自己）
+        // 检查目标格是否有其他玩家/怪物/NPC（不含自己）
         if (_maps.TryGetValue(mapName, out var map))
         {
             foreach (var p in map.Players.Values)
@@ -195,6 +211,10 @@ public class WorldState : IWorldState
                     return false;
             foreach (var m in map.Monsters.Values)
                 if (m.InstanceId != entityId && m.X == targetX && m.Y == targetY)
+                    return false;
+            // NPC 阻挡移动（像墙壁一样）
+            foreach (var n in map.Npcs.Values)
+                if (n.X == targetX && n.Y == targetY)
                     return false;
         }
 
@@ -218,45 +238,132 @@ public class WorldState : IWorldState
         return true;
     }
 
+    /// <summary>
+    /// 碰撞性移动预约：不检查目标格是否被占，不占格
+    /// 但 NPC 格子仍然阻挡（NPC 不是敌人，不触发碰撞战斗）
+    /// </summary>
+    public bool TryReserveCollisionMove(long entityId, string mapName, int fromX, int fromY, int targetX, int targetY,
+        int durationMs, int checkRatio, int dualStartRatio, int dualEndRatio)
+    {
+        // NPC 阻挡碰撞性移动（NPC 不是敌人）
+        if (_maps.TryGetValue(mapName, out var map))
+        {
+            foreach (var n in map.Npcs.Values)
+                if (n.X == targetX && n.Y == targetY)
+                    return false;
+        }
+
+        if (_moveReservations.ContainsKey(entityId))
+            CancelMove(entityId);
+
+        var res = new MovementReservation
+        {
+            EntityId = entityId,
+            MapName = mapName,
+            FromX = fromX,
+            FromY = fromY,
+            TargetX = targetX,
+            TargetY = targetY,
+            StartTimeMs = Environment.TickCount64,
+            DurationMs = durationMs,
+            CheckRatio = checkRatio,
+            DualStartRatio = dualStartRatio,
+            DualEndRatio = dualEndRatio,
+            CollisionPending = true,
+        };
+
+        _moveReservations[entityId] = res;
+        // 不加入 _reservedCells
+        return true;
+    }
+
     public bool ConfirmMove(long entityId)
     {
+        var result = ConfirmMoveEx(entityId);
+        return result == ConfirmResult.Ok;
+    }
+
+    /// <summary>
+    /// 确认移动，返回详细结果（区分碰撞/失败/成功）
+    /// </summary>
+    public ConfirmResult ConfirmMoveEx(long entityId)
+    {
         if (!_moveReservations.TryGetValue(entityId, out var res))
-            return false;
+            return ConfirmResult.Failed;
 
-        if (_maps.TryGetValue(res.MapName, out var map))
+        if (!res.CollisionPending)
         {
-            // 再次检查目标格
-            foreach (var p in map.Players.Values)
+            // 普通预约：原有逻辑
+            if (_maps.TryGetValue(res.MapName, out var map))
+            {
+                foreach (var p in map.Players.Values)
+                    if (p.AccountId != entityId && p.GridX == res.TargetX && p.GridY == res.TargetY)
+                    {
+                        CancelMove(entityId);
+                        return ConfirmResult.Failed;
+                    }
+                foreach (var m in map.Monsters.Values)
+                    if (m.InstanceId != entityId && m.X == res.TargetX && m.Y == res.TargetY)
+                    {
+                        CancelMove(entityId);
+                        return ConfirmResult.Failed;
+                    }
+            }
+
+            UpdateEntityPosition(entityId, res);
+            res.Confirmed = true;
+            return ConfirmResult.Ok;
+        }
+
+        // 碰撞预约：检查目标格是否有敌人
+        bool hasEnemy = false;
+        if (_maps.TryGetValue(res.MapName, out var collisionMap))
+        {
+            foreach (var p in collisionMap.Players.Values)
                 if (p.AccountId != entityId && p.GridX == res.TargetX && p.GridY == res.TargetY)
-                {
-                    CancelMove(entityId);
-                    return false;
-                }
-            foreach (var m in map.Monsters.Values)
-                if (m.InstanceId != entityId && m.X == res.TargetX && m.Y == res.TargetY)
-                {
-                    CancelMove(entityId);
-                    return false;
-                }
+                    { hasEnemy = true; break; }
+            if (!hasEnemy)
+                foreach (var m in collisionMap.Monsters.Values)
+                    if (m.InstanceId != entityId && m.X == res.TargetX && m.Y == res.TargetY)
+                        { hasEnemy = true; break; }
         }
 
-        // 权威坐标切到目标格
-        if (map != null)
+        CancelMove(entityId);
+
+        if (hasEnemy)
+            return ConfirmResult.Collision;
+
+        return ConfirmResult.Failed;
+    }
+
+    private void UpdateEntityPosition(long entityId, MovementReservation res)
+    {
+        if (!_maps.TryGetValue(res.MapName, out var map)) return;
+        if (map.Players.TryGetValue(entityId, out var p))
         {
-            if (map.Players.TryGetValue(entityId, out var p))
-            {
-                p.GridX = res.TargetX;
-                p.GridY = res.TargetY;
-            }
-            if (map.Monsters.TryGetValue(entityId, out var m))
-            {
-                m.X = res.TargetX;
-                m.Y = res.TargetY;
-            }
+            p.GridX = res.TargetX;
+            p.GridY = res.TargetY;
         }
+        if (map.Monsters.TryGetValue(entityId, out var m))
+        {
+            m.X = res.TargetX;
+            m.Y = res.TargetY;
+        }
+    }
 
-        res.Confirmed = true;
-        return true;
+    /// <summary>
+    /// 检查指定地图的目标格是否有敌对实体（用于碰撞通知校验）
+    /// </summary>
+    public bool HasEnemyAt(string mapName, int targetX, int targetY, long excludeEntityId)
+    {
+        if (!_maps.TryGetValue(mapName, out var map)) return false;
+        foreach (var p in map.Players.Values)
+            if (p.AccountId != excludeEntityId && p.GridX == targetX && p.GridY == targetY)
+                return true;
+        foreach (var m in map.Monsters.Values)
+            if (m.InstanceId != excludeEntityId && m.X == targetX && m.Y == targetY)
+                return true;
+        return false;
     }
 
     public bool CompleteMove(long entityId)
@@ -278,7 +385,7 @@ public class WorldState : IWorldState
 
     private void CleanupReservation(long entityId, MovementReservation res)
     {
-        _moveReservations.Remove(entityId);
+        _moveReservations.TryRemove(entityId, out _);
         if (_reservedCells.TryGetValue(res.MapName, out var cells))
             cells.Remove((res.TargetX, res.TargetY));
     }

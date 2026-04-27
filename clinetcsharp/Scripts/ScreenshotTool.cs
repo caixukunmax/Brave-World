@@ -74,8 +74,8 @@ namespace ClinetCSharp
             
             if (debugPanel != null)
             {
-                wasDebugPanelVisible = debugPanel is CanvasLayer canvas && canvas.Visible;
-                if (debugPanel is CanvasLayer canvasLayer) canvasLayer.Visible = false;
+                wasDebugPanelVisible = debugPanel is Control ctrl && ctrl.Visible;
+                if (debugPanel is Control ctrlHide) ctrlHide.Visible = false;
                 GD.Print("[ScreenshotTool] DebugPanel hidden for screenshot");
             }
             
@@ -120,7 +120,7 @@ namespace ClinetCSharp
             // 恢复调试面板
             if (debugPanel != null && wasDebugPanelVisible)
             {
-                if (debugPanel is CanvasLayer canvasLayer) canvasLayer.Visible = true;
+                if (debugPanel is Control ctrl) ctrl.Visible = true;
             }
             if (debugButtonCanvas != null && wasDebugButtonVisible)
             {

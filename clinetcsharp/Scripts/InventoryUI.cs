@@ -13,35 +13,12 @@ namespace ClinetCSharp
         private GridContainer _grid;
         private Label _titleLabel;
 
-        // 物品颜色按品质
-        private static readonly Color[] QualityColors = new Color[]
-        {
-            Colors.White,
-            new Color(0.3f, 1, 0.3f),
-            new Color(0.3f, 0.5f, 1),
-            new Color(0.7f, 0.3f, 1),
-            new Color(1, 0.8f, 0.2f),
-        };
+        private const int DEFAULT_MAX_SLOTS = 20;
 
-        protected override void OnPanelReady()
+        protected override void OnPanelInitialized()
         {
             _content = GetNodeOrNull<VBoxContainer>("VBoxContainer/Content");
             if (_content == null) return;
-
-            // 面板样式
-            AddThemeStyleboxOverride("panel", new StyleBoxFlat
-            {
-                BgColor = new Color(0, 0, 0, 0.85f),
-                BorderColor = new Color(0.2f, 0.2f, 0.2f),
-                BorderWidthBottom = 1,
-                BorderWidthLeft = 1,
-                BorderWidthRight = 1,
-                BorderWidthTop = 1,
-            });
-
-            var titleBar = GetNodeOrNull<PanelContainer>("VBoxContainer/TitleBar");
-            if (titleBar != null)
-                titleBar.AddThemeStyleboxOverride("panel", new StyleBoxFlat { BgColor = new Color(0.1f, 0.1f, 0.1f, 0.9f) });
 
             // 居中定位
             var vpSize = GetViewport().GetVisibleRect().Size;
@@ -100,7 +77,7 @@ namespace ClinetCSharp
             var inv = GetNodeOrNull<InventoryManager>("/root/Main/InventoryManager");
             if (inv == null)
             {
-                for (int i = 0; i < 20; i++)
+                for (int i = 0; i < DEFAULT_MAX_SLOTS; i++)
                 {
                     var empty = new Button
                     {
@@ -131,7 +108,7 @@ namespace ClinetCSharp
                 _grid.AddChild(btn);
             }
 
-            int emptySlots = 20 - (inv.Items?.Count ?? 0);
+            int emptySlots = DEFAULT_MAX_SLOTS - (inv.Items?.Count ?? 0);
             for (int i = 0; i < emptySlots; i++)
             {
                 var empty = new Button
@@ -166,7 +143,9 @@ namespace ClinetCSharp
             popup.PopupHide += () => popup.QueueFree();
 
             AddChild(popup);
-            popup.Position = (Vector2I)GetViewport().GetMousePosition();
+            popup.Position = new Vector2I(
+                Mathf.RoundToInt(GetViewport().GetMousePosition().X),
+                Mathf.RoundToInt(GetViewport().GetMousePosition().Y));
             popup.Popup();
         }
     }

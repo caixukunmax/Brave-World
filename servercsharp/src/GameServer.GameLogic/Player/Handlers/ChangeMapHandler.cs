@@ -55,7 +55,7 @@ public class ChangeMapHandler : IMessageHandler
         var walkable = _mapData.FindNearestWalkable(targetMap, spawnX, spawnY);
         if (walkable != null) { spawnX = walkable.Value.x; spawnY = walkable.Value.y; }
 
-        var (hp, mp, agility, patk, matk, pdef, mdef) = _tables.GetPlayerBaseAttrs();
+        var (hp, mp, agility, patk, matk, pdef, mdef, _) = _tables.GetPlayerBaseAttrs();
 
         // 更新角色数据
         role.CurrentMap = targetMap;
@@ -75,6 +75,7 @@ public class ChangeMapHandler : IMessageHandler
             CurrentMap = targetMap,
             Hp = hp, MaxHp = hp, Mp = mp, MaxMp = mp,
             Agility = agility, Patk = patk, Matk = matk, Pdef = pdef, Mdef = mdef,
+            MpRegen = role.MpRegen,
         });
 
         // 推送新地图信息（怪物 + 宝箱）

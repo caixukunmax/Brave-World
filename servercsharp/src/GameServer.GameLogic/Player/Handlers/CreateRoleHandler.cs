@@ -3,6 +3,7 @@ using GameServer.Common.Net;
 using GameServer.Common.Security;
 using GameServer.Database.Models;
 using GameServer.Services.Core;
+using GameServer.Tables;
 using Google.Protobuf;
 using Microsoft.Extensions.Logging;
 using MongoDB.Driver;
@@ -17,11 +18,13 @@ public class CreateRoleHandler : IMessageHandler
 {
     private readonly PlayerSessionManager _session;
     private readonly MapDataProvider _mapData;
+    private readonly LubanTableLoader _tables;
 
-    public CreateRoleHandler(PlayerSessionManager session, MapDataProvider mapData)
+    public CreateRoleHandler(PlayerSessionManager session, MapDataProvider mapData, LubanTableLoader tables)
     {
         _session = session;
         _mapData = mapData;
+        _tables = tables;
     }
 
     public async Task<byte[]?> HandleAsync(MessageContext ctx, byte[] data)
@@ -71,6 +74,16 @@ public class CreateRoleHandler : IMessageHandler
             GridX = spawnX,
             GridY = spawnY,
             MoveSpeedMs = GameConstants.BaseMoveSpeedMs,
+            LearnedSkills = _tables.GetJobDefaultSkills("战士").learned,
+            EquippedSkills = _tables.GetJobDefaultSkills("战士").equipped,
+        };
+
+        // 初始化 JobSkills — 战士默认技能
+        var warriorSkills = _tables.GetJobDefaultSkills("战士");
+        roleData.JobSkills["战士"] = new JobSkillData
+        {
+            LearnedSkills = warriorSkills.learned,
+            EquippedSkills = warriorSkills.equipped,
         };
         await _session.Roles.Create(roleData);
 
@@ -99,6 +112,23 @@ public class CreateRoleHandler : IMessageHandler
     private void SendMapInfoSync(long accountId, int serverId, string mapName, int mapId, long roleId)
     {
         var notify = new PGame.MapInfoSyncNotify { MapName = mapName };
+
+        // 添加 NPC 列表
+        var npcMgr = _session.NpcManager;
+        if (npcMgr != null)
+        {
+            var npcs = npcMgr.GetNpcsOnMap(mapName);
+            foreach (var n in npcs)
+            {
+                notify.Npcs.Add(new PGame.NpcInfo
+                {
+                    NpcInstanceId = (ulong)n.InstanceId,
+                    NpcName = n.Name,
+                    NpcType = n.NpcType,
+                });
+            }
+        }
+
         _session.MapService.BroadcastToMap(mapName, (int)PProtocol.MessageId.GameMapInfoSyncNotify, notify.ToByteArray());
     }
 

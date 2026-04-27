@@ -20,6 +20,8 @@ namespace ClinetCSharp
             AddThemeFontSizeOverride("font_size", fontSize);
             AddThemeColorOverride("font_color", color);
             HorizontalAlignment = HorizontalAlignment.Center;
+            // 纯展示，鼠标事件穿透
+            MouseFilter = MouseFilterEnum.Ignore;
         }
 
         public override void _Process(double delta)
@@ -33,9 +35,7 @@ namespace ClinetCSharp
                 QueueFree();
                 return;
             }
-            var c = _baseColor;
-            c.A = alpha;
-            AddThemeColorOverride("font_color", c);
+            Modulate = new Color(1, 1, 1, alpha);
         }
     }
 }

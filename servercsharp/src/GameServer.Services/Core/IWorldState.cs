@@ -1,3 +1,5 @@
+using System.Collections.Concurrent;
+
 namespace GameServer.Services.Core;
 
 /// <summary>
@@ -12,10 +14,10 @@ public interface IWorldState
     string GetEntityName(long entityId);
 
     /// <summary>获取地图上所有玩家</summary>
-    Dictionary<long, MapPlayerState> GetPlayersOnMap(string mapName);
+    ConcurrentDictionary<long, MapPlayerState> GetPlayersOnMap(string mapName);
 
     /// <summary>获取地图上所有怪物</summary>
-    Dictionary<long, MapMonsterState> GetMonstersOnMap(string mapName);
+    ConcurrentDictionary<long, MapMonsterState> GetMonstersOnMap(string mapName);
 
     /// <summary>检查格子是否可行走</summary>
     bool IsWalkable(string mapName, int x, int y);
@@ -27,5 +29,5 @@ public interface IWorldState
     bool IsOccupied(string mapName, int x, int y);
 
     /// <summary>获取所有地图状态（供 tick 使用）</summary>
-    Dictionary<string, MapInstance> GetAllMaps();
+    ConcurrentDictionary<string, MapState> GetAllMaps();
 }

@@ -12,12 +12,10 @@ namespace ClinetCSharp
     public partial class CharacterPanel : DraggablePanel
     {
         private NetworkManager _network;
-        private Node2D _player;
         private VBoxContainer _content;
         private readonly Dictionary<uint, SpinBox> _spinBoxes = new();
 
-        // 属性 key 对应 Luban common.EAttr 枚举值，需与 tables/defines/common.xml 保持同步
-        // EAttr: HP=1, MAX_HP=2, MP=3, MAX_MP=4, AGILITY=5, PATK=6, MATK=7, PDEF=8, MDEF=9, MOVE_SPEED=10
+        // EAttr: HP=1, MAX_HP=2, MP=3, MAX_MP=4, AGILITY=5, PATK=6, MATK=7, PDEF=8, MDEF=9, MOVE_SPEED=10, MP_REGEN=11
         private static readonly (uint key, string label, string gmName)[] AttrDefs =
         {
             (1, "HP", "hp"),
@@ -30,27 +28,13 @@ namespace ClinetCSharp
             (8, "物防", "pdef"),
             (9, "魔防", "mdef"),
             (10, "移速(ms)", "move_speed"),
+            (11, "MP恢复/秒", "mp_regen"),
         };
 
-        protected override void OnPanelReady()
+        protected override void OnPanelInitialized()
         {
             _content = GetNodeOrNull<VBoxContainer>("VBoxContainer/Content");
             if (_content == null) return;
-
-            // 面板样式
-            AddThemeStyleboxOverride("panel", new StyleBoxFlat
-            {
-                BgColor = new Color(0, 0, 0, 0.85f),
-                BorderColor = new Color(0.2f, 0.2f, 0.2f),
-                BorderWidthBottom = 1,
-                BorderWidthLeft = 1,
-                BorderWidthRight = 1,
-                BorderWidthTop = 1,
-            });
-
-            var titleBar = GetNodeOrNull<PanelContainer>("VBoxContainer/TitleBar");
-            if (titleBar != null)
-                titleBar.AddThemeStyleboxOverride("panel", new StyleBoxFlat { BgColor = new Color(0.1f, 0.1f, 0.1f, 0.9f) });
 
             // 创建属性行
             foreach (var (key, label, gmName) in AttrDefs)
@@ -105,9 +89,8 @@ namespace ClinetCSharp
 
             _content.AddChild(bottomRow);
 
-            // 获取 NetworkManager 和 Player
+            // 获取 NetworkManager
             _network = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
-            _player = GetTree()?.GetFirstNodeInGroup("player") as Node2D;
 
             // 订阅属性更新信号
             if (_network != null)
@@ -150,7 +133,6 @@ namespace ClinetCSharp
                 Command = $"setattr,{gmName},{value}",
             };
             _network.SendPacket(MessageId.GameGmReq, req);
-            GD.Print($"[CharacterPanel] GM setattr {gmName}={value}");
         }
 
         private void OnApplyAll()
@@ -167,7 +149,6 @@ namespace ClinetCSharp
                     _network.SendPacket(MessageId.GameGmReq, req);
                 }
             }
-            GD.Print("[CharacterPanel] GM setattr all applied");
         }
 
         private void OnRoleAttrUpdated(Game.FullRoleInfo roleInfo)

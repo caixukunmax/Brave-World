@@ -48,4 +48,5 @@ public class PlayerSessionManager
     public MapService MapService => _mapService;
     public ILogger Logger => _logger;
     public ICombatService? CombatService { get; set; }
+    public INpcManager? NpcManager { get; set; }
 }

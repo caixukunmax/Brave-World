@@ -1,4 +1,0 @@
-return
-{
-[1] = {id=1,hp=100,mp=50,agility=100,patk=10,matk=10,pdef=5,mdef=5,},
-}

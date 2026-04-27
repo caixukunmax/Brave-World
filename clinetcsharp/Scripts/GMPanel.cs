@@ -1,23 +1,23 @@
 using Godot;
-using System.Collections.Generic;
 using Protocol;
+using System.Collections.Generic;
 
 namespace ClinetCSharp
 {
     /// <summary>
-    /// GM 调试面板 - 发送 GM 命令到服务器
-    /// 按 F2 开关
-    /// 支持动态增删改分组和命令（内联编辑）
+    /// GM 调试面板 — 继承 DraggablePanel，F2 切换。
+    /// 支持动态增删改分组和命令（内联编辑 + 右键菜单）。
     /// </summary>
-    public partial class GMPanel : CanvasLayer
+    public partial class GMPanel : DraggablePanel
     {
-        private Panel _panel;
-        private VBoxContainer _vbox;
+        private NetworkManager _network;
+
+        // UI refs
+        private VBoxContainer _content;
         private LineEdit _cmdEdit;
         private RichTextLabel _logOutput;
         private ScrollContainer _groupScroll;
         private VBoxContainer _groupContainer;
-        private bool _isVisible = false;
 
         // 内联编辑：添加分组
         private HBoxContainer _addGroupRow;
@@ -28,7 +28,7 @@ namespace ClinetCSharp
         private LineEdit _addCmdLabelEdit;
         private LineEdit _addCmdEdit;
         private GmGroup _addCmdTarget;
-        private GmCommand _editCmdTarget; // 非 null 表示编辑模式
+        private GmCommand _editCmdTarget;
 
         // 右键菜单
         private PopupMenu _cmdMenu;
@@ -46,69 +46,41 @@ namespace ClinetCSharp
             public string Name;
             public List<GmCommand> Commands = new();
         }
-        private List<GmGroup> _groups = new();
+        private readonly List<GmGroup> _groups = new();
 
-        public override void _Ready()
+        protected override void OnPanelInitialized()
         {
-            BuildUI();
+            SetToggleKey(Key.F2);
+
+            _content = GetNodeOrNull<VBoxContainer>("VBoxContainer/Content");
+            if (_content == null) return;
+
+            BuildContent();
             AddDefaultGroups();
 
-            var nm = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
-            if (nm != null)
-                nm.GmResponse += OnGmResponse;
+            _network = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
+            if (_network != null)
+                _network.GmResponse += OnGmResponse;
         }
 
         public override void _ExitTree()
         {
-            var nm = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
-            if (nm != null)
-                nm.GmResponse -= OnGmResponse;
+            if (_network != null)
+                _network.GmResponse -= OnGmResponse;
+            base._ExitTree();
         }
 
-        public override void _Input(InputEvent @event)
-        {
-            // 快捷键
-            if (@event is InputEventKey key && key.Pressed && !key.Echo && key.Keycode == Key.F2)
-            {
-                Toggle();
-                GetViewport().SetInputAsHandled();
-                return;
-            }
+        protected override void OnClosed() => Visible = false;
 
-            // 输入隔离：鼠标在面板上时消费事件，防止穿透到游戏世界
-            if (_isVisible && @event is InputEventMouseButton)
-            {
-                var hovered = GetViewport().GuiGetHoveredControl();
-                if (hovered != null && _panel != null && (_panel == hovered || _panel.IsAncestorOf(hovered)))
-                    GetViewport().SetInputAsHandled();
-            }
+        protected internal override void NotifyFocusGained()
+        {
+            if (_cmdEdit != null)
+                _cmdEdit.GrabFocus();
         }
 
-        private void BuildUI()
+        private void BuildContent()
         {
-            var vpSize = GetViewport().GetVisibleRect().Size;
-            var pw = 420f;
-            var ph = 480f;
-
-            _panel = new Panel();
-            _panel.Position = new Vector2(vpSize.X - pw - 10, 60);
-            _panel.Size = new Vector2(pw, ph);
-
-            _vbox = new VBoxContainer();
-            _vbox.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-            _vbox.OffsetLeft = 8;
-            _vbox.OffsetTop = 8;
-            _vbox.OffsetRight = -8;
-            _vbox.OffsetBottom = -8;
-
-            // ── 标题 ──
-            var title = new Label
-            {
-                Text = "GM 调试面板 (F2)",
-                HorizontalAlignment = HorizontalAlignment.Center,
-            };
-            title.AddThemeFontSizeOverride("font_size", 14);
-            _vbox.AddChild(title);
+            _content.AddThemeConstantOverride("separation", 4);
 
             // ── 命令输入行 ──
             var cmdBox = new HBoxContainer();
@@ -128,7 +100,7 @@ namespace ClinetCSharp
             };
             execBtn.Pressed += OnExecPressed;
             cmdBox.AddChild(execBtn);
-            _vbox.AddChild(cmdBox);
+            _content.AddChild(cmdBox);
 
             // ── 分组滚动区 ──
             _groupScroll = new ScrollContainer
@@ -142,11 +114,10 @@ namespace ClinetCSharp
                 SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
             };
             _groupScroll.AddChild(_groupContainer);
-            _vbox.AddChild(_groupScroll);
+            _content.AddChild(_groupScroll);
 
             // ── 添加/编辑命令（内联，默认隐藏）──
-            _addCmdRow = new HBoxContainer();
-            _addCmdRow.Visible = false;
+            _addCmdRow = new HBoxContainer { Visible = false };
             _addCmdRow.AddThemeConstantOverride("separation", 4);
 
             _addCmdLabelEdit = new LineEdit
@@ -173,11 +144,10 @@ namespace ClinetCSharp
             var addCmdCancel = new Button { Text = "取消", CustomMinimumSize = new Vector2(44, 28) };
             addCmdCancel.Pressed += CancelAddCommand;
             _addCmdRow.AddChild(addCmdCancel);
-            _vbox.AddChild(_addCmdRow);
+            _content.AddChild(_addCmdRow);
 
             // ── 添加分组（内联，默认隐藏）──
-            _addGroupRow = new HBoxContainer();
-            _addGroupRow.Visible = false;
+            _addGroupRow = new HBoxContainer { Visible = false };
             _addGroupRow.AddThemeConstantOverride("separation", 4);
 
             _addGroupEdit = new LineEdit
@@ -196,12 +166,11 @@ namespace ClinetCSharp
             var addGroupCancel = new Button { Text = "取消", CustomMinimumSize = new Vector2(44, 28) };
             addGroupCancel.Pressed += CancelAddGroup;
             _addGroupRow.AddChild(addGroupCancel);
-            _vbox.AddChild(_addGroupRow);
+            _content.AddChild(_addGroupRow);
 
-            // ── 底部工具栏：添加分组 ──
+            // ── 底部工具栏 ──
             var toolbar = new HBoxContainer();
             toolbar.AddThemeConstantOverride("separation", 4);
-
             var addGroupBtn = new Button
             {
                 Text = "+ 添加分组",
@@ -209,7 +178,7 @@ namespace ClinetCSharp
             };
             addGroupBtn.Pressed += OnAddGroupPressed;
             toolbar.AddChild(addGroupBtn);
-            _vbox.AddChild(toolbar);
+            _content.AddChild(toolbar);
 
             // ── 日志输出 ──
             _logOutput = new RichTextLabel
@@ -218,20 +187,19 @@ namespace ClinetCSharp
                 BbcodeEnabled = true,
                 ScrollActive = true,
                 ScrollFollowing = true,
+                SizeFlagsVertical = Control.SizeFlags.ExpandFill,
             };
-            _vbox.AddChild(_logOutput);
+            _content.AddChild(_logOutput);
 
-            _panel.AddChild(_vbox);
-            AddChild(_panel);
-            _panel.Visible = false;
-
-            // ── 右键菜单（全局，按需弹出）──
+            // ── 右键菜单 ──
             _cmdMenu = new PopupMenu();
             _cmdMenu.AddItem("编辑", 0);
             _cmdMenu.AddItem("删除", 1);
             _cmdMenu.IdPressed += OnCmdMenuIdPressed;
             AddChild(_cmdMenu);
         }
+
+        // ============ Default Groups ============
 
         private void AddDefaultGroups()
         {
@@ -254,10 +222,15 @@ namespace ClinetCSharp
             AddCommandData(grpChest, "添加宝箱2类(25,30)", "addchest,2,25,30");
             AddCommandData(grpChest, "添加宝箱3类(35,25)", "addchest,3,35,25");
 
+            var grpSkill = AddGroupData("技能");
+            AddCommandData(grpSkill, "学习烈斩(2)", "learnskill,2");
+            AddCommandData(grpSkill, "学习盾击(3)", "learnskill,3");
+            AddCommandData(grpSkill, "学习旋风斩(4)", "learnskill,4");
+
             RebuildGroupUI();
         }
 
-        // ── 数据操作 ──
+        // ============ Data Operations ============
 
         private GmGroup AddGroupData(string name)
         {
@@ -271,7 +244,7 @@ namespace ClinetCSharp
             group.Commands.Add(new GmCommand { Label = label, Cmd = cmd });
         }
 
-        // ── 内联编辑：添加分组 ──
+        // ============ Inline Edit: Add Group ============
 
         private void OnAddGroupPressed()
         {
@@ -297,7 +270,7 @@ namespace ClinetCSharp
             _addGroupRow.Visible = false;
         }
 
-        // ── 内联编辑：添加/编辑命令 ──
+        // ============ Inline Edit: Add/Edit Command ============
 
         private void ShowAddCommandRow(GmGroup grp)
         {
@@ -332,13 +305,11 @@ namespace ClinetCSharp
 
             if (_editCmdTarget != null)
             {
-                // 编辑模式：更新已有
                 _editCmdTarget.Label = label;
                 _editCmdTarget.Cmd = cmd;
             }
             else
             {
-                // 新增模式
                 AddCommandData(_addCmdTarget, label, cmd);
             }
             RebuildGroupUI();
@@ -354,17 +325,15 @@ namespace ClinetCSharp
             _editCmdTarget = null;
         }
 
-        // ── 右键菜单 ──
+        // ============ Context Menu ============
 
         private void OnCmdMenuIdPressed(long id)
         {
             if (_menuCmd == null || _menuGroup == null) return;
 
-            if (id == 0) // 编辑
-            {
+            if (id == 0)
                 ShowEditCommandRow(_menuGroup, _menuCmd);
-            }
-            else if (id == 1) // 删除
+            else if (id == 1)
             {
                 _menuGroup.Commands.Remove(_menuCmd);
                 RebuildGroupUI();
@@ -373,7 +342,7 @@ namespace ClinetCSharp
             _menuGroup = null;
         }
 
-        // ── UI 重建 ──
+        // ============ UI Rebuild ============
 
         private void RebuildGroupUI()
         {
@@ -382,7 +351,7 @@ namespace ClinetCSharp
 
             foreach (var grp in _groups)
             {
-                // 分组标题行: 组名 | +添加命令 | x删除分组
+                // 分组标题行
                 var header = new HBoxContainer();
                 header.AddThemeConstantOverride("separation", 4);
 
@@ -417,7 +386,6 @@ namespace ClinetCSharp
                     RebuildGroupUI();
                 };
                 header.AddChild(delGroupBtn);
-
                 _groupContainer.AddChild(header);
 
                 // 命令按钮流
@@ -433,13 +401,11 @@ namespace ClinetCSharp
                         Text = cmd.Label,
                         CustomMinimumSize = new Vector2(0, 26),
                     };
-                    // 左键：填入命令框
                     btn.Pressed += () =>
                     {
                         _cmdEdit.Text = capturedCmd.Cmd;
                         _cmdEdit.GrabFocus();
                     };
-                    // 右键：弹出编辑/删除菜单
                     btn.GuiInput += (@event) =>
                     {
                         if (@event is InputEventMouseButton mb && mb.Pressed && mb.ButtonIndex == MouseButton.Right)
@@ -457,31 +423,21 @@ namespace ClinetCSharp
             }
         }
 
-        // ── 开关 / 执行 / 回调 ──
-
-        private void Toggle()
-        {
-            _isVisible = !_isVisible;
-            _panel.Visible = _isVisible;
-            if (_isVisible)
-                _cmdEdit.GrabFocus();
-        }
+        // ============ Execute / Callbacks ============
 
         private void OnExecPressed()
         {
             string cmdLine = _cmdEdit.Text.StripEdges();
             if (cmdLine == "") return;
 
-            var nm = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
-            if (nm == null || !nm.IsServerConnected())
+            if (_network == null || !_network.IsServerConnected())
             {
                 AppendLog("[color=red]未连接服务器[/color]");
                 return;
             }
 
             var req = new Game.GmCommandRequest { Command = cmdLine, Args = "" };
-            nm.SendPacket(MessageId.GameGmReq, req);
-
+            _network.SendPacket(MessageId.GameGmReq, req);
             AppendLog($"[color=cyan]> {cmdLine}[/color]");
             _cmdEdit.Text = "";
         }
@@ -491,38 +447,35 @@ namespace ClinetCSharp
             string color = rsp.Code == Common.ErrorCode.Success ? "green" : "red";
             AppendLog($"[color={color}]{rsp.Message}[/color]");
 
-            if (rsp.Code == Common.ErrorCode.Success)
+            if (rsp.Code != Common.ErrorCode.Success) return;
+
+            // 处理瞬移响应
+            if (rsp.Message.StartsWith("TELEPORT:"))
             {
-                // 处理瞬移响应
-                if (rsp.Message.StartsWith("TELEPORT:"))
+                var parts = rsp.Message.Split(':');
+                if (parts.Length == 3 && int.TryParse(parts[1], out int tx) && int.TryParse(parts[2], out int ty))
                 {
-                    var parts = rsp.Message.Split(':');
-                    if (parts.Length == 3 && int.TryParse(parts[1], out int tx) && int.TryParse(parts[2], out int ty))
+                    var player = GetTree()?.GetFirstNodeInGroup("player") as Player;
+                    if (player != null)
                     {
-                        var player = GetTree()?.GetFirstNodeInGroup("player") as Player;
-                        if (player != null)
-                        {
-                            player.GridPos = new Vector2I(tx, ty);
-                            player.Position = new Vector2(tx * player.GridSize + player.GridSize / 2.0f,
-                                                           ty * player.GridSize + player.GridSize / 2.0f);
-                            AppendLog($"[color=cyan]已瞬移到 ({tx}, {ty})[/color]");
-                        }
+                        player.TeleportToGrid(tx, ty);
+                        AppendLog($"[color=cyan]已瞬移到 ({tx}, {ty})[/color]");
                     }
                 }
+            }
 
-                // 处理背包更新
-                if (rsp.Items.Count > 0)
-                {
-                    var inv = GetTree()?.GetFirstNodeInGroup("inventory_manager") as InventoryManager;
-                    if (inv != null)
-                        inv.UpdateFromProto(rsp.Items);
-                }
+            // 处理背包更新
+            if (rsp.Items.Count > 0)
+            {
+                var inv = GetTree()?.GetFirstNodeInGroup("inventory_manager") as InventoryManager;
+                if (inv != null)
+                    inv.UpdateFromProto(rsp.Items);
             }
         }
 
         private void AppendLog(string bbcode)
         {
-            _logOutput.AppendText(bbcode + "\n");
+            _logOutput?.AppendText(bbcode + "\n");
         }
     }
 }

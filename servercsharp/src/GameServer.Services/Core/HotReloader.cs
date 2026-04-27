@@ -19,6 +19,7 @@ public class HotReloader
     public IGameLogicFactory? Factory => _factory;
     public ICombatService? CombatService { get; private set; }
     public IMonsterAiService? MonsterService { get; private set; }
+    public INpcManager? NpcManager { get; set; }
 
     public HotReloader(ILoggerFactory loggerFactory, string? dllPath = null)
     {
@@ -59,6 +60,9 @@ public class HotReloader
         MonsterService = factory.CreateMonsterAiService(mapData, mapService, network);
         playerSession.CombatService = CombatService;
         factory.RegisterMessageHandlers(handlerRegistry, playerSession, network, mapData, MonsterService);
+        factory.BindDeathHandler(CombatService, mapService, mapData, playerSession, network);
+        factory.BindMonsterRegistry(CombatService, MonsterService);
+        factory.BindLevelUpService(CombatService, MonsterService, mapService, playerSession, network);
         _logger.LogInformation("[HotReload] Services created and handlers registered");
     }
 

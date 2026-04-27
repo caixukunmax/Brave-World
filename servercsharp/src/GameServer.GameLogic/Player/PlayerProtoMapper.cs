@@ -1,3 +1,4 @@
+using GameServer.Common;
 using GameServer.Common.Models;
 using GameServer.Database.Models;
 using GameServer.Database.Repositories;
@@ -11,27 +12,7 @@ namespace GameServer.Services.Player;
 /// </summary>
 public static class PlayerProtoMapper
 {
-    /// <summary>角色属性枚举约定</summary>
-    public static class RoleAttrs
-    {
-        public const uint Hp = 1, MaxHp = 2, Mp = 3, MaxMp = 4;
-        public const uint Agility = 5, PAtk = 6, MAtk = 7, PDef = 8, MDef = 9;
-        public const uint MoveSpeed = 10;
-
-        public static readonly (uint key, string name)[] All =
-        {
-            (Hp, "hp"), (MaxHp, "max_hp"), (Mp, "mp"), (MaxMp, "max_mp"),
-            (Agility, "agility"), (PAtk, "patk"), (MAtk, "matk"), (PDef, "pdef"), (MDef, "mdef"),
-            (MoveSpeed, "move_speed"),
-        };
-
-        public static uint? NameToKey(string name)
-        {
-            foreach (var (k, n) in All)
-                if (n == name) return k;
-            return null;
-        }
-    }
+    // RoleAttrs 已移至 GameServer.Common.RoleAttrs
 
     public static PGame.FullRoleInfo BuildRoleInfo(Role role, int now)
     {
@@ -66,6 +47,10 @@ public static class PlayerProtoMapper
         info.Attrs.Add(new PGame.AttrItem { Key = RoleAttrs.PDef, Value = role.Pdef });
         info.Attrs.Add(new PGame.AttrItem { Key = RoleAttrs.MDef, Value = role.Mdef });
         info.Attrs.Add(new PGame.AttrItem { Key = RoleAttrs.MoveSpeed, Value = role.MoveSpeedMs > 0 ? role.MoveSpeedMs : GameConstants.BaseMoveSpeedMs });
+        info.Attrs.Add(new PGame.AttrItem { Key = RoleAttrs.MpRegen, Value = role.MpRegen });
+
+        foreach (var sid in role.LearnedSkills)  info.LearnedSkills.Add((uint)sid);
+        foreach (var sid in role.EquippedSkills) info.EquippedSkills.Add((uint)sid);
 
         return info;
     }

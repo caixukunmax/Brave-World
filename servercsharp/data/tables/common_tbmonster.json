@@ -17,7 +17,14 @@
       {
         "attr_key": 3,
         "attr_value": 2
+      },
+      {
+        "attr_key": 5,
+        "attr_value": 80
       }
+    ],
+    "skills": [
+      2
     ]
   },
   {
@@ -38,7 +45,15 @@
       {
         "attr_key": 3,
         "attr_value": 5
+      },
+      {
+        "attr_key": 5,
+        "attr_value": 100
       }
+    ],
+    "skills": [
+      2,
+      3
     ]
   },
   {
@@ -59,7 +74,15 @@
       {
         "attr_key": 3,
         "attr_value": 8
+      },
+      {
+        "attr_key": 5,
+        "attr_value": 130
       }
+    ],
+    "skills": [
+      12,
+      13
     ]
   }
 ]

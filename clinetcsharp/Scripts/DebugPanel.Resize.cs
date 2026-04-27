@@ -131,7 +131,7 @@ namespace ClinetCSharp
                 if (@event is InputEventMouseButton mb && mb.Pressed && mb.ButtonIndex == MouseButton.Left)
                 {
                     ResizeEdge edge = DetectResizeEdgeAtMouse();
-                    if (edge != ResizeEdge.None)
+                    if (edge != ResizeEdge.None && !DraggablePanel.IsAnyDragging)
                     {
                         StartResize(edge, mb.GlobalPosition);
                         return true;
@@ -159,6 +159,7 @@ namespace ClinetCSharp
         private void StartResize(ResizeEdge edge, Vector2 mousePos)
         {
             _activeResizeEdge = edge;
+            DraggablePanel.IsAnyDragging = true;
             _resizeDragStart = mousePos;
             _resizeStartOL = _panel.OffsetLeft;
             _resizeStartOT = _panel.OffsetTop;
@@ -206,6 +207,7 @@ namespace ClinetCSharp
         private void EndResize()
         {
             _activeResizeEdge = ResizeEdge.None;
+            DraggablePanel.IsAnyDragging = false;
             ResetCursor();
         }
         #endregion

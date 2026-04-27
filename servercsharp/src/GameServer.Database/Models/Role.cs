@@ -2,6 +2,15 @@ using MongoDB.Bson.Serialization.Attributes;
 
 namespace GameServer.Database.Models;
 
+/// <summary>
+/// 按职业保存的技能数据
+/// </summary>
+public class JobSkillData
+{
+    [BsonElement("learned_skills")]  public List<int> LearnedSkills  { get; set; } = new();
+    [BsonElement("equipped_skills")] public List<int> EquippedSkills { get; set; } = new();
+}
+
 [BsonIgnoreExtraElements]
 public class Role
 {
@@ -33,9 +42,13 @@ public class Role
     [BsonElement("matk")]            public int    Matk          { get; set; }
     [BsonElement("pdef")]            public int    Pdef          { get; set; }
     [BsonElement("mdef")]            public int    Mdef          { get; set; }
+    [BsonElement("mp_regen")]         public int    MpRegen       { get; set; }
     [BsonElement("ui_panel_pos_x")]  public float  UiPanelPosX   { get; set; }
     [BsonElement("ui_panel_pos_y")]  public float  UiPanelPosY   { get; set; }
     [BsonElement("ui_panel_width")]  public float  UiPanelWidth  { get; set; }
     [BsonElement("ui_panel_height")] public float  UiPanelHeight { get; set; }
     [BsonElement("move_speed_ms")]   public int    MoveSpeedMs   { get; set; }
+    [BsonElement("learned_skills")]  public List<int> LearnedSkills  { get; set; } = new();
+    [BsonElement("equipped_skills")] public List<int> EquippedSkills { get; set; } = new();
+    [BsonElement("job_skills")]      public Dictionary<string, JobSkillData> JobSkills { get; set; } = new();
 }

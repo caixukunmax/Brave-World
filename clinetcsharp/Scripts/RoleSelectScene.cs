@@ -13,6 +13,7 @@ namespace ClinetCSharp
         private Label _countLabel;
         private Button _createButton;
         private Button _enterButton;
+        private NetworkManager _network;
 
         private Panel _createDialog;
         private LineEdit _nameEdit;
@@ -46,11 +47,11 @@ namespace ClinetCSharp
             _cancelButton.Pressed += HideCreateDialog;
             _nameEdit.TextSubmitted += _ => OnCreateRole();
 
-            var nm = GetNode<NetworkManager>("/root/NetworkManager");
-            nm.EnterGameResponse += OnEnterGameResponse;
-            nm.CreateRoleResponse += OnCreateRoleResponse;
+            _network = GetNode<NetworkManager>("/root/NetworkManager");
+            _network.EnterGameResponse += OnEnterGameResponse;
+            _network.CreateRoleResponse += OnCreateRoleResponse;
 
-            _serverLabel.Text = $"当前区服: {nm.LastServerId}服";
+            _serverLabel.Text = $"当前区服: {_network.LastServerId}服";
             LoadRoles();
         }
 
@@ -62,9 +63,8 @@ namespace ClinetCSharp
             _selectedRoleId = 0;
             _enterButton.Disabled = true;
 
-            var nm = GetNode<NetworkManager>("/root/NetworkManager");
-            int roleCount = nm.Roles.Count;
-            uint maxCount = nm.MaxRoleCount;
+            int roleCount = _network.Roles.Count;
+            uint maxCount = _network.MaxRoleCount;
             _countLabel.Text = $"角色数量: {roleCount}/{maxCount}";
 
             if (roleCount == 0)
@@ -79,7 +79,7 @@ namespace ClinetCSharp
                 return;
             }
 
-            foreach (var role in nm.Roles)
+            foreach (var role in _network.Roles)
             {
                 var card = CreateRoleCard(role);
                 _roleContainer.AddChild(card);
@@ -180,21 +180,11 @@ namespace ClinetCSharp
         private void OnCreateRole()
         {
             var name = _nameEdit.Text.StripEdges();
-            GD.Print($"[RoleSelectScene] OnCreateRole called, name='{name}' len={name.Length}");
             if (name.Length < 2)
-            {
-                GD.Print("[RoleSelectScene] Name too short, skipping send");
                 return;
-            }
 
-            var nm = GetNode<NetworkManager>("/root/NetworkManager");
-            var req = new Game.CreateRoleRequest
-            {
-                RoleName = name,
-            };
-
-            GD.Print($"[RoleSelectScene] Sending create role request: {name}");
-            bool sent = nm.SendPacket(MessageId.GameCreateRoleReq, req);
+            var req = new Game.CreateRoleRequest { RoleName = name };
+            bool sent = _network.SendPacket(MessageId.GameCreateRoleReq, req);
 
             if (!sent)
             {
@@ -204,14 +194,9 @@ namespace ClinetCSharp
             else
             {
                 _confirmCreateButton.Disabled = true;
-                _ = RestoreButtonAfterDelay();
+                var timer = GetTree().CreateTimer(3.0);
+                timer.Timeout += RestoreButton;
             }
-        }
-
-        private async System.Threading.Tasks.Task RestoreButtonAfterDelay()
-        {
-            await System.Threading.Tasks.Task.Delay(3000);
-            CallDeferred(nameof(RestoreButton));
         }
 
         private void RestoreButton()
@@ -227,12 +212,11 @@ namespace ClinetCSharp
 
             _enterButton.Disabled = true;
 
-            var nm = GetNode<NetworkManager>("/root/NetworkManager");
             var req = new Game.EnterGameRequest
             {
                 RoleId = (ulong)_selectedRoleId,
             };
-            nm.SendPacket(MessageId.GameEnterGameReq, req);
+            _network.SendPacket(MessageId.GameEnterGameReq, req);
         }
 
         private void OnEnterGameResponse(Game.EnterGameResponse rsp)
@@ -253,8 +237,7 @@ namespace ClinetCSharp
             _confirmCreateButton.Disabled = false;
             if (rsp.Code == Common.ErrorCode.Success)
             {
-                var netMgr = GetNode<NetworkManager>("/root/NetworkManager");
-                netMgr.Roles.Add(new Login.RoleBrief
+                _network.Roles.Add(new Login.RoleBrief
                 {
                     RoleId = rsp.RoleInfo.RoleId,
                     RoleName = rsp.RoleInfo.RoleName,
@@ -278,11 +261,10 @@ namespace ClinetCSharp
 
         public override void _ExitTree()
         {
-            var nm = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
-            if (nm != null)
+            if (_network != null)
             {
-                nm.EnterGameResponse -= OnEnterGameResponse;
-                nm.CreateRoleResponse -= OnCreateRoleResponse;
+                _network.EnterGameResponse -= OnEnterGameResponse;
+                _network.CreateRoleResponse -= OnCreateRoleResponse;
             }
         }
     }

@@ -1,7 +1,9 @@
+using GameServer.Services.Map.Combat;
 using GameServer.Common.Config;
 using GameServer.Services.Core;
 using GameServer.Services.Map;
 using GameServer.Services.Monster.AI;
+using GameServer.Services.World;
 using GameServer.Tables;
 using Google.Protobuf;
 using Microsoft.Extensions.Logging;
@@ -22,6 +24,9 @@ public class MonsterManager : IMonsterRegistry
     private readonly Core.INetworkSender _network;
     private readonly LubanTableLoader _tables;
     private readonly Dictionary<string, IBehaviorHandler> _handlers;
+
+    /// <summary>怪物死亡回调：(monsterInstanceId, attackerId, monsterId) => void</summary>
+    public Action<long, long, int>? OnMonsterDeath { get; set; }
 
     private Dictionary<long, MonsterRuntimeState> _monsters = new();
 
@@ -53,7 +58,7 @@ public class MonsterManager : IMonsterRegistry
 
         _tables.Load();
 
-        int nextId = 1000001;
+        int nextId = (int)CombatConstants.MonsterIdThreshold + 1;
         foreach (var (mapName, _) in _mapData.GetAllMaps())
         {
             var mapMonsters = InitMonstersForMap(mapName, nextId);
@@ -81,24 +86,57 @@ public class MonsterManager : IMonsterRegistry
                 var mapName = group.Key;
                 var players = GetOnlinePlayers(mapName);
                 var movedMonsters = new List<(long id, int fx, int fy, int tx, int ty, string state, int durationMs)>();
+                var cancelledMonsters = new List<(long id, int rollbackX, int rollbackY)>();
 
                 foreach (var (instanceId, m) in group)
                 {
-                    // ---- 0. 战斗中的怪物不做 AI 和碰撞检测 ----
-                    if (m.InCombat) continue;
-
                     // ---- 1. 处理正在移动的怪物 ----
                     if (m.IsMoving)
                     {
                         long elapsed = Environment.TickCount64 - m.MoveStartTime;
-                        if (elapsed >= m.MoveSpeedMs)
+                        int moveDuration = m.MoveSpeedMs > 0 ? m.MoveSpeedMs : GameConstants.DefaultMonsterMoveSpeedMs;
+
+                        // 检查点确认（与玩家一致的机制）
+                        if (!m.CheckpointConfirmed && elapsed >= moveDuration * GameConstants.MoveCheckRatio / 100)
                         {
-                            // 移动完成：确认坐标
-                            _mapService.World.ConfirmMove(instanceId);
+                            var res = _mapService.World.GetReservation(instanceId);
+                            if (res != null && res.CollisionPending)
+                            {
+                                // 碰撞性移动：30% 检查点检测敌人
+                                var result = _mapService.World.ConfirmMoveEx(instanceId);
+                                m.IsMoving = false;
+                                m.CheckpointConfirmed = false;
+                                cancelledMonsters.Add((instanceId, m.X, m.Y));
+                                if (result == ConfirmResult.Collision)
+                                {
+                                    _logger.LogInformation("[Monster] collision at 30%: id={Id} at ({X},{Y})", instanceId, m.X, m.Y);
+                                    _mapService.CheckEntityCollision(instanceId, mapName, m.X, m.Y);
+                                }
+                                continue;
+                            }
+
+                            bool ok = _mapService.World.ConfirmMove(instanceId);
+                            if (!ok)
+                            {
+                                // 目标格被占，取消移动并回滚
+                                _mapService.World.CancelMove(instanceId);
+                                m.IsMoving = false;
+                                m.CheckpointConfirmed = false;
+                                cancelledMonsters.Add((instanceId, m.X, m.Y));
+                                _mapService.CheckEntityCollision(instanceId, mapName, m.X, m.Y);
+                                continue;
+                            }
+                            m.CheckpointConfirmed = true;
+                        }
+
+                        // 移动完成
+                        if (elapsed >= moveDuration)
+                        {
                             _mapService.World.CompleteMove(instanceId);
                             m.X = m.MoveTargetX;
                             m.Y = m.MoveTargetY;
                             m.IsMoving = false;
+                            m.CheckpointConfirmed = false;
 
                             // 到达新格后，统一碰撞检测（与玩家一致）
                             _mapService.CheckEntityCollision(instanceId, mapName, m.X, m.Y);
@@ -110,14 +148,23 @@ public class MonsterManager : IMonsterRegistry
                     var handler = _handlers.GetValueOrDefault(m.AiType);
                     if (handler == null) continue;
 
-                    var next = handler.Run(m, mapName, players);
+                    var next = handler.Run(m, mapName, players, _mapService.World);
                     if (next == null) continue;
 
                     var (nx, ny) = next.Value;
                     if (nx == m.X && ny == m.Y) continue;
 
-                    // ---- 3. 预占目标格 ----
-                    int durationMs = m.MoveSpeedMs > 0 ? m.MoveSpeedMs : 800;
+                    // ---- 3. 战斗中怪物：0% 碰撞判断 ----
+                    // 已在战斗的怪物追击时，目标格有敌人则直接触发碰撞，
+                    // 不走移动→30%→弹回的流程，避免视觉抖动
+                    if (m.InCombat && _mapService.World.HasEnemyAt(mapName, nx, ny, instanceId))
+                    {
+                        _mapService.CheckEntityCollision(instanceId, mapName, m.X, m.Y);
+                        continue;
+                    }
+
+                    // ---- 4. 预占目标格 ----
+                    int durationMs = m.MoveSpeedMs > 0 ? m.MoveSpeedMs : GameConstants.DefaultMonsterMoveSpeedMs;
                     bool reserved = _mapService.World.TryReserveMove(
                         instanceId, mapName, m.X, m.Y, nx, ny,
                         durationMs, GameConstants.MoveCheckRatio,
@@ -135,12 +182,24 @@ public class MonsterManager : IMonsterRegistry
                     }
                     else
                     {
-                        // 目标格被占据，检查碰撞（怪物试图走入玩家位置 → 触发战斗）
-                        _mapService.CheckEntityCollision(instanceId, mapName, m.X, m.Y);
+                        // 目标格被占据 — 尝试碰撞性移动（移动 30% 后再检测）
+                        bool collisionMove = _mapService.World.TryReserveCollisionMove(
+                            instanceId, mapName, m.X, m.Y, nx, ny,
+                            durationMs, GameConstants.MoveCheckRatio,
+                            GameConstants.MoveDualGridStartRatio, GameConstants.MoveDualGridEndRatio);
+
+                        if (collisionMove)
+                        {
+                            m.IsMoving = true;
+                            m.MoveTargetX = nx;
+                            m.MoveTargetY = ny;
+                            m.MoveStartTime = Environment.TickCount64;
+                            movedMonsters.Add((instanceId, m.X, m.Y, nx, ny, m.State, durationMs));
+                        }
                     }
                 }
 
-                // 按地图广播
+                // 按地图广播移动通知
                 foreach (var (id, fx, fy, tx, ty, state, durationMs) in movedMonsters)
                 {
                     var notify = new PGame.MonsterMoveNotify
@@ -154,6 +213,18 @@ public class MonsterManager : IMonsterRegistry
                         DurationMs = durationMs,
                     };
                     _mapService.BroadcastToMap(mapName, (int)PProtocol.MessageId.GameMonsterMoveNotify, notify.ToByteArray());
+                }
+
+                // 广播取消通知（检查点目标格被占）
+                foreach (var (id, rollbackX, rollbackY) in cancelledMonsters)
+                {
+                    var cancelNotify = new PGame.MonsterMoveCancelNotify
+                    {
+                        InstanceId = (uint)id,
+                        RollbackX = rollbackX,
+                        RollbackY = rollbackY,
+                    };
+                    _mapService.BroadcastToMap(mapName, (int)PProtocol.MessageId.GameMonsterMoveCancelNotify, cancelNotify.ToByteArray());
                 }
             }
         }
@@ -175,7 +246,7 @@ public class MonsterManager : IMonsterRegistry
         {
             m.Hp = 0;
             _logger.LogInformation("[Monster] died: id={Id}", instanceId);
-            // TODO: 死亡处理（掉落、经验分配）
+            OnMonsterDeath?.Invoke(instanceId, attackerId, m.MonsterId);
         }
     }
 
@@ -236,7 +307,7 @@ public class MonsterManager : IMonsterRegistry
             return monsters;
         }
 
-        int moveSpeedMs = 800; // TODO: move to Luban GlobalConfig
+        int moveSpeedMs = GameConstants.DefaultMonsterMoveSpeedMs;
 
         for (int i = 0; i < spawns.Count; i++)
         {

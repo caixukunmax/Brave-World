@@ -37,6 +37,7 @@ public static class GameConstants
     public const double AtbBoostPerMiss = 0.25;
     public const double AtbBoostMax = 0.50;
     public const int AtbBoostStacksMax = 2;
+    public const double AtbBoostDecayRate = 0.05; // boost 每秒衰减 0.05
 
     // ---- 脱战 ----
     // 距离A：跑出X格后，Y秒内无伤害，再等Z秒脱战
@@ -47,8 +48,23 @@ public static class GameConstants
     public const int DisengageDistanceB = 10;
     public const double DisengageTimeS2 = 2;
 
+    // ---- 怪物 ----
+    public const int DefaultMonsterMoveSpeedMs = 800;
+
     // ---- 怪物回血 ----
     public const double MonsterRegenPercentPerSec = 0.05;
+
+    // ---- 玩家 HP 恢复 ----
+    /// <summary>脱战后 HP 恢复倍率（基于 MaxHp 百分比）</summary>
+    public const double PlayerHpRegenPercentPerSec = 0.05; // 5%/秒，脱战20秒回满
+
+    // ---- 玩家 MP 恢复 ----
+    /// <summary>战斗中 MP 恢复倍率（基于 mp_regen 属性）</summary>
+    public const double CombatMpRegenMultiplier = 1.0;
+    /// <summary>脱战后 MP 恢复倍率（基于 mp_regen 属性）</summary>
+    public const double OutOfCombatMpRegenMultiplier = 3.0;
+    /// <summary>无 mp_regen 属性时的默认每秒恢复百分比（MaxMp 的百分比）</summary>
+    public const double DefaultMpRegenPercentPerSec = 0.02;
 
     // ---- 移动系统（可被 JSON 覆盖）----
     public static int MoveCheckRatio { get; set; } = 30;

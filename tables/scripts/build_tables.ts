@@ -184,30 +184,44 @@ function main(): void {
   fs.mkdirSync(JSON_DATA_DIR, { recursive: true });
 
   // --------------------------------------------------------------------------
-  // 生成 JSON data（C# 服务器端）
+  // Pass 1: 生成 JSON data（C# 服务器端）
   // --------------------------------------------------------------------------
   console.log('----------------------------------------');
   info('Generating JSON data (C# server)...');
   console.log('----------------------------------------');
 
+  const TMP_JSON_ONLY = path.join(TMP_DIR, 'json_only');
+
   const jsonArgs = [
-    '-t', 'all',
-    '-c', 'lua-lua',
+    '-t', 'json',
     '-d', 'json',
     '-f',
-    '-x', `outputCodeDir=${TMP_JSON_DATA}`,
-    '-x', `outputDataDir=${TMP_JSON_DATA}`,
+    '-x', `outputDataDir=${TMP_JSON_ONLY}`,
     '-x', `l10n.textProviderFile=${config.luban_args.l10n_text_provider_file}`,
   ];
 
   let code = runLuban(dotnetCmd, LUBAN_DLL, CONFIG_PATH, jsonArgs, BASE_DIR);
   if (code !== 0) {
-    error('Failed to generate JSON output');
+    error('Failed to generate JSON data');
     process.exit(1);
   }
 
-  copyDirSync(TMP_JSON_DATA, JSON_DATA_DIR);
-  success(`JSON → ${paths.tables.json_data_dir}`);
+  // 先把 JSON 数据拷出来，再跑 Lua code（Lua 会清理输出目录）
+  fs.mkdirSync(JSON_DATA_DIR, { recursive: true });
+  if (fs.existsSync(TMP_JSON_ONLY)) {
+    copyDirSync(TMP_JSON_ONLY, JSON_DATA_DIR);
+  }
+  success(`JSON data → ${paths.tables.json_data_dir}`);
+
+  // 将技能配置 JSON 复制到客户端 data 目录
+  const CLIENT_DATA_DIR = path.resolve(ROOT_DIR, 'clinetcsharp/data');
+  const SKILL_JSON_SRC = path.join(JSON_DATA_DIR, 'common_tbskill.json');
+  const SKILL_JSON_DST = path.join(CLIENT_DATA_DIR, 'skill_config.json');
+  if (fs.existsSync(SKILL_JSON_SRC)) {
+    fs.mkdirSync(CLIENT_DATA_DIR, { recursive: true });
+    fs.copyFileSync(SKILL_JSON_SRC, SKILL_JSON_DST);
+    success('Skill config → clinetcsharp/data/skill_config.json');
+  }
 
   // 清理临时目录
   removeDirSync(TMP_DIR);

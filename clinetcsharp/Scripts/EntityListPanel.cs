@@ -10,38 +10,23 @@ namespace ClinetCSharp
     public partial class EntityListPanel : DraggablePanel
     {
         private VBoxContainer _contentBox;
+        private NetworkManager _network;
 
-        protected override void OnPanelReady()
+        protected override void OnPanelInitialized()
         {
-            // 面板样式
-            AddThemeStyleboxOverride("panel", new StyleBoxFlat
-            {
-                BgColor = new Color(0, 0, 0, 0.85f),
-                BorderColor = new Color(0.2f, 0.2f, 0.2f),
-                BorderWidthBottom = 1,
-                BorderWidthLeft = 1,
-                BorderWidthRight = 1,
-                BorderWidthTop = 1,
-            });
-
-            var titleBar = GetNodeOrNull<PanelContainer>("VBoxContainer/TitleBar");
-            if (titleBar != null)
-                titleBar.AddThemeStyleboxOverride("panel", new StyleBoxFlat { BgColor = new Color(0.1f, 0.1f, 0.1f, 0.9f) });
-
             _contentBox = GetNodeOrNull<VBoxContainer>("VBoxContainer/Content/ContentBox");
 
-            var nm = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
-            if (nm != null)
-                nm.MapInfoReceived += OnMapInfoReceived;
+            _network = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
+            if (_network != null)
+                _network.MapInfoReceived += OnMapInfoReceived;
 
             SetToggleKey(Key.F3);
         }
 
         public override void _ExitTree()
         {
-            var nm = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
-            if (nm != null)
-                nm.MapInfoReceived -= OnMapInfoReceived;
+            if (_network != null)
+                _network.MapInfoReceived -= OnMapInfoReceived;
             base._ExitTree();
         }
 
@@ -63,7 +48,6 @@ namespace ClinetCSharp
             foreach (var child in _contentBox.GetChildren())
                 child.QueueFree();
 
-            var nm = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
             var player = GetTree()?.GetFirstNodeInGroup("player") as Player;
 
             // 标题
@@ -78,7 +62,7 @@ namespace ClinetCSharp
             // 地图名
             var mapLabel = new Label
             {
-                Text = $"地图: {nm?.CurrentMapName ?? "-"}",
+                Text = $"地图: {_network?.CurrentMapName ?? "-"}",
             };
             mapLabel.AddThemeColorOverride("font_color", new Color(0.8f, 0.9f, 1));
             _contentBox.AddChild(mapLabel);
@@ -87,11 +71,11 @@ namespace ClinetCSharp
 
             // 玩家
             _contentBox.AddChild(MakeHeader("玩家"));
-            if (player != null && nm?.CachedRoleInfo != null)
+            if (player != null && _network?.CachedRoleInfo != null)
             {
                 var playerInfo = new Label
                 {
-                    Text = $"  {nm.CachedRoleInfo.RoleName} (Lv.{nm.CachedRoleInfo.Level}) ({player.GridPos.X},{player.GridPos.Y})",
+                    Text = $"  {_network.CachedRoleInfo.RoleName} (Lv.{_network.CachedRoleInfo.Level}) ({player.GridPos.X},{player.GridPos.Y})",
                 };
                 _contentBox.AddChild(playerInfo);
             }
@@ -104,9 +88,9 @@ namespace ClinetCSharp
 
             // 宝箱
             _contentBox.AddChild(MakeHeader("宝箱"));
-            if (nm != null && nm.Chests.Count > 0)
+            if (_network != null && _network.Chests.Count > 0)
             {
-                foreach (var c in nm.Chests)
+                foreach (var c in _network.Chests)
                 {
                     var chestLabel = new Label
                     {
@@ -128,9 +112,9 @@ namespace ClinetCSharp
 
             // 怪物
             _contentBox.AddChild(MakeHeader("怪物"));
-            if (nm != null && nm.Monsters.Count > 0)
+            if (_network != null && _network.Monsters.Count > 0)
             {
-                foreach (var m in nm.Monsters)
+                foreach (var m in _network.Monsters)
                 {
                     var monsterLabel = new Label
                     {

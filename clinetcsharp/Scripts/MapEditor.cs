@@ -96,7 +96,7 @@ namespace ClinetCSharp
             }
 
             // 检查鼠标是否在 UI 上，如果在 UI 上则不处理地图编辑事件
-            if (IsMouseOverUi())
+            if (UiUtils.IsMouseOverAnyUi(GetViewport()))
                 return;
 
             // 鼠标处理
@@ -141,22 +141,6 @@ namespace ClinetCSharp
                     UpdateSelection(mm);
                 }
             }
-        }
-
-        /// <summary>
-        /// 检查鼠标是否在 UI 控件上
-        /// </summary>
-        private bool IsMouseOverUi()
-        {
-            var viewport = GetViewport();
-            if (viewport == null)
-                return false;
-
-            var hovered = viewport.GuiGetHoveredControl();
-            if (hovered == null)
-                return false;
-
-            return UiUtils.IsInteractiveControl(hovered);
         }
 
         public override void _Draw()

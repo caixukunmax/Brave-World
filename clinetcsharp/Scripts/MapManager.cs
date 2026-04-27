@@ -28,7 +28,7 @@ namespace ClinetCSharp
             nm.MonsterMoveNotify += OnMonsterMove;
 
             // 如果已经有缓存数据（热加载场景），直接生成
-            if (nm.Chests.Count > 0 || nm.Monsters.Count > 0)
+            if (nm.Chests.Count > 0 || nm.Monsters.Count > 0 || nm.Npcs.Count > 0)
             {
                 SpawnMapEntities();
             }
@@ -68,6 +68,14 @@ namespace ClinetCSharp
             {
                 monsterMgr.SpawnMonsters(nm.Monsters, gridSize);
                 GD.Print($"[MapManager] Spawned {nm.Monsters.Count} monsters");
+            }
+
+            // 生成NPC
+            var npcMgr = GetTree()?.GetFirstNodeInGroup("npc_manager") as NpcManager;
+            if (npcMgr != null && nm.Npcs.Count > 0)
+            {
+                npcMgr.SpawnNpcs(nm.Npcs, gridSize);
+                GD.Print($"[MapManager] Spawned {nm.Npcs.Count} NPCs");
             }
         }
 

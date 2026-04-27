@@ -17,6 +17,36 @@ namespace ClinetCSharp
         }
 
         /// <summary>
+        /// 将控件及其所有子控件设为 MouseFilter.Ignore（鼠标事件穿透）。
+        /// 用于纯展示面板（如战斗信息条、血条等），避免拦截鼠标事件影响其他面板拖拽。
+        /// </summary>
+        public static void SetMousePassthrough(Control root)
+        {
+            if (root == null) return;
+            root.MouseFilter = Control.MouseFilterEnum.Ignore;
+            foreach (var child in root.GetChildren())
+            {
+                if (child is Control c)
+                    SetMousePassthrough(c);
+            }
+        }
+
+        /// <summary>
+        /// 统一输入门控：判断鼠标是否在任何 UI 面板/控件上。
+        /// 所有非 UI 的 _Input 处理器都应先调用此方法，避免鼠标事件穿透到游戏层。
+        ///
+        /// 原理：GuiGetHoveredControl() 返回 Godot GUI 系统中鼠标下的最顶层 Control，
+        /// 它会正确处理 CanvasLayer 层级和 MouseFilter。只要任何 Control（Panel、Button 等）
+        /// 挡在鼠标位置，就应阻止游戏世界层处理该事件。
+        /// MouseFilter=Ignore 的控件不会被 GuiGetHoveredControl() 返回（如 CombatATBPanel）。
+        /// </summary>
+        public static bool IsMouseOverAnyUi(Viewport viewport)
+        {
+            if (viewport == null) return false;
+            return viewport.GuiGetHoveredControl() != null;
+        }
+
+        /// <summary>
         /// 检查控件是否为交互式 UI（应阻止游戏输入的控件类型）
         /// </summary>
         public static bool IsInteractiveControl(Control control)
@@ -27,6 +57,7 @@ namespace ClinetCSharp
             string[] interactiveTypes = new[]
             {
                 "Slider", "HSlider", "VSlider", "SpinBox", "ProgressBar",
+                "ScrollBar", "HScrollBar", "VScrollBar",
                 "Button", "CheckButton", "CheckBox", "OptionButton", "MenuButton",
                 "LineEdit", "TextEdit", "CodeEdit",
                 "TabBar", "TabContainer", "ItemList", "Tree"
@@ -49,8 +80,9 @@ namespace ClinetCSharp
         /// </summary>
         public static Vector2 GridToWorld(int x, int y, int gridSize)
         {
-            return new Vector2(x * gridSize + gridSize / 2.0f,
-                               y * gridSize + gridSize / 2.0f);
+            // 对齐到整数像素，避免半像素位置导致亚像素抖动
+            return new Vector2(Mathf.RoundToInt(x * gridSize + gridSize / 2.0f),
+                               Mathf.RoundToInt(y * gridSize + gridSize / 2.0f));
         }
 
         public static Vector2 GridToWorld(Vector2I pos, int gridSize)

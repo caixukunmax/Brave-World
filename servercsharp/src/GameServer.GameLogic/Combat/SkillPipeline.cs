@@ -1,4 +1,6 @@
+using GameServer.Services.Core;
 using GameServer.Services.Map.Combat.Actions;
+using GameServer.Tables;
 using Microsoft.Extensions.Logging;
 
 namespace GameServer.Services.Map.Combat;
@@ -10,92 +12,41 @@ public class SkillPipeline
 {
     private readonly ILogger _logger;
     private readonly ActionRegistry _actionRegistry;
+    private readonly LubanTableLoader? _tables;
     public CombatManager? CombatManager { get; set; }
 
-    public SkillPipeline(ILogger<SkillPipeline> logger, ActionRegistry actionRegistry)
+    // 静态引用供无状态 handler 查询技能配置
+    private static LubanTableLoader? _staticTables;
+
+    public SkillPipeline(ILogger<SkillPipeline> logger, ActionRegistry actionRegistry, LubanTableLoader? tables = null)
     {
         _logger = logger;
         _actionRegistry = actionRegistry;
+        _tables = tables;
+        _staticTables = tables;
     }
 
     // ---- 技能配置 ----
-    private static readonly Dictionary<int, SkillConfig> SkillConfigs = new()
+
+    private SkillConfigRow? GetSkillConfig(int skillId)
     {
-        [1] = new SkillConfig
-        {
-            Id = 1,
-            Name = "普通攻击",
-            CastRange = 1,
-            CastTime = 0.5,
-            InterruptOnMove = false,
-            PostCastTime = 0.1,
-            Cooldown = 0,
-            MpCost = 0,
-            TargetType = "SingleEnemy",
-            Actions =
-            [
-                new Dictionary<string, object> { ["type"] = "DealDamage", ["damageType"] = "physical", ["coefficient"] = 1.0 },
-            ],
-        },
-        [2] = new SkillConfig
-        {
-            Id = 2,
-            Name = "烈斩",
-            CastRange = 1,
-            CastTime = 0.8,
-            InterruptOnMove = false,
-            PostCastTime = 0.1,
-            Cooldown = 3,
-            MpCost = 10,
-            TargetType = "SingleEnemy",
-            Actions =
-            [
-                new Dictionary<string, object> { ["type"] = "DealDamage", ["damageType"] = "physical", ["coefficient"] = 1.5 },
-            ],
-        },
-        [3] = new SkillConfig
-        {
-            Id = 3,
-            Name = "盾击",
-            CastRange = 1,
-            CastTime = 0.6,
-            InterruptOnMove = false,
-            PostCastTime = 0.1,
-            Cooldown = 5,
-            MpCost = 8,
-            TargetType = "SingleEnemy",
-            Actions =
-            [
-                new Dictionary<string, object> { ["type"] = "DealDamage", ["damageType"] = "physical", ["coefficient"] = 0.8 },
-                new Dictionary<string, object> { ["type"] = "InterruptCast" },
-            ],
-        },
-        [4] = new SkillConfig
-        {
-            Id = 4,
-            Name = "旋风斩",
-            CastRange = 2,
-            CastTime = 1.0,
-            InterruptOnMove = false,
-            PostCastTime = 0.1,
-            Cooldown = 8,
-            MpCost = 15,
-            TargetType = "AllEnemiesInRange",
-            Actions =
-            [
-                new Dictionary<string, object> { ["type"] = "DealDamage", ["damageType"] = "physical", ["coefficient"] = 0.6 },
-            ],
-        },
-    };
+        if (_tables != null)
+            return _tables.GetSkill(skillId);
+        return null;
+    }
 
-    internal static SkillConfig? GetSkillConfig(int skillId)
-        => SkillConfigs.GetValueOrDefault(skillId);
+    /// <summary>静态查询 — 供无状态 handler 使用</summary>
+    public static SkillConfigRow? GetSkillConfigStatic(int skillId)
+        => _staticTables?.GetSkill(skillId);
 
-    public static string? GetSkillName(int skillId)
-        => SkillConfigs.GetValueOrDefault(skillId)?.Name;
+    public string? GetSkillName(int skillId)
+        => GetSkillConfig(skillId)?.Name;
+
+    public static string? GetSkillNameStatic(int skillId)
+        => _staticTables?.GetSkill(skillId)?.Name;
 
     // ---- 阶段 1: Pre-Check ----
-    public (bool ok, string? err) PreCheck(int skillId, CombatContext ctx)
+    public (bool ok, string? err) PreCheck(int skillId, CombatContext ctx, long casterId, Dictionary<string, MapState>? maps)
     {
         var cfg = GetSkillConfig(skillId);
         if (cfg == null) return (false, "skill_not_found");
@@ -103,7 +54,15 @@ public class SkillPipeline
         if (ctx.SkillCooldowns.TryGetValue(skillId, out var cdEnd) && Environment.TickCount64 < cdEnd)
             return (false, "cooldown");
 
-        // TODO: MP 检查、状态检查（沉默/眩晕）
+        // MP 检查（怪物跳过，mp_cost=0 的技能也跳过）
+        if (cfg.MpCost > 0 && maps != null)
+        {
+            var casterState = FindPlayerState(casterId, maps);
+            if (casterState == null) return (true, null); // 怪物无 MP，跳过检查
+            if (casterState.Mp < cfg.MpCost)
+                return (false, "insufficient_mp");
+        }
+
         return (true, null);
     }
 
@@ -157,11 +116,51 @@ public class SkillPipeline
             return targets.Count > 0 ? targets : null;
         }
 
+        if (cfg.TargetType == "AllAlliesInRange")
+        {
+            var allies = new List<long>();
+            bool casterIsPlayer = casterId < 1000000;
+
+            foreach (var (mapName, map) in maps)
+            {
+                // 检查施法者是否在这张地图
+                bool casterOnThisMap = casterIsPlayer
+                    ? map.Players.ContainsKey(casterId)
+                    : map.Monsters.ContainsKey(casterId);
+                if (!casterOnThisMap) continue;
+
+                if (casterIsPlayer)
+                {
+                    foreach (var (allyId, _) in map.Players)
+                    {
+                        var allyPositions = FindEntityCombatPositions(allyId, maps);
+                        if (allyPositions.Count == 0) continue;
+                        int d = MinCombatDistance(casterPositions, allyPositions);
+                        if (d <= cfg.CastRange)
+                            allies.Add(allyId);
+                    }
+                }
+                else
+                {
+                    foreach (var (allyId, _) in map.Monsters)
+                    {
+                        var allyPositions = FindEntityCombatPositions(allyId, maps);
+                        if (allyPositions.Count == 0) continue;
+                        int d = MinCombatDistance(casterPositions, allyPositions);
+                        if (d <= cfg.CastRange)
+                            allies.Add(allyId);
+                    }
+                }
+                break; // 施法者只会在一张地图上
+            }
+            return allies.Count > 0 ? allies : null;
+        }
+
         return null;
     }
 
     // ---- 阶段 3: Cast Start ----
-    public void StartCast(long casterId, int skillId)
+    public void StartCast(long casterId, int skillId, Dictionary<string, MapState>? maps)
     {
         var ctx = CombatManager!.RelationsMgr.Contexts.GetValueOrDefault(casterId);
         var cfg = GetSkillConfig(skillId);
@@ -170,6 +169,14 @@ public class SkillPipeline
         ctx.SubState = "CASTING";
         ctx.CastSkillId = skillId;
         ctx.CastEndTime = Environment.TickCount64 + (long)(cfg.CastTime * 1000);
+
+        // 扣除 MP（仅玩家，怪物 mp_cost=0 不扣）
+        if (cfg.MpCost > 0 && maps != null)
+        {
+            var casterState = FindPlayerState(casterId, maps);
+            if (casterState != null)
+                casterState.Mp -= cfg.MpCost;
+        }
     }
 
     // ---- 阶段 4: Final Validation ----
@@ -189,6 +196,18 @@ public class SkillPipeline
             int d = MinCombatDistance(casterPositions, targetPositions);
             if (d <= cfg.CastRange)
                 validTargets.Add(targetId);
+        }
+
+        // Self 目标类型：自身距离为 0，总是合法
+        if (cfg.TargetType == "Self" && targets.Contains(casterId))
+            return true;
+
+        // AllAlliesInRange: 将合法友方写回 targets 列表
+        if (cfg.TargetType == "AllAlliesInRange" && validTargets.Count > 0)
+        {
+            targets.Clear();
+            targets.AddRange(validTargets);
+            return true;
         }
 
         if (validTargets.Count == 0)
@@ -225,13 +244,26 @@ public class SkillPipeline
 
         foreach (var actionCfg in cfg.Actions)
         {
-            string? actionType = actionCfg.TryGetValue("type", out var t) ? t as string : null;
+            // 将 CombatActionBeanRow 转为 ICombatAction 所需的字典格式
+            string actionType = actionCfg.ActionType switch
+            {
+                1 => "DealDamage",    // ECombatActionType.DealDamage
+                2 => "InterruptCast", // ECombatActionType.InterruptCast
+                3 => "Heal",          // ECombatActionType.Heal
+                _ => null!
+            };
             if (actionType == null) continue;
 
             var handler = _actionRegistry.Get(actionType);
             if (handler != null)
             {
-                context.ActionParams = actionCfg;
+                var paramDict = new Dictionary<string, object>
+                {
+                    ["type"] = actionType,
+                    ["damageType"] = actionCfg.DamageType == 2 ? "magical" : "physical",
+                    ["coefficient"] = actionCfg.Coefficient,
+                };
+                context.ActionParams = paramDict;
                 try
                 {
                     handler.Execute(casterId, targets, context);
@@ -278,7 +310,7 @@ public class SkillPipeline
         if (ctx == null) return "FAILURE";
 
         // 阶段 1: Pre-Check
-        var (ok, err) = PreCheck(skillId, ctx);
+        var (ok, err) = PreCheck(skillId, ctx, casterId, maps);
         if (!ok) return "FAILURE";
 
         // 阶段 2: Target Selection
@@ -288,7 +320,7 @@ public class SkillPipeline
         // 阶段 3: Cast Start
         var cfg = GetSkillConfig(skillId);
         double castTime = cfg?.CastTime ?? 0;
-        StartCast(casterId, skillId);
+        StartCast(casterId, skillId, maps);
 
         if (castTime > 0) return "PENDING";
 
@@ -341,6 +373,16 @@ public class SkillPipeline
     }
 
     // ---- Helpers ----
+
+    private static MapPlayerState? FindPlayerState(long entityId, Dictionary<string, MapState> maps)
+    {
+        foreach (var map in maps.Values)
+        {
+            if (map.Players.TryGetValue(entityId, out var p))
+                return p;
+        }
+        return null;
+    }
 
     public static (string? mapName, (int x, int y)? pos) FindEntityPosition(long entityId, Dictionary<string, MapState> maps)
     {
@@ -403,6 +445,8 @@ public class SkillPipeline
                 return p.RoleName ?? $"player_{entityId}";
             if (map.Monsters.TryGetValue(entityId, out var m))
                 return !string.IsNullOrEmpty(m.Name) ? m.Name : $"monster_{entityId}";
+            if (map.Npcs.TryGetValue(entityId, out var n))
+                return !string.IsNullOrEmpty(n.Name) ? n.Name : $"npc_{entityId}";
         }
         return $"entity_{entityId}";
     }
@@ -413,23 +457,8 @@ public class SkillPipeline
         {
             if (map.Players.ContainsKey(entityId)) return mapName;
             if (map.Monsters.ContainsKey(entityId)) return mapName;
+            if (map.Npcs.ContainsKey(entityId)) return mapName;
         }
         return null;
     }
-}
-
-// ---- Data types ----
-
-public class SkillConfig
-{
-    public int Id { get; set; }
-    public string Name { get; set; } = "";
-    public int CastRange { get; set; }
-    public double CastTime { get; set; }
-    public bool InterruptOnMove { get; set; }
-    public double PostCastTime { get; set; }
-    public double Cooldown { get; set; }
-    public int MpCost { get; set; }
-    public string TargetType { get; set; } = "SingleEnemy";
-    public List<Dictionary<string, object>> Actions { get; set; } = new();
 }
