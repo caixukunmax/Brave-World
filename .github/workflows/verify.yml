@@ -1,0 +1,40 @@
+name: verify
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  build-and-test:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Build Tables
+        run: npm run build:tables
+
+      - name: Build Protocols
+        run: npm run build:proto
+
+      - name: Build Server
+        run: dotnet build servercsharp/GameServer.sln --nologo -v q
+
+      - name: Run Tests
+        run: dotnet test servercsharp/src/GameServer.Tests --nologo -v q

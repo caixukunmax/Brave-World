@@ -23,5 +23,11 @@ obj/
 *.user
 *.suo
 
+# Generated code (proto / luban)
+servercsharp/src/GameServer.Proto/generated/
+servercsharp/data/tables/
+clinetcsharp/Scripts/protos/
+protocols/gen/
+
 # Server logs
 servercsharp/logs/

@@ -2,6 +2,7 @@
   "name": "@tslua/tables",
   "version": "1.0.0",
   "description": "Luban configuration tables for TS-Lua project",
+  "private": true,
   "type": "module",
   "scripts": {
     "build": "tsx scripts/build_tables.ts",
@@ -17,6 +18,6 @@
   "license": "MIT",
   "devDependencies": {
     "@types/node": "^20.0.0",
-    "tsx": "^4.0.0"
+    "tsx": "^4.19.0"
   }
 }

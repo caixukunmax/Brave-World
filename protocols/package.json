@@ -5,7 +5,7 @@
   "scripts": {
     "build": "tsx scripts/build_proto.ts"
   },
-  "dependencies": {
+  "devDependencies": {
     "glob": "^11.0.0",
     "ts-proto": "^2.11.6",
     "tsx": "^4.19.0"

@@ -1,0 +1,19 @@
+<Project>
+  <!-- 仓库级统一构建属性，所有 C# 项目自动继承 -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AnalysisLevel>latest</AnalysisLevel>
+    <!-- 现有代码暂时抑制的分析警告，后续逐步修复 -->
+    <NoWarn>$(NoWarn);CA1848;CA1707;CA1305;CA1304;CA1311;CA1862;CA5351;CS1998</NoWarn>
+  </PropertyGroup>
+
+  <!-- 测试项目放宽警告 -->
+  <PropertyGroup Condition="'$(IsTestProject)' == 'true'">
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+</Project>

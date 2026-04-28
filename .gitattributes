@@ -1,0 +1,15 @@
+# 确保文本文件使用 LF 换行符
+* text=auto eol=lf
+
+# Windows 批处理脚本必须用 CRLF
+*.bat text eol=crlf
+
+# 二进制文件不转换
+*.exe binary
+*.dll binary
+*.png binary
+*.jpg binary
+*.ico binary
+*.godot binary
+*.tscn binary
+*.tres binary
