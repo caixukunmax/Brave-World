@@ -12,6 +12,9 @@ namespace ClinetCSharp
         #region Preset UI Creation
         private void CreatePresetUI()
         {
+            if (_content == null)
+                return;
+
             VBoxContainer mainContainer = new VBoxContainer();
             mainContainer.Name = "PresetContainer";
             mainContainer.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
@@ -76,13 +79,7 @@ namespace ClinetCSharp
 
             mainContainer.AddChild(row1);
             mainContainer.AddChild(row2);
-            _panel.AddChild(mainContainer);
-
-            mainContainer.SetAnchorsPreset(Control.LayoutPreset.BottomWide);
-            mainContainer.OffsetLeft = 10;
-            mainContainer.OffsetTop = -80;
-            mainContainer.OffsetRight = -10;
-            mainContainer.OffsetBottom = -5;
+            _content.AddChild(mainContainer);
 
             RefreshPresetList();
         }

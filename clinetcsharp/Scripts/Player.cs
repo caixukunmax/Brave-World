@@ -30,7 +30,7 @@ namespace ClinetCSharp
         public bool ShowDebugInfo { get; set; } = true;
 
         // 每行文字的颜色（4行）
-        [Export] public Array<Color> LineColors { get; set; } = new Array<Color> { Colors.Black, Colors.Black, Colors.Black, Colors.Black };
+        public Array<Color> LineColors { get; set; } = new Array<Color> { Colors.Black, Colors.Black, Colors.Black, Colors.Black };
 
         // 角色信息（4行）
         public int Level { get; set; } = 1;
@@ -432,7 +432,7 @@ namespace ClinetCSharp
             return PlayerLabelTexts[index];
         }
 
-        public void SetLabelText(int index, string text)
+        public override void SetLabelText(int index, string text)
         {
             if (index < 0 || index >= LabelCount) return;
             PlayerLabelTexts[index] = text;
@@ -456,7 +456,7 @@ namespace ClinetCSharp
             return _labelFontSizes[index];
         }
 
-        public void SetLabelFontSize(int index, int size)
+        public override void SetLabelFontSize(int index, int size)
         {
             if (index < 0 || index >= LabelCount) return;
             _labelFontSizes[index] = size;
@@ -494,14 +494,14 @@ namespace ClinetCSharp
                 SetBorderWidthScale(borderScale);
         }
 
-        public void SetVisualSizeScale(float scale)
+        public override void SetVisualSizeScale(float scale)
         {
             VisualSizeScale = scale;
             SetupLabels();
             QueueRedraw();
         }
 
-        public void SetBorderWidthScale(float scale)
+        public override void SetBorderWidthScale(float scale)
         {
             BorderWidthScale = scale;
             SetupLabels();
@@ -514,7 +514,7 @@ namespace ClinetCSharp
             SetupLabels();
         }
 
-        public void SetFontSize(int size)
+        public override void SetFontSize(int size)
         {
             FontSizeOverride = size;
             UpdateLabelFontSize();
@@ -526,7 +526,7 @@ namespace ClinetCSharp
             UpdateLabelFontSize();
         }
 
-        public void SetCornerRadius(float radius)
+        public override void SetCornerRadius(float radius)
         {
             CornerRadius = radius;
             QueueRedraw();
@@ -625,7 +625,7 @@ namespace ClinetCSharp
             }
         }
 
-        public void SetBgOpacity(float opacity)
+        public override void SetBgOpacity(float opacity)
         {
             BgOpacity = opacity;
             QueueRedraw();
@@ -892,7 +892,7 @@ namespace ClinetCSharp
         private int _moveDualStartRatio;
         private int _moveDualEndRatio;
         private Tween? _currentTween;
-        private Timer? _checkTimer;
+        private Godot.Timer? _checkTimer;
         private bool _movePending = false;
         private bool _collisionMove = false;
         private bool _bouncingBack = false;
@@ -1083,7 +1083,7 @@ namespace ClinetCSharp
 
             // 启动检查点定时器
             float checkDelay = _moveDurationMs * _moveCheckRatio / 100.0f / 1000.0f;
-            _checkTimer = new Timer();
+            _checkTimer = new Godot.Timer();
             _checkTimer.WaitTime = checkDelay;
             _checkTimer.OneShot = true;
             _checkTimer.Timeout += OnMoveCheckPoint;

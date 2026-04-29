@@ -346,6 +346,39 @@ namespace ClinetCSharp
         #endregion
 
         #region Config Save/Load — delegates to tabs
+        protected override void SavePosition()
+        {
+            SavePanelGeometry();
+        }
+
+        private void SavePanelGeometry()
+        {
+            ConfigFile config = new ConfigFile();
+            Error err = config.Load(CONFIG_PATH);
+            if (err != Error.Ok && err != Error.FileNotFound)
+            {
+                GD.PushError($"[DebugPanel] Failed to load config before saving panel geometry: {err}");
+                return;
+            }
+
+            config.SetValue("meta", "config_version", CONFIG_VERSION);
+            WritePanelGeometry(config);
+
+            err = config.Save(CONFIG_PATH);
+            if (err != Error.Ok)
+                GD.PushError($"[DebugPanel] Failed to save panel geometry: {err}");
+        }
+
+        private void WritePanelGeometry(ConfigFile config)
+        {
+            float persistedHeight = IsMinimized ? NormalHeight : Size.Y;
+
+            config.SetValue("panel_geo", "offset_left", Position.X);
+            config.SetValue("panel_geo", "offset_top", Position.Y);
+            config.SetValue("panel_geo", "offset_right", Position.X + Size.X);
+            config.SetValue("panel_geo", "offset_bottom", Position.Y + persistedHeight);
+        }
+
         private void SaveConfig()
         {
             ConfigFile config = new ConfigFile();
@@ -358,14 +391,8 @@ namespace ClinetCSharp
             foreach (var tab in _tabs)
                 tab.SaveConfig(config);
 
-            // Panel geometry (size/position) — stays at panel level
-            if (_panel != null)
-            {
-                config.SetValue("panel_geo", "offset_left", _panel.OffsetLeft);
-                config.SetValue("panel_geo", "offset_top", _panel.OffsetTop);
-                config.SetValue("panel_geo", "offset_right", _panel.OffsetRight);
-                config.SetValue("panel_geo", "offset_bottom", _panel.OffsetBottom);
-            }
+            // Panel geometry (size/position) — keep legacy keys for compatibility
+            WritePanelGeometry(config);
 
             Error err = config.Save(CONFIG_PATH);
             if (err == Error.Ok)
@@ -412,13 +439,15 @@ namespace ClinetCSharp
                     MigrateConfig(config, savedVersion);
                 }
 
-                // Load panel geometry
-                if (config.HasSection("panel_geo") && _panel != null)
+                // Load panel geometry (legacy offset_* keys mapped to root position/size)
+                if (config.HasSection("panel_geo"))
                 {
-                    _panel.OffsetLeft   = (float)(double)config.GetValue("panel_geo", "offset_left",   (double)_panel.OffsetLeft);
-                    _panel.OffsetTop    = (float)(double)config.GetValue("panel_geo", "offset_top",    (double)_panel.OffsetTop);
-                    _panel.OffsetRight  = (float)(double)config.GetValue("panel_geo", "offset_right",  (double)_panel.OffsetRight);
-                    _panel.OffsetBottom = (float)(double)config.GetValue("panel_geo", "offset_bottom", (double)_panel.OffsetBottom);
+                    float left = (float)(double)config.GetValue("panel_geo", "offset_left", (double)Position.X);
+                    float top = (float)(double)config.GetValue("panel_geo", "offset_top", (double)Position.Y);
+                    float right = (float)(double)config.GetValue("panel_geo", "offset_right", (double)(Position.X + Size.X));
+                    float bottom = (float)(double)config.GetValue("panel_geo", "offset_bottom", (double)(Position.Y + Size.Y));
+
+                    RestorePosition(left, top, Mathf.Max(250.0f, right - left), Mathf.Max(200.0f, bottom - top));
                     GD.Print("[DebugPanel] Restored panel geometry");
                 }
             }

@@ -1,4 +1,4 @@
-[gd_scene format=3]
+[gd_scene load_steps=2 format=3]
 
 [ext_resource type="Script" path="res://Scripts/DebugPanel.cs" id="1_debug"]
 
@@ -14,80 +14,89 @@ corner_radius_top_right = 10
 corner_radius_bottom_right = 10
 corner_radius_bottom_left = 10
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_section"]
-bg_color = Color(0.15, 0.15, 0.15, 1)
-border_width_bottom = 1
-border_color = Color(0.3, 0.3, 0.3, 1)
-
-[node name="DebugPanel" type="Control"]
-layout_mode = 0
-script = ExtResource("1_debug")
-
-[node name="Control" type="Control" parent="."]
-layout_mode = 0
+[node name="DebugPanel" type="PanelContainer"]
+visible = false
 offset_left = 200.0
 offset_top = 60.0
 offset_right = 560.0
 offset_bottom = 540.0
-
-[node name="Panel" type="Panel" parent="Control"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_01")
+script = ExtResource("1_debug")
 
-[node name="ScrollContainer" type="ScrollContainer" parent="Control/Panel"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = 10.0
-offset_top = 36.0
-offset_right = -10.0
-offset_bottom = -80.0
+[node name="VBoxContainer" type="VBoxContainer" parent="."]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="TitleBar" type="PanelContainer" parent="VBoxContainer"]
+custom_minimum_size = Vector2(0, 32)
+layout_mode = 2
+
+[node name="HBoxContainer" type="HBoxContainer" parent="VBoxContainer/TitleBar"]
+layout_mode = 2
+
+[node name="MinimizeButton" type="Button" parent="VBoxContainer/TitleBar/HBoxContainer"]
+custom_minimum_size = Vector2(24, 24)
+layout_mode = 2
+text = "−"
+
+[node name="TitleLabel" type="Label" parent="VBoxContainer/TitleBar/HBoxContainer"]
+layout_mode = 2
+text = " 调试面板 "
+
+[node name="Spacer" type="Control" parent="VBoxContainer/TitleBar/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="CloseButton" type="Button" parent="VBoxContainer/TitleBar/HBoxContainer"]
+custom_minimum_size = Vector2(24, 24)
+layout_mode = 2
+text = "×"
+
+[node name="Content" type="VBoxContainer" parent="VBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 8
+
+[node name="ScrollContainer" type="ScrollContainer" parent="VBoxContainer/Content"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
 horizontal_scroll_mode = 0
-grow_horizontal = 2
-grow_vertical = 2
 
-[node name="TabContainer" type="TabContainer" parent="Control/Panel/ScrollContainer"]
+[node name="TabContainer" type="TabContainer" parent="VBoxContainer/Content/ScrollContainer"]
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
 tab_alignment = 1
 
-; ============================================
-; 标签页：地图
-; ============================================
-
-[node name="地图" type="VBoxContainer" parent="Control/Panel/ScrollContainer/TabContainer"]
+[node name="地图" type="VBoxContainer" parent="VBoxContainer/Content/ScrollContainer/TabContainer"]
 visible = false
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="玩家" type="VBoxContainer" parent="Control/Panel/ScrollContainer/TabContainer"]
+[node name="玩家" type="VBoxContainer" parent="VBoxContainer/Content/ScrollContainer/TabContainer"]
 visible = false
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="怪物" type="VBoxContainer" parent="Control/Panel/ScrollContainer/TabContainer"]
+[node name="怪物" type="VBoxContainer" parent="VBoxContainer/Content/ScrollContainer/TabContainer"]
 visible = false
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="NPC" type="VBoxContainer" parent="Control/Panel/ScrollContainer/TabContainer"]
+[node name="NPC" type="VBoxContainer" parent="VBoxContainer/Content/ScrollContainer/TabContainer"]
 visible = false
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="系统" type="VBoxContainer" parent="Control/Panel/ScrollContainer/TabContainer"]
+[node name="系统" type="VBoxContainer" parent="VBoxContainer/Content/ScrollContainer/TabContainer"]
 visible = false
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="UI" type="VBoxContainer" parent="Control/Panel/ScrollContainer/TabContainer"]
+[node name="UI" type="VBoxContainer" parent="VBoxContainer/Content/ScrollContainer/TabContainer"]
 visible = false
 layout_mode = 2
 theme_override_constants/separation = 8

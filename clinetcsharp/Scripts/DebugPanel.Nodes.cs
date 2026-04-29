@@ -12,16 +12,16 @@ namespace ClinetCSharp
         #region Initialize Node References
         internal void InitializeNodeReferences()
         {
-            _panel = GetNodeOrNull<Panel>("Control/Panel");
-            _outerControl = GetNodeOrNull<Control>("Control");
-            _scrollContainer = GetNodeOrNull<ScrollContainer>("Control/Panel/ScrollContainer");
-            _tabContainer = GetNodeOrNull<TabContainer>("Control/Panel/ScrollContainer/TabContainer");
+            _panel = this;
+            _content = GetNodeOrNull<VBoxContainer>("VBoxContainer/Content");
+            _scrollContainer = GetNodeOrNull<ScrollContainer>("VBoxContainer/Content/ScrollContainer");
+            _tabContainer = GetNodeOrNull<TabContainer>("VBoxContainer/Content/ScrollContainer/TabContainer");
 
-            // 预设下拉框等
-            _presetOption = GetNodeOrNull<OptionButton>("Control/Panel/ScrollContainer/TabContainer/地图/PresetOption");
-            _savePresetBtn = GetNodeOrNull<Button>("Control/Panel/ScrollContainer/TabContainer/地图/SavePresetBtn");
-            _deletePresetBtn = GetNodeOrNull<Button>("Control/Panel/ScrollContainer/TabContainer/地图/DeletePresetBtn");
-            _presetNameEdit = GetNodeOrNull<LineEdit>("Control/Panel/ScrollContainer/TabContainer/地图/PresetNameEdit");
+            // 动态创建的预设 UI 在 CreatePresetUI() 中赋值
+            _presetOption = null;
+            _savePresetBtn = null;
+            _deletePresetBtn = null;
+            _presetNameEdit = null;
         }
         #endregion
 

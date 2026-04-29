@@ -60,14 +60,14 @@ namespace ClinetCSharp
         public virtual int GridSize { get => _gridSize; set => _gridSize = value; }
 
         // ========== 外观 setter ==========
-        public void SetVisualSizeScale(float scale) { VisualSizeScale = scale; QueueRedraw(); }
-        public void SetBorderWidthScale(float scale) { BorderWidthScale = scale; QueueRedraw(); }
+        public virtual void SetVisualSizeScale(float scale) { VisualSizeScale = scale; QueueRedraw(); }
+        public virtual void SetBorderWidthScale(float scale) { BorderWidthScale = scale; QueueRedraw(); }
         public void SetBorderColor(Color color) { BorderColor = color; QueueRedraw(); }
         public void SetBgColor(Color color) { BgColor = color; QueueRedraw(); }
         public void SetTextColor(Color color) { TextColor = color; QueueRedraw(); }
-        public void SetCornerRadius(float radius) { CornerRadius = radius; QueueRedraw(); }
-        public void SetBgOpacity(float opacity) { BgOpacity = opacity; QueueRedraw(); }
-        public void SetFontSize(int size) { FontSize = size; QueueRedraw(); }
+        public virtual void SetCornerRadius(float radius) { CornerRadius = radius; QueueRedraw(); }
+        public virtual void SetBgOpacity(float opacity) { BgOpacity = opacity; QueueRedraw(); }
+        public virtual void SetFontSize(int size) { FontSize = size; QueueRedraw(); }
 
         // ========== 血条 setter ==========
         public Vector2 GetHealthBarOffset() => HealthBarOffset;
@@ -90,13 +90,13 @@ namespace ClinetCSharp
         public void SetMpBarVisible(bool visible) { MpBarVisible = visible; QueueRedraw(); }
 
         // ========== 标签 setter ==========
-        public void SetLabelText(int index, string text)
+        public virtual void SetLabelText(int index, string text)
         {
             if (index < 0 || index >= 4) return;
             LabelTexts[index] = text;
             QueueRedraw();
         }
-        public void SetLabelFontSize(int index, int size)
+        public virtual void SetLabelFontSize(int index, int size)
         {
             if (index < 0 || index >= 4) return;
             LabelFontSizes[index] = size;
