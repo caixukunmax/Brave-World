@@ -1,3 +1,4 @@
+using GameServer.Common.Events;
 using GameServer.Common.Config;
 using GameServer.Services.Map;
 using GameServer.Services.Player;
@@ -19,7 +20,14 @@ public interface IGameLogicFactory
     IMonsterAiService CreateMonsterAiService(MapDataProvider mapData, MapService mapService, INetworkSender network);
 
     /// <summary>注册消息处理器</summary>
-    void RegisterMessageHandlers(MessageHandlerRegistry registry, PlayerSessionManager session, INetworkSender network, MapDataProvider mapData, IMonsterAiService monsterAi);
+    void RegisterMessageHandlers(
+        MessageHandlerRegistry registry,
+        PlayerSessionManager session,
+        INetworkSender network,
+        MapDataProvider mapData,
+        IMonsterAiService monsterAi,
+        WorldState worldState,
+        EventBus eventBus);
 
     /// <summary>绑定死亡回调到战斗服务</summary>
     void BindDeathHandler(ICombatService combatService, MapService mapService, MapDataProvider mapData, PlayerSessionManager session, INetworkSender network);

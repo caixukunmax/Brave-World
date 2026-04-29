@@ -1,6 +1,8 @@
 using System.Reflection;
 using System.Runtime.Loader;
+using GameServer.Common.Events;
 using GameServer.Common.Net;
+using GameServer.Services.World;
 using Microsoft.Extensions.Logging;
 
 namespace GameServer.Services.Core;
@@ -54,12 +56,14 @@ public class HotReloader
         Common.Config.MapDataProvider mapData,
         Map.MapService mapService,
         MessageHandlerRegistry handlerRegistry,
-        Player.PlayerSessionManager playerSession)
+        Player.PlayerSessionManager playerSession,
+        WorldState worldState,
+        EventBus eventBus)
     {
         CombatService = factory.CreateCombatService(logger, network);
         MonsterService = factory.CreateMonsterAiService(mapData, mapService, network);
         playerSession.CombatService = CombatService;
-        factory.RegisterMessageHandlers(handlerRegistry, playerSession, network, mapData, MonsterService);
+        factory.RegisterMessageHandlers(handlerRegistry, playerSession, network, mapData, MonsterService, worldState, eventBus);
         factory.BindDeathHandler(CombatService, mapService, mapData, playerSession, network);
         factory.BindMonsterRegistry(CombatService, MonsterService);
         factory.BindLevelUpService(CombatService, MonsterService, mapService, playerSession, network);
@@ -101,7 +105,9 @@ public class HotReloader
         Map.MapService mapService,
         MessageHandlerRegistry handlerRegistry,
         Player.PlayerSessionManager playerSession,
-        MessageRouter router)
+        MessageRouter router,
+        WorldState worldState,
+        EventBus eventBus)
     {
         _logger.LogInformation("[HotReload] === Starting hot reload ===");
 
@@ -115,7 +121,7 @@ public class HotReloader
         var factory = Load();
 
         // 4. 重建服务
-        CreateServices(factory, logger, network, mapData, mapService, handlerRegistry, playerSession);
+        CreateServices(factory, logger, network, mapData, mapService, handlerRegistry, playerSession, worldState, eventBus);
 
         // 5. 重新注册路由
         handlerRegistry.RegisterAll(router);

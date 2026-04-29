@@ -1,13 +1,13 @@
+using System.Reflection;
 using GameServer.Common.Config;
+using GameServer.Common.Events;
 using GameServer.Services.Core;
 using GameServer.Services.Map;
 using GameServer.Services.Map.Combat;
 using GameServer.Services.Map.Combat.Actions;
 using GameServer.Services.Monster;
 using GameServer.Services.Player;
-using GameServer.Services.Player.Handlers;
 using GameServer.GameLogic.Npc;
-using GameServer.GameLogic.Player.Handlers;
 using GameServer.Services.World;
 using GameServer.Tables;
 using Microsoft.Extensions.Logging;
@@ -68,23 +68,84 @@ public class GameLogicFactory : IGameLogicFactory
     }
 
     public void RegisterMessageHandlers(
-        MessageHandlerRegistry registry, PlayerSessionManager session, INetworkSender network, MapDataProvider mapData, IMonsterAiService monsterAi)
+        MessageHandlerRegistry registry,
+        PlayerSessionManager session,
+        INetworkSender network,
+        MapDataProvider mapData,
+        IMonsterAiService monsterAi,
+        WorldState worldState,
+        EventBus eventBus)
     {
-        registry.Add((int)Protocol.MessageId.GameCreateRoleReq, new CreateRoleHandler(session, mapData, Tables));
-        registry.Add((int)Protocol.MessageId.GameEnterGameReq, new EnterGameHandler(session, network, monsterAi, Tables));
-        registry.Add((int)Protocol.MessageId.GameMoveReq, new MoveStartHandler(session, network, _loggerFactory.CreateLogger<MoveStartHandler>()));
-        registry.Add((int)Protocol.MessageId.GameMoveConfirmReq, new MoveConfirmHandler(session, network, _loggerFactory.CreateLogger<MoveConfirmHandler>()));
-        registry.Add((int)Protocol.MessageId.GameMoveCompleteReq, new MoveCompleteHandler(session));
-        registry.Add((int)Protocol.MessageId.GameMoveCollisionNotify, new MoveCollisionHandler(session, network, _loggerFactory.CreateLogger<MoveCollisionHandler>()));
-        registry.Add((int)Protocol.MessageId.GameUseItemReq, new UseItemHandler(session));
-        registry.Add((int)Protocol.MessageId.GameDropItemReq, new DropItemHandler(session));
-        registry.Add((int)Protocol.MessageId.GameGmReq, new GmCommandHandler(session, network, Tables));
-        registry.Add((int)Protocol.MessageId.GameOpenChestReq, new OpenChestHandler(session));
-        registry.Add((int)Protocol.MessageId.GameUpdateUiPanelPosReq, new UpdateUIPanelPosHandler(session));
-        registry.Add((int)Protocol.MessageId.GameChangeMapReq, new ChangeMapHandler(session, network, mapData, monsterAi, Tables));
-        registry.Add((int)Protocol.MessageId.GameEquipSkillReq, new EquipSkillHandler(session, network));
-        registry.Add((int)Protocol.MessageId.GameUnequipSkillReq, new UnequipSkillHandler(session, network));
-        registry.Add((int)Protocol.MessageId.GameChangeJobReq, new ChangeJobHandler(session, network, Tables));
+        // 构建依赖解析表
+        var dependencies = new Dictionary<Type, Func<object>>
+        {
+            [typeof(PlayerSessionManager)] = () => session,
+            [typeof(INetworkSender)] = () => network,
+            [typeof(MapDataProvider)] = () => mapData,
+            [typeof(IMonsterAiService)] = () => monsterAi,
+            [typeof(WorldState)] = () => worldState,
+            [typeof(IWorldState)] = () => worldState,
+            [typeof(EventBus)] = () => eventBus,
+            [typeof(LubanTableLoader)] = () => Tables,
+        };
+
+        // 扫描当前程序集中所有 IMessageHandler 实现
+        var handlerTypes = Assembly.GetExecutingAssembly().GetTypes()
+            .Where(t => !t.IsAbstract && !t.IsInterface && typeof(IMessageHandler).IsAssignableFrom(t));
+
+        foreach (var handlerType in handlerTypes)
+        {
+            var attr = handlerType.GetCustomAttribute<HandlesMessageAttribute>();
+            if (attr == null)
+            {
+                // 无 HandlesMessageAttribute 的 IMessageHandler 实现类，跳过
+                continue;
+            }
+
+            var handler = CreateHandler(handlerType, dependencies);
+            registry.Add(attr.MessageId, handler);
+        }
+    }
+
+    /// <summary>
+    /// 通过反射创建 handler 实例，自动解析构造函数参数
+    /// </summary>
+    private IMessageHandler CreateHandler(Type handlerType, Dictionary<Type, Func<object>> dependencies)
+    {
+        var ctors = handlerType.GetConstructors(BindingFlags.Public | BindingFlags.Instance);
+        if (ctors.Length == 0)
+            throw new InvalidOperationException(
+                $"No public constructor found for handler '{handlerType.Name}'");
+
+        // 优先使用参数最多的构造函数（通常只有一个公开构造函数）
+        var ctor = ctors.Length == 1 ? ctors[0] : ctors.OrderByDescending(c => c.GetParameters().Length).First();
+
+        var args = new object?[ctor.GetParameters().Length];
+        for (int i = 0; i < args.Length; i++)
+        {
+            var paramType = ctor.GetParameters()[i].ParameterType;
+
+            // ILogger<T> 特殊处理
+            if (paramType.IsGenericType && paramType.GetGenericTypeDefinition() == typeof(ILogger<>))
+            {
+                var loggerType = typeof(ILogger<>).MakeGenericType(handlerType);
+                args[i] = _loggerFactory.CreateLogger(handlerType);
+                continue;
+            }
+
+            if (dependencies.TryGetValue(paramType, out var factory))
+            {
+                args[i] = factory();
+                continue;
+            }
+
+            throw new InvalidOperationException(
+                $"Cannot resolve parameter '{ctor.GetParameters()[i].Name}' of type '{paramType.Name}' " +
+                $"for handler '{handlerType.Name}'. Supported types: " +
+                $"{string.Join(", ", dependencies.Keys.Select(k => k.Name))}, ILogger<T>");
+        }
+
+        return (IMessageHandler)ctor.Invoke(args);
     }
 
     public void BindDeathHandler(ICombatService combatService, MapService mapService, MapDataProvider mapData, PlayerSessionManager session, INetworkSender network)

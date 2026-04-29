@@ -23,6 +23,12 @@ public class MessageHandlerRegistry
     /// </summary>
     public void Add(int msgId, IMessageHandler handler)
     {
+        if (_registrations.Any(r => r.msgId == msgId))
+            throw new InvalidOperationException(
+                $"Duplicate message handler registration for msgId={msgId}. " +
+                $"Existing: {_registrations.First(r => r.msgId == msgId).handler.GetType().Name}, " +
+                $"New: {handler.GetType().Name}");
+
         _registrations.Add((msgId, handler));
     }
 

@@ -145,7 +145,9 @@ public class GameServerHostedService : IHostedService
         var playerSession = _sp.GetRequiredService<PlayerSessionManager>();
 
         var factory = hotReloader.Load();
-        hotReloader.CreateServices(factory, _logger, network, mapData, mapService, handlerRegistry, playerSession);
+        var worldState = _sp.GetRequiredService<WorldState>();
+        var eventBus = _sp.GetRequiredService<EventBus>();
+        hotReloader.CreateServices(factory, _logger, network, mapData, mapService, handlerRegistry, playerSession, worldState, eventBus);
 
         // 4. 注册消息路由
         var router = _sp.GetRequiredService<MessageRouter>();
@@ -156,7 +158,6 @@ public class GameServerHostedService : IHostedService
         _logger.LogInformation("Message routes registered");
 
         // 5. 订阅碰撞事件到战斗系统
-        var eventBus = _sp.GetRequiredService<EventBus>();
         eventBus.On("CollisionDetected", (data) =>
         {
             var (entityA, entityB, mapName) = ((long entityA, long entityB, string mapName))data!;
@@ -196,7 +197,6 @@ public class GameServerHostedService : IHostedService
         hotReloader.MonsterService?.Init();
 
         // 初始化 NPC
-        var worldState = _sp.GetRequiredService<WorldState>();
         var npcManager = factory.InitNpcs(worldState);
         hotReloader.NpcManager = npcManager;
         playerSession.NpcManager = npcManager;
@@ -206,7 +206,7 @@ public class GameServerHostedService : IHostedService
         _ = MonsterTickLoop(hotReloader, _cts.Token);
         _ = CombatTickLoop(hotReloader, mapService, _cts.Token);
         _ = PlayerAutoSaveLoop(playerSession, _cts.Token);
-        _ = HotReloadCommandLoop(hotReloader, _logger, network, mapData, mapService, handlerRegistry, playerSession, router, _cts.Token);
+        _ = HotReloadCommandLoop(hotReloader, _logger, network, mapData, mapService, handlerRegistry, playerSession, router, worldState, eventBus, _cts.Token);
         _logger.LogInformation("Game tick loops started");
 
         // 7. 启动 Gateway
@@ -326,6 +326,8 @@ public class GameServerHostedService : IHostedService
         MessageHandlerRegistry handlerRegistry,
         PlayerSessionManager playerSession,
         MessageRouter router,
+        WorldState worldState,
+        EventBus eventBus,
         CancellationToken ct)
     {
         _ = Task.Run(async () =>
@@ -337,7 +339,7 @@ public class GameServerHostedService : IHostedService
                 {
                     try
                     {
-                        hotReloader.Reload(logger, network, mapData, mapService, handlerRegistry, playerSession, router);
+                        hotReloader.Reload(logger, network, mapData, mapService, handlerRegistry, playerSession, router, worldState, eventBus);
                     }
                     catch (Exception ex)
                     {
