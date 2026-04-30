@@ -9,14 +9,16 @@ namespace ClinetCSharp
     {
         private int _gridSize = 111;
         private ulong _instanceId;
+        private int _gridX;
+        private int _gridY;
 
         public override int GridSize => _gridSize;
 
         public ulong InstanceId => _instanceId;
         public int NpcType { get; private set; }
-        public int GridX { get; private set; }
-        public int GridY { get; private set; }
-        public Vector2I GridPos => new Vector2I(GridX, GridY);
+        public override Vector2I GridPos => new Vector2I(_gridX, _gridY);
+        public int GridX => _gridX;
+        public int GridY => _gridY;
         public string NpcName { get; private set; } = "";
 
         public void Setup(ulong instanceId, string name, int npcType, int x, int y, int gridSize)
@@ -24,8 +26,8 @@ namespace ClinetCSharp
             _instanceId = instanceId;
             NpcName = name;
             NpcType = npcType;
-            GridX = x;
-            GridY = y;
+            _gridX = x;
+            _gridY = y;
             _gridSize = gridSize;
             Position = UiUtils.GridToWorld(x, y, _gridSize);
 
@@ -57,24 +59,6 @@ namespace ClinetCSharp
             EntityDrawUtils.DrawBody(this, drawSize, BgColor, BgOpacity, BorderColor, BorderWidth, CornerRadius);
             DrawBars();  // NPC 血条默认不可见，但基类方法统一处理
             DrawLabels();
-        }
-
-        public bool HitTest(Vector2 worldPos)
-        {
-            float half = _gridSize / 2.0f;
-            var worldCenter = UiUtils.GridToWorld(GridX, GridY, _gridSize);
-            return Mathf.Abs(worldPos.X - worldCenter.X) < half &&
-                   Mathf.Abs(worldPos.Y - worldCenter.Y) < half;
-        }
-
-        // ========== NPC 特有 ==========
-
-        public void SetGridSize(int size)
-        {
-            _gridSize = size;
-            // VisualSize/BorderWidth 等都是计算属性，自动跟随 GridSize
-            Position = UiUtils.GridToWorld(GridX, GridY, _gridSize);
-            QueueRedraw();
         }
     }
 }

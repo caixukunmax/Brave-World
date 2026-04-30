@@ -6,7 +6,7 @@ namespace ClinetCSharp
     /// 实体基类 — 玩家、怪物、NPC 共享的外观、标签、血条/MP条
     /// 设计原则：Scale 是唯一真相源，绝对值是计算属性，不可能不一致
     /// </summary>
-    public partial class EntityBase : Node2D
+    public abstract partial class EntityBase : Node2D
     {
         // ========== 外观 ==========
         public float VisualSizeScale { get; set; } = 1.0f;
@@ -55,6 +55,31 @@ namespace ClinetCSharp
         public bool[] LabelCenterX = new bool[4] { true, true, true, true };
         public float[] LabelYOffsets = new float[4] { 0, 0, 0, 0 };
 
+        // ========== 格子坐标 — 子类必须实现 ==========
+        public abstract Vector2I GridPos { get; }
+
+        // ========== 移动基础 ==========
+        protected Tween _currentTween;
+        public bool IsMoving { get; set; } = false;
+
+        // ========== 施法条（从 Player 下沉） ==========
+        public Vector2 CastBarOffset { get; set; } = new Vector2(0, -80);
+        public bool CastBarCenterX { get; set; } = true;
+        public float CastBarLengthScale { get; set; } = 60.0f / 111.0f;
+        public float CastBarHeightScale { get; set; } = 4.0f / 111.0f;
+        public Color CastBarColor { get; set; } = new Color(0.3f, 0.5f, 1, 1);
+        public Color CastBarBgColor { get; set; } = new Color(0.3f, 0.3f, 0.3f, 0.4f);
+        public bool CastBarVisible { get; set; } = true;
+        public float CastBarFillPercent { get; set; } = 0.0f;
+        public float CastBarLength => Mathf.Clamp(GridSize * CastBarLengthScale, 10.0f, GridSize * 2.0f);
+        public float CastBarHeight => Mathf.Clamp(GridSize * CastBarHeightScale, 2.0f, GridSize);
+
+        // ========== 动作栏（Monster 已在用，Player 也有） ==========
+        public string CastingSkill { get; set; } = "";
+        public float CastProgress { get; set; } = 0f;
+        public float ActionBarTextYOffset { get; set; } = 0f;
+        public float ActionBarProgressHeight { get; set; } = 4f;
+
         // ========== GridSize（子类可 override） ==========
         private int _gridSize = 111;
         public virtual int GridSize { get => _gridSize; set => _gridSize = value; }
@@ -88,6 +113,21 @@ namespace ClinetCSharp
         public void SetMpBarBgColor(Color color) { MpBarBgColor = color; QueueRedraw(); }
         public void SetMpBarFillPercent(float percent) { MpBarFillPercent = Mathf.Clamp(percent, 0, 1); QueueRedraw(); }
         public void SetMpBarVisible(bool visible) { MpBarVisible = visible; QueueRedraw(); }
+
+        // ========== 施法条 setter ==========
+        public Vector2 GetCastBarOffset() => CastBarOffset;
+        public void SetCastBarOffset(Vector2 offset) { CastBarOffset = offset; QueueRedraw(); }
+        public void SetCastBarCenterX(bool center) { CastBarCenterX = center; QueueRedraw(); }
+        public void SetCastBarLengthScale(float scale) { CastBarLengthScale = scale; QueueRedraw(); }
+        public void SetCastBarHeightScale(float scale) { CastBarHeightScale = scale; QueueRedraw(); }
+        public void SetCastBarColor(Color color) { CastBarColor = color; QueueRedraw(); }
+        public void SetCastBarBgColor(Color color) { CastBarBgColor = color; QueueRedraw(); }
+        public void SetCastBarFillPercent(float percent) { CastBarFillPercent = Mathf.Clamp(percent, 0, 1); QueueRedraw(); }
+        public void SetCastBarVisible(bool visible) { CastBarVisible = visible; QueueRedraw(); }
+
+        // ========== 动作栏 setter ==========
+        public void SetActionBarTextYOffset(float offset) { ActionBarTextYOffset = offset; QueueRedraw(); }
+        public void SetActionBarProgressHeight(float height) { ActionBarProgressHeight = Mathf.Max(height, 1f); QueueRedraw(); }
 
         // ========== 标签 setter ==========
         public virtual void SetLabelText(int index, string text)
@@ -151,6 +191,130 @@ namespace ClinetCSharp
                 float baselineY = posY + (font.GetAscent(fs) - font.GetDescent(fs)) * 0.5f;
                 DrawString(font, new Vector2(drawX, baselineY), LabelTexts[i], HorizontalAlignment.Left, -1, fs, TextColor);
             }
+        }
+
+        // ========== 通用方法 ==========
+
+        public virtual void SetGridSize(int size)
+        {
+            GridSize = size;
+            Position = UiUtils.GridToWorld(GridPos, GridSize);
+            QueueRedraw();
+        }
+
+        public virtual bool HitTest(Vector2 worldPos)
+        {
+            float half = GridSize / 2.0f;
+            var worldCenter = UiUtils.GridToWorld(GridPos, GridSize);
+            return Mathf.Abs(worldPos.X - worldCenter.X) < half &&
+                   Mathf.Abs(worldPos.Y - worldCenter.Y) < half;
+        }
+
+        public virtual void ApplyStyle(EntityStyleConfig cfg)
+        {
+            if (cfg == null) return;
+            VisualSizeScale = cfg.VisualSizeScale;
+            BorderWidthScale = cfg.BorderWidthScale;
+            CornerRadius = cfg.CornerRadius;
+            BgOpacity = cfg.BgOpacity;
+            FontSize = cfg.FontSize;
+            BorderColor = cfg.BorderColor;
+            BgColor = cfg.BgColor;
+            TextColor = cfg.TextColor;
+
+            for (int i = 0; i < 4; i++)
+            {
+                if (!string.IsNullOrEmpty(cfg.LabelTexts[i]))
+                    LabelTexts[i] = cfg.LabelTexts[i];
+                LabelFontSizes[i] = cfg.LabelFontSizes[i];
+                LabelXOffsets[i] = cfg.LabelXOffsets[i];
+                LabelCenterX[i] = cfg.LabelCenterX[i];
+                LabelYOffsets[i] = cfg.LabelYOffsets[i];
+            }
+
+            HealthBarVisible = cfg.HpBarVisible;
+            HealthBarLengthScale = cfg.HpBarLengthScale;
+            HealthBarHeightScale = cfg.HpBarHeightScale;
+            HealthBarFillPercent = cfg.HpBarFillPercent;
+            HealthBarOffset = new Vector2(cfg.HpBarOffsetX, cfg.HpBarOffsetY);
+            HealthBarColor = cfg.HpBarColor;
+
+            MpBarVisible = cfg.MpBarVisible;
+            MpBarLengthScale = cfg.MpBarLengthScale;
+            MpBarHeightScale = cfg.MpBarHeightScale;
+            MpBarFillPercent = cfg.MpBarFillPercent;
+            MpBarOffset = new Vector2(cfg.MpBarOffsetX, cfg.MpBarOffsetY);
+            MpBarColor = cfg.MpBarColor;
+
+            QueueRedraw();
+        }
+
+        public virtual void MoveTo(Vector2I targetGridPos, float duration = 0.15f)
+        {
+            IsMoving = true;
+            _currentTween?.Kill();
+            _currentTween = CreateTween();
+            _currentTween.SetTrans(Tween.TransitionType.Quad);
+            _currentTween.SetEase(Tween.EaseType.Out);
+            _currentTween.TweenProperty(this, "position", UiUtils.GridToWorld(targetGridPos, GridSize), duration);
+            _currentTween.Finished += () => { IsMoving = false; _currentTween = null; };
+        }
+
+        public virtual void RollbackTo(Vector2I pos)
+        {
+            _currentTween?.Kill();
+            _currentTween = null;
+            IsMoving = false;
+            Position = UiUtils.GridToWorld(pos, GridSize);
+            QueueRedraw();
+        }
+
+        public virtual void PlayBounceBack(Vector2I originPos, float duration = 0.12f)
+        {
+            _currentTween?.Kill();
+            IsMoving = true;
+            var originWorld = UiUtils.GridToWorld(originPos, GridSize);
+            _currentTween = CreateTween();
+            _currentTween.SetTrans(Tween.TransitionType.Quad);
+            _currentTween.SetEase(Tween.EaseType.In);
+            _currentTween.TweenProperty(this, "position", originWorld, duration);
+            _currentTween.Finished += () =>
+            {
+                IsMoving = false;
+                _currentTween = null;
+                Position = originWorld;
+            };
+        }
+
+        // ========== 绘制辅助 ==========
+
+        protected void DrawCastBar()
+        {
+            if (!CastBarVisible) return;
+            float cHalfLen = CastBarLength / 2.0f;
+            float cHalfH = CastBarHeight / 2.0f;
+            var cBgRect = new Rect2(
+                CastBarOffset.X - cHalfLen,
+                CastBarOffset.Y - cHalfH,
+                CastBarLength,
+                CastBarHeight);
+            DrawRect(cBgRect, CastBarBgColor, true);
+
+            float cFillWidth = CastBarLength * Mathf.Clamp(CastBarFillPercent, 0, 1);
+            if (cFillWidth > 0)
+            {
+                var cFillRect = new Rect2(
+                    CastBarOffset.X - cHalfLen,
+                    CastBarOffset.Y - cHalfH,
+                    cFillWidth,
+                    CastBarHeight);
+                DrawRect(cFillRect, CastBarColor, true);
+            }
+        }
+
+        protected void DrawActionBar()
+        {
+            EntityDrawUtils.DrawActionBar(this, VisualSize, CastingSkill, CastProgress, ActionBarTextYOffset, ActionBarProgressHeight);
         }
     }
 }

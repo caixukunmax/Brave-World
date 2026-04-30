@@ -196,27 +196,7 @@ namespace ClinetCSharp
         {
             if (npc == null) return;
             var cfg = GetStyleConfig(npc.NpcType);
-            npc.SetVisualSizeScale(cfg.VisualSizeScale);
-            npc.SetBorderWidthScale(cfg.BorderWidthScale);
-            npc.SetBorderColor(cfg.BorderColor);
-            npc.SetBgColor(cfg.BgColor);
-            npc.SetBgOpacity(cfg.BgOpacity);
-            npc.SetTextColor(cfg.TextColor);
-            npc.SetCornerRadius(cfg.CornerRadius);
-            npc.SetFontSize(cfg.FontSize);
-            // 血条 / MP 条
-            npc.SetHealthBarVisible(cfg.HpBarVisible);
-            npc.SetHealthBarLengthScale(cfg.HpBarLengthScale);
-            npc.SetHealthBarHeightScale(cfg.HpBarHeightScale);
-            npc.SetHealthBarFillPercent(cfg.HpBarFillPercent);
-            npc.SetHealthBarOffset(new Vector2(cfg.HpBarOffsetX, cfg.HpBarOffsetY));
-            npc.SetHealthBarColor(cfg.HpBarColor);
-            npc.SetMpBarVisible(cfg.MpBarVisible);
-            npc.SetMpBarLengthScale(cfg.MpBarLengthScale);
-            npc.SetMpBarHeightScale(cfg.MpBarHeightScale);
-            npc.SetMpBarFillPercent(cfg.MpBarFillPercent);
-            npc.SetMpBarOffset(new Vector2(cfg.MpBarOffsetX, cfg.MpBarOffsetY));
-            npc.SetMpBarColor(cfg.MpBarColor);
+            npc.ApplyStyle(cfg);
         }
 
         public void ApplyStyleToAll()

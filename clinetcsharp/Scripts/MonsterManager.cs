@@ -197,37 +197,7 @@ namespace ClinetCSharp
         {
             if (monster == null) return;
             var cfg = GetStyleConfig((int)monster.MonsterId);
-            monster.SetVisualSizeScale(cfg.VisualSizeScale);
-            monster.SetBorderWidthScale(cfg.BorderWidthScale);
-            monster.SetCornerRadius(cfg.CornerRadius);
-            monster.SetBgOpacity(cfg.BgOpacity);
-            monster.SetFontSize(cfg.FontSize);
-            monster.SetBorderColor(cfg.BorderColor);
-            monster.SetBgColor(cfg.BgColor);
-            monster.SetTextColor(cfg.TextColor);
-            for (int i = 0; i < 4; i++)
-            {
-                if (!string.IsNullOrEmpty(cfg.LabelTexts[i]))
-                    monster.SetLabelText(i, cfg.LabelTexts[i]);
-                monster.SetLabelFontSize(i, cfg.LabelFontSizes[i]);
-                monster.SetLabelXOffset(i, cfg.LabelXOffsets[i]);
-                monster.SetLabelCenterX(i, cfg.LabelCenterX[i]);
-                monster.SetLabelYOffset(i, cfg.LabelYOffsets[i]);
-            }
-
-            // 血条 / MP 条 — 只设 scale，setter 内部会自动计算 length/height
-            monster.SetHealthBarVisible(cfg.HpBarVisible);
-            monster.SetHealthBarLengthScale(cfg.HpBarLengthScale);
-            monster.SetHealthBarHeightScale(cfg.HpBarHeightScale);
-            monster.SetHealthBarFillPercent(cfg.HpBarFillPercent);
-            monster.SetHealthBarOffset(new Vector2(cfg.HpBarOffsetX, cfg.HpBarOffsetY));
-            monster.SetHealthBarColor(cfg.HpBarColor);
-            monster.SetMpBarVisible(cfg.MpBarVisible);
-            monster.SetMpBarLengthScale(cfg.MpBarLengthScale);
-            monster.SetMpBarHeightScale(cfg.MpBarHeightScale);
-            monster.SetMpBarFillPercent(cfg.MpBarFillPercent);
-            monster.SetMpBarOffset(new Vector2(cfg.MpBarOffsetX, cfg.MpBarOffsetY));
-            monster.SetMpBarColor(cfg.MpBarColor);
+            monster.ApplyStyle(cfg);
         }
 
         public void ApplyStyleToAll()

@@ -42,24 +42,7 @@ namespace ClinetCSharp
         // ========== 战斗属性（从服务器 attrs 同步） ==========
         public System.Collections.Generic.Dictionary<uint, int> CombatAttrs { get; } = new();
 
-        // ========== 施法条 ==========
-        public Vector2 CastBarOffset { get; set; } = new Vector2(0, -80);
-        public float CastBarLengthScale { get; set; } = 60.0f / 111.0f;
-        public float CastBarHeightScale { get; set; } = 4.0f / 111.0f;
-        public Color CastBarColor { get; set; } = new Color(0.3f, 0.5f, 1, 1); // 蓝色
-        public Color CastBarBgColor { get; set; } = new Color(0.3f, 0.3f, 0.3f, 0.4f);
-        public bool CastBarVisible { get; set; } = true;
-        public float CastBarFillPercent { get; set; } = 0.6f;
-
-        // 施法条 — 计算属性
-        public float CastBarLength => Mathf.Clamp(GridSize * CastBarLengthScale, 10.0f, GridSize * 2.0f);
-        public float CastBarHeight => Mathf.Clamp(GridSize * CastBarHeightScale, 2.0f, GridSize);
-
-        // 动作栏（角色下方）
-        public string CastingSkill { get; set; } = "";
-        public float CastProgress { get; set; } = 0f;
-        public float ActionBarTextYOffset { get; set; } = 0f;
-        public float ActionBarProgressHeight { get; set; } = 4f;
+        // ========== 施法条 & 动作栏 — 已下沉到 EntityBase ==========
 
         /// <summary>调试：强制显示动作栏（忽略 CastingSkill 为空的条件）</summary>
         public bool ActionBarForceShow { get; set; } = false;
@@ -71,8 +54,8 @@ namespace ClinetCSharp
         public bool LevelBadgeVisible { get; set; } = true;
         public string LevelBadgeText { get; set; } = "Lv.{level}";
 
-        public Vector2I GridPos { get; set; } = new Vector2I(25, 25);
-        public bool IsMoving { get; set; } = false;
+        private Vector2I _gridPos = new Vector2I(25, 25);
+        public override Vector2I GridPos => _gridPos;
 
         /// <summary>
         /// 直接传送到指定格子坐标（用于 GM 命令、死亡重生等场景）
@@ -89,9 +72,9 @@ namespace ClinetCSharp
             _collisionMove = false;
             _movePending = false;
 
-            GridPos = new Vector2I(x, y);
-            _moveFromPos = GridPos;
-            Position = UiUtils.GridToWorld(GridPos, GridSize);
+            _gridPos = new Vector2I(x, y);
+            _moveFromPos = _gridPos;
+            Position = UiUtils.GridToWorld(_gridPos, GridSize);
         }
         public HorizontalAlignment TextAlignment { get; set; } = HorizontalAlignment.Center;
 
@@ -132,7 +115,7 @@ namespace ClinetCSharp
             // 提前加载配置，确保 VisualSizeScale 等值在场景显示前就绪
             LoadStyleConfig();
 
-            Position = UiUtils.GridToWorld(GridPos, GridSize);
+            Position = UiUtils.GridToWorld(_gridPos, GridSize);
             // 初始化默认偏移
             for (int i = 0; i < LabelCount; i++)
                 _labelOffsets[i] = DefaultOffsets[i];
@@ -465,13 +448,10 @@ namespace ClinetCSharp
 
         // --- 保留的旧接口 ---
 
-        public void SetGridSize(int newSize)
+        public override void SetGridSize(int newSize)
         {
-            GridSize = newSize;
-            // VisualSize/BorderWidth/HealthBarLength/Height 等都是计算属性，自动跟随 GridSize
-            Position = UiUtils.GridToWorld(GridPos, GridSize);
+            base.SetGridSize(newSize);
             SetupLabels();
-            QueueRedraw();
         }
 
         /// <summary>
@@ -637,61 +617,7 @@ namespace ClinetCSharp
             QueueRedraw();
         }
 
-        // --- 血条/MP条控制已移至 EntityBase ---
-
-        // --- 施法条控制 ---
-
-        public Vector2 GetCastBarOffset() => CastBarOffset;
-
-        public void SetCastBarOffset(Vector2 offset)
-        {
-            CastBarOffset = offset;
-            QueueRedraw();
-        }
-
-        public void SetCastBarLengthScale(float scale)
-        {
-            CastBarLengthScale = scale;
-            QueueRedraw();
-        }
-
-        public void SetCastBarHeightScale(float scale)
-        {
-            CastBarHeightScale = scale;
-            QueueRedraw();
-        }
-
-        public void SetCastBarColor(Color color)
-        {
-            CastBarColor = color;
-            QueueRedraw();
-        }
-
-        public void SetCastBarFillPercent(float percent)
-        {
-            CastBarFillPercent = Mathf.Clamp(percent, 0, 1);
-            QueueRedraw();
-        }
-
-        public void SetCastBarVisible(bool visible)
-        {
-            CastBarVisible = visible;
-            QueueRedraw();
-        }
-
-        // --- 动作栏控制 ---
-
-        public void SetActionBarTextYOffset(float offset)
-        {
-            ActionBarTextYOffset = offset;
-            QueueRedraw();
-        }
-
-        public void SetActionBarProgressHeight(float height)
-        {
-            ActionBarProgressHeight = Mathf.Max(height, 1f);
-            QueueRedraw();
-        }
+        // --- 血条/MP条/施法条/动作栏控制已移至 EntityBase ---
 
         // --- 等级徽章控制 ---
 
@@ -765,10 +691,10 @@ namespace ClinetCSharp
             // 从服务器设置初始位置
             if (roleInfo.GridX != 0 || roleInfo.GridY != 0)
             {
-                GridPos = new Vector2I(roleInfo.GridX, roleInfo.GridY);
-                _moveFromPos = GridPos;
-                Position = UiUtils.GridToWorld(GridPos, GridSize);
-                GD.Print($"[Player] Set position from server: ({GridPos.X}, {GridPos.Y})");
+                _gridPos = new Vector2I(roleInfo.GridX, roleInfo.GridY);
+                _moveFromPos = _gridPos;
+                Position = UiUtils.GridToWorld(_gridPos, GridSize);
+                GD.Print($"[Player] Set position from server: ({_gridPos.X}, {_gridPos.Y})");
             }
 
             SetupLabels();
@@ -786,28 +712,7 @@ namespace ClinetCSharp
             DrawBars();
 
             // 施法条
-            if (CastBarVisible)
-            {
-                float cHalfLen = CastBarLength / 2.0f;
-                float cHalfH = CastBarHeight / 2.0f;
-                var cBgRect = new Rect2(
-                    CastBarOffset.X - cHalfLen,
-                    CastBarOffset.Y - cHalfH,
-                    CastBarLength,
-                    CastBarHeight);
-                DrawRect(cBgRect, CastBarBgColor, true);
-
-                float cFillWidth = CastBarLength * Mathf.Clamp(CastBarFillPercent, 0, 1);
-                if (cFillWidth > 0)
-                {
-                    var cFillRect = new Rect2(
-                        CastBarOffset.X - cHalfLen,
-                        CastBarOffset.Y - cHalfH,
-                        cFillWidth,
-                        CastBarHeight);
-                    DrawRect(cFillRect, CastBarColor, true);
-                }
-            }
+            DrawCastBar();
 
             // 等级徽章
             if (LevelBadgeVisible)
@@ -828,9 +733,21 @@ namespace ClinetCSharp
                 DrawDebugOverlay();
 
             // 动作栏（角色下方）
-            string abSkill = ActionBarForceShow ? "烈斩" : CastingSkill;
-            float abProgress = ActionBarForceShow ? 0.6f : CastProgress;
-            EntityDrawUtils.DrawActionBar(this, drawSize, abSkill, abProgress, ActionBarTextYOffset, ActionBarProgressHeight);
+            if (ActionBarForceShow)
+            {
+                // 调试模式：临时覆盖基类属性以强制显示
+                var origSkill = CastingSkill;
+                var origProgress = CastProgress;
+                CastingSkill = "烈斩";
+                CastProgress = 0.6f;
+                DrawActionBar();
+                CastingSkill = origSkill;
+                CastProgress = origProgress;
+            }
+            else
+            {
+                DrawActionBar();
+            }
         }
 
 
@@ -876,7 +793,7 @@ namespace ClinetCSharp
             DrawLine(new Vector2(0, -crossSize), new Vector2(0, crossSize), crossColor, 1.0f);
 
             var posColor = new Color(0, 1, 1, 0.9f);
-            var targetPos = UiUtils.GridToWorld(GridPos, GridSize);
+            var targetPos = UiUtils.GridToWorld(_gridPos, GridSize);
             DrawString(ThemeDB.FallbackFont, new Vector2(-gridHalf + 2, gridHalf - 20),
                 $"Pos:{Position.X:F1},{Position.Y:F1} | Target:{targetPos.X:F1},{targetPos.Y:F1}",
                 HorizontalAlignment.Left, -1, 9, posColor);
@@ -891,7 +808,6 @@ namespace ClinetCSharp
         private int _moveCheckRatio;
         private int _moveDualStartRatio;
         private int _moveDualEndRatio;
-        private Tween? _currentTween;
         private Godot.Timer? _checkTimer;
         private bool _movePending = false;
         private bool _collisionMove = false;
@@ -901,7 +817,7 @@ namespace ClinetCSharp
         {
             if (!IsMoving)
             {
-                var targetPos = UiUtils.GridToWorld(GridPos, GridSize);
+                var targetPos = UiUtils.GridToWorld(_gridPos, GridSize);
                 if (Position.DistanceTo(targetPos) > 0.5f)
                     Position = targetPos;
             }
@@ -923,25 +839,25 @@ namespace ClinetCSharp
                 direction.X = 1;
 
             if (direction != Vector2I.Zero)
-                MoveTo(GridPos + direction);
+                MoveTo(_gridPos + direction);
         }
 
-        private void MoveTo(Vector2I targetGridPos)
+        private void MoveTo(Vector2I target_gridPos)
         {
             var gridManager = GetParent()?.GetNode<GridManager>("GridManager");
-            if (gridManager != null && !gridManager.IsWalkable(targetGridPos))
+            if (gridManager != null && !gridManager.IsWalkable(target_gridPos))
             {
                 // 被怪物阻挡 → 碰撞性移动：开始动画，30% 时再检测
                 var mm = GetTree()?.GetFirstNodeInGroup("monster_manager") as MonsterManager;
-                if (mm != null && mm.IsBlockedByMonster(targetGridPos))
+                if (mm != null && mm.IsBlockedByMonster(target_gridPos))
                 {
-                    _moveFromPos = GridPos;
-                    _moveTargetPos = targetGridPos;
+                    _moveFromPos = _gridPos;
+                    _moveTargetPos = target_gridPos;
                     _collisionMove = true;
                     _movePending = true;
 
-                    // 不预测 GridPos（碰撞移动大概率弹回）
-                    var targetWorldPos = UiUtils.GridToWorld(targetGridPos, GridSize);
+                    // 不预测 _gridPos（碰撞移动大概率弹回）
+                    var targetWorldPos = UiUtils.GridToWorld(target_gridPos, GridSize);
                     IsMoving = true;
 
                     _currentTween = CreateTween();
@@ -950,28 +866,28 @@ namespace ClinetCSharp
                     _currentTween.TweenProperty(this, "position", targetWorldPos, MoveDuration);
                     _currentTween.Finished += OnMoveFinished;
 
-                    SendMoveStartRequest(_moveFromPos, targetGridPos);
+                    SendMoveStartRequest(_moveFromPos, target_gridPos);
                     return;
                 }
 
                 // 被宝箱阻挡 → 自动开箱
-                if (gridManager.IsBlockedByChest(targetGridPos))
+                if (gridManager.IsBlockedByChest(target_gridPos))
                 {
                     var chestMgr = GetTree()?.GetFirstNodeInGroup("chest_manager") as ChestManager;
-                    chestMgr?.TryOpenChestAt(targetGridPos);
+                    chestMgr?.TryOpenChestAt(target_gridPos);
                 }
 
                 return;
             }
 
-            _moveFromPos = GridPos;
-            _moveTargetPos = targetGridPos;
+            _moveFromPos = _gridPos;
+            _moveTargetPos = target_gridPos;
             _collisionMove = false;
             _movePending = true;
 
             // 客户端预测：立即开始动画
-            GridPos = targetGridPos;
-            var targetWorldPos2 = UiUtils.GridToWorld(GridPos, GridSize);
+            _gridPos = target_gridPos;
+            var targetWorldPos2 = UiUtils.GridToWorld(_gridPos, GridSize);
             IsMoving = true;
 
             _currentTween = CreateTween();
@@ -980,7 +896,7 @@ namespace ClinetCSharp
             _currentTween.TweenProperty(this, "position", targetWorldPos2, MoveDuration);
             _currentTween.Finished += OnMoveFinished;
 
-            SendMoveStartRequest(_moveFromPos, targetGridPos);
+            SendMoveStartRequest(_moveFromPos, target_gridPos);
         }
 
         private void OnMoveFinished()
@@ -988,11 +904,11 @@ namespace ClinetCSharp
             IsMoving = false;
             if (_collisionMove)
             {
-                // 碰撞移动到了终点（敌人已移走），更新 GridPos
-                GridPos = _moveTargetPos;
+                // 碰撞移动到了终点（敌人已移走），更新 _gridPos
+                _gridPos = _moveTargetPos;
                 _collisionMove = false;
             }
-            Position = UiUtils.GridToWorld(GridPos, GridSize);
+            Position = UiUtils.GridToWorld(_gridPos, GridSize);
             SendMoveCompleteRequest();
 
             // 移动完成后检测邻格 NPC，自动弹出交互面板
@@ -1003,9 +919,9 @@ namespace ClinetCSharp
         {
             var npcMgr = GetTree()?.GetFirstNodeInGroup("npc_manager") as NpcManager;
             if (npcMgr == null) return;
-            var npc = npcMgr.GetAdjacentNpc(GridPos);
+            var npc = npcMgr.GetAdjacentNpc(_gridPos);
             if (npc != null)
-                npcMgr.ShowInteractMenu(npc, npc.NpcType, GridPos);
+                npcMgr.ShowInteractMenu(npc, npc.NpcType, _gridPos);
             else
                 npcMgr.CloseInteractMenu();
         }
@@ -1044,7 +960,7 @@ namespace ClinetCSharp
                 // 服务器判定目标格被占 → bump 动画弹回原位
                 GD.Print($"[Player] Server acknowledged attack at ({rsp.X}, {rsp.Y})");
                 var originPos = new Vector2I((int)rsp.X, (int)rsp.Y);
-                GridPos = originPos;
+                _gridPos = originPos;
                 PlayBumpAnimation(originPos, _moveTargetPos);
                 return;
             }
@@ -1070,8 +986,8 @@ namespace ClinetCSharp
             float durationSec = _moveDurationMs / 1000.0f;
             if (Mathf.Abs(durationSec - MoveDuration) > 0.01f && _currentTween != null && GodotObject.IsInstanceValid(_currentTween))
             {
-                // 碰撞移动用 _moveTargetPos（GridPos 没预测到目标）
-                var tweenTarget = _collisionMove ? _moveTargetPos : GridPos;
+                // 碰撞移动用 _moveTargetPos（_gridPos 没预测到目标）
+                var tweenTarget = _collisionMove ? _moveTargetPos : _gridPos;
                 var targetWorldPos = UiUtils.GridToWorld(tweenTarget, GridSize);
                 _currentTween?.Kill();
                 _currentTween = CreateTween();
@@ -1152,7 +1068,7 @@ namespace ClinetCSharp
                 IsMoving = false;
                 _bouncingBack = false;
                 Position = originWorld;
-                GridPos = originPos;
+                _gridPos = originPos;
                 _collisionMove = false;
             };
         }
@@ -1196,13 +1112,13 @@ namespace ClinetCSharp
             if (_bouncingBack)
             {
                 // 正在弹回动画中，只同步逻辑坐标，不中断动画
-                GridPos = rollbackPos;
+                _gridPos = rollbackPos;
                 return;
             }
 
             if (!IsMoving)
             {
-                GridPos = rollbackPos;
+                _gridPos = rollbackPos;
                 Position = UiUtils.GridToWorld(rollbackPos, GridSize);
                 return;
             }
@@ -1274,9 +1190,9 @@ namespace ClinetCSharp
             _movePending = false;
 
             // 传送到出生点（死亡允许瞬移）
-            GridPos = new Vector2I(notify.SpawnX, notify.SpawnY);
-            _moveFromPos = GridPos;
-            Position = UiUtils.GridToWorld(GridPos, GridSize);
+            _gridPos = new Vector2I(notify.SpawnX, notify.SpawnY);
+            _moveFromPos = _gridPos;
+            Position = UiUtils.GridToWorld(_gridPos, GridSize);
 
             // 恢复满血满蓝
             HealthBarFillPercent = 1.0f;
@@ -1327,11 +1243,11 @@ namespace ClinetCSharp
             {
                 IsMoving = false;
                 Position = fromWorld;
-                GridPos = fromPos;
+                _gridPos = fromPos;
             };
         }
 
-        private void RollbackTo(Vector2I pos)
+        public override void RollbackTo(Vector2I pos)
         {
             _currentTween?.Kill();
             _currentTween = null;
@@ -1355,7 +1271,7 @@ namespace ClinetCSharp
                 {
                     IsMoving = false;
                     _bouncingBack = false;
-                    GridPos = pos;
+                    _gridPos = pos;
                     Position = UiUtils.GridToWorld(pos, GridSize);
                     _currentTween = null;
                 };
@@ -1365,7 +1281,7 @@ namespace ClinetCSharp
             {
                 IsMoving = false;
                 _bouncingBack = false;
-                GridPos = pos;
+                _gridPos = pos;
                 Position = targetWorld;
             }
 
