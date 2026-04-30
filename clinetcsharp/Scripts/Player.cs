@@ -1048,7 +1048,7 @@ namespace ClinetCSharp
         /// <summary>
         /// 碰撞移动弹回：从当前位置平滑弹回原位
         /// </summary>
-        private void PlayBounceBack(Vector2I originPos)
+        public override void PlayBounceBack(Vector2I originPos, float duration = 0.1f)
         {
             _currentTween?.Kill();
             _checkTimer?.Stop();

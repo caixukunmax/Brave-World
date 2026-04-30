@@ -100,6 +100,46 @@ namespace ClinetCSharp
             return c;
         }
 
+        /// <summary>
+        /// 从实体反向同步视觉/血条属性到本配置（ApplyStyle 的逆操作）
+        /// </summary>
+        public void SyncFromEntity(EntityBase entity)
+        {
+            VisualSizeScale = entity.VisualSizeScale;
+            BorderWidthScale = entity.BorderWidthScale;
+            CornerRadius = entity.CornerRadius;
+            BgOpacity = entity.BgOpacity;
+            FontSize = entity.FontSize;
+            BorderColor = entity.BorderColor;
+            BgColor = entity.BgColor;
+            TextColor = entity.TextColor;
+
+            for (int i = 0; i < 4; i++)
+            {
+                LabelTexts[i] = entity.LabelTexts[i];
+                LabelFontSizes[i] = entity.LabelFontSizes[i];
+                LabelXOffsets[i] = entity.LabelXOffsets[i];
+                LabelCenterX[i] = entity.LabelCenterX[i];
+                LabelYOffsets[i] = entity.LabelYOffsets[i];
+            }
+
+            HpBarVisible = entity.HealthBarVisible;
+            HpBarLengthScale = entity.HealthBarLengthScale;
+            HpBarHeightScale = entity.HealthBarHeightScale;
+            HpBarFillPercent = entity.HealthBarFillPercent;
+            HpBarOffsetX = entity.HealthBarOffset.X;
+            HpBarOffsetY = entity.HealthBarOffset.Y;
+            HpBarColor = entity.HealthBarColor;
+
+            MpBarVisible = entity.MpBarVisible;
+            MpBarLengthScale = entity.MpBarLengthScale;
+            MpBarHeightScale = entity.MpBarHeightScale;
+            MpBarFillPercent = entity.MpBarFillPercent;
+            MpBarOffsetX = entity.MpBarOffset.X;
+            MpBarOffsetY = entity.MpBarOffset.Y;
+            MpBarColor = entity.MpBarColor;
+        }
+
         /// <summary>怪物默认配置（红色系）</summary>
         public static EntityStyleConfig CreateMonsterDefault() => new EntityStyleConfig
         {

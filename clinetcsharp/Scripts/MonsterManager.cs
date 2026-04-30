@@ -1,4 +1,4 @@
-using Godot;
+﻿using Godot;
 using System.Collections.Generic;
 using System.Linq;
 using Protocol;
@@ -6,8 +6,8 @@ using Protocol;
 namespace ClinetCSharp
 {
     /// <summary>
-    /// 怪物管理器 - 管理地图上所有怪物实体
-    /// 挂载到 Main 场景
+    /// 鎬墿绠＄悊鍣?- 绠＄悊鍦板浘涓婃墍鏈夋€墿瀹炰綋
+    /// 鎸傝浇鍒?Main 鍦烘櫙
     /// </summary>
     public partial class MonsterManager : Node
     {
@@ -17,17 +17,15 @@ namespace ClinetCSharp
         private NetworkManager _network;
         private readonly Dictionary<ulong, Game.CombatStateNotify.Types.CombatUnit> _combatUnits = new();
 
-        // 多配置样式系统 — Key = 配置ID（MonsterId）
-        public readonly Dictionary<int, EntityStyleConfig> StyleConfigs = new();
+        // 澶氶厤缃牱寮忕郴缁?鈥?Key = 閰嶇疆ID锛圡onsterId锛?        public readonly Dictionary<int, EntityStyleConfig> StyleConfigs = new();
 
         public EntityStyleConfig GetStyleConfig(int id)
         {
             if (StyleConfigs.TryGetValue(id, out var cfg))
                 return cfg;
-            // 回退到任意已有配置
-            if (StyleConfigs.Count > 0)
+            // 鍥為€€鍒颁换鎰忓凡鏈夐厤缃?            if (StyleConfigs.Count > 0)
                 return StyleConfigs.Values.First();
-            // 空字典时自动创建默认
+            // 绌哄瓧鍏告椂鑷姩鍒涘缓榛樿
             StyleConfigs[1] = EntityStyleConfig.CreateMonsterDefault();
             return StyleConfigs[1];
         }
@@ -65,7 +63,7 @@ namespace ClinetCSharp
                 }
             }
 
-            // 提前加载配置，确保 DefaultVisualSizeScale 等默认值在 SpawnMonsters 之前就绪
+            // 鎻愬墠鍔犺浇閰嶇疆锛岀‘淇?DefaultVisualSizeScale 绛夐粯璁ゅ€煎湪 SpawnMonsters 涔嬪墠灏辩华
             LoadDefaultStyleConfig();
 
             GD.Print("[MonsterManager] _Ready");
@@ -81,19 +79,17 @@ namespace ClinetCSharp
         }
 
         /// <summary>
-        /// 从配置文件加载样式配置，确保 SpawnMonsters 时使用已保存的值
-        /// </summary>
+        /// 浠庨厤缃枃浠跺姞杞芥牱寮忛厤缃紝纭繚 SpawnMonsters 鏃朵娇鐢ㄥ凡淇濆瓨鐨勫€?        /// </summary>
         private void LoadDefaultStyleConfig()
         {
             var config = new ConfigFile();
             if (config.Load("user://debug_panel_config.cfg") != Error.Ok)
             {
-                // 没有配置文件，创建默认配置
-                StyleConfigs[1] = EntityStyleConfig.CreateMonsterDefault();
+                // 娌℃湁閰嶇疆鏂囦欢锛屽垱寤洪粯璁ら厤缃?                StyleConfigs[1] = EntityStyleConfig.CreateMonsterDefault();
                 return;
             }
 
-            // 读取所有 [monster_*] sections
+            // 璇诲彇鎵€鏈?[monster_*] sections
             bool hasAny = false;
             foreach (var sec in config.GetSections())
             {
@@ -107,7 +103,7 @@ namespace ClinetCSharp
                 hasAny = true;
             }
 
-            // 迁移旧 [monster] section
+            // 杩佺Щ鏃?[monster] section
             if (!hasAny && config.HasSection("monster"))
             {
                 var cfg = EntityStyleConfig.CreateMonsterDefault();
@@ -220,44 +216,30 @@ namespace ClinetCSharp
 
         public System.Collections.Generic.IReadOnlyList<Monster> GetMonsters() => _monsters;
 
-        public void SetHealthBarVisibleAll(bool visible) { foreach (var m in _monsters) m.SetHealthBarVisible(visible); SyncStyleConfigHpBar(); }
-        public void SetHealthBarLengthScaleAll(float scale) { foreach (var m in _monsters) m.SetHealthBarLengthScale(scale); SyncStyleConfigHpBar(); }
-        public void SetHealthBarHeightScaleAll(float scale) { foreach (var m in _monsters) m.SetHealthBarHeightScale(scale); SyncStyleConfigHpBar(); }
-        public void SetHealthBarFillPercentAll(float percent) { foreach (var m in _monsters) m.SetHealthBarFillPercent(percent); SyncStyleConfigHpBar(); }
-        public void SetHealthBarColorAll(Color color) { foreach (var m in _monsters) m.SetHealthBarColor(color); SyncStyleConfigHpBar(); }
-        public void SetHealthBarOffsetAll(Vector2 offset) { foreach (var m in _monsters) m.SetHealthBarOffset(offset); SyncStyleConfigHpBar(); }
+        public void SetHealthBarVisibleAll(bool visible) { foreach (var m in _monsters) m.SetHealthBarVisible(visible); SyncStyleConfigFromEntity(); }
+        public void SetHealthBarLengthScaleAll(float scale) { foreach (var m in _monsters) m.SetHealthBarLengthScale(scale); SyncStyleConfigFromEntity(); }
+        public void SetHealthBarHeightScaleAll(float scale) { foreach (var m in _monsters) m.SetHealthBarHeightScale(scale); SyncStyleConfigFromEntity(); }
+        public void SetHealthBarFillPercentAll(float percent) { foreach (var m in _monsters) m.SetHealthBarFillPercent(percent); SyncStyleConfigFromEntity(); }
+        public void SetHealthBarColorAll(Color color) { foreach (var m in _monsters) m.SetHealthBarColor(color); SyncStyleConfigFromEntity(); }
+        public void SetHealthBarOffsetAll(Vector2 offset) { foreach (var m in _monsters) m.SetHealthBarOffset(offset); SyncStyleConfigFromEntity(); }
 
-        public void SetMpBarVisibleAll(bool visible) { foreach (var m in _monsters) m.SetMpBarVisible(visible); SyncStyleConfigHpBar(); }
-        public void SetMpBarLengthScaleAll(float scale) { foreach (var m in _monsters) m.SetMpBarLengthScale(scale); SyncStyleConfigHpBar(); }
-        public void SetMpBarHeightScaleAll(float scale) { foreach (var m in _monsters) m.SetMpBarHeightScale(scale); SyncStyleConfigHpBar(); }
-        public void SetMpBarFillPercentAll(float percent) { foreach (var m in _monsters) m.SetMpBarFillPercent(percent); SyncStyleConfigHpBar(); }
-        public void SetMpBarColorAll(Color color) { foreach (var m in _monsters) m.SetMpBarColor(color); SyncStyleConfigHpBar(); }
-        public void SetMpBarOffsetAll(Vector2 offset) { foreach (var m in _monsters) m.SetMpBarOffset(offset); SyncStyleConfigHpBar(); }
+        public void SetMpBarVisibleAll(bool visible) { foreach (var m in _monsters) m.SetMpBarVisible(visible); SyncStyleConfigFromEntity(); }
+        public void SetMpBarLengthScaleAll(float scale) { foreach (var m in _monsters) m.SetMpBarLengthScale(scale); SyncStyleConfigFromEntity(); }
+        public void SetMpBarHeightScaleAll(float scale) { foreach (var m in _monsters) m.SetMpBarHeightScale(scale); SyncStyleConfigFromEntity(); }
+        public void SetMpBarFillPercentAll(float percent) { foreach (var m in _monsters) m.SetMpBarFillPercent(percent); SyncStyleConfigFromEntity(); }
+        public void SetMpBarColorAll(Color color) { foreach (var m in _monsters) m.SetMpBarColor(color); SyncStyleConfigFromEntity(); }
+        public void SetMpBarOffsetAll(Vector2 offset) { foreach (var m in _monsters) m.SetMpBarOffset(offset); SyncStyleConfigFromEntity(); }
 
         /// <summary>
-        /// 将当前怪物实体的血条/MP条 Scale 参数同步回所有 StyleConfig
+        /// 灏嗗綋鍓嶆€墿瀹炰綋鐨勮瑙夊睘鎬у悓姝ュ洖鎵€鏈?StyleConfig
         /// </summary>
-        private void SyncStyleConfigHpBar()
+        private void SyncStyleConfigFromEntity()
         {
             if (_monsters.Count == 0) return;
             var first = _monsters[0];
             foreach (var kv in StyleConfigs)
             {
-                var c = kv.Value;
-                c.HpBarVisible = first.HealthBarVisible;
-                c.HpBarLengthScale = first.HealthBarLengthScale;
-                c.HpBarHeightScale = first.HealthBarHeightScale;
-                c.HpBarFillPercent = first.HealthBarFillPercent;
-                c.HpBarOffsetX = first.HealthBarOffset.X;
-                c.HpBarOffsetY = first.HealthBarOffset.Y;
-                c.HpBarColor = first.HealthBarColor;
-                c.MpBarVisible = first.MpBarVisible;
-                c.MpBarLengthScale = first.MpBarLengthScale;
-                c.MpBarHeightScale = first.MpBarHeightScale;
-                c.MpBarFillPercent = first.MpBarFillPercent;
-                c.MpBarOffsetX = first.MpBarOffset.X;
-                c.MpBarOffsetY = first.MpBarOffset.Y;
-                c.MpBarColor = first.MpBarColor;
+                kv.Value.SyncFromEntity(first);
             }
         }
 
@@ -343,8 +325,7 @@ namespace ClinetCSharp
             _monsterPositions.Remove(new Vector2I(m.GridX, m.GridY));
             _monsterPositions.Add(rollbackPos);
 
-            // 移动中用平滑弹回动画，避免瞬移
-            if (m.IsMoving)
+            // 绉诲姩涓敤骞虫粦寮瑰洖鍔ㄧ敾锛岄伩鍏嶇灛绉?            if (m.IsMoving)
                 m.PlayBounceBack(rollbackPos);
             else
                 m.RollbackTo(rollbackPos);
