@@ -128,8 +128,15 @@ public class GameLogicFactory : IGameLogicFactory
             // ILogger<T> 特殊处理
             if (paramType.IsGenericType && paramType.GetGenericTypeDefinition() == typeof(ILogger<>))
             {
-                var loggerType = typeof(ILogger<>).MakeGenericType(handlerType);
-                args[i] = _loggerFactory.CreateLogger(handlerType);
+                // LoggerFactoryExtensions.CreateLogger<T>(this ILoggerFactory) 是扩展方法
+                // 它返回的 Logger<T> 实现了 ILogger<T>
+                var loggerType = paramType.GetGenericArguments()[0];
+                var createLoggerOpen = typeof(LoggerFactoryExtensions)
+                    .GetMethods()
+                    .First(m => m.Name == "CreateLogger" && m.IsGenericMethod && m.GetParameters().Length == 1
+                        && m.GetParameters()[0].ParameterType == typeof(ILoggerFactory));
+                var genericMethod = createLoggerOpen.MakeGenericMethod(loggerType);
+                args[i] = genericMethod.Invoke(null, new object[] { _loggerFactory });
                 continue;
             }
 

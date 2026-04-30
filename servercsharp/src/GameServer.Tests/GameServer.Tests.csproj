@@ -13,5 +13,7 @@
     <ProjectReference Include="..\GameServer.Common\GameServer.Common.csproj" />
     <ProjectReference Include="..\GameServer.Proto\GameServer.Proto.csproj" />
     <ProjectReference Include="..\GameServer.Tables\GameServer.Tables.csproj" />
+    <ProjectReference Include="..\GameServer.GameLogic\GameServer.GameLogic.csproj" />
+    <ProjectReference Include="..\GameServer.Services\GameServer.Services.csproj" />
   </ItemGroup>
 </Project>
