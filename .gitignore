@@ -23,6 +23,16 @@ obj/
 *.user
 *.suo
 
+# Godot generated
+clinetcsharp/.godot/
+clinetcsharp/TempGenerated/
+
+# Build logs
+clinetcsharp/build_*.log
+
+# Logs
+logs/
+
 # Generated code (proto / luban)
 servercsharp/src/GameServer.Proto/generated/
 servercsharp/data/tables/
