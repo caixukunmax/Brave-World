@@ -191,14 +191,17 @@ namespace ClinetCSharp
             base._ExitTree();
         }
 
-        public override void _UnhandledInput(InputEvent @event)
+        public override void _Input(InputEvent @event)
         {
-            // 优先处理 LineEdit 编辑模式的全局点击取消
+            // LineEdit 编辑模式下点击外部取消编辑
             if (_inputCallback != null)
             {
                 _inputCallback(@event);
             }
+        }
 
+        public override void _UnhandledInput(InputEvent @event)
+        {
             if (@event is InputEventKey keyEvent && keyEvent.Pressed)
             {
                 if (keyEvent.Keycode == Key.F12)
