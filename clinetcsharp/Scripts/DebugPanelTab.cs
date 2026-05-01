@@ -126,7 +126,7 @@ namespace ClinetCSharp
             // 创建一个可点击的 Button 覆盖在 Label 位置
             var clickBtn = new Button
             {
-                Text = valueLabel.Text,
+                Text = slider.Value.ToString(DebugPanelLengthScalePolicy.FormatStr),
                 CustomMinimumSize = valueLabel.CustomMinimumSize,
                 SizeFlagsHorizontal = valueLabel.SizeFlagsHorizontal,
                 Flat = true,
@@ -137,10 +137,10 @@ namespace ClinetCSharp
             clickBtn.AddThemeConstantOverride("h_separation", 0);
             clickBtn.AddThemeConstantOverride("outline_size", 0);
 
-            // 同步 Label 文本到 Button
+            // 同步滑条值到 Button（用三位小数）
             slider.ValueChanged += (v) =>
             {
-                clickBtn.Text = valueLabel.Text;
+                clickBtn.Text = v.ToString(DebugPanelLengthScalePolicy.FormatStr);
             };
 
             // 替换 Label 为 Button（同位置同索引）
