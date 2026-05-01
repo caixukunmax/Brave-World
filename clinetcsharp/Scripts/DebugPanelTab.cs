@@ -161,8 +161,8 @@ namespace ClinetCSharp
                 edit = new LineEdit
                 {
                     Text = clickBtn.Text,
-                    CustomMinimumSize = clickBtn.CustomMinimumSize,
-                    SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+                    CustomMinimumSize = new Vector2(50, 0),
+                    SizeFlagsHorizontal = Control.SizeFlags.ShrinkEnd,
                     PlaceholderText = clickBtn.Text,
                     FocusMode = Control.FocusModeEnum.Click
                 };
