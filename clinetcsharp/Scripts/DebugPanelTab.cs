@@ -199,6 +199,21 @@ namespace ClinetCSharp
 
                 edit.TextSubmitted += (txt) => ApplyValue();
                 edit.FocusExited += () => ApplyValue();
+
+                // 注册全局输入回调：点击 LineEdit 外部时取消编辑
+                Owner._inputCallback = (evt) =>
+                {
+                    if (edit == null || applying) return;
+                    if (evt is InputEventMouseButton mb && mb.Pressed)
+                    {
+                        var editRect = edit.GetGlobalRect();
+                        if (!editRect.HasPoint(mb.GlobalPosition))
+                        {
+                            Owner._inputCallback = null;
+                            ApplyValue();
+                        }
+                    }
+                };
             };
         }
         #endregion

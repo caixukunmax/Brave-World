@@ -1,4 +1,5 @@
 using Godot;
+using System;
 using System.Collections.Generic;
 
 namespace ClinetCSharp
@@ -78,6 +79,9 @@ namespace ClinetCSharp
         internal Player _player;
         internal CameraController _camera;
         internal bool _calibrationEnabled = false;
+
+        /// <summary>全局输入回调，用于 LineEdit 编辑模式下点击外部取消编辑</summary>
+        internal Action<InputEvent>? _inputCallback;
         private List<Godot.Collections.Dictionary> _configHistory = new List<Godot.Collections.Dictionary>();
         private int _historyIndex = -1;
         internal bool _isZoomSliderDragging = false;
@@ -189,6 +193,12 @@ namespace ClinetCSharp
 
         public override void _UnhandledInput(InputEvent @event)
         {
+            // 优先处理 LineEdit 编辑模式的全局点击取消
+            if (_inputCallback != null)
+            {
+                _inputCallback(@event);
+            }
+
             if (@event is InputEventKey keyEvent && keyEvent.Pressed)
             {
                 if (keyEvent.Keycode == Key.F12)
