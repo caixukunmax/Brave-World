@@ -163,7 +163,8 @@ namespace ClinetCSharp
                     Text = clickBtn.Text,
                     CustomMinimumSize = clickBtn.CustomMinimumSize,
                     SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
-                    PlaceholderText = clickBtn.Text
+                    PlaceholderText = clickBtn.Text,
+                    FocusMode = Control.FocusModeEnum.Click
                 };
 
                 // 替换 Button 为 LineEdit
