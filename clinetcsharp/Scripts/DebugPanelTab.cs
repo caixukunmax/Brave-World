@@ -187,12 +187,12 @@ namespace ClinetCSharp
                         slider.Value = val;
                     }
 
-                    // 恢复 Button
+                    // 恢复 Button，用三位小数格式化显示
                     int editIndex = edit.GetIndex();
                     parent.RemoveChild(edit);
                     parent.AddChild(clickBtn);
                     parent.MoveChild(clickBtn, editIndex);
-                    clickBtn.Text = valueLabel.Text;
+                    clickBtn.Text = slider.Value.ToString(DebugPanelLengthScalePolicy.FormatStr);
                     edit = null;
                     applying = false;
                 }
