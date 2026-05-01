@@ -455,19 +455,25 @@ namespace ClinetCSharp
             _healthBarColorBtn.Pressed += OnHealthBarColorPressed;
             _healthBarLengthSlider.ValueChanged += OnHealthBarLengthChanged;
             _healthBarLengthSlider.DragEnded += (changed) => Owner.PushCurrentStateToHistory();
+            AttachValueLineEdit(_healthBarLengthSlider, _healthBarLengthValue);
             _healthBarLengthScaleSlider.ValueChanged += OnHealthBarLengthScaleChanged;
             _healthBarLengthScaleSlider.DragEnded += (changed) => Owner.PushCurrentStateToHistory();
             AttachValueLineEdit(_healthBarLengthScaleSlider, _healthBarLengthScaleValue);
             _healthBarHeightSlider.ValueChanged += OnHealthBarHeightChanged;
             _healthBarHeightSlider.DragEnded += (changed) => Owner.PushCurrentStateToHistory();
+            AttachValueLineEdit(_healthBarHeightSlider, _healthBarHeightValue);
             _healthBarHeightScaleSlider.ValueChanged += OnHealthBarHeightScaleChanged;
             _healthBarHeightScaleSlider.DragEnded += (changed) => Owner.PushCurrentStateToHistory();
+            AttachValueLineEdit(_healthBarHeightScaleSlider, _healthBarHeightScaleValue);
             _healthBarFillSlider.ValueChanged += OnHealthBarFillChanged;
             _healthBarFillSlider.DragEnded += (changed) => Owner.PushCurrentStateToHistory();
+            AttachValueLineEdit(_healthBarFillSlider, _healthBarFillValue);
             _healthBarOffsetXSlider.ValueChanged += OnHealthBarOffsetXChanged;
             _healthBarOffsetXSlider.DragEnded += (changed) => Owner.PushCurrentStateToHistory();
+            AttachValueLineEdit(_healthBarOffsetXSlider, _healthBarOffsetXValue);
             _healthBarOffsetYSlider.ValueChanged += OnHealthBarOffsetYChanged;
             _healthBarOffsetYSlider.DragEnded += (changed) => Owner.PushCurrentStateToHistory();
+            AttachValueLineEdit(_healthBarOffsetYSlider, _healthBarOffsetYValue);
 
             // ========== MP条控制 ==========
             labelCtrlGroup.AddChild(new HSeparator { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill });
@@ -543,18 +549,25 @@ namespace ClinetCSharp
             _mpBarColorBtn.Pressed += OnMpBarColorPressed;
             _mpBarLengthSlider.ValueChanged += OnMpBarLengthChanged;
             _mpBarLengthSlider.DragEnded += (changed) => Owner.PushCurrentStateToHistory();
+            AttachValueLineEdit(_mpBarLengthSlider, _mpBarLengthValue);
             _mpBarLengthScaleSlider.ValueChanged += OnMpBarLengthScaleChanged;
             _mpBarLengthScaleSlider.DragEnded += (changed) => Owner.PushCurrentStateToHistory();
+            AttachValueLineEdit(_mpBarLengthScaleSlider, _mpBarLengthScaleValue);
             _mpBarHeightSlider.ValueChanged += OnMpBarHeightChanged;
             _mpBarHeightSlider.DragEnded += (changed) => Owner.PushCurrentStateToHistory();
+            AttachValueLineEdit(_mpBarHeightSlider, _mpBarHeightValue);
             _mpBarHeightScaleSlider.ValueChanged += OnMpBarHeightScaleChanged;
             _mpBarHeightScaleSlider.DragEnded += (changed) => Owner.PushCurrentStateToHistory();
+            AttachValueLineEdit(_mpBarHeightScaleSlider, _mpBarHeightScaleValue);
             _mpBarFillSlider.ValueChanged += OnMpBarFillChanged;
             _mpBarFillSlider.DragEnded += (changed) => Owner.PushCurrentStateToHistory();
+            AttachValueLineEdit(_mpBarFillSlider, _mpBarFillValue);
             _mpBarOffsetXSlider.ValueChanged += OnMpBarOffsetXChanged;
             _mpBarOffsetXSlider.DragEnded += (changed) => Owner.PushCurrentStateToHistory();
+            AttachValueLineEdit(_mpBarOffsetXSlider, _mpBarOffsetXValue);
             _mpBarOffsetYSlider.ValueChanged += OnMpBarOffsetYChanged;
             _mpBarOffsetYSlider.DragEnded += (changed) => Owner.PushCurrentStateToHistory();
+            AttachValueLineEdit(_mpBarOffsetYSlider, _mpBarOffsetYValue);
 
             // ========== 施法条控制 ==========
             labelCtrlGroup.AddChild(new HSeparator { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill });
@@ -619,14 +632,19 @@ namespace ClinetCSharp
             _castBarColorBtn.Pressed += OnCastBarColorPressed;
             _castBarLengthSlider.ValueChanged += OnCastBarLengthChanged;
             _castBarLengthSlider.DragEnded += (changed) => Owner.PushCurrentStateToHistory();
+            AttachValueLineEdit(_castBarLengthSlider, _castBarLengthValue);
             _castBarHeightSlider.ValueChanged += OnCastBarHeightChanged;
             _castBarHeightSlider.DragEnded += (changed) => Owner.PushCurrentStateToHistory();
+            AttachValueLineEdit(_castBarHeightSlider, _castBarHeightValue);
             _castBarFillSlider.ValueChanged += OnCastBarFillChanged;
             _castBarFillSlider.DragEnded += (changed) => Owner.PushCurrentStateToHistory();
+            AttachValueLineEdit(_castBarFillSlider, _castBarFillValue);
             _castBarOffsetXSlider.ValueChanged += OnCastBarOffsetXChanged;
             _castBarOffsetXSlider.DragEnded += (changed) => Owner.PushCurrentStateToHistory();
+            AttachValueLineEdit(_castBarOffsetXSlider, _castBarOffsetXValue);
             _castBarOffsetYSlider.ValueChanged += OnCastBarOffsetYChanged;
             _castBarOffsetYSlider.DragEnded += (changed) => Owner.PushCurrentStateToHistory();
+            AttachValueLineEdit(_castBarOffsetYSlider, _castBarOffsetYValue);
 
             // ========== 动作栏控制 ==========
             labelCtrlGroup.AddChild(new HSeparator { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill });
@@ -659,8 +677,10 @@ namespace ClinetCSharp
             _actionBarForceShowCheck.Toggled += OnActionBarForceShowToggled;
             _actionBarTextYOffsetSlider.ValueChanged += OnActionBarTextYOffsetChanged;
             _actionBarTextYOffsetSlider.DragEnded += (changed) => Owner.PushCurrentStateToHistory();
+            AttachValueLineEdit(_actionBarTextYOffsetSlider, _actionBarTextYOffsetValue);
             _actionBarProgressHeightSlider.ValueChanged += OnActionBarProgressHeightChanged;
             _actionBarProgressHeightSlider.DragEnded += (changed) => Owner.PushCurrentStateToHistory();
+            AttachValueLineEdit(_actionBarProgressHeightSlider, _actionBarProgressHeightValue);
 
             // ========== 等级徽章控制 ==========
             labelCtrlGroup.AddChild(new HSeparator { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill });
@@ -715,10 +735,13 @@ namespace ClinetCSharp
             _levelBadgeTextEdit.TextChanged += OnLevelBadgeTextChanged;
             _levelBadgeFontSizeSlider.ValueChanged += OnLevelBadgeFontSizeChanged;
             _levelBadgeFontSizeSlider.DragEnded += (changed) => Owner.PushCurrentStateToHistory();
+            AttachValueLineEdit(_levelBadgeFontSizeSlider, _levelBadgeFontSizeValue);
             _levelBadgeOffsetXSlider.ValueChanged += OnLevelBadgeOffsetXChanged;
             _levelBadgeOffsetXSlider.DragEnded += (changed) => Owner.PushCurrentStateToHistory();
+            AttachValueLineEdit(_levelBadgeOffsetXSlider, _levelBadgeOffsetXValue);
             _levelBadgeOffsetYSlider.ValueChanged += OnLevelBadgeOffsetYChanged;
             _levelBadgeOffsetYSlider.DragEnded += (changed) => Owner.PushCurrentStateToHistory();
+            AttachValueLineEdit(_levelBadgeOffsetYSlider, _levelBadgeOffsetYValue);
         }
 
         // ═══════════════════════════════════════════════════════════════════════

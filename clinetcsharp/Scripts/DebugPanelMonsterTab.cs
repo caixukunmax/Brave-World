@@ -348,17 +348,27 @@ namespace ClinetCSharp
             _monsterHpBarVisibleCheck.Toggled += _ => ApplyMonsterDebugChanges();
             _monsterHpBarColorBtn.Pressed += OnMonsterHpBarColorPressed;
             _monsterHpBarLengthScaleSlider.ValueChanged += _ => ApplyMonsterDebugChanges();
+            AttachValueLineEdit(_monsterHpBarLengthScaleSlider, _monsterHpBarLengthScaleValue);
             _monsterHpBarHeightScaleSlider.ValueChanged += _ => ApplyMonsterDebugChanges();
+            AttachValueLineEdit(_monsterHpBarHeightScaleSlider, _monsterHpBarHeightScaleValue);
             _monsterHpBarFillSlider.ValueChanged += _ => ApplyMonsterDebugChanges();
+            AttachValueLineEdit(_monsterHpBarFillSlider, _monsterHpBarFillValue);
             _monsterHpBarOffsetXSlider.ValueChanged += _ => ApplyMonsterDebugChanges();
+            AttachValueLineEdit(_monsterHpBarOffsetXSlider, _monsterHpBarOffsetXValue);
             _monsterHpBarOffsetYSlider.ValueChanged += _ => ApplyMonsterDebugChanges();
+            AttachValueLineEdit(_monsterHpBarOffsetYSlider, _monsterHpBarOffsetYValue);
             _monsterMpBarVisibleCheck.Toggled += _ => ApplyMonsterDebugChanges();
             _monsterMpBarColorBtn.Pressed += OnMonsterMpBarColorPressed;
             _monsterMpBarLengthScaleSlider.ValueChanged += _ => ApplyMonsterDebugChanges();
+            AttachValueLineEdit(_monsterMpBarLengthScaleSlider, _monsterMpBarLengthScaleValue);
             _monsterMpBarHeightScaleSlider.ValueChanged += _ => ApplyMonsterDebugChanges();
+            AttachValueLineEdit(_monsterMpBarHeightScaleSlider, _monsterMpBarHeightScaleValue);
             _monsterMpBarFillSlider.ValueChanged += _ => ApplyMonsterDebugChanges();
+            AttachValueLineEdit(_monsterMpBarFillSlider, _monsterMpBarFillValue);
             _monsterMpBarOffsetXSlider.ValueChanged += _ => ApplyMonsterDebugChanges();
+            AttachValueLineEdit(_monsterMpBarOffsetXSlider, _monsterMpBarOffsetXValue);
             _monsterMpBarOffsetYSlider.ValueChanged += _ => ApplyMonsterDebugChanges();
+            AttachValueLineEdit(_monsterMpBarOffsetYSlider, _monsterMpBarOffsetYValue);
 
             // ---- 怪物配置（AI / 移动） ----
             tabContainer.AddChild(new HSeparator());
