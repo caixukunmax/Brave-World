@@ -126,6 +126,8 @@ namespace ClinetCSharp
             content.AddChild(_detailLabel);
 
             vbox.AddChild(content);
+
+            UiUtils.ConfigureTransientDragControlFocus(this);
         }
 
         private VBoxContainer BuildColumn(HBoxContainer parent, string title, string scrollName)

@@ -65,7 +65,9 @@ namespace ClinetCSharp
             {
                 MinValue = min, MaxValue = max, Value = def,
                 SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
-                CustomMinimumSize = new Vector2(0, 20), Step = actualStep
+                CustomMinimumSize = new Vector2(0, 20), Step = actualStep,
+                FocusMode = Control.FocusModeEnum.Click,
+                Scrollable = false
             };
             row.AddChild(slider);
 
@@ -89,7 +91,9 @@ namespace ClinetCSharp
                 MinValue = min, MaxValue = max, Value = def,
                 SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
                 CustomMinimumSize = new Vector2(0, 20),
-                Step = step ?? (max <= 1 ? 0.05f : 1f)
+                Step = step ?? (max <= 1 ? 0.05f : 1f),
+                FocusMode = Control.FocusModeEnum.Click,
+                Scrollable = false
             };
             row.AddChild(slider);
 
@@ -109,6 +113,92 @@ namespace ClinetCSharp
                 CustomMinimumSize = new Vector2(width, 0)
             };
             return spin;
+        }
+        #endregion
+
+        #region Value Line Edit — click value label to type precise number
+        /// <summary>
+        /// 单击值标签时，将标签替换为 LineEdit，允许直接输入精确数值。
+        /// 回车确认后同步回 slider；Escape 或失焦取消。
+        /// </summary>
+        protected void AttachValueLineEdit(HSlider slider, Label valueLabel)
+        {
+            // 创建一个可点击的 Button 覆盖在 Label 位置
+            var clickBtn = new Button
+            {
+                Text = valueLabel.Text,
+                CustomMinimumSize = valueLabel.CustomMinimumSize,
+                SizeFlagsHorizontal = valueLabel.SizeFlagsHorizontal,
+                Flat = true,
+                FocusMode = Control.FocusModeEnum.Click,
+                MouseFilter = Control.MouseFilterEnum.Stop,
+                Name = valueLabel.Name + "_ClickBtn"
+            };
+            clickBtn.AddThemeConstantOverride("h_separation", 0);
+            clickBtn.AddThemeConstantOverride("outline_size", 0);
+
+            // 同步 Label 文本到 Button
+            slider.ValueChanged += (v) =>
+            {
+                clickBtn.Text = valueLabel.Text;
+            };
+
+            // 替换 Label 为 Button（同位置同索引）
+            var parent = valueLabel.GetParent();
+            if (parent == null) return; // 安全检查
+            int labelIndex = valueLabel.GetIndex();
+            parent.RemoveChild(valueLabel);
+            parent.AddChild(clickBtn);
+            parent.MoveChild(clickBtn, labelIndex);
+
+            LineEdit edit = null;
+            bool applying = false;
+
+            clickBtn.Pressed += () =>
+            {
+                if (edit != null) return;
+
+                edit = new LineEdit
+                {
+                    Text = clickBtn.Text,
+                    CustomMinimumSize = clickBtn.CustomMinimumSize,
+                    SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+                    PlaceholderText = clickBtn.Text
+                };
+
+                // 替换 Button 为 LineEdit
+                int btnIndex = clickBtn.GetIndex();
+                parent.RemoveChild(clickBtn);
+                parent.AddChild(edit);
+                parent.MoveChild(edit, btnIndex);
+                edit.GrabFocus();
+                edit.SelectAll();
+
+                void ApplyValue()
+                {
+                    if (applying) return;
+                    applying = true;
+
+                    if (double.TryParse(edit.Text, System.Globalization.NumberStyles.Float,
+                        System.Globalization.CultureInfo.InvariantCulture, out double val))
+                    {
+                        val = Mathf.Clamp((float)val, (float)slider.MinValue, (float)slider.MaxValue);
+                        slider.Value = val;
+                    }
+
+                    // 恢复 Button
+                    int editIndex = edit.GetIndex();
+                    parent.RemoveChild(edit);
+                    parent.AddChild(clickBtn);
+                    parent.MoveChild(clickBtn, editIndex);
+                    clickBtn.Text = valueLabel.Text;
+                    edit = null;
+                    applying = false;
+                }
+
+                edit.TextSubmitted += (txt) => ApplyValue();
+                edit.FocusExited += () => ApplyValue();
+            };
         }
         #endregion
     }

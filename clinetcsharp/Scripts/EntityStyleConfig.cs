@@ -33,6 +33,7 @@ namespace ClinetCSharp
         public float HpBarLengthScale = 102.0f / 111.0f;
         public float HpBarHeightScale = 6.0f / 111.0f;
         public float HpBarFillPercent = 1.0f;
+        public bool HpBarCenterX = true;
         public float HpBarOffsetX = 0;
         public float HpBarOffsetY = -70;
         public Color HpBarColor = new Color(0, 0.8f, 0, 1);
@@ -42,6 +43,7 @@ namespace ClinetCSharp
         public float MpBarLengthScale = 80.0f / 111.0f;
         public float MpBarHeightScale = 4.0f / 111.0f;
         public float MpBarFillPercent = 1.0f;
+        public bool MpBarCenterX = true;
         public float MpBarOffsetX = 0;
         public float MpBarOffsetY = -62;
         public Color MpBarColor = new Color(0.2f, 0.4f, 1.0f, 1);
@@ -78,6 +80,7 @@ namespace ClinetCSharp
                 HpBarLengthScale = HpBarLengthScale,
                 HpBarHeightScale = HpBarHeightScale,
                 HpBarFillPercent = HpBarFillPercent,
+                HpBarCenterX = HpBarCenterX,
                 HpBarOffsetX = HpBarOffsetX,
                 HpBarOffsetY = HpBarOffsetY,
                 HpBarColor = HpBarColor,
@@ -85,6 +88,7 @@ namespace ClinetCSharp
                 MpBarLengthScale = MpBarLengthScale,
                 MpBarHeightScale = MpBarHeightScale,
                 MpBarFillPercent = MpBarFillPercent,
+                MpBarCenterX = MpBarCenterX,
                 MpBarOffsetX = MpBarOffsetX,
                 MpBarOffsetY = MpBarOffsetY,
                 MpBarColor = MpBarColor,
@@ -127,6 +131,7 @@ namespace ClinetCSharp
             HpBarLengthScale = entity.HealthBarLengthScale;
             HpBarHeightScale = entity.HealthBarHeightScale;
             HpBarFillPercent = entity.HealthBarFillPercent;
+            HpBarCenterX = entity.HealthBarOffset.X == 0;
             HpBarOffsetX = entity.HealthBarOffset.X;
             HpBarOffsetY = entity.HealthBarOffset.Y;
             HpBarColor = entity.HealthBarColor;
@@ -135,6 +140,7 @@ namespace ClinetCSharp
             MpBarLengthScale = entity.MpBarLengthScale;
             MpBarHeightScale = entity.MpBarHeightScale;
             MpBarFillPercent = entity.MpBarFillPercent;
+            MpBarCenterX = entity.MpBarOffset.X == 0;
             MpBarOffsetX = entity.MpBarOffset.X;
             MpBarOffsetY = entity.MpBarOffset.Y;
             MpBarColor = entity.MpBarColor;

@@ -11,7 +11,8 @@ namespace ClinetCSharp
     public partial class Player : EntityBase
     {
         private int _gridSize = 111;
-        public override int GridSize { get => _gridSize; set => _gridSize = value; }
+        protected override int GetGridSize() => _gridSize;
+        protected override void SetGridSizeValue(int value) => _gridSize = value;
         // 外观属性已移至 EntityBase，Player 特有属性如下：
         [Export] public float MoveDuration { get; set; } = 0.15f;
         [Export] public int FontSizeOverride { get; set; } = 0;
@@ -55,7 +56,7 @@ namespace ClinetCSharp
         public string LevelBadgeText { get; set; } = "Lv.{level}";
 
         private Vector2I _gridPos = new Vector2I(25, 25);
-        public override Vector2I GridPos => _gridPos;
+        protected override Vector2I GetGridPos() => _gridPos;
 
         /// <summary>
         /// 直接传送到指定格子坐标（用于 GM 命令、死亡重生等场景）
@@ -971,7 +972,7 @@ namespace ClinetCSharp
                 var rollbackPos = new Vector2I((int)rsp.X, (int)rsp.Y);
                 if (rollbackPos.X == 0 && rollbackPos.Y == 0)
                     rollbackPos = _moveFromPos;
-                GD.Print($"[Player] Move rejected by server, rollback to ({rollbackPos.X}, {rollbackPos.Y})");
+                GD.Print($"[Player] Move rejected by server code={rsp.Code} message='{rsp.Message}' from=({_moveFromPos.X}, {_moveFromPos.Y}) target=({_moveTargetPos.X}, {_moveTargetPos.Y}) rollback=({rollbackPos.X}, {rollbackPos.Y})");
                 RollbackTo(rollbackPos);
                 return;
             }
@@ -1056,7 +1057,6 @@ namespace ClinetCSharp
             _checkTimer = null;
 
             var originWorld = UiUtils.GridToWorld(originPos, GridSize);
-            float duration = 0.1f;
 
             _bouncingBack = true;
             _currentTween = CreateTween();

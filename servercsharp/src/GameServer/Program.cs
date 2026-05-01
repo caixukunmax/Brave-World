@@ -10,6 +10,7 @@ using GameServer.Services.Map;
 using GameServer.Services.Core;
 using GameServer.Services.Player;
 using GameServer.Services.World;
+using GameServer.Tables;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -133,7 +134,7 @@ public class GameServerHostedService : IHostedService
         // 2. 加载地图数据
         var mapData = _sp.GetRequiredService<MapDataProvider>();
         var config = _sp.GetRequiredService<IConfiguration>();
-        var dataDir = _config["GameData:Dir"] ?? "data";
+        var dataDir = RuntimeDataPathResolver.ResolveMapDataDir(_config["GameData:Dir"]);
         var mapCount = mapData.LoadAllMaps(dataDir);
         _logger.LogInformation("Loaded {Count} maps from {Dir}", mapCount, dataDir);
 

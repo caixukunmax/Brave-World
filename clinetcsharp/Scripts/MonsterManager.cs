@@ -17,13 +17,15 @@ namespace ClinetCSharp
         private NetworkManager _network;
         private readonly Dictionary<ulong, Game.CombatStateNotify.Types.CombatUnit> _combatUnits = new();
 
-        // 澶氶厤缃牱寮忕郴缁?鈥?Key = 閰嶇疆ID锛圡onsterId锛?        public readonly Dictionary<int, EntityStyleConfig> StyleConfigs = new();
+        // 多配置样式系统：Key = 配置ID（MonsterId）
+        public readonly Dictionary<int, EntityStyleConfig> StyleConfigs = new();
 
         public EntityStyleConfig GetStyleConfig(int id)
         {
             if (StyleConfigs.TryGetValue(id, out var cfg))
                 return cfg;
-            // 鍥為€€鍒颁换鎰忓凡鏈夐厤缃?            if (StyleConfigs.Count > 0)
+            // 回退到任意已有配置
+            if (StyleConfigs.Count > 0)
                 return StyleConfigs.Values.First();
             // 绌哄瓧鍏告椂鑷姩鍒涘缓榛樿
             StyleConfigs[1] = EntityStyleConfig.CreateMonsterDefault();
@@ -85,7 +87,8 @@ namespace ClinetCSharp
             var config = new ConfigFile();
             if (config.Load("user://debug_panel_config.cfg") != Error.Ok)
             {
-                // 娌℃湁閰嶇疆鏂囦欢锛屽垱寤洪粯璁ら厤缃?                StyleConfigs[1] = EntityStyleConfig.CreateMonsterDefault();
+                // 没有配置文件，创建默认配置
+                StyleConfigs[1] = EntityStyleConfig.CreateMonsterDefault();
                 return;
             }
 
@@ -148,6 +151,15 @@ namespace ClinetCSharp
                 cfg.LabelCenterX[i] = (bool)config.GetValue(section, $"label_center_x_{i}", true);
                 cfg.LabelYOffsets[i] = (float)(double)config.GetValue(section, $"label_y_offset_{i}", 0);
             }
+
+            cfg.HpBarLengthScale = (float)(double)config.GetValue(section, "hp_bar_length_scale", cfg.HpBarLengthScale);
+            cfg.MpBarLengthScale = (float)(double)config.GetValue(section, "mp_bar_length_scale", cfg.MpBarLengthScale);
+            cfg.HpBarOffsetX = (float)(double)config.GetValue(section, "hp_bar_offset_x", cfg.HpBarOffsetX);
+            cfg.HpBarOffsetY = (float)(double)config.GetValue(section, "hp_bar_offset_y", cfg.HpBarOffsetY);
+            cfg.MpBarOffsetX = (float)(double)config.GetValue(section, "mp_bar_offset_x", cfg.MpBarOffsetX);
+            cfg.MpBarOffsetY = (float)(double)config.GetValue(section, "mp_bar_offset_y", cfg.MpBarOffsetY);
+            cfg.HpBarCenterX = (bool)config.GetValue(section, "hp_bar_center_x", RoleControlCenterXResolver.ResolveInitialCenterX(null, cfg.HpBarOffsetX));
+            cfg.MpBarCenterX = (bool)config.GetValue(section, "mp_bar_center_x", RoleControlCenterXResolver.ResolveInitialCenterX(null, cfg.MpBarOffsetX));
         }
 
         public void SetGridSize(int size)
@@ -325,7 +337,8 @@ namespace ClinetCSharp
             _monsterPositions.Remove(new Vector2I(m.GridX, m.GridY));
             _monsterPositions.Add(rollbackPos);
 
-            // 绉诲姩涓敤骞虫粦寮瑰洖鍔ㄧ敾锛岄伩鍏嶇灛绉?            if (m.IsMoving)
+            // Keep the rollback smooth while the monster is already moving.
+            if (m.IsMoving)
                 m.PlayBounceBack(rollbackPos);
             else
                 m.RollbackTo(rollbackPos);

@@ -14,11 +14,12 @@ namespace ClinetCSharp
         private int _gridX;
         private int _gridY;
 
-        public override int GridSize => _gridSize;
+        protected override int GetGridSize() => _gridSize;
+        protected override void SetGridSizeValue(int value) => _gridSize = value;
 
         public uint InstanceId => _instanceId;
         public uint MonsterId => _monsterId;
-        public override Vector2I GridPos => new Vector2I(_gridX, _gridY);
+        protected override Vector2I GetGridPos() => new Vector2I(_gridX, _gridY);
         public int GridX => _gridX;
         public int GridY => _gridY;
         public string MonsterName { get; private set; } = "";

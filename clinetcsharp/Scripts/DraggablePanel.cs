@@ -193,10 +193,13 @@ namespace ClinetCSharp
             if (@event is not InputEventMouseButton mb) return;
             if (mb.ButtonIndex != MouseButton.Left) return;
 
+            var viewport = GetViewport();
+
             if (mb.Pressed)
             {
                 // 用 Godot hover 系统检测鼠标位置（天然考虑 z-order 遮挡，只返回最顶层控件）
-                var hovered = GetViewport().GuiGetHoveredControl();
+                var hovered = viewport?.GuiGetHoveredControl();
+                ReleaseFocusedTransientDragControlOnMousePress(viewport, hovered);
 
                 // 输入隔离：鼠标在本面板上时，消费事件防止穿透到游戏世界，并请求焦点
                 // 但交互控件（Button/SpinBox 等）需要接收事件才能工作，不消费
@@ -223,7 +226,7 @@ namespace ClinetCSharp
                 }
 
                 // Resize 开始 — 实时验证鼠标确实在边缘区域
-                if (EnableResize && mouseOverPanel && !IsAnyDragging)
+                if (EnableResize && mouseOverPanel && !IsAnyDragging && DebugPanelTransientFocusPolicy.ShouldStartPanelResize(hovered.GetClass()))
                 {
                     var edge = DetectEdgeAtMouse();
                     if (edge != ResizeEdge.None)
@@ -235,6 +238,8 @@ namespace ClinetCSharp
             }
             else // 释放
             {
+                ReleaseFocusedTransientDragControlOnMouseRelease(viewport);
+
                 if (_dragging)
                 {
                     _dragging = false;
@@ -247,11 +252,33 @@ namespace ClinetCSharp
                 }
             }
         }
+
+        private static void ReleaseFocusedTransientDragControlOnMousePress(Viewport viewport, Control hovered)
+        {
+            var focusOwner = viewport?.GuiGetFocusOwner();
+            if (focusOwner == null) return;
+
+            bool pointerStillOnFocusOwner = hovered != null && (hovered == focusOwner || focusOwner.IsAncestorOf(hovered));
+            if (DebugPanelTransientFocusPolicy.ShouldReleaseOnLeftMousePress(focusOwner.GetClass(), pointerStillOnFocusOwner))
+                focusOwner.ReleaseFocus();
+        }
+
+        private static void ReleaseFocusedTransientDragControlOnMouseRelease(Viewport viewport)
+        {
+            var focusOwner = viewport?.GuiGetFocusOwner();
+            if (focusOwner == null) return;
+
+            if (DebugPanelTransientFocusPolicy.ShouldReleaseOnLeftMouseRelease(focusOwner.GetClass()))
+                focusOwner.ReleaseFocus();
+        }
         #endregion
 
         #region _Process - drag/resize move (polled, + safety release check)
         public override void _Process(double delta)
         {
+            if (!Input.IsMouseButtonPressed(MouseButton.Left))
+                ReleaseFocusedTransientDragControlOnMouseRelease(GetViewport());
+
             // 1. 拖拽中：更新位置
             if (_dragging)
             {

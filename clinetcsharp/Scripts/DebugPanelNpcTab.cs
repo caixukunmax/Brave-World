@@ -83,7 +83,7 @@ namespace ClinetCSharp
             (_npcSizeSlider, _npcSizeValue) = CreateMonsterSliderRow(tabContainer, "视觉大小", 32, 256, 111);
             (_npcSizeScaleSlider, _npcSizeScaleValue) = CreateMonsterSliderRow(tabContainer, "角色比例", 0.1f, 1.0f, 1.0f);
             (_npcBorderWidthSlider, _npcBorderWidthValue) = CreateMonsterSliderRow(tabContainer, "边框粗细", 0, 20, 3);
-            (_npcBorderWidthScaleSlider, _npcBorderWidthScaleValue) = CreateMonsterSliderRow(tabContainer, "边框比例", 0.0f, 0.2f, 3.0f / 111.0f, 0.01f);
+            (_npcBorderWidthScaleSlider, _npcBorderWidthScaleValue) = CreateMonsterSliderRow(tabContainer, "边框比例", 0.0f, 0.2f, 3.0f / 111.0f, DebugPanelLengthScalePolicy.StepF);
             (_npcCornerRadiusSlider, _npcCornerRadiusValue) = CreateMonsterSliderRow(tabContainer, "圆角半径", 0, 60, 12);
             (_npcBgOpacitySlider, _npcBgOpacityValue) = CreateMonsterSliderRow(tabContainer, "背景不透明度", 0, 1, 0.9f);
             (_npcFontSizeSlider, _npcFontSizeValue) = CreateMonsterSliderRow(tabContainer, "字体大小", 0, 48, 0);
@@ -134,7 +134,7 @@ namespace ClinetCSharp
                 var fsRow = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
                 fsRow.AddChild(new Control { CustomMinimumSize = new Vector2(40, 0) });
                 fsRow.AddChild(new Label { Text = "字号:", CustomMinimumSize = new Vector2(36, 0) });
-                var fsSlider = new HSlider { MinValue = 0, MaxValue = 48, Value = 0, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, CustomMinimumSize = new Vector2(0, 20), Step = 1 };
+                var fsSlider = new HSlider { MinValue = 0, MaxValue = 48, Value = 0, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, CustomMinimumSize = new Vector2(0, 20), Step = 1 , Scrollable = false };
                 fsRow.AddChild(fsSlider);
                 var fsVal = new Label { Text = "0", CustomMinimumSize = new Vector2(24, 0) };
                 fsRow.AddChild(fsVal);
@@ -146,7 +146,7 @@ namespace ClinetCSharp
                 var xRow = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
                 xRow.AddChild(new Control { CustomMinimumSize = new Vector2(40, 0) });
                 xRow.AddChild(new Label { Text = "X:", CustomMinimumSize = new Vector2(24, 0) });
-                var xSlider = new HSlider { MinValue = -40, MaxValue = 40, Value = 0, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, CustomMinimumSize = new Vector2(0, 20), Step = 1 };
+                var xSlider = new HSlider { MinValue = -40, MaxValue = 40, Value = 0, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, CustomMinimumSize = new Vector2(0, 20), Step = 1 , Scrollable = false };
                 xRow.AddChild(xSlider);
                 var xVal = new Label { Text = "0", CustomMinimumSize = new Vector2(28, 0) };
                 xRow.AddChild(xVal);
@@ -162,7 +162,7 @@ namespace ClinetCSharp
                 var yRow = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
                 yRow.AddChild(new Control { CustomMinimumSize = new Vector2(40, 0) });
                 yRow.AddChild(new Label { Text = "Y:", CustomMinimumSize = new Vector2(24, 0) });
-                var ySlider = new HSlider { MinValue = -40, MaxValue = 40, Value = 0, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, CustomMinimumSize = new Vector2(0, 20), Step = 1 };
+                var ySlider = new HSlider { MinValue = -40, MaxValue = 40, Value = 0, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, CustomMinimumSize = new Vector2(0, 20), Step = 1 , Scrollable = false };
                 yRow.AddChild(ySlider);
                 var yVal = new Label { Text = "0", CustomMinimumSize = new Vector2(28, 0) };
                 yRow.AddChild(yVal);
@@ -346,9 +346,9 @@ namespace ClinetCSharp
             _interactMenuOffsetBYSlider.SetBlockSignals(true);
 
             _npcSizeScaleSlider.Value = cfg.VisualSizeScale;
-            _npcSizeScaleValue.Text = cfg.VisualSizeScale.ToString("F2");
+            _npcSizeScaleValue.Text = cfg.VisualSizeScale.ToString(DebugPanelLengthScalePolicy.FormatStr);
             _npcBorderWidthScaleSlider.Value = cfg.BorderWidthScale;
-            _npcBorderWidthScaleValue.Text = cfg.BorderWidthScale.ToString("F2");
+            _npcBorderWidthScaleValue.Text = cfg.BorderWidthScale.ToString(DebugPanelLengthScalePolicy.FormatStr);
             _npcCornerRadiusSlider.Value = cfg.CornerRadius;
             _npcBgOpacitySlider.Value = cfg.BgOpacity;
             _npcFontSizeSlider.Value = cfg.FontSize;

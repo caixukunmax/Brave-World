@@ -36,7 +36,7 @@ namespace ClinetCSharp
 
         private void OnMapInfoReceived(Game.MapInfoSyncNotify notify)
         {
-            GD.Print("[MapManager] MapInfoReceived");
+            GD.Print($"[MapManager] MapInfoReceived map={notify.MapName} chests={notify.Chests.Count} monsters={notify.Monsters.Count} npcs={notify.Npcs.Count}");
             SpawnMapEntities();
         }
 
@@ -50,6 +50,8 @@ namespace ClinetCSharp
         {
             var nm = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
             if (nm == null) return;
+
+            GD.Print($"[MapManager] SpawnMapEntities cached chests={nm.Chests.Count} monsters={nm.Monsters.Count} npcs={nm.Npcs.Count}");
 
             var gridMgr = GetTree()?.GetFirstNodeInGroup("grid_manager") as GridManager;
             int gridSize = gridMgr?.GridSize ?? 111;

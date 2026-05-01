@@ -8,7 +8,7 @@ namespace ClinetCSharp
     {
         public override void _Run()
         {
-            var sceneRoot = GetScene();
+            var sceneRoot = EditorInterface.Singleton.GetEditedSceneRoot();
             if (sceneRoot == null)
             {
                 GD.Print("Error: No scene open");

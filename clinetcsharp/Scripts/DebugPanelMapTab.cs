@@ -85,9 +85,9 @@ namespace ClinetCSharp
             tabContainer.AddChild(new HSeparator());
 
             (_gridSizeSlider, _gridSizeValue) = CreateSliderRow(tabContainer, "格子大小", 32, 256, 111, 1f);
-            (_zoomSlider, _zoomValue) = CreateSliderRow(tabContainer, "视角远近", 0.2f, 3.0f, 1.4f, 0.1f);
-            (_gridLineWidthSlider, _gridLineWidthValue) = CreateSliderRow(tabContainer, "网格线宽", 0.1f, 5.0f, 2.0f, 0.1f);
-            (_gridLineBrightnessSlider, _gridLineBrightnessValue) = CreateSliderRow(tabContainer, "网格线亮度", 0.1f, 1.0f, 0.7f, 0.1f);
+            (_zoomSlider, _zoomValue) = CreateSliderRow(tabContainer, "视角远近", 0.2f, 3.0f, 1.4f, DebugPanelLengthScalePolicy.StepF);
+            (_gridLineWidthSlider, _gridLineWidthValue) = CreateSliderRow(tabContainer, "网格线宽", 0.1f, 5.0f, 2.0f, DebugPanelLengthScalePolicy.StepF);
+            (_gridLineBrightnessSlider, _gridLineBrightnessValue) = CreateSliderRow(tabContainer, "网格线亮度", 0.1f, 1.0f, 0.7f, DebugPanelLengthScalePolicy.StepF);
 
             var coordsRow = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
             _gridCoordsCheck = new CheckButton { Text = "显示格子坐标" };
@@ -96,7 +96,7 @@ namespace ClinetCSharp
 
             tabContainer.AddChild(new HSeparator());
 
-            (_cameraReturnDelaySlider, _cameraReturnDelayValue) = CreateSliderRow(tabContainer, "恢复延迟", 0.0f, 3.0f, 0.5f, 0.1f);
+            (_cameraReturnDelaySlider, _cameraReturnDelayValue) = CreateSliderRow(tabContainer, "恢复延迟", 0.0f, 3.0f, 0.5f, DebugPanelLengthScalePolicy.StepF);
             (_cameraReturnSpeedSlider, _cameraReturnSpeedValue) = CreateSliderRow(tabContainer, "回退速度", 1.0f, 20.0f, 5.0f, 1f);
 
             var easeRow = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
@@ -105,7 +105,7 @@ namespace ClinetCSharp
             easeRow.AddChild(_cameraEaseTypeOption);
             tabContainer.AddChild(easeRow);
 
-            (_cameraEasePowerSlider, _cameraEasePowerValue) = CreateSliderRow(tabContainer, "缓动强度", 1.0f, 5.0f, 2.0f, 0.1f);
+            (_cameraEasePowerSlider, _cameraEasePowerValue) = CreateSliderRow(tabContainer, "缓动强度", 1.0f, 5.0f, 2.0f, DebugPanelLengthScalePolicy.StepF);
 
             var debugRow = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
             _debugInfoCheck = new CheckButton { Text = "显示调试信息", ButtonPressed = true };
@@ -151,12 +151,12 @@ namespace ClinetCSharp
 
         private void CreateLineWidthScaleSlider(Node mapTab)
         {
-            _lineWidthScaleSlider = new HSlider();
+            _lineWidthScaleSlider = new HSlider { Scrollable = false };
             _lineWidthScaleSlider.Name = "LineWidthScaleSlider";
             _lineWidthScaleSlider.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
             _lineWidthScaleSlider.MinValue = 1.0;
             _lineWidthScaleSlider.MaxValue = 10.0;
-            _lineWidthScaleSlider.Step = 0.5;
+            _lineWidthScaleSlider.Step = DebugPanelLengthScalePolicy.Step;
             _lineWidthScaleSlider.Value = 2.0;
 
             HBoxContainer row = new HBoxContainer();

@@ -143,7 +143,7 @@ namespace ClinetCSharp
         #endregion
 
         #region Dynamic controls
-        private FileDialog _fontFileDialog;
+        private FileDialog _fontFileDialog = null!;
         #endregion
 
         // ═══════════════════════════════════════════════════════════════════════
@@ -163,11 +163,11 @@ namespace ClinetCSharp
             playerTab.AddChild(new HSeparator());
 
             (_playerSizeSlider, _playerSizeValue) = CreateSliderRow(playerTab, "角色大小", 32, 256, 111, 1f);
-            (_playerSizeScaleSlider, _playerSizeScaleValue) = CreateSliderRow(playerTab, "角色比例", 0.1f, 1.0f, 1.0f, 0.05f);
+            (_playerSizeScaleSlider, _playerSizeScaleValue) = CreateSliderRow(playerTab, "角色比例", 0.1f, 1.0f, 1.0f, DebugPanelLengthScalePolicy.StepF);
             (_borderWidthSlider, _borderWidthValue) = CreateSliderRow(playerTab, "边框粗细", 1.0f, 20.0f, 3.0f, 0.5f);
-            (_borderWidthScaleSlider, _borderWidthScaleValue) = CreateSliderRow(playerTab, "边框比例", 0.0f, 0.2f, 3.0f / 111.0f, 0.01f);
+            (_borderWidthScaleSlider, _borderWidthScaleValue) = CreateSliderRow(playerTab, "边框比例", 0.0f, 0.2f, 3.0f / 111.0f, DebugPanelLengthScalePolicy.StepF);
             (_cornerRadiusSlider, _cornerRadiusValue) = CreateSliderRow(playerTab, "圆角半径", 0.0f, 30.0f, 0.0f, 1f);
-            (_bgOpacitySlider, _bgOpacityValue) = CreateSliderRow(playerTab, "背景明度", 0.0f, 1.0f, 0.1f, 0.05f);
+            (_bgOpacitySlider, _bgOpacityValue) = CreateSliderRow(playerTab, "背景明度", 0.0f, 1.0f, 0.1f, DebugPanelLengthScalePolicy.StepF);
 
             playerTab.AddChild(new HSeparator());
 
@@ -180,7 +180,7 @@ namespace ClinetCSharp
             playerTab.AddChild(fontRow);
 
             (_fontSizeSlider, _fontSizeValue) = CreateSliderRow(playerTab, "字体大小", 0, 48, 0, 1f);
-            (_lineSpacingSlider, _lineSpacingValue) = CreateSliderRow(playerTab, "行间距", 0.5f, 1.5f, 0.8f, 0.1f);
+            (_lineSpacingSlider, _lineSpacingValue) = CreateSliderRow(playerTab, "行间距", 0.5f, 1.5f, 0.8f, DebugPanelLengthScalePolicy.StepF);
             (_letterSpacingSlider, _letterSpacingValue) = CreateSliderRow(playerTab, "字间距", -5, 10, 0, 1f);
 
             playerTab.AddChild(new Label { Text = "文字对齐:" });
@@ -316,7 +316,7 @@ namespace ClinetCSharp
                 fontSizeRow.AddChild(fsValue);
                 labelCtrlGroup.AddChild(fontSizeRow);
 
-                var fontSizeSlider = new HSlider();
+                var fontSizeSlider = new HSlider { Scrollable = false };
                 fontSizeSlider.Name = $"LabelFontSizeSlider_{i}";
                 fontSizeSlider.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
                 fontSizeSlider.MinValue = 0; fontSizeSlider.MaxValue = 48; fontSizeSlider.Step = 1; fontSizeSlider.Value = 0;
@@ -334,7 +334,7 @@ namespace ClinetCSharp
                 offsetXRow.AddChild(oxValue);
                 labelCtrlGroup.AddChild(offsetXRow);
 
-                var offsetXSlider = new HSlider();
+                var offsetXSlider = new HSlider { Scrollable = false };
                 offsetXSlider.Name = $"LabelOffsetXSlider_{i}";
                 offsetXSlider.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
                 offsetXSlider.MinValue = -150; offsetXSlider.MaxValue = 150; offsetXSlider.Step = 1;
@@ -353,7 +353,7 @@ namespace ClinetCSharp
                 offsetYRow.AddChild(oyValue);
                 labelCtrlGroup.AddChild(offsetYRow);
 
-                var offsetYSlider = new HSlider();
+                var offsetYSlider = new HSlider { Scrollable = false };
                 offsetYSlider.Name = $"LabelOffsetYSlider_{i}";
                 offsetYSlider.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
                 offsetYSlider.MinValue = -150; offsetYSlider.MaxValue = 150; offsetYSlider.Step = 1;
@@ -395,7 +395,7 @@ namespace ClinetCSharp
             _healthBarLengthValue = new Label { Text = "80", CustomMinimumSize = new Vector2(25, 0), HorizontalAlignment = HorizontalAlignment.Right };
             lenRow.AddChild(_healthBarLengthValue);
             labelCtrlGroup.AddChild(lenRow);
-            _healthBarLengthSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = 20, MaxValue = 400, Step = 1, Value = 80 };
+            _healthBarLengthSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = 20, MaxValue = 400, Step = 1, Value = 80 , Scrollable = false };
             labelCtrlGroup.AddChild(_healthBarLengthSlider);
 
             var lenScaleRow = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
@@ -403,7 +403,7 @@ namespace ClinetCSharp
             _healthBarLengthScaleValue = new Label { Text = "0.72", CustomMinimumSize = new Vector2(30, 0), HorizontalAlignment = HorizontalAlignment.Right };
             lenScaleRow.AddChild(_healthBarLengthScaleValue);
             labelCtrlGroup.AddChild(lenScaleRow);
-            _healthBarLengthScaleSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = 0.1, MaxValue = 2.0, Step = 0.05, Value = 80.0 / 111.0 };
+            _healthBarLengthScaleSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = 0.1, MaxValue = 2.0, Step = DebugPanelLengthScalePolicy.Step, Value = 80.0 / 111.0 , Scrollable = false };
             labelCtrlGroup.AddChild(_healthBarLengthScaleSlider);
 
             // Height
@@ -412,7 +412,7 @@ namespace ClinetCSharp
             _healthBarHeightValue = new Label { Text = "6", CustomMinimumSize = new Vector2(25, 0), HorizontalAlignment = HorizontalAlignment.Right };
             hRow.AddChild(_healthBarHeightValue);
             labelCtrlGroup.AddChild(hRow);
-            _healthBarHeightSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = 2, MaxValue = 40, Step = 1, Value = 6 };
+            _healthBarHeightSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = 2, MaxValue = 40, Step = 1, Value = 6 , Scrollable = false };
             labelCtrlGroup.AddChild(_healthBarHeightSlider);
 
             var hScaleRow = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
@@ -420,7 +420,7 @@ namespace ClinetCSharp
             _healthBarHeightScaleValue = new Label { Text = "0.05", CustomMinimumSize = new Vector2(30, 0), HorizontalAlignment = HorizontalAlignment.Right };
             hScaleRow.AddChild(_healthBarHeightScaleValue);
             labelCtrlGroup.AddChild(hScaleRow);
-            _healthBarHeightScaleSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = 0.01, MaxValue = 0.3, Step = 0.01, Value = 6.0 / 111.0 };
+            _healthBarHeightScaleSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = 0.01, MaxValue = 0.3, Step = DebugPanelLengthScalePolicy.Step, Value = 6.0 / 111.0 , Scrollable = false };
             labelCtrlGroup.AddChild(_healthBarHeightScaleSlider);
 
             // Fill
@@ -429,7 +429,7 @@ namespace ClinetCSharp
             _healthBarFillValue = new Label { Text = "100%", CustomMinimumSize = new Vector2(30, 0), HorizontalAlignment = HorizontalAlignment.Right };
             fillRow.AddChild(_healthBarFillValue);
             labelCtrlGroup.AddChild(fillRow);
-            _healthBarFillSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = 0, MaxValue = 100, Step = 1, Value = 100 };
+            _healthBarFillSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = 0, MaxValue = 100, Step = 1, Value = 100 , Scrollable = false };
             labelCtrlGroup.AddChild(_healthBarFillSlider);
 
             // HealthBar Offset X
@@ -438,7 +438,7 @@ namespace ClinetCSharp
             _healthBarOffsetXValue = new Label { Text = "0", CustomMinimumSize = new Vector2(30, 0), HorizontalAlignment = HorizontalAlignment.Right };
             hpxRow.AddChild(_healthBarOffsetXValue);
             labelCtrlGroup.AddChild(hpxRow);
-            _healthBarOffsetXSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = -150, MaxValue = 150, Step = 1, Value = 0 };
+            _healthBarOffsetXSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = -150, MaxValue = 150, Step = 1, Value = 0 , Scrollable = false };
             labelCtrlGroup.AddChild(_healthBarOffsetXSlider);
 
             // HealthBar Offset Y
@@ -447,7 +447,7 @@ namespace ClinetCSharp
             _healthBarOffsetYValue = new Label { Text = "-70", CustomMinimumSize = new Vector2(30, 0), HorizontalAlignment = HorizontalAlignment.Right };
             hpyRow.AddChild(_healthBarOffsetYValue);
             labelCtrlGroup.AddChild(hpyRow);
-            _healthBarOffsetYSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = -150, MaxValue = 150, Step = 1, Value = -70 };
+            _healthBarOffsetYSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = -150, MaxValue = 150, Step = 1, Value = -70 , Scrollable = false };
             labelCtrlGroup.AddChild(_healthBarOffsetYSlider);
 
             // HealthBar signals
@@ -457,6 +457,7 @@ namespace ClinetCSharp
             _healthBarLengthSlider.DragEnded += (changed) => Owner.PushCurrentStateToHistory();
             _healthBarLengthScaleSlider.ValueChanged += OnHealthBarLengthScaleChanged;
             _healthBarLengthScaleSlider.DragEnded += (changed) => Owner.PushCurrentStateToHistory();
+            AttachValueLineEdit(_healthBarLengthScaleSlider, _healthBarLengthScaleValue);
             _healthBarHeightSlider.ValueChanged += OnHealthBarHeightChanged;
             _healthBarHeightSlider.DragEnded += (changed) => Owner.PushCurrentStateToHistory();
             _healthBarHeightScaleSlider.ValueChanged += OnHealthBarHeightScaleChanged;
@@ -486,7 +487,7 @@ namespace ClinetCSharp
             _mpBarLengthValue = new Label { Text = "80", CustomMinimumSize = new Vector2(25, 0), HorizontalAlignment = HorizontalAlignment.Right };
             mpLenRow.AddChild(_mpBarLengthValue);
             labelCtrlGroup.AddChild(mpLenRow);
-            _mpBarLengthSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = 20, MaxValue = 400, Step = 1, Value = 80 };
+            _mpBarLengthSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = 20, MaxValue = 400, Step = 1, Value = 80 , Scrollable = false };
             labelCtrlGroup.AddChild(_mpBarLengthSlider);
 
             var mpLenScaleRow = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
@@ -494,7 +495,7 @@ namespace ClinetCSharp
             _mpBarLengthScaleValue = new Label { Text = "0.72", CustomMinimumSize = new Vector2(30, 0), HorizontalAlignment = HorizontalAlignment.Right };
             mpLenScaleRow.AddChild(_mpBarLengthScaleValue);
             labelCtrlGroup.AddChild(mpLenScaleRow);
-            _mpBarLengthScaleSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = 0.1, MaxValue = 2.0, Step = 0.05, Value = 80.0 / 111.0 };
+            _mpBarLengthScaleSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = 0.1, MaxValue = 2.0, Step = DebugPanelLengthScalePolicy.Step, Value = 80.0 / 111.0 , Scrollable = false };
             labelCtrlGroup.AddChild(_mpBarLengthScaleSlider);
 
             var mpHRow = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
@@ -502,7 +503,7 @@ namespace ClinetCSharp
             _mpBarHeightValue = new Label { Text = "4", CustomMinimumSize = new Vector2(25, 0), HorizontalAlignment = HorizontalAlignment.Right };
             mpHRow.AddChild(_mpBarHeightValue);
             labelCtrlGroup.AddChild(mpHRow);
-            _mpBarHeightSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = 2, MaxValue = 40, Step = 1, Value = 4 };
+            _mpBarHeightSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = 2, MaxValue = 40, Step = 1, Value = 4 , Scrollable = false };
             labelCtrlGroup.AddChild(_mpBarHeightSlider);
 
             var mpHScaleRow = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
@@ -510,7 +511,7 @@ namespace ClinetCSharp
             _mpBarHeightScaleValue = new Label { Text = "0.04", CustomMinimumSize = new Vector2(30, 0), HorizontalAlignment = HorizontalAlignment.Right };
             mpHScaleRow.AddChild(_mpBarHeightScaleValue);
             labelCtrlGroup.AddChild(mpHScaleRow);
-            _mpBarHeightScaleSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = 0.01, MaxValue = 0.3, Step = 0.01, Value = 4.0 / 111.0 };
+            _mpBarHeightScaleSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = 0.01, MaxValue = 0.3, Step = DebugPanelLengthScalePolicy.Step, Value = 4.0 / 111.0 , Scrollable = false };
             labelCtrlGroup.AddChild(_mpBarHeightScaleSlider);
 
             var mpFillRow = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
@@ -518,7 +519,7 @@ namespace ClinetCSharp
             _mpBarFillValue = new Label { Text = "100%", CustomMinimumSize = new Vector2(30, 0), HorizontalAlignment = HorizontalAlignment.Right };
             mpFillRow.AddChild(_mpBarFillValue);
             labelCtrlGroup.AddChild(mpFillRow);
-            _mpBarFillSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = 0, MaxValue = 100, Step = 1, Value = 100 };
+            _mpBarFillSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = 0, MaxValue = 100, Step = 1, Value = 100 , Scrollable = false };
             labelCtrlGroup.AddChild(_mpBarFillSlider);
 
             var mpOffXRow = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
@@ -526,7 +527,7 @@ namespace ClinetCSharp
             _mpBarOffsetXValue = new Label { Text = "0", CustomMinimumSize = new Vector2(30, 0), HorizontalAlignment = HorizontalAlignment.Right };
             mpOffXRow.AddChild(_mpBarOffsetXValue);
             labelCtrlGroup.AddChild(mpOffXRow);
-            _mpBarOffsetXSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = -150, MaxValue = 150, Step = 1, Value = 0 };
+            _mpBarOffsetXSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = -150, MaxValue = 150, Step = 1, Value = 0 , Scrollable = false };
             labelCtrlGroup.AddChild(_mpBarOffsetXSlider);
 
             var mpOffYRow = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
@@ -534,7 +535,7 @@ namespace ClinetCSharp
             _mpBarOffsetYValue = new Label { Text = "-62", CustomMinimumSize = new Vector2(30, 0), HorizontalAlignment = HorizontalAlignment.Right };
             mpOffYRow.AddChild(_mpBarOffsetYValue);
             labelCtrlGroup.AddChild(mpOffYRow);
-            _mpBarOffsetYSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = -150, MaxValue = 150, Step = 1, Value = -62 };
+            _mpBarOffsetYSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = -150, MaxValue = 150, Step = 1, Value = -62 , Scrollable = false };
             labelCtrlGroup.AddChild(_mpBarOffsetYSlider);
 
             // MPBar signals
@@ -574,7 +575,7 @@ namespace ClinetCSharp
             _castBarLengthValue = new Label { Text = "60", CustomMinimumSize = new Vector2(25, 0), HorizontalAlignment = HorizontalAlignment.Right };
             ctLenRow.AddChild(_castBarLengthValue);
             labelCtrlGroup.AddChild(ctLenRow);
-            _castBarLengthSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = 20, MaxValue = 200, Step = 1, Value = 60 };
+            _castBarLengthSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = 20, MaxValue = 200, Step = 1, Value = 60 , Scrollable = false };
             labelCtrlGroup.AddChild(_castBarLengthSlider);
 
             // CastBar Height
@@ -583,7 +584,7 @@ namespace ClinetCSharp
             _castBarHeightValue = new Label { Text = "4", CustomMinimumSize = new Vector2(25, 0), HorizontalAlignment = HorizontalAlignment.Right };
             ctHtRow.AddChild(_castBarHeightValue);
             labelCtrlGroup.AddChild(ctHtRow);
-            _castBarHeightSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = 2, MaxValue = 20, Step = 1, Value = 4 };
+            _castBarHeightSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = 2, MaxValue = 20, Step = 1, Value = 4 , Scrollable = false };
             labelCtrlGroup.AddChild(_castBarHeightSlider);
 
             // CastBar Fill
@@ -592,7 +593,7 @@ namespace ClinetCSharp
             _castBarFillValue = new Label { Text = "60%", CustomMinimumSize = new Vector2(30, 0), HorizontalAlignment = HorizontalAlignment.Right };
             ctFillRow.AddChild(_castBarFillValue);
             labelCtrlGroup.AddChild(ctFillRow);
-            _castBarFillSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = 0, MaxValue = 100, Step = 1, Value = 60 };
+            _castBarFillSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = 0, MaxValue = 100, Step = 1, Value = 60 , Scrollable = false };
             labelCtrlGroup.AddChild(_castBarFillSlider);
 
             // CastBar Offset X
@@ -601,7 +602,7 @@ namespace ClinetCSharp
             _castBarOffsetXValue = new Label { Text = "0", CustomMinimumSize = new Vector2(30, 0), HorizontalAlignment = HorizontalAlignment.Right };
             ctOxRow.AddChild(_castBarOffsetXValue);
             labelCtrlGroup.AddChild(ctOxRow);
-            _castBarOffsetXSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = -150, MaxValue = 150, Step = 1, Value = 0 };
+            _castBarOffsetXSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = -150, MaxValue = 150, Step = 1, Value = 0 , Scrollable = false };
             labelCtrlGroup.AddChild(_castBarOffsetXSlider);
 
             // CastBar Offset Y
@@ -610,7 +611,7 @@ namespace ClinetCSharp
             _castBarOffsetYValue = new Label { Text = "-80", CustomMinimumSize = new Vector2(30, 0), HorizontalAlignment = HorizontalAlignment.Right };
             ctOyRow.AddChild(_castBarOffsetYValue);
             labelCtrlGroup.AddChild(ctOyRow);
-            _castBarOffsetYSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = -150, MaxValue = 150, Step = 1, Value = -80 };
+            _castBarOffsetYSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = -150, MaxValue = 150, Step = 1, Value = -80 , Scrollable = false };
             labelCtrlGroup.AddChild(_castBarOffsetYSlider);
 
             // CastBar signals
@@ -643,7 +644,7 @@ namespace ClinetCSharp
             _actionBarTextYOffsetValue = new Label { Text = "0", CustomMinimumSize = new Vector2(30, 0), HorizontalAlignment = HorizontalAlignment.Right };
             abTxtRow.AddChild(_actionBarTextYOffsetValue);
             labelCtrlGroup.AddChild(abTxtRow);
-            _actionBarTextYOffsetSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = -30, MaxValue = 30, Step = 1, Value = 0 };
+            _actionBarTextYOffsetSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = -30, MaxValue = 30, Step = 1, Value = 0 , Scrollable = false };
             labelCtrlGroup.AddChild(_actionBarTextYOffsetSlider);
 
             // Progress height
@@ -652,7 +653,7 @@ namespace ClinetCSharp
             _actionBarProgressHeightValue = new Label { Text = "4", CustomMinimumSize = new Vector2(30, 0), HorizontalAlignment = HorizontalAlignment.Right };
             abPhRow.AddChild(_actionBarProgressHeightValue);
             labelCtrlGroup.AddChild(abPhRow);
-            _actionBarProgressHeightSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = 1, MaxValue = 20, Step = 1, Value = 4 };
+            _actionBarProgressHeightSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = 1, MaxValue = 20, Step = 1, Value = 4 , Scrollable = false };
             labelCtrlGroup.AddChild(_actionBarProgressHeightSlider);
 
             _actionBarForceShowCheck.Toggled += OnActionBarForceShowToggled;
@@ -687,7 +688,7 @@ namespace ClinetCSharp
             _levelBadgeFontSizeValue = new Label { Text = "12", CustomMinimumSize = new Vector2(25, 0), HorizontalAlignment = HorizontalAlignment.Right };
             lvSzRow.AddChild(_levelBadgeFontSizeValue);
             labelCtrlGroup.AddChild(lvSzRow);
-            _levelBadgeFontSizeSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = 6, MaxValue = 24, Step = 1, Value = 12 };
+            _levelBadgeFontSizeSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = 6, MaxValue = 24, Step = 1, Value = 12 , Scrollable = false };
             labelCtrlGroup.AddChild(_levelBadgeFontSizeSlider);
 
             // LevelBadge Offset X
@@ -696,7 +697,7 @@ namespace ClinetCSharp
             _levelBadgeOffsetXValue = new Label { Text = "-35", CustomMinimumSize = new Vector2(30, 0), HorizontalAlignment = HorizontalAlignment.Right };
             lvOxRow.AddChild(_levelBadgeOffsetXValue);
             labelCtrlGroup.AddChild(lvOxRow);
-            _levelBadgeOffsetXSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = -150, MaxValue = 150, Step = 1, Value = -35 };
+            _levelBadgeOffsetXSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = -150, MaxValue = 150, Step = 1, Value = -35 , Scrollable = false };
             labelCtrlGroup.AddChild(_levelBadgeOffsetXSlider);
 
             // LevelBadge Offset Y
@@ -705,7 +706,7 @@ namespace ClinetCSharp
             _levelBadgeOffsetYValue = new Label { Text = "-35", CustomMinimumSize = new Vector2(30, 0), HorizontalAlignment = HorizontalAlignment.Right };
             lvOyRow.AddChild(_levelBadgeOffsetYValue);
             labelCtrlGroup.AddChild(lvOyRow);
-            _levelBadgeOffsetYSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = -150, MaxValue = 150, Step = 1, Value = -35 };
+            _levelBadgeOffsetYSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = -150, MaxValue = 150, Step = 1, Value = -35 , Scrollable = false };
             labelCtrlGroup.AddChild(_levelBadgeOffsetYSlider);
 
             // LevelBadge signals
@@ -913,7 +914,7 @@ namespace ClinetCSharp
                     _playerSizeScaleSlider.SetBlockSignals(true);
                     _playerSizeScaleSlider.Value = scale;
                     _playerSizeScaleSlider.SetBlockSignals(false);
-                    _playerSizeScaleValue.Text = scale.ToString("F2");
+                    _playerSizeScaleValue.Text = scale.ToString(DebugPanelLengthScalePolicy.FormatStr);
                 }
             }
             Owner.PushCurrentStateToHistory();
@@ -922,7 +923,7 @@ namespace ClinetCSharp
         private void OnPlayerSizeScaleChanged(double value)
         {
             if (_playerSizeScaleValue != null)
-                _playerSizeScaleValue.Text = value.ToString("F2");
+                _playerSizeScaleValue.Text = value.ToString(DebugPanelLengthScalePolicy.FormatStr);
         }
 
         private void OnPlayerSizeScaleDragEnded(bool valueChanged)
@@ -959,7 +960,7 @@ namespace ClinetCSharp
                     _borderWidthScaleSlider.SetBlockSignals(true);
                     _borderWidthScaleSlider.Value = scale;
                     _borderWidthScaleSlider.SetBlockSignals(false);
-                    _borderWidthScaleValue.Text = scale.ToString("F2");
+                    _borderWidthScaleValue.Text = scale.ToString(DebugPanelLengthScalePolicy.FormatStr);
                 }
             }
             Owner.PushCurrentStateToHistory();
@@ -968,7 +969,7 @@ namespace ClinetCSharp
         private void OnBorderWidthScaleChanged(double value)
         {
             if (_borderWidthScaleValue != null)
-                _borderWidthScaleValue.Text = value.ToString("F2");
+                _borderWidthScaleValue.Text = value.ToString(DebugPanelLengthScalePolicy.FormatStr);
         }
 
         private void OnBorderWidthScaleDragEnded(bool valueChanged)
@@ -1295,7 +1296,7 @@ namespace ClinetCSharp
                 _playerSizeScaleSlider.SetBlockSignals(true);
                 _playerSizeScaleSlider.Value = Player.VisualSizeScale;
                 _playerSizeScaleSlider.SetBlockSignals(false);
-                _playerSizeScaleValue.Text = Player.VisualSizeScale.ToString("F2");
+                _playerSizeScaleValue.Text = Player.VisualSizeScale.ToString(DebugPanelLengthScalePolicy.FormatStr);
             }
 
             // Border width + scale
@@ -1311,7 +1312,7 @@ namespace ClinetCSharp
                 _borderWidthScaleSlider.SetBlockSignals(true);
                 _borderWidthScaleSlider.Value = Player.BorderWidthScale;
                 _borderWidthScaleSlider.SetBlockSignals(false);
-                _borderWidthScaleValue.Text = Player.BorderWidthScale.ToString("F2");
+                _borderWidthScaleValue.Text = Player.BorderWidthScale.ToString(DebugPanelLengthScalePolicy.FormatStr);
             }
 
             // Health bar length + scale
@@ -1327,7 +1328,7 @@ namespace ClinetCSharp
                 _healthBarLengthScaleSlider.SetBlockSignals(true);
                 _healthBarLengthScaleSlider.Value = Player.HealthBarLengthScale;
                 _healthBarLengthScaleSlider.SetBlockSignals(false);
-                _healthBarLengthScaleValue.Text = Player.HealthBarLengthScale.ToString("F2");
+                _healthBarLengthScaleValue.Text = Player.HealthBarLengthScale.ToString(DebugPanelLengthScalePolicy.FormatStr);
             }
 
             // Health bar height + scale
@@ -1343,7 +1344,7 @@ namespace ClinetCSharp
                 _healthBarHeightScaleSlider.SetBlockSignals(true);
                 _healthBarHeightScaleSlider.Value = Player.HealthBarHeightScale;
                 _healthBarHeightScaleSlider.SetBlockSignals(false);
-                _healthBarHeightScaleValue.Text = Player.HealthBarHeightScale.ToString("F2");
+                _healthBarHeightScaleValue.Text = Player.HealthBarHeightScale.ToString(DebugPanelLengthScalePolicy.FormatStr);
             }
         }
 
@@ -1399,7 +1400,6 @@ namespace ClinetCSharp
         {
             if (Player != null)
                 Player.SetHealthBarVisible(enabled);
-            MonsterManager?.SetHealthBarVisibleAll(enabled);
             Owner.PushCurrentStateToHistory();
         }
 
@@ -1416,7 +1416,6 @@ namespace ClinetCSharp
             int nextIdx = (idx + 1) % hpColors.Length;
             Player.SetHealthBarColor(hpColors[nextIdx]);
             _healthBarColorBtn.Modulate = hpColors[nextIdx];
-            MonsterManager?.SetHealthBarColorAll(hpColors[nextIdx]);
             Owner.PushCurrentStateToHistory();
         }
 
@@ -1433,15 +1432,14 @@ namespace ClinetCSharp
                     _healthBarLengthScaleSlider.SetBlockSignals(true);
                     _healthBarLengthScaleSlider.Value = scale;
                     _healthBarLengthScaleSlider.SetBlockSignals(false);
-                    _healthBarLengthScaleValue.Text = scale.ToString("F2");
+                    _healthBarLengthScaleValue.Text = scale.ToString(DebugPanelLengthScalePolicy.FormatStr);
                 }
             }
-            MonsterManager?.SetHealthBarLengthScaleAll(gridSize > 0 ? (float)(value / gridSize) : 0.0f);
         }
 
         private void OnHealthBarLengthScaleChanged(double value)
         {
-            _healthBarLengthScaleValue.Text = value.ToString("F2");
+            _healthBarLengthScaleValue.Text = value.ToString(DebugPanelLengthScalePolicy.FormatStr);
             if (Player != null)
             {
                 Player.SetHealthBarLengthScale((float)value);
@@ -1454,7 +1452,6 @@ namespace ClinetCSharp
                     _healthBarLengthValue.Text = ((int)newLength).ToString();
                 }
             }
-            MonsterManager?.SetHealthBarLengthScaleAll((float)value);
         }
 
         private void OnHealthBarHeightChanged(double value)
@@ -1470,15 +1467,14 @@ namespace ClinetCSharp
                     _healthBarHeightScaleSlider.SetBlockSignals(true);
                     _healthBarHeightScaleSlider.Value = scale;
                     _healthBarHeightScaleSlider.SetBlockSignals(false);
-                    _healthBarHeightScaleValue.Text = scale.ToString("F2");
+                    _healthBarHeightScaleValue.Text = scale.ToString(DebugPanelLengthScalePolicy.FormatStr);
                 }
             }
-            MonsterManager?.SetHealthBarHeightScaleAll(gridSize > 0 ? (float)(value / gridSize) : 0.0f);
         }
 
         private void OnHealthBarHeightScaleChanged(double value)
         {
-            _healthBarHeightScaleValue.Text = value.ToString("F2");
+            _healthBarHeightScaleValue.Text = value.ToString(DebugPanelLengthScalePolicy.FormatStr);
             if (Player != null)
             {
                 Player.SetHealthBarHeightScale((float)value);
@@ -1491,7 +1487,6 @@ namespace ClinetCSharp
                     _healthBarHeightValue.Text = ((int)newHeight).ToString();
                 }
             }
-            MonsterManager?.SetHealthBarHeightScaleAll((float)value);
         }
 
         private void OnHealthBarFillChanged(double value)
@@ -1499,7 +1494,6 @@ namespace ClinetCSharp
             _healthBarFillValue.Text = $"{(int)value}%";
             if (Player != null)
                 Player.SetHealthBarFillPercent((float)(value / 100.0));
-            MonsterManager?.SetHealthBarFillPercentAll((float)(value / 100.0));
         }
 
         private void OnHealthBarOffsetXChanged(double value)
@@ -1510,10 +1504,8 @@ namespace ClinetCSharp
                 var offset = Player.GetHealthBarOffset();
                 Player.SetHealthBarOffset(new Vector2((float)value, offset.Y));
             }
-            if (MonsterManager != null && Player != null)
             {
                 var offset = Player.GetHealthBarOffset();
-                MonsterManager.SetHealthBarOffsetAll(new Vector2((float)value, offset.Y));
             }
         }
 
@@ -1525,10 +1517,8 @@ namespace ClinetCSharp
                 var offset = Player.GetHealthBarOffset();
                 Player.SetHealthBarOffset(new Vector2(offset.X, (float)value));
             }
-            if (MonsterManager != null && Player != null)
             {
                 var offset = Player.GetHealthBarOffset();
-                MonsterManager.SetHealthBarOffsetAll(new Vector2(offset.X, (float)value));
             }
         }
 
@@ -1545,7 +1535,6 @@ namespace ClinetCSharp
         private void OnMpBarVisibleToggled(bool enabled)
         {
             if (Player != null) Player.SetMpBarVisible(enabled);
-            MonsterManager?.SetMpBarVisibleAll(enabled);
         }
 
         private void OnMpBarColorPressed()
@@ -1559,7 +1548,6 @@ namespace ClinetCSharp
             }
             Player.SetMpBarColor(MpColors[nextIdx]);
             _mpBarColorBtn.Modulate = MpColors[nextIdx];
-            MonsterManager?.SetMpBarColorAll(MpColors[nextIdx]);
         }
 
         private void OnMpBarLengthChanged(double value)
@@ -1574,15 +1562,14 @@ namespace ClinetCSharp
                     _mpBarLengthScaleSlider.SetBlockSignals(true);
                     _mpBarLengthScaleSlider.Value = scale;
                     _mpBarLengthScaleSlider.SetBlockSignals(false);
-                    _mpBarLengthScaleValue.Text = scale.ToString("F2");
+                    _mpBarLengthScaleValue.Text = scale.ToString(DebugPanelLengthScalePolicy.FormatStr);
                 }
             }
-            MonsterManager?.SetMpBarLengthScaleAll(Player.GridSize > 0 ? (float)(value / Player.GridSize) : 0);
         }
 
         private void OnMpBarLengthScaleChanged(double value)
         {
-            _mpBarLengthScaleValue.Text = value.ToString("F2");
+            _mpBarLengthScaleValue.Text = value.ToString(DebugPanelLengthScalePolicy.FormatStr);
             if (Player != null)
             {
                 Player.SetMpBarLengthScale((float)value);
@@ -1595,7 +1582,6 @@ namespace ClinetCSharp
                     _mpBarLengthValue.Text = ((int)newLength).ToString();
                 }
             }
-            MonsterManager?.SetMpBarLengthScaleAll((float)value);
         }
 
         private void OnMpBarHeightChanged(double value)
@@ -1611,15 +1597,14 @@ namespace ClinetCSharp
                     _mpBarHeightScaleSlider.SetBlockSignals(true);
                     _mpBarHeightScaleSlider.Value = scale;
                     _mpBarHeightScaleSlider.SetBlockSignals(false);
-                    _mpBarHeightScaleValue.Text = scale.ToString("F2");
+                    _mpBarHeightScaleValue.Text = scale.ToString(DebugPanelLengthScalePolicy.FormatStr);
                 }
             }
-            MonsterManager?.SetMpBarHeightScaleAll(gridSize > 0 ? (float)(value / gridSize) : 0.0f);
         }
 
         private void OnMpBarHeightScaleChanged(double value)
         {
-            _mpBarHeightScaleValue.Text = value.ToString("F2");
+            _mpBarHeightScaleValue.Text = value.ToString(DebugPanelLengthScalePolicy.FormatStr);
             if (Player != null)
             {
                 Player.SetMpBarHeightScale((float)value);
@@ -1632,7 +1617,6 @@ namespace ClinetCSharp
                     _mpBarHeightValue.Text = ((int)newHeight).ToString();
                 }
             }
-            MonsterManager?.SetMpBarHeightScaleAll((float)value);
         }
 
         private void OnMpBarFillChanged(double value)
@@ -1640,7 +1624,6 @@ namespace ClinetCSharp
             _mpBarFillValue.Text = $"{(int)value}%";
             if (Player != null)
                 Player.SetMpBarFillPercent((float)(value / 100.0));
-            MonsterManager?.SetMpBarFillPercentAll((float)(value / 100.0));
         }
 
         private void OnMpBarOffsetXChanged(double value)
@@ -1651,10 +1634,8 @@ namespace ClinetCSharp
                 var offset = Player.GetMpBarOffset();
                 Player.SetMpBarOffset(new Vector2((float)value, offset.Y));
             }
-            if (MonsterManager != null && Player != null)
             {
                 var offset = Player.GetMpBarOffset();
-                MonsterManager.SetMpBarOffsetAll(new Vector2((float)value, offset.Y));
             }
         }
 
@@ -1666,10 +1647,8 @@ namespace ClinetCSharp
                 var offset = Player.GetMpBarOffset();
                 Player.SetMpBarOffset(new Vector2(offset.X, (float)value));
             }
-            if (MonsterManager != null && Player != null)
             {
                 var offset = Player.GetMpBarOffset();
-                MonsterManager.SetMpBarOffsetAll(new Vector2(offset.X, (float)value));
             }
         }
 
@@ -1763,14 +1742,12 @@ namespace ClinetCSharp
         {
             _actionBarTextYOffsetValue.Text = ((int)value).ToString();
             if (Player != null) Player.SetActionBarTextYOffset((float)value);
-            MonsterManager?.SetActionBarTextYOffsetAll((float)value);
         }
 
         private void OnActionBarProgressHeightChanged(double value)
         {
             _actionBarProgressHeightValue.Text = ((int)value).ToString();
             if (Player != null) Player.SetActionBarProgressHeight((float)value);
-            MonsterManager?.SetActionBarProgressHeightAll((float)value);
         }
 
         // ═══════════════════════════════════════════════════════════════════════
@@ -1843,7 +1820,7 @@ namespace ClinetCSharp
             _playerSizeScaleSlider.SetBlockSignals(true);
             _playerSizeScaleSlider.Value = Player.VisualSizeScale;
             _playerSizeScaleSlider.SetBlockSignals(false);
-            _playerSizeScaleValue.Text = Player.VisualSizeScale.ToString("F2");
+            _playerSizeScaleValue.Text = Player.VisualSizeScale.ToString(DebugPanelLengthScalePolicy.FormatStr);
 
             _borderWidthSlider.SetBlockSignals(true);
             _borderWidthSlider.Value = Player.BorderWidth;
@@ -1853,7 +1830,7 @@ namespace ClinetCSharp
             _borderWidthScaleSlider.SetBlockSignals(true);
             _borderWidthScaleSlider.Value = Player.BorderWidthScale;
             _borderWidthScaleSlider.SetBlockSignals(false);
-            _borderWidthScaleValue.Text = Player.BorderWidthScale.ToString("F2");
+            _borderWidthScaleValue.Text = Player.BorderWidthScale.ToString(DebugPanelLengthScalePolicy.FormatStr);
 
             _cornerRadiusSlider.SetBlockSignals(true);
             _cornerRadiusSlider.Value = Player.CornerRadius;
@@ -1863,7 +1840,7 @@ namespace ClinetCSharp
             _bgOpacitySlider.SetBlockSignals(true);
             _bgOpacitySlider.Value = Player.BgOpacity;
             _bgOpacitySlider.SetBlockSignals(false);
-            _bgOpacityValue.Text = Player.BgOpacity.ToString("F2");
+            _bgOpacityValue.Text = Player.BgOpacity.ToString(DebugPanelLengthScalePolicy.FormatStr);
 
             _fontSizeSlider.SetBlockSignals(true);
             _fontSizeSlider.Value = Player.FontSizeOverride;
@@ -2037,7 +2014,7 @@ namespace ClinetCSharp
             _playerSizeScaleSlider?.SetValue(loadedVisualScale);
             _playerSizeScaleSlider?.SetBlockSignals(false);
             if (_playerSizeScaleValue != null)
-                _playerSizeScaleValue.Text = loadedVisualScale.ToString("F2");
+                _playerSizeScaleValue.Text = loadedVisualScale.ToString(DebugPanelLengthScalePolicy.FormatStr);
 
             _borderWidthSlider.SetBlockSignals(true);
             _borderWidthSlider.Value = (double)cfg.GetValue("player", "border_width", 3.0);
@@ -2048,7 +2025,7 @@ namespace ClinetCSharp
             _borderWidthScaleSlider?.SetValue(loadedScale);
             _borderWidthScaleSlider?.SetBlockSignals(false);
             if (_borderWidthScaleValue != null)
-                _borderWidthScaleValue.Text = loadedScale.ToString("F2");
+                _borderWidthScaleValue.Text = loadedScale.ToString(DebugPanelLengthScalePolicy.FormatStr);
 
             _cornerRadiusSlider.SetBlockSignals(true);
             _cornerRadiusSlider.Value = (double)cfg.GetValue("player", "corner_radius", 0.0);
@@ -2180,10 +2157,10 @@ namespace ClinetCSharp
                 if (_healthBarVisibleCheck != null) { _healthBarVisibleCheck.SetBlockSignals(true); _healthBarVisibleCheck.ButtonPressed = hpVisible; _healthBarVisibleCheck.SetBlockSignals(false); }
                 if (_healthBarLengthSlider != null) { _healthBarLengthSlider.SetBlockSignals(true); _healthBarLengthSlider.Value = hpLength; _healthBarLengthSlider.SetBlockSignals(false); }
                 if (_healthBarLengthScaleSlider != null) { _healthBarLengthScaleSlider.SetBlockSignals(true); _healthBarLengthScaleSlider.Value = hpLengthScale; _healthBarLengthScaleSlider.SetBlockSignals(false); }
-                if (_healthBarLengthScaleValue != null) _healthBarLengthScaleValue.Text = hpLengthScale.ToString("F2");
+                if (_healthBarLengthScaleValue != null) _healthBarLengthScaleValue.Text = hpLengthScale.ToString(DebugPanelLengthScalePolicy.FormatStr);
                 if (_healthBarHeightSlider != null) { _healthBarHeightSlider.SetBlockSignals(true); _healthBarHeightSlider.Value = hpHeight; _healthBarHeightSlider.SetBlockSignals(false); }
                 if (_healthBarHeightScaleSlider != null) { _healthBarHeightScaleSlider.SetBlockSignals(true); _healthBarHeightScaleSlider.Value = hpHeightScale; _healthBarHeightScaleSlider.SetBlockSignals(false); }
-                if (_healthBarHeightScaleValue != null) _healthBarHeightScaleValue.Text = hpHeightScale.ToString("F2");
+                if (_healthBarHeightScaleValue != null) _healthBarHeightScaleValue.Text = hpHeightScale.ToString(DebugPanelLengthScalePolicy.FormatStr);
                 if (_healthBarFillSlider != null) { _healthBarFillSlider.SetBlockSignals(true); _healthBarFillSlider.Value = hpFill; _healthBarFillSlider.SetBlockSignals(false); }
                 if (_healthBarOffsetXSlider != null) { _healthBarOffsetXSlider.SetBlockSignals(true); _healthBarOffsetXSlider.Value = hpOffX; _healthBarOffsetXSlider.SetBlockSignals(false); }
                 if (_healthBarOffsetYSlider != null) { _healthBarOffsetYSlider.SetBlockSignals(true); _healthBarOffsetYSlider.Value = hpOffY; _healthBarOffsetYSlider.SetBlockSignals(false); }
@@ -2467,8 +2444,6 @@ namespace ClinetCSharp
                 float abPh = (float)(double)config.GetValue("actionbar", "progress_height", 4);
                 Player.SetActionBarTextYOffset(abTextY);
                 Player.SetActionBarProgressHeight(abPh);
-                Owner._monsterManager?.SetActionBarTextYOffsetAll(abTextY);
-                Owner._monsterManager?.SetActionBarProgressHeightAll(abPh);
 
                 // Apply level badge settings
                 Player.SetLevelBadgeVisible((bool)config.GetValue("levelbadge", "visible", true));

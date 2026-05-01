@@ -73,6 +73,31 @@ namespace ClinetCSharp
             return false;
         }
 
+        /// <summary>
+        /// Disable keyboard/focus retention for transient drag controls such as sliders and scroll bars.
+        /// These controls should react only while the pointer is actively dragging them; after release,
+        /// mouse movement must not keep affecting them through retained focus.
+        /// </summary>
+        public static void ConfigureTransientDragControlFocus(Control root)
+        {
+            if (root == null) return;
+
+            if (DebugPanelTransientFocusPolicy.ShouldDisableFocusMode(root.GetClass()))
+                root.FocusMode = Control.FocusModeEnum.None;
+
+            if (root is ScrollContainer scroll)
+            {
+                ConfigureTransientDragControlFocus(scroll.GetVScrollBar());
+                ConfigureTransientDragControlFocus(scroll.GetHScrollBar());
+            }
+
+            foreach (var child in root.GetChildren())
+            {
+                if (child is Control c)
+                    ConfigureTransientDragControlFocus(c);
+            }
+        }
+
         // ========== 坐标转换 ==========
 
         /// <summary>

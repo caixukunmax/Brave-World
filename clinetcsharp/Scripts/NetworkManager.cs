@@ -436,6 +436,7 @@ namespace ClinetCSharp
                         Chests = new List<Game.ChestInfo>(notify.Chests);
                         Monsters = new List<Game.MonsterInfo>(notify.Monsters);
                         Npcs = new List<Game.NpcInfo>(notify.Npcs);
+                        GD.Print($"[NetworkManager] MapInfoSync map={notify.MapName} chests={Chests.Count} monsters={Monsters.Count} npcs={Npcs.Count}");
                         MapInfoReceived?.Invoke(notify);
                         break;
                     }

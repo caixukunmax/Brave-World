@@ -12,7 +12,13 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Remove="tools\**" />
+    <Compile Remove="TempGenerated\**" />
+    <Compile Remove="ClinetCSharp.Tests\**" />
     <EmbeddedResource Remove="tools\**" />
+    <EmbeddedResource Remove="TempGenerated\**" />
+    <EmbeddedResource Remove="ClinetCSharp.Tests\**" />
     <None Remove="tools\**" />
+    <None Remove="TempGenerated\**" />
+    <None Remove="ClinetCSharp.Tests\**" />
   </ItemGroup>
 </Project>

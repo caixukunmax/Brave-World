@@ -133,9 +133,9 @@ namespace ClinetCSharp
 
         private void ApplyState(Game.CombatStateNotify notify)
         {
-            if (notify.Units.Count == 0)
+            if (notify.Units.Count == 0 || !ShouldShowAtb(notify))
             {
-                _units.Clear();
+                ClearState();
                 return;
             }
 
@@ -169,6 +169,25 @@ namespace ClinetCSharp
                 _units.Remove(id);
 
             SyncMarkers();
+        }
+
+        private static bool ShouldShowAtb(Game.CombatStateNotify notify)
+        {
+            // The server also uses CombatStateNotify for out-of-combat HP/MP refreshes.
+            // A single idle player unit is not a combat timeline and must not open the ATB bar.
+            return notify.Units.Count >= 2;
+        }
+
+        private void ClearState()
+        {
+            _units.Clear();
+            foreach (var marker in _markers)
+            {
+                if (marker.IsValid)
+                    marker.Node.Visible = false;
+            }
+            Visible = false;
+            _lastVisible = false;
         }
 
         private void SyncMarkers()

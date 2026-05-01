@@ -197,6 +197,8 @@ namespace ClinetCSharp
             _cmdMenu.AddItem("删除", 1);
             _cmdMenu.IdPressed += OnCmdMenuIdPressed;
             AddChild(_cmdMenu);
+
+            UiUtils.ConfigureTransientDragControlFocus(this);
         }
 
         // ============ Default Groups ============

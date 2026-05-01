@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\Scripts\RoleControlCenterXResolver.cs"
+             Link="RoleControlCenterXResolver.cs"
+             Condition="Exists('..\Scripts\RoleControlCenterXResolver.cs')" />
+    <Compile Include="..\Scripts\DebugPanelTransientFocusPolicy.cs"
+             Link="DebugPanelTransientFocusPolicy.cs"
+             Condition="Exists('..\Scripts\DebugPanelTransientFocusPolicy.cs')" />
+    <Compile Include="..\Scripts\DebugPanelEntityStyleSyncPolicy.cs"
+             Link="DebugPanelEntityStyleSyncPolicy.cs"
+             Condition="Exists('..\Scripts\DebugPanelEntityStyleSyncPolicy.cs')" />
+    <Compile Include="..\Scripts\DebugPanelSliderValueFormatter.cs"
+             Link="DebugPanelSliderValueFormatter.cs"
+             Condition="Exists('..\Scripts\DebugPanelSliderValueFormatter.cs')" />
+    <Compile Include="..\Scripts\DebugPanelLengthScalePolicy.cs"
+             Link="DebugPanelLengthScalePolicy.cs"
+             Condition="Exists('..\Scripts\DebugPanelLengthScalePolicy.cs')" />
+  </ItemGroup>
+</Project>

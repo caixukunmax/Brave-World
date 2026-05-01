@@ -33,7 +33,7 @@ public class LubanTableLoader
     /// <summary>从候选目录加载所有配置表</summary>
     public void Load()
     {
-        string? dataDir = FindDataDir();
+        string? dataDir = RuntimeDataPathResolver.FindTablesDir();
         if (dataDir == null)
         {
             _logger.LogWarning("[Tables] data/tables/ not found, no Luban tables loaded");
@@ -174,25 +174,6 @@ public class LubanTableLoader
     }
 
     // ---- 内部 ----
-
-    private static string[] CandidateDirs = new[]
-    {
-        "data/tables",
-        "../data/tables",
-        "../../data/tables",
-        "../../../data/tables",
-    };
-
-    private static string? FindDataDir()
-    {
-        foreach (var candidate in CandidateDirs)
-        {
-            var full = Path.GetFullPath(candidate);
-            if (Directory.Exists(full) && Directory.GetFiles(full, "*.json").Length > 0)
-                return full;
-        }
-        return null;
-    }
 
     private Dictionary<int, T> LoadTable<T>(string dir, string fileName, JsonSerializerOptions opts) where T : class
     {

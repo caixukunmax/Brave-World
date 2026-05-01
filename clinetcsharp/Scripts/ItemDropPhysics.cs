@@ -90,7 +90,7 @@ namespace ClinetCSharp
 
         private void OnBodyEntered(Node body)
         {
-            if (body.IsInGroup("ground") || body is TileMap)
+            if (body.IsInGroup("ground") || body.IsClass("TileMap"))
             {
                 SpawnImpactEffect();
 

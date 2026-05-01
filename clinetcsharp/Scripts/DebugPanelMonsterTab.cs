@@ -113,7 +113,7 @@ namespace ClinetCSharp
             (_monsterSizeSlider, _monsterSizeValue) = CreateMonsterSliderRow(tabContainer, "视觉大小", 32, 256, 111);
             (_monsterSizeScaleSlider, _monsterSizeScaleValue) = CreateMonsterSliderRow(tabContainer, "角色比例", 0.1f, 1.0f, 1.0f);
             (_monsterBorderWidthSlider, _monsterBorderWidthValue) = CreateMonsterSliderRow(tabContainer, "边框粗细", 0, 20, 3);
-            (_monsterBorderWidthScaleSlider, _monsterBorderWidthScaleValue) = CreateMonsterSliderRow(tabContainer, "边框比例", 0.0f, 0.2f, 3.0f / 111.0f, 0.01f);
+            (_monsterBorderWidthScaleSlider, _monsterBorderWidthScaleValue) = CreateMonsterSliderRow(tabContainer, "边框比例", 0.0f, 0.2f, 3.0f / 111.0f, DebugPanelLengthScalePolicy.StepF);
             (_monsterCornerRadiusSlider, _monsterCornerRadiusValue) = CreateMonsterSliderRow(tabContainer, "圆角半径", 0, 60, 12);
             (_monsterBgOpacitySlider, _monsterBgOpacityValue) = CreateMonsterSliderRow(tabContainer, "背景不透明度", 0, 1, 0.9f);
             (_monsterFontSizeSlider, _monsterFontSizeValue) = CreateMonsterSliderRow(tabContainer, "字体大小", 0, 48, 0);
@@ -155,7 +155,7 @@ namespace ClinetCSharp
                 fsRow.AddChild(new Control { CustomMinimumSize = new Vector2(40, 0) }); // 缩进占位
                 var fsLbl = new Label { Text = "字号:", CustomMinimumSize = new Vector2(36, 0) };
                 fsRow.AddChild(fsLbl);
-                var fsSlider = new HSlider { MinValue = 0, MaxValue = 48, Value = 0, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, CustomMinimumSize = new Vector2(0, 20), Step = 1 };
+                var fsSlider = new HSlider { MinValue = 0, MaxValue = 48, Value = 0, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, CustomMinimumSize = new Vector2(0, 20), Step = 1 , Scrollable = false };
                 fsRow.AddChild(fsSlider);
                 var fsVal = new Label { Text = "0", CustomMinimumSize = new Vector2(24, 0) };
                 fsRow.AddChild(fsVal);
@@ -169,7 +169,7 @@ namespace ClinetCSharp
                 xRow.AddChild(new Control { CustomMinimumSize = new Vector2(40, 0) }); // 缩进占位
                 var xLbl = new Label { Text = "X:", CustomMinimumSize = new Vector2(24, 0) };
                 xRow.AddChild(xLbl);
-                var xSlider = new HSlider { MinValue = -40, MaxValue = 40, Value = 0, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, CustomMinimumSize = new Vector2(0, 20), Step = 1 };
+                var xSlider = new HSlider { MinValue = -40, MaxValue = 40, Value = 0, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, CustomMinimumSize = new Vector2(0, 20), Step = 1 , Scrollable = false };
                 xRow.AddChild(xSlider);
                 var xVal = new Label { Text = "0", CustomMinimumSize = new Vector2(28, 0) };
                 xRow.AddChild(xVal);
@@ -187,7 +187,7 @@ namespace ClinetCSharp
                 yRow.AddChild(new Control { CustomMinimumSize = new Vector2(40, 0) }); // 缩进占位
                 var yLbl = new Label { Text = "Y:", CustomMinimumSize = new Vector2(24, 0) };
                 yRow.AddChild(yLbl);
-                var ySlider = new HSlider { MinValue = -40, MaxValue = 40, Value = 0, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, CustomMinimumSize = new Vector2(0, 20), Step = 1 };
+                var ySlider = new HSlider { MinValue = -40, MaxValue = 40, Value = 0, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, CustomMinimumSize = new Vector2(0, 20), Step = 1 , Scrollable = false };
                 yRow.AddChild(ySlider);
                 var yVal = new Label { Text = "0", CustomMinimumSize = new Vector2(28, 0) };
                 yRow.AddChild(yVal);
@@ -246,7 +246,7 @@ namespace ClinetCSharp
             _monsterHpBarLengthScaleValue = new Label { Text = "0.92", CustomMinimumSize = new Vector2(30, 0), HorizontalAlignment = HorizontalAlignment.Right };
             hpLenScaleRow.AddChild(_monsterHpBarLengthScaleValue);
             tabContainer.AddChild(hpLenScaleRow);
-            _monsterHpBarLengthScaleSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = 0.1, MaxValue = 2.0, Step = 0.05, Value = 102.0 / 111.0 };
+            _monsterHpBarLengthScaleSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = 0.1, MaxValue = 2.0, Step = DebugPanelLengthScalePolicy.Step, Value = 102.0 / 111.0 , Scrollable = false };
             tabContainer.AddChild(_monsterHpBarLengthScaleSlider);
 
             // 高度比例（Height 是计算值，只读显示）
@@ -255,7 +255,7 @@ namespace ClinetCSharp
             _monsterHpBarHeightScaleValue = new Label { Text = "0.05", CustomMinimumSize = new Vector2(30, 0), HorizontalAlignment = HorizontalAlignment.Right };
             hpHScaleRow.AddChild(_monsterHpBarHeightScaleValue);
             tabContainer.AddChild(hpHScaleRow);
-            _monsterHpBarHeightScaleSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = 0.01, MaxValue = 0.3, Step = 0.01, Value = 6.0 / 111.0 };
+            _monsterHpBarHeightScaleSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = 0.01, MaxValue = 0.3, Step = DebugPanelLengthScalePolicy.Step, Value = 6.0 / 111.0 , Scrollable = false };
             tabContainer.AddChild(_monsterHpBarHeightScaleSlider);
 
             // 填充
@@ -264,7 +264,7 @@ namespace ClinetCSharp
             _monsterHpBarFillValue = new Label { Text = "100%", CustomMinimumSize = new Vector2(30, 0), HorizontalAlignment = HorizontalAlignment.Right };
             hpFillRow.AddChild(_monsterHpBarFillValue);
             tabContainer.AddChild(hpFillRow);
-            _monsterHpBarFillSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = 0, MaxValue = 100, Step = 1, Value = 100 };
+            _monsterHpBarFillSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = 0, MaxValue = 100, Step = 1, Value = 100 , Scrollable = false };
             tabContainer.AddChild(_monsterHpBarFillSlider);
 
             // X偏移
@@ -273,7 +273,7 @@ namespace ClinetCSharp
             _monsterHpBarOffsetXValue = new Label { Text = "0", CustomMinimumSize = new Vector2(30, 0), HorizontalAlignment = HorizontalAlignment.Right };
             hpOffXRow.AddChild(_monsterHpBarOffsetXValue);
             tabContainer.AddChild(hpOffXRow);
-            _monsterHpBarOffsetXSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = -150, MaxValue = 150, Step = 1, Value = 0 };
+            _monsterHpBarOffsetXSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = -150, MaxValue = 150, Step = 1, Value = 0 , Scrollable = false };
             tabContainer.AddChild(_monsterHpBarOffsetXSlider);
 
             // Y偏移
@@ -282,7 +282,7 @@ namespace ClinetCSharp
             _monsterHpBarOffsetYValue = new Label { Text = "-70", CustomMinimumSize = new Vector2(30, 0), HorizontalAlignment = HorizontalAlignment.Right };
             hpOffYRow.AddChild(_monsterHpBarOffsetYValue);
             tabContainer.AddChild(hpOffYRow);
-            _monsterHpBarOffsetYSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = -150, MaxValue = 150, Step = 1, Value = -70 };
+            _monsterHpBarOffsetYSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = -150, MaxValue = 150, Step = 1, Value = -70 , Scrollable = false };
             tabContainer.AddChild(_monsterHpBarOffsetYSlider);
 
             // ---- MP 条 ----
@@ -305,7 +305,7 @@ namespace ClinetCSharp
             _monsterMpBarLengthScaleValue = new Label { Text = "0.72", CustomMinimumSize = new Vector2(30, 0), HorizontalAlignment = HorizontalAlignment.Right };
             mpLenScaleRow.AddChild(_monsterMpBarLengthScaleValue);
             tabContainer.AddChild(mpLenScaleRow);
-            _monsterMpBarLengthScaleSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = 0.1, MaxValue = 2.0, Step = 0.05, Value = 80.0 / 111.0 };
+            _monsterMpBarLengthScaleSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = 0.1, MaxValue = 2.0, Step = DebugPanelLengthScalePolicy.Step, Value = 80.0 / 111.0 , Scrollable = false };
             tabContainer.AddChild(_monsterMpBarLengthScaleSlider);
 
             // MP 高度比例
@@ -314,7 +314,7 @@ namespace ClinetCSharp
             _monsterMpBarHeightScaleValue = new Label { Text = "0.04", CustomMinimumSize = new Vector2(30, 0), HorizontalAlignment = HorizontalAlignment.Right };
             mpHScaleRow.AddChild(_monsterMpBarHeightScaleValue);
             tabContainer.AddChild(mpHScaleRow);
-            _monsterMpBarHeightScaleSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = 0.01, MaxValue = 0.3, Step = 0.01, Value = 4.0 / 111.0 };
+            _monsterMpBarHeightScaleSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = 0.01, MaxValue = 0.3, Step = DebugPanelLengthScalePolicy.Step, Value = 4.0 / 111.0 , Scrollable = false };
             tabContainer.AddChild(_monsterMpBarHeightScaleSlider);
 
             // 填充
@@ -323,7 +323,7 @@ namespace ClinetCSharp
             _monsterMpBarFillValue = new Label { Text = "100%", CustomMinimumSize = new Vector2(30, 0), HorizontalAlignment = HorizontalAlignment.Right };
             mpFillRow.AddChild(_monsterMpBarFillValue);
             tabContainer.AddChild(mpFillRow);
-            _monsterMpBarFillSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = 0, MaxValue = 100, Step = 1, Value = 100 };
+            _monsterMpBarFillSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = 0, MaxValue = 100, Step = 1, Value = 100 , Scrollable = false };
             tabContainer.AddChild(_monsterMpBarFillSlider);
 
             // X偏移
@@ -332,7 +332,7 @@ namespace ClinetCSharp
             _monsterMpBarOffsetXValue = new Label { Text = "0", CustomMinimumSize = new Vector2(30, 0), HorizontalAlignment = HorizontalAlignment.Right };
             mpOffXRow.AddChild(_monsterMpBarOffsetXValue);
             tabContainer.AddChild(mpOffXRow);
-            _monsterMpBarOffsetXSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = -150, MaxValue = 150, Step = 1, Value = 0 };
+            _monsterMpBarOffsetXSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = -150, MaxValue = 150, Step = 1, Value = 0 , Scrollable = false };
             tabContainer.AddChild(_monsterMpBarOffsetXSlider);
 
             // Y偏移
@@ -341,7 +341,7 @@ namespace ClinetCSharp
             _monsterMpBarOffsetYValue = new Label { Text = "-62", CustomMinimumSize = new Vector2(30, 0), HorizontalAlignment = HorizontalAlignment.Right };
             mpOffYRow.AddChild(_monsterMpBarOffsetYValue);
             tabContainer.AddChild(mpOffYRow);
-            _monsterMpBarOffsetYSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = -150, MaxValue = 150, Step = 1, Value = -62 };
+            _monsterMpBarOffsetYSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = -150, MaxValue = 150, Step = 1, Value = -62 , Scrollable = false };
             tabContainer.AddChild(_monsterMpBarOffsetYSlider);
 
             // 信号绑定
@@ -508,7 +508,7 @@ namespace ClinetCSharp
                 _monsterBorderWidthScaleSlider.SetBlockSignals(true);
                 _monsterBorderWidthScaleSlider.Value = scale;
                 _monsterBorderWidthScaleSlider.SetBlockSignals(false);
-                _monsterBorderWidthScaleValue.Text = scale.ToString("F2");
+                _monsterBorderWidthScaleValue.Text = scale.ToString(DebugPanelLengthScalePolicy.FormatStr);
             }
             ApplyMonsterDebugChanges();
         }
@@ -516,7 +516,7 @@ namespace ClinetCSharp
         private void OnMonsterBorderWidthScaleChanged(double value)
         {
             if (_monsterBorderWidthScaleValue != null)
-                _monsterBorderWidthScaleValue.Text = value.ToString("F2");
+                _monsterBorderWidthScaleValue.Text = value.ToString(DebugPanelLengthScalePolicy.FormatStr);
         }
 
         private void OnMonsterBorderWidthScaleDragEnded(bool valueChanged)
@@ -573,24 +573,6 @@ namespace ClinetCSharp
             cfg.MpBarOffsetY = (float)_monsterMpBarOffsetYSlider.Value;
 
             mm.ApplyStyleToAll();
-
-            // 同步到玩家实体，确保调试面板两侧参数一致
-            var player = Player;
-            if (player != null)
-            {
-                player.SetHealthBarVisible(cfg.HpBarVisible);
-                player.SetHealthBarLengthScale(cfg.HpBarLengthScale);
-                player.SetHealthBarHeightScale(cfg.HpBarHeightScale);
-                player.SetHealthBarFillPercent(cfg.HpBarFillPercent);
-                player.SetHealthBarOffset(new Vector2(cfg.HpBarOffsetX, cfg.HpBarOffsetY));
-                player.SetHealthBarColor(cfg.HpBarColor);
-                player.SetMpBarVisible(cfg.MpBarVisible);
-                player.SetMpBarLengthScale(cfg.MpBarLengthScale);
-                player.SetMpBarHeightScale(cfg.MpBarHeightScale);
-                player.SetMpBarFillPercent(cfg.MpBarFillPercent);
-                player.SetMpBarOffset(new Vector2(cfg.MpBarOffsetX, cfg.MpBarOffsetY));
-                player.SetMpBarColor(cfg.MpBarColor);
-            }
         }
         #endregion
 
@@ -664,9 +646,9 @@ namespace ClinetCSharp
             _monsterFontSizeSlider.SetBlockSignals(true);
 
             _monsterSizeScaleSlider.Value = cfg.VisualSizeScale;
-            _monsterSizeScaleValue.Text = cfg.VisualSizeScale.ToString("F2");
+            _monsterSizeScaleValue.Text = cfg.VisualSizeScale.ToString(DebugPanelLengthScalePolicy.FormatStr);
             _monsterBorderWidthScaleSlider.Value = cfg.BorderWidthScale;
-            _monsterBorderWidthScaleValue.Text = cfg.BorderWidthScale.ToString("F2");
+            _monsterBorderWidthScaleValue.Text = cfg.BorderWidthScale.ToString(DebugPanelLengthScalePolicy.FormatStr);
             _monsterCornerRadiusSlider.Value = cfg.CornerRadius;
             _monsterBgOpacitySlider.Value = cfg.BgOpacity;
             _monsterFontSizeSlider.Value = cfg.FontSize;
@@ -704,11 +686,11 @@ namespace ClinetCSharp
             _monsterHpBarLengthScaleSlider.SetBlockSignals(true);
             _monsterHpBarLengthScaleSlider.Value = cfg.HpBarLengthScale;
             _monsterHpBarLengthScaleSlider.SetBlockSignals(false);
-            _monsterHpBarLengthScaleValue.Text = cfg.HpBarLengthScale.ToString("F2");
+            _monsterHpBarLengthScaleValue.Text = cfg.HpBarLengthScale.ToString(DebugPanelLengthScalePolicy.FormatStr);
             _monsterHpBarHeightScaleSlider.SetBlockSignals(true);
             _monsterHpBarHeightScaleSlider.Value = cfg.HpBarHeightScale;
             _monsterHpBarHeightScaleSlider.SetBlockSignals(false);
-            _monsterHpBarHeightScaleValue.Text = cfg.HpBarHeightScale.ToString("F2");
+            _monsterHpBarHeightScaleValue.Text = cfg.HpBarHeightScale.ToString(DebugPanelLengthScalePolicy.FormatStr);
             _monsterHpBarFillSlider.SetBlockSignals(true);
             _monsterHpBarFillSlider.Value = cfg.HpBarFillPercent * 100;
             _monsterHpBarFillSlider.SetBlockSignals(false);
@@ -730,11 +712,11 @@ namespace ClinetCSharp
             _monsterMpBarLengthScaleSlider.SetBlockSignals(true);
             _monsterMpBarLengthScaleSlider.Value = cfg.MpBarLengthScale;
             _monsterMpBarLengthScaleSlider.SetBlockSignals(false);
-            _monsterMpBarLengthScaleValue.Text = cfg.MpBarLengthScale.ToString("F2");
+            _monsterMpBarLengthScaleValue.Text = cfg.MpBarLengthScale.ToString(DebugPanelLengthScalePolicy.FormatStr);
             _monsterMpBarHeightScaleSlider.SetBlockSignals(true);
             _monsterMpBarHeightScaleSlider.Value = cfg.MpBarHeightScale;
             _monsterMpBarHeightScaleSlider.SetBlockSignals(false);
-            _monsterMpBarHeightScaleValue.Text = cfg.MpBarHeightScale.ToString("F2");
+            _monsterMpBarHeightScaleValue.Text = cfg.MpBarHeightScale.ToString(DebugPanelLengthScalePolicy.FormatStr);
             _monsterMpBarFillSlider.SetBlockSignals(true);
             _monsterMpBarFillSlider.Value = cfg.MpBarFillPercent * 100;
             _monsterMpBarFillSlider.SetBlockSignals(false);

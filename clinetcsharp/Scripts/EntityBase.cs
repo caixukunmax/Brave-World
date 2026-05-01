@@ -55,8 +55,9 @@ namespace ClinetCSharp
         public bool[] LabelCenterX = new bool[4] { true, true, true, true };
         public float[] LabelYOffsets = new float[4] { 0, 0, 0, 0 };
 
-        // ========== 格子坐标 — 子类必须实现 ==========
-        public abstract Vector2I GridPos { get; }
+        // ========== 格子坐标 ==========
+        public Vector2I GridPos => GetGridPos();
+        protected virtual Vector2I GetGridPos() => Vector2I.Zero;
 
         // ========== 移动基础 ==========
         protected Tween _currentTween;
@@ -80,9 +81,11 @@ namespace ClinetCSharp
         public float ActionBarTextYOffset { get; set; } = 0f;
         public float ActionBarProgressHeight { get; set; } = 4f;
 
-        // ========== GridSize（子类可 override） ==========
+        // ========== GridSize ==========
         private int _gridSize = 111;
-        public virtual int GridSize { get => _gridSize; set => _gridSize = value; }
+        public int GridSize { get => GetGridSize(); set => SetGridSizeValue(value); }
+        protected virtual int GetGridSize() => _gridSize;
+        protected virtual void SetGridSizeValue(int value) => _gridSize = value;
 
         // ========== 外观 setter ==========
         public virtual void SetVisualSizeScale(float scale) { VisualSizeScale = scale; QueueRedraw(); }
