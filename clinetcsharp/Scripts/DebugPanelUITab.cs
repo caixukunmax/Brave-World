@@ -328,40 +328,5 @@ namespace ClinetCSharp
         }
         #endregion
 
-        #region Undo
-        public override Godot.Collections.Dictionary CaptureUndoState()
-        {
-            var state = new Godot.Collections.Dictionary
-            {
-                ["fn_bar_offset_x"] = _fnBarOffsetXSlider?.Value ?? 8.0,
-                ["fn_bar_offset_y"] = _fnBarOffsetYSlider?.Value ?? 8.0,
-                ["fn_bar_spacing"] = _fnBarSpacingSlider?.Value ?? 3.0,
-            };
-            return state;
-        }
-
-        public override void ApplyUndoState(Godot.Collections.Dictionary state)
-        {
-            if (_fnBarOffsetXSlider != null && state.TryGetValue("fn_bar_offset_x", out var ox))
-            {
-                _fnBarOffsetXSlider.SetBlockSignals(true);
-                _fnBarOffsetXSlider.Value = (double)ox;
-                _fnBarOffsetXSlider.SetBlockSignals(false);
-            }
-            if (_fnBarOffsetYSlider != null && state.TryGetValue("fn_bar_offset_y", out var oy))
-            {
-                _fnBarOffsetYSlider.SetBlockSignals(true);
-                _fnBarOffsetYSlider.Value = (double)oy;
-                _fnBarOffsetYSlider.SetBlockSignals(false);
-            }
-            if (_fnBarSpacingSlider != null && state.TryGetValue("fn_bar_spacing", out var sp))
-            {
-                _fnBarSpacingSlider.SetBlockSignals(true);
-                _fnBarSpacingSlider.Value = (double)sp;
-                _fnBarSpacingSlider.SetBlockSignals(false);
-            }
-            ApplyFnBarSettings();
-        }
-        #endregion
     }
 }

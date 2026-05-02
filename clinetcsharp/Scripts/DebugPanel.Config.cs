@@ -160,35 +160,19 @@ namespace ClinetCSharp
             }
 
             // Save current config to specified preset
-            // Fixed sections + dynamic monster_/npc_ sections
-            string[] fixedSections = { "meta", "map", "player", "labels", "healthbar", "mpbar", "castbar", "actionbar", "levelbadge", "calibration", "responsive", "editor", "panel_geo", "fn_bar", "skill_bar", "debug", "camera" };
+            // Dynamic: save all sections except __presets__
             ConfigFile currentConfig = new ConfigFile();
             Error currentErr = currentConfig.Load(CONFIG_PATH);
 
             if (currentErr == Error.Ok)
             {
-                // Save fixed sections
-                foreach (string section in fixedSections)
-                {
-                    if (currentConfig.HasSection(section))
-                    {
-                        foreach (string key in currentConfig.GetSectionKeys(section))
-                        {
-                            Variant value = currentConfig.GetValue(section, key);
-                            presets.SetValue(presetName, $"{section}/{key}", value);
-                        }
-                    }
-                }
-                // Save dynamic monster_/npc_ sections
+                // Save all sections
                 foreach (string section in currentConfig.GetSections())
                 {
-                    if (section.StartsWith("monster_") || section.StartsWith("npc_"))
+                    foreach (string key in currentConfig.GetSectionKeys(section))
                     {
-                        foreach (string key in currentConfig.GetSectionKeys(section))
-                        {
-                            Variant value = currentConfig.GetValue(section, key);
-                            presets.SetValue(presetName, $"{section}/{key}", value);
-                        }
+                        Variant value = currentConfig.GetValue(section, key);
+                        presets.SetValue(presetName, $"{section}/{key}", value);
                     }
                 }
             }

@@ -116,17 +116,5 @@ namespace ClinetCSharp
         }
         #endregion
 
-        #region Undo (no system-specific undo state currently)
-        public override Godot.Collections.Dictionary CaptureUndoState()
-        {
-            // No undo state for System tab yet
-            return new Godot.Collections.Dictionary();
-        }
-
-        public override void ApplyUndoState(Godot.Collections.Dictionary state)
-        {
-            // No undo state for System tab yet
-        }
-        #endregion
     }
 }

@@ -1324,6 +1324,20 @@ namespace ClinetCSharp
             cfg.SetValue("player", "font_shadow", _shadowCheck.ButtonPressed);
             cfg.SetValue("player", "font_auto_size", _fontAutoSizeCheck?.ButtonPressed ?? false);
 
+            // Colors
+            if (Player != null)
+            {
+                cfg.SetValue("player", "border_color_r", (double)Player.BorderColor.R);
+                cfg.SetValue("player", "border_color_g", (double)Player.BorderColor.G);
+                cfg.SetValue("player", "border_color_b", (double)Player.BorderColor.B);
+                cfg.SetValue("player", "bg_color_r", (double)Player.BgColor.R);
+                cfg.SetValue("player", "bg_color_g", (double)Player.BgColor.G);
+                cfg.SetValue("player", "bg_color_b", (double)Player.BgColor.B);
+                cfg.SetValue("player", "text_color_r", (double)Player.TextColor.R);
+                cfg.SetValue("player", "text_color_g", (double)Player.TextColor.G);
+                cfg.SetValue("player", "text_color_b", (double)Player.TextColor.B);
+            }
+
             // Label settings
             if (Player != null)
             {
@@ -1436,6 +1450,20 @@ namespace ClinetCSharp
                 _fontAutoSizeCheck.ButtonPressed = (bool)cfg.GetValue("player", "font_auto_size", false);
                 OnFontAutoSizeToggled(_fontAutoSizeCheck.ButtonPressed);
             }
+
+            // Colors
+            float bcR = (float)(double)cfg.GetValue("player", "border_color_r", Player.BorderColor.R);
+            float bcG = (float)(double)cfg.GetValue("player", "border_color_g", Player.BorderColor.G);
+            float bcB = (float)(double)cfg.GetValue("player", "border_color_b", Player.BorderColor.B);
+            Player.SetBorderColor(new Color(bcR, bcG, bcB));
+            float bgcR = (float)(double)cfg.GetValue("player", "bg_color_r", Player.BgColor.R);
+            float bgcG = (float)(double)cfg.GetValue("player", "bg_color_g", Player.BgColor.G);
+            float bgcB = (float)(double)cfg.GetValue("player", "bg_color_b", Player.BgColor.B);
+            Player.SetBgColor(new Color(bgcR, bgcG, bgcB));
+            float tcR = (float)(double)cfg.GetValue("player", "text_color_r", Player.TextColor.R);
+            float tcG = (float)(double)cfg.GetValue("player", "text_color_g", Player.TextColor.G);
+            float tcB = (float)(double)cfg.GetValue("player", "text_color_b", Player.TextColor.B);
+            Player.SetTextColor(new Color(tcR, tcG, tcB));
 
             // Update display labels
             _playerSizeValue.Text = ((int)_playerSizeSlider.Value).ToString();
@@ -1559,19 +1587,6 @@ namespace ClinetCSharp
                 if (_levelBadgeOffsetXCenterCheck != null) { _levelBadgeOffsetXCenterCheck.SetBlockSignals(true); _levelBadgeOffsetXCenterCheck.ButtonPressed = lvCenterX; _levelBadgeOffsetXCenterCheck.SetBlockSignals(false); }
                 if (_levelBadgeOffsetXSlider != null) { _levelBadgeOffsetXSlider.Editable = !lvCenterX; _levelBadgeOffsetXSlider.Modulate = lvCenterX ? new Color(0.5f, 0.5f, 0.5f, 1) : new Color(1, 1, 1, 1); }
             }
-        }
-
-        // ═══════════════════════════════════════════════════════════════════════
-        //  Undo — CaptureUndoState / ApplyUndoState (abstract overrides)
-        // ═══════════════════════════════════════════════════════════════════════
-
-        public override Godot.Collections.Dictionary CaptureUndoState()
-        {
-            return new Godot.Collections.Dictionary();
-        }
-
-        public override void ApplyUndoState(Godot.Collections.Dictionary state)
-        {
         }
 
         #region ApplyLoadedPlayerSettings — called by Owner.DeferredLoadConfig

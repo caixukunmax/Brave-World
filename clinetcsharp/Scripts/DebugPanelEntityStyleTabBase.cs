@@ -415,9 +415,5 @@ namespace ClinetCSharp
         public override void DisconnectSignals() { }
         #endregion
 
-        #region Undo State
-        public override Godot.Collections.Dictionary CaptureUndoState() => new Godot.Collections.Dictionary();
-        public override void ApplyUndoState(Godot.Collections.Dictionary state) { }
-        #endregion
     }
 }

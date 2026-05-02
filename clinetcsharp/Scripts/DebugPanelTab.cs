@@ -48,11 +48,11 @@ namespace ClinetCSharp
         /// <summary>When panel opens, sync sliders to current values</summary>
         public abstract void SyncToCurrentValues();
 
-        /// <summary>Capture current undo state into a new dictionary</summary>
-        public abstract Godot.Collections.Dictionary CaptureUndoState();
+        /// <summary>Capture current undo state (disabled, returns empty)</summary>
+        public virtual Godot.Collections.Dictionary CaptureUndoState() => new Godot.Collections.Dictionary();
 
-        /// <summary>Apply undo state from dictionary</summary>
-        public abstract void ApplyUndoState(Godot.Collections.Dictionary state);
+        /// <summary>Apply undo state (disabled, no-op)</summary>
+        public virtual void ApplyUndoState(Godot.Collections.Dictionary state) { }
 
         /// <summary>Export config data for JSON output (optional, returns null by default)</summary>
         public virtual Godot.Collections.Dictionary ExportConfigData() => null;
