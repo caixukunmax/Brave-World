@@ -175,7 +175,9 @@ namespace ClinetCSharp
         {
             if (@event is InputEventMouseButton mb && mb.ButtonIndex == MouseButton.Left && mb.Pressed)
             {
-                var localMouse = ToLocal(mb.GlobalPosition);
+                // mb.GlobalPosition 是视口坐标，需要转换到本地坐标
+                var worldMouse = GetGlobalMousePosition();
+                var localMouse = ToLocal(worldMouse);
                 float half = VisualSize / 2.0f;
                 var rect = new Rect2(new Vector2(-half, -half), new Vector2(VisualSize, VisualSize));
                 if (rect.HasPoint(localMouse))
