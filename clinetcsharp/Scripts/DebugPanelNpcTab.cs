@@ -422,6 +422,28 @@ namespace ClinetCSharp
                     cfg.SetValue(sec, $"label_center_x_{i}", c.LabelCenterX[i]);
                     cfg.SetValue(sec, $"label_y_offset_{i}", (double)c.LabelYOffsets[i]);
                 }
+
+                // 血条/MP条
+                cfg.SetValue(sec, "hp_bar_visible", c.HpBarVisible);
+                cfg.SetValue(sec, "hp_bar_length_scale", (double)c.HpBarLengthScale);
+                cfg.SetValue(sec, "hp_bar_height_scale", (double)c.HpBarHeightScale);
+                cfg.SetValue(sec, "hp_bar_fill_percent", (double)c.HpBarFillPercent);
+                cfg.SetValue(sec, "hp_bar_offset_x", (double)c.HpBarOffsetX);
+                cfg.SetValue(sec, "hp_bar_center_x", c.HpBarCenterX);
+                cfg.SetValue(sec, "hp_bar_offset_y", (double)c.HpBarOffsetY);
+                cfg.SetValue(sec, "hp_bar_color_r", (double)c.HpBarColor.R);
+                cfg.SetValue(sec, "hp_bar_color_g", (double)c.HpBarColor.G);
+                cfg.SetValue(sec, "hp_bar_color_b", (double)c.HpBarColor.B);
+                cfg.SetValue(sec, "mp_bar_visible", c.MpBarVisible);
+                cfg.SetValue(sec, "mp_bar_length_scale", (double)c.MpBarLengthScale);
+                cfg.SetValue(sec, "mp_bar_height_scale", (double)c.MpBarHeightScale);
+                cfg.SetValue(sec, "mp_bar_fill_percent", (double)c.MpBarFillPercent);
+                cfg.SetValue(sec, "mp_bar_offset_x", (double)c.MpBarOffsetX);
+                cfg.SetValue(sec, "mp_bar_center_x", c.MpBarCenterX);
+                cfg.SetValue(sec, "mp_bar_offset_y", (double)c.MpBarOffsetY);
+                cfg.SetValue(sec, "mp_bar_color_r", (double)c.MpBarColor.R);
+                cfg.SetValue(sec, "mp_bar_color_g", (double)c.MpBarColor.G);
+                cfg.SetValue(sec, "mp_bar_color_b", (double)c.MpBarColor.B);
             }
         }
         #endregion

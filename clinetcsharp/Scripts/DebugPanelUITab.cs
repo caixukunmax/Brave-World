@@ -193,6 +193,14 @@ namespace ClinetCSharp
         #region Config
         public override void SaveConfig(ConfigFile cfg)
         {
+            // 技能栏
+            cfg.SetValue("skill_bar", "icon_size", _skillBarIconSizeSlider?.Value ?? 44);
+            cfg.SetValue("skill_bar", "spacing", _skillBarSpacingSlider?.Value ?? 6);
+            cfg.SetValue("skill_bar", "name_font_size", _skillBarNameFontSizeSlider?.Value ?? 10);
+            cfg.SetValue("skill_bar", "margin_right", _skillBarMarginRightSlider?.Value ?? 20);
+            cfg.SetValue("skill_bar", "margin_bottom", _skillBarMarginBottomSlider?.Value ?? 20);
+
+            // 功能按钮栏
             cfg.SetValue("fn_bar", "offset_x", _fnBarOffsetXSlider?.Value ?? 8);
             cfg.SetValue("fn_bar", "offset_y", _fnBarOffsetYSlider?.Value ?? 8);
             cfg.SetValue("fn_bar", "spacing", _fnBarSpacingSlider?.Value ?? 3);
@@ -202,6 +210,40 @@ namespace ClinetCSharp
         {
             if (!configLoaded) return;
 
+            // 技能栏
+            if (_skillBarIconSizeSlider != null)
+            {
+                _skillBarIconSizeSlider.SetBlockSignals(true);
+                _skillBarIconSizeSlider.Value = (double)cfg.GetValue("skill_bar", "icon_size", 44.0);
+                _skillBarIconSizeSlider.SetBlockSignals(false);
+            }
+            if (_skillBarSpacingSlider != null)
+            {
+                _skillBarSpacingSlider.SetBlockSignals(true);
+                _skillBarSpacingSlider.Value = (double)cfg.GetValue("skill_bar", "spacing", 6.0);
+                _skillBarSpacingSlider.SetBlockSignals(false);
+            }
+            if (_skillBarNameFontSizeSlider != null)
+            {
+                _skillBarNameFontSizeSlider.SetBlockSignals(true);
+                _skillBarNameFontSizeSlider.Value = (double)cfg.GetValue("skill_bar", "name_font_size", 10.0);
+                _skillBarNameFontSizeSlider.SetBlockSignals(false);
+            }
+            if (_skillBarMarginRightSlider != null)
+            {
+                _skillBarMarginRightSlider.SetBlockSignals(true);
+                _skillBarMarginRightSlider.Value = (double)cfg.GetValue("skill_bar", "margin_right", 20.0);
+                _skillBarMarginRightSlider.SetBlockSignals(false);
+            }
+            if (_skillBarMarginBottomSlider != null)
+            {
+                _skillBarMarginBottomSlider.SetBlockSignals(true);
+                _skillBarMarginBottomSlider.Value = (double)cfg.GetValue("skill_bar", "margin_bottom", 20.0);
+                _skillBarMarginBottomSlider.SetBlockSignals(false);
+            }
+            ApplySkillBarSettings();
+
+            // 功能按钮栏
             if (_fnBarOffsetXSlider != null)
             {
                 _fnBarOffsetXSlider.SetBlockSignals(true);
@@ -220,7 +262,6 @@ namespace ClinetCSharp
                 _fnBarSpacingSlider.Value = (double)cfg.GetValue("fn_bar", "spacing", 3.0);
                 _fnBarSpacingSlider.SetBlockSignals(false);
             }
-
             ApplyFnBarSettings();
         }
         #endregion

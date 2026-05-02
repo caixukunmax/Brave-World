@@ -161,7 +161,7 @@ namespace ClinetCSharp
 
             // Save current config to specified preset
             // Fixed sections + dynamic monster_/npc_ sections
-            string[] fixedSections = { "meta", "map", "player", "calibration", "responsive", "editor", "panel_geo", "fn_bar" };
+            string[] fixedSections = { "meta", "map", "player", "labels", "healthbar", "mpbar", "castbar", "actionbar", "levelbadge", "calibration", "responsive", "editor", "panel_geo", "fn_bar", "skill_bar", "debug", "camera" };
             ConfigFile currentConfig = new ConfigFile();
             Error currentErr = currentConfig.Load(CONFIG_PATH);
 

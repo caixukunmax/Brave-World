@@ -146,6 +146,7 @@ namespace ClinetCSharp
 
             for (int i = 0; i < 4; i++)
             {
+                cfg.LabelTexts[i] = (string)config.GetValue(section, $"label_text_{i}", cfg.LabelTexts[i] ?? "");
                 cfg.LabelFontSizes[i] = (int)(double)config.GetValue(section, $"label_font_size_{i}", 0);
                 cfg.LabelXOffsets[i] = (float)(double)config.GetValue(section, $"label_x_offset_{i}", 0);
                 cfg.LabelCenterX[i] = (bool)config.GetValue(section, $"label_center_x_{i}", true);
@@ -153,13 +154,34 @@ namespace ClinetCSharp
             }
 
             cfg.HpBarLengthScale = (float)(double)config.GetValue(section, "hp_bar_length_scale", cfg.HpBarLengthScale);
-            cfg.MpBarLengthScale = (float)(double)config.GetValue(section, "mp_bar_length_scale", cfg.MpBarLengthScale);
+            cfg.HpBarHeightScale = (float)(double)config.GetValue(section, "hp_bar_height_scale", cfg.HpBarHeightScale);
+            cfg.HpBarFillPercent = (float)(double)config.GetValue(section, "hp_bar_fill_percent", cfg.HpBarFillPercent);
+            cfg.HpBarVisible = (bool)config.GetValue(section, "hp_bar_visible", cfg.HpBarVisible);
+            cfg.HpBarCenterX = (bool)config.GetValue(section, "hp_bar_center_x", RoleControlCenterXResolver.ResolveInitialCenterX(null, cfg.HpBarOffsetX));
             cfg.HpBarOffsetX = (float)(double)config.GetValue(section, "hp_bar_offset_x", cfg.HpBarOffsetX);
             cfg.HpBarOffsetY = (float)(double)config.GetValue(section, "hp_bar_offset_y", cfg.HpBarOffsetY);
+            float hpR = (float)(double)config.GetValue(section, "hp_bar_color_r", cfg.HpBarColor.R);
+            float hpG = (float)(double)config.GetValue(section, "hp_bar_color_g", cfg.HpBarColor.G);
+            float hpB = (float)(double)config.GetValue(section, "hp_bar_color_b", cfg.HpBarColor.B);
+            cfg.HpBarColor = new Color(hpR, hpG, hpB);
+
+            cfg.MpBarLengthScale = (float)(double)config.GetValue(section, "mp_bar_length_scale", cfg.MpBarLengthScale);
+            cfg.MpBarHeightScale = (float)(double)config.GetValue(section, "mp_bar_height_scale", cfg.MpBarHeightScale);
+            cfg.MpBarFillPercent = (float)(double)config.GetValue(section, "mp_bar_fill_percent", cfg.MpBarFillPercent);
+            cfg.MpBarVisible = (bool)config.GetValue(section, "mp_bar_visible", cfg.MpBarVisible);
+            cfg.MpBarCenterX = (bool)config.GetValue(section, "mp_bar_center_x", RoleControlCenterXResolver.ResolveInitialCenterX(null, cfg.MpBarOffsetX));
             cfg.MpBarOffsetX = (float)(double)config.GetValue(section, "mp_bar_offset_x", cfg.MpBarOffsetX);
             cfg.MpBarOffsetY = (float)(double)config.GetValue(section, "mp_bar_offset_y", cfg.MpBarOffsetY);
-            cfg.HpBarCenterX = (bool)config.GetValue(section, "hp_bar_center_x", RoleControlCenterXResolver.ResolveInitialCenterX(null, cfg.HpBarOffsetX));
-            cfg.MpBarCenterX = (bool)config.GetValue(section, "mp_bar_center_x", RoleControlCenterXResolver.ResolveInitialCenterX(null, cfg.MpBarOffsetX));
+            float mpR = (float)(double)config.GetValue(section, "mp_bar_color_r", cfg.MpBarColor.R);
+            float mpG = (float)(double)config.GetValue(section, "mp_bar_color_g", cfg.MpBarColor.G);
+            float mpB = (float)(double)config.GetValue(section, "mp_bar_color_b", cfg.MpBarColor.B);
+            cfg.MpBarColor = new Color(mpR, mpG, mpB);
+
+            // InteractMenuOffset (NPC 专用)
+            cfg.InteractMenuOffsetAX = (float)(double)config.GetValue(section, "interact_menu_offset_ax", cfg.InteractMenuOffsetAX);
+            cfg.InteractMenuOffsetAY = (float)(double)config.GetValue(section, "interact_menu_offset_ay", cfg.InteractMenuOffsetAY);
+            cfg.InteractMenuOffsetBX = (float)(double)config.GetValue(section, "interact_menu_offset_bx", cfg.InteractMenuOffsetBX);
+            cfg.InteractMenuOffsetBY = (float)(double)config.GetValue(section, "interact_menu_offset_by", cfg.InteractMenuOffsetBY);
         }
 
         public void SetGridSize(int size)

@@ -64,28 +64,34 @@ namespace ClinetCSharp
         // 血条
         private CheckButton _monsterHpBarVisibleCheck;
         private Button _monsterHpBarColorBtn;
+        private Label _monsterHpBarLengthValue;
         private HSlider _monsterHpBarLengthScaleSlider;
         private Label _monsterHpBarLengthScaleValue;
+        private Label _monsterHpBarHeightValue;
         private HSlider _monsterHpBarHeightScaleSlider;
         private Label _monsterHpBarHeightScaleValue;
         private HSlider _monsterHpBarFillSlider;
         private Label _monsterHpBarFillValue;
         private HSlider _monsterHpBarOffsetXSlider;
         private Label _monsterHpBarOffsetXValue;
+        private CheckButton _monsterHpBarOffsetXCenterCheck;
         private HSlider _monsterHpBarOffsetYSlider;
         private Label _monsterHpBarOffsetYValue;
 
         // MP 条
         private CheckButton _monsterMpBarVisibleCheck;
         private Button _monsterMpBarColorBtn;
+        private Label _monsterMpBarLengthValue;
         private HSlider _monsterMpBarLengthScaleSlider;
         private Label _monsterMpBarLengthScaleValue;
+        private Label _monsterMpBarHeightValue;
         private HSlider _monsterMpBarHeightScaleSlider;
         private Label _monsterMpBarHeightScaleValue;
         private HSlider _monsterMpBarFillSlider;
         private Label _monsterMpBarFillValue;
         private HSlider _monsterMpBarOffsetXSlider;
         private Label _monsterMpBarOffsetXValue;
+        private CheckButton _monsterMpBarOffsetXCenterCheck;
         private HSlider _monsterMpBarOffsetYSlider;
         private Label _monsterMpBarOffsetYValue;
         #endregion
@@ -240,50 +246,34 @@ namespace ClinetCSharp
             hpTitleRow.AddChild(_monsterHpBarColorBtn);
             tabContainer.AddChild(hpTitleRow);
 
-            // 长度比例（Length 是计算值，只读显示）
-            var hpLenScaleRow = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
-            hpLenScaleRow.AddChild(new Label { Text = "长度比例", CustomMinimumSize = new Vector2(60, 0) });
-            _monsterHpBarLengthScaleValue = new Label { Text = "0.92", CustomMinimumSize = new Vector2(30, 0), HorizontalAlignment = HorizontalAlignment.Right };
-            hpLenScaleRow.AddChild(_monsterHpBarLengthScaleValue);
-            tabContainer.AddChild(hpLenScaleRow);
-            _monsterHpBarLengthScaleSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = 0.1, MaxValue = 2.0, Step = DebugPanelLengthScalePolicy.Step, Value = 102.0 / 111.0 , Scrollable = false };
-            tabContainer.AddChild(_monsterHpBarLengthScaleSlider);
+            // 长度（计算值，只读显示）
+            _monsterHpBarLengthValue = CreateBarReadOnlyRow(tabContainer, "长度", "102");
 
-            // 高度比例（Height 是计算值，只读显示）
-            var hpHScaleRow = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
-            hpHScaleRow.AddChild(new Label { Text = "高度比例", CustomMinimumSize = new Vector2(60, 0) });
-            _monsterHpBarHeightScaleValue = new Label { Text = "0.05", CustomMinimumSize = new Vector2(30, 0), HorizontalAlignment = HorizontalAlignment.Right };
-            hpHScaleRow.AddChild(_monsterHpBarHeightScaleValue);
-            tabContainer.AddChild(hpHScaleRow);
-            _monsterHpBarHeightScaleSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = 0.01, MaxValue = 0.3, Step = DebugPanelLengthScalePolicy.Step, Value = 6.0 / 111.0 , Scrollable = false };
-            tabContainer.AddChild(_monsterHpBarHeightScaleSlider);
+            // 长度比例
+            (_monsterHpBarLengthScaleSlider, _monsterHpBarLengthScaleValue) = CreateBarSliderRow(
+                tabContainer, "长度比例", 0.1, 2.0, 102.0 / 111.0,
+                DebugPanelLengthScalePolicy.Step, v => v.ToString(DebugPanelLengthScalePolicy.FormatStr));
+
+            // 高度（计算值，只读显示）
+            _monsterHpBarHeightValue = CreateBarReadOnlyRow(tabContainer, "高度", "6");
+
+            // 高度比例
+            (_monsterHpBarHeightScaleSlider, _monsterHpBarHeightScaleValue) = CreateBarSliderRow(
+                tabContainer, "高度比例", 0.01, 0.3, 6.0 / 111.0,
+                DebugPanelLengthScalePolicy.Step, v => v.ToString(DebugPanelLengthScalePolicy.FormatStr));
 
             // 填充
-            var hpFillRow = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
-            hpFillRow.AddChild(new Label { Text = "填充", CustomMinimumSize = new Vector2(35, 0) });
-            _monsterHpBarFillValue = new Label { Text = "100%", CustomMinimumSize = new Vector2(30, 0), HorizontalAlignment = HorizontalAlignment.Right };
-            hpFillRow.AddChild(_monsterHpBarFillValue);
-            tabContainer.AddChild(hpFillRow);
-            _monsterHpBarFillSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = 0, MaxValue = 100, Step = 1, Value = 100 , Scrollable = false };
-            tabContainer.AddChild(_monsterHpBarFillSlider);
+            (_monsterHpBarFillSlider, _monsterHpBarFillValue) = CreateBarSliderRow(
+                tabContainer, "填充", 0, 100, 100, 1, v => $"{(int)v}%", labelMinWidth: 35);
 
             // X偏移
-            var hpOffXRow = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
-            hpOffXRow.AddChild(new Label { Text = "X偏移", CustomMinimumSize = new Vector2(45, 0) });
-            _monsterHpBarOffsetXValue = new Label { Text = "0", CustomMinimumSize = new Vector2(30, 0), HorizontalAlignment = HorizontalAlignment.Right };
-            hpOffXRow.AddChild(_monsterHpBarOffsetXValue);
-            tabContainer.AddChild(hpOffXRow);
-            _monsterHpBarOffsetXSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = -150, MaxValue = 150, Step = 1, Value = 0 , Scrollable = false };
-            tabContainer.AddChild(_monsterHpBarOffsetXSlider);
+            _monsterHpBarOffsetXCenterCheck = new CheckButton { Text = "居中", ButtonPressed = true };
+            (_monsterHpBarOffsetXSlider, _monsterHpBarOffsetXValue) = CreateBarSliderRow(
+                tabContainer, "X偏移", -150, 150, 0, 1, v => ((int)v).ToString(), labelMinWidth: 45, centerCheck: _monsterHpBarOffsetXCenterCheck);
 
             // Y偏移
-            var hpOffYRow = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
-            hpOffYRow.AddChild(new Label { Text = "Y偏移", CustomMinimumSize = new Vector2(45, 0) });
-            _monsterHpBarOffsetYValue = new Label { Text = "-70", CustomMinimumSize = new Vector2(30, 0), HorizontalAlignment = HorizontalAlignment.Right };
-            hpOffYRow.AddChild(_monsterHpBarOffsetYValue);
-            tabContainer.AddChild(hpOffYRow);
-            _monsterHpBarOffsetYSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = -150, MaxValue = 150, Step = 1, Value = -70 , Scrollable = false };
-            tabContainer.AddChild(_monsterHpBarOffsetYSlider);
+            (_monsterHpBarOffsetYSlider, _monsterHpBarOffsetYValue) = CreateBarSliderRow(
+                tabContainer, "Y偏移", -150, 150, -70, 1, v => ((int)v).ToString(), labelMinWidth: 45);
 
             // ---- MP 条 ----
             tabContainer.AddChild(new HSeparator());
@@ -298,51 +288,34 @@ namespace ClinetCSharp
             mpTitleRow.AddChild(_monsterMpBarColorBtn);
             tabContainer.AddChild(mpTitleRow);
 
-            // 长度
+            // 长度（计算值，只读显示）
+            _monsterMpBarLengthValue = CreateBarReadOnlyRow(tabContainer, "长度", "80");
+
             // MP 长度比例
-            var mpLenScaleRow = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
-            mpLenScaleRow.AddChild(new Label { Text = "长度比例", CustomMinimumSize = new Vector2(60, 0) });
-            _monsterMpBarLengthScaleValue = new Label { Text = "0.72", CustomMinimumSize = new Vector2(30, 0), HorizontalAlignment = HorizontalAlignment.Right };
-            mpLenScaleRow.AddChild(_monsterMpBarLengthScaleValue);
-            tabContainer.AddChild(mpLenScaleRow);
-            _monsterMpBarLengthScaleSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = 0.1, MaxValue = 2.0, Step = DebugPanelLengthScalePolicy.Step, Value = 80.0 / 111.0 , Scrollable = false };
-            tabContainer.AddChild(_monsterMpBarLengthScaleSlider);
+            (_monsterMpBarLengthScaleSlider, _monsterMpBarLengthScaleValue) = CreateBarSliderRow(
+                tabContainer, "长度比例", 0.1, 2.0, 80.0 / 111.0,
+                DebugPanelLengthScalePolicy.Step, v => v.ToString(DebugPanelLengthScalePolicy.FormatStr));
+
+            // MP 高度（计算值，只读显示）
+            _monsterMpBarHeightValue = CreateBarReadOnlyRow(tabContainer, "高度", "4");
 
             // MP 高度比例
-            var mpHScaleRow = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
-            mpHScaleRow.AddChild(new Label { Text = "高度比例", CustomMinimumSize = new Vector2(60, 0) });
-            _monsterMpBarHeightScaleValue = new Label { Text = "0.04", CustomMinimumSize = new Vector2(30, 0), HorizontalAlignment = HorizontalAlignment.Right };
-            mpHScaleRow.AddChild(_monsterMpBarHeightScaleValue);
-            tabContainer.AddChild(mpHScaleRow);
-            _monsterMpBarHeightScaleSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = 0.01, MaxValue = 0.3, Step = DebugPanelLengthScalePolicy.Step, Value = 4.0 / 111.0 , Scrollable = false };
-            tabContainer.AddChild(_monsterMpBarHeightScaleSlider);
+            (_monsterMpBarHeightScaleSlider, _monsterMpBarHeightScaleValue) = CreateBarSliderRow(
+                tabContainer, "高度比例", 0.01, 0.3, 4.0 / 111.0,
+                DebugPanelLengthScalePolicy.Step, v => v.ToString(DebugPanelLengthScalePolicy.FormatStr));
 
             // 填充
-            var mpFillRow = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
-            mpFillRow.AddChild(new Label { Text = "填充", CustomMinimumSize = new Vector2(35, 0) });
-            _monsterMpBarFillValue = new Label { Text = "100%", CustomMinimumSize = new Vector2(30, 0), HorizontalAlignment = HorizontalAlignment.Right };
-            mpFillRow.AddChild(_monsterMpBarFillValue);
-            tabContainer.AddChild(mpFillRow);
-            _monsterMpBarFillSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = 0, MaxValue = 100, Step = 1, Value = 100 , Scrollable = false };
-            tabContainer.AddChild(_monsterMpBarFillSlider);
+            (_monsterMpBarFillSlider, _monsterMpBarFillValue) = CreateBarSliderRow(
+                tabContainer, "填充", 0, 100, 100, 1, v => $"{(int)v}%", labelMinWidth: 35);
 
             // X偏移
-            var mpOffXRow = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
-            mpOffXRow.AddChild(new Label { Text = "X偏移", CustomMinimumSize = new Vector2(45, 0) });
-            _monsterMpBarOffsetXValue = new Label { Text = "0", CustomMinimumSize = new Vector2(30, 0), HorizontalAlignment = HorizontalAlignment.Right };
-            mpOffXRow.AddChild(_monsterMpBarOffsetXValue);
-            tabContainer.AddChild(mpOffXRow);
-            _monsterMpBarOffsetXSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = -150, MaxValue = 150, Step = 1, Value = 0 , Scrollable = false };
-            tabContainer.AddChild(_monsterMpBarOffsetXSlider);
+            _monsterMpBarOffsetXCenterCheck = new CheckButton { Text = "居中", ButtonPressed = true };
+            (_monsterMpBarOffsetXSlider, _monsterMpBarOffsetXValue) = CreateBarSliderRow(
+                tabContainer, "X偏移", -150, 150, 0, 1, v => ((int)v).ToString(), labelMinWidth: 45, centerCheck: _monsterMpBarOffsetXCenterCheck);
 
             // Y偏移
-            var mpOffYRow = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
-            mpOffYRow.AddChild(new Label { Text = "Y偏移", CustomMinimumSize = new Vector2(45, 0) });
-            _monsterMpBarOffsetYValue = new Label { Text = "-62", CustomMinimumSize = new Vector2(30, 0), HorizontalAlignment = HorizontalAlignment.Right };
-            mpOffYRow.AddChild(_monsterMpBarOffsetYValue);
-            tabContainer.AddChild(mpOffYRow);
-            _monsterMpBarOffsetYSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = -150, MaxValue = 150, Step = 1, Value = -62 , Scrollable = false };
-            tabContainer.AddChild(_monsterMpBarOffsetYSlider);
+            (_monsterMpBarOffsetYSlider, _monsterMpBarOffsetYValue) = CreateBarSliderRow(
+                tabContainer, "Y偏移", -150, 150, -62, 1, v => ((int)v).ToString(), labelMinWidth: 45);
 
             // 信号绑定
             _monsterHpBarVisibleCheck.Toggled += _ => ApplyMonsterDebugChanges();
@@ -355,6 +328,7 @@ namespace ClinetCSharp
             AttachValueLineEdit(_monsterHpBarFillSlider, _monsterHpBarFillValue);
             _monsterHpBarOffsetXSlider.ValueChanged += _ => ApplyMonsterDebugChanges();
             AttachValueLineEdit(_monsterHpBarOffsetXSlider, _monsterHpBarOffsetXValue);
+            _monsterHpBarOffsetXCenterCheck.Toggled += _ => ApplyMonsterDebugChanges();
             _monsterHpBarOffsetYSlider.ValueChanged += _ => ApplyMonsterDebugChanges();
             AttachValueLineEdit(_monsterHpBarOffsetYSlider, _monsterHpBarOffsetYValue);
             _monsterMpBarVisibleCheck.Toggled += _ => ApplyMonsterDebugChanges();
@@ -367,6 +341,7 @@ namespace ClinetCSharp
             AttachValueLineEdit(_monsterMpBarFillSlider, _monsterMpBarFillValue);
             _monsterMpBarOffsetXSlider.ValueChanged += _ => ApplyMonsterDebugChanges();
             AttachValueLineEdit(_monsterMpBarOffsetXSlider, _monsterMpBarOffsetXValue);
+            _monsterMpBarOffsetXCenterCheck.Toggled += _ => ApplyMonsterDebugChanges();
             _monsterMpBarOffsetYSlider.ValueChanged += _ => ApplyMonsterDebugChanges();
             AttachValueLineEdit(_monsterMpBarOffsetYSlider, _monsterMpBarOffsetYValue);
 
@@ -573,14 +548,27 @@ namespace ClinetCSharp
             cfg.HpBarLengthScale = (float)_monsterHpBarLengthScaleSlider.Value;
             cfg.HpBarHeightScale = (float)_monsterHpBarHeightScaleSlider.Value;
             cfg.HpBarFillPercent = (float)(_monsterHpBarFillSlider.Value / 100.0);
-            cfg.HpBarOffsetX = (float)_monsterHpBarOffsetXSlider.Value;
+            cfg.HpBarOffsetX = _monsterHpBarOffsetXCenterCheck?.ButtonPressed == true ? 0 : (float)_monsterHpBarOffsetXSlider.Value;
+            cfg.HpBarCenterX = _monsterHpBarOffsetXCenterCheck?.ButtonPressed ?? true;
             cfg.HpBarOffsetY = (float)_monsterHpBarOffsetYSlider.Value;
             cfg.MpBarVisible = _monsterMpBarVisibleCheck.ButtonPressed;
             cfg.MpBarLengthScale = (float)_monsterMpBarLengthScaleSlider.Value;
             cfg.MpBarHeightScale = (float)_monsterMpBarHeightScaleSlider.Value;
             cfg.MpBarFillPercent = (float)(_monsterMpBarFillSlider.Value / 100.0);
-            cfg.MpBarOffsetX = (float)_monsterMpBarOffsetXSlider.Value;
+            cfg.MpBarOffsetX = _monsterMpBarOffsetXCenterCheck?.ButtonPressed == true ? 0 : (float)_monsterMpBarOffsetXSlider.Value;
+            cfg.MpBarCenterX = _monsterMpBarOffsetXCenterCheck?.ButtonPressed ?? true;
             cfg.MpBarOffsetY = (float)_monsterMpBarOffsetYSlider.Value;
+
+            // 更新只读标签（长度/高度 = GridSize × Scale）
+            int gridSize = (int)Owner._gridSizeSlider.Value;
+            if (_monsterHpBarLengthValue != null)
+                _monsterHpBarLengthValue.Text = ((int)(gridSize * cfg.HpBarLengthScale)).ToString();
+            if (_monsterHpBarHeightValue != null)
+                _monsterHpBarHeightValue.Text = ((int)(gridSize * cfg.HpBarHeightScale)).ToString();
+            if (_monsterMpBarLengthValue != null)
+                _monsterMpBarLengthValue.Text = ((int)(gridSize * cfg.MpBarLengthScale)).ToString();
+            if (_monsterMpBarHeightValue != null)
+                _monsterMpBarHeightValue.Text = ((int)(gridSize * cfg.MpBarHeightScale)).ToString();
 
             mm.ApplyStyleToAll();
         }
@@ -696,23 +684,39 @@ namespace ClinetCSharp
             _monsterHpBarLengthScaleSlider.SetBlockSignals(true);
             _monsterHpBarLengthScaleSlider.Value = cfg.HpBarLengthScale;
             _monsterHpBarLengthScaleSlider.SetBlockSignals(false);
-            _monsterHpBarLengthScaleValue.Text = cfg.HpBarLengthScale.ToString(DebugPanelLengthScalePolicy.FormatStr);
+            UpdateAttachedValue(_monsterHpBarLengthScaleSlider, cfg.HpBarLengthScale.ToString(DebugPanelLengthScalePolicy.FormatStr));
             _monsterHpBarHeightScaleSlider.SetBlockSignals(true);
             _monsterHpBarHeightScaleSlider.Value = cfg.HpBarHeightScale;
             _monsterHpBarHeightScaleSlider.SetBlockSignals(false);
-            _monsterHpBarHeightScaleValue.Text = cfg.HpBarHeightScale.ToString(DebugPanelLengthScalePolicy.FormatStr);
+            UpdateAttachedValue(_monsterHpBarHeightScaleSlider, cfg.HpBarHeightScale.ToString(DebugPanelLengthScalePolicy.FormatStr));
+            // 长度/高度只读显示
+            int gs = (int)Owner._gridSizeSlider.Value;
+            if (_monsterHpBarLengthValue != null)
+                _monsterHpBarLengthValue.Text = ((int)(gs * cfg.HpBarLengthScale)).ToString();
+            if (_monsterHpBarHeightValue != null)
+                _monsterHpBarHeightValue.Text = ((int)(gs * cfg.HpBarHeightScale)).ToString();
             _monsterHpBarFillSlider.SetBlockSignals(true);
             _monsterHpBarFillSlider.Value = cfg.HpBarFillPercent * 100;
             _monsterHpBarFillSlider.SetBlockSignals(false);
-            _monsterHpBarFillValue.Text = $"{(int)(cfg.HpBarFillPercent * 100)}%";
+            UpdateAttachedValue(_monsterHpBarFillSlider, $"{(int)(cfg.HpBarFillPercent * 100)}%");
             _monsterHpBarOffsetXSlider.SetBlockSignals(true);
             _monsterHpBarOffsetXSlider.Value = cfg.HpBarOffsetX;
             _monsterHpBarOffsetXSlider.SetBlockSignals(false);
-            _monsterHpBarOffsetXValue.Text = ((int)cfg.HpBarOffsetX).ToString();
+            UpdateAttachedValue(_monsterHpBarOffsetXSlider, ((int)cfg.HpBarOffsetX).ToString());
             _monsterHpBarOffsetYSlider.SetBlockSignals(true);
             _monsterHpBarOffsetYSlider.Value = cfg.HpBarOffsetY;
             _monsterHpBarOffsetYSlider.SetBlockSignals(false);
-            _monsterHpBarOffsetYValue.Text = ((int)cfg.HpBarOffsetY).ToString();
+            UpdateAttachedValue(_monsterHpBarOffsetYSlider, ((int)cfg.HpBarOffsetY).ToString());
+
+            // 血条居中按钮
+            if (_monsterHpBarOffsetXCenterCheck != null)
+            {
+                _monsterHpBarOffsetXCenterCheck.SetBlockSignals(true);
+                _monsterHpBarOffsetXCenterCheck.ButtonPressed = cfg.HpBarCenterX;
+                _monsterHpBarOffsetXCenterCheck.SetBlockSignals(false);
+            }
+            _monsterHpBarOffsetXSlider.Editable = !cfg.HpBarCenterX;
+            _monsterHpBarOffsetXSlider.Modulate = cfg.HpBarCenterX ? new Color(0.5f, 0.5f, 0.5f, 1) : new Color(1, 1, 1, 1);
 
             // MP 条
             _monsterMpBarVisibleCheck.SetBlockSignals(true);
@@ -722,23 +726,38 @@ namespace ClinetCSharp
             _monsterMpBarLengthScaleSlider.SetBlockSignals(true);
             _monsterMpBarLengthScaleSlider.Value = cfg.MpBarLengthScale;
             _monsterMpBarLengthScaleSlider.SetBlockSignals(false);
-            _monsterMpBarLengthScaleValue.Text = cfg.MpBarLengthScale.ToString(DebugPanelLengthScalePolicy.FormatStr);
+            UpdateAttachedValue(_monsterMpBarLengthScaleSlider, cfg.MpBarLengthScale.ToString(DebugPanelLengthScalePolicy.FormatStr));
             _monsterMpBarHeightScaleSlider.SetBlockSignals(true);
             _monsterMpBarHeightScaleSlider.Value = cfg.MpBarHeightScale;
             _monsterMpBarHeightScaleSlider.SetBlockSignals(false);
-            _monsterMpBarHeightScaleValue.Text = cfg.MpBarHeightScale.ToString(DebugPanelLengthScalePolicy.FormatStr);
+            UpdateAttachedValue(_monsterMpBarHeightScaleSlider, cfg.MpBarHeightScale.ToString(DebugPanelLengthScalePolicy.FormatStr));
+            // 长度/高度只读显示
+            if (_monsterMpBarLengthValue != null)
+                _monsterMpBarLengthValue.Text = ((int)(gs * cfg.MpBarLengthScale)).ToString();
+            if (_monsterMpBarHeightValue != null)
+                _monsterMpBarHeightValue.Text = ((int)(gs * cfg.MpBarHeightScale)).ToString();
             _monsterMpBarFillSlider.SetBlockSignals(true);
             _monsterMpBarFillSlider.Value = cfg.MpBarFillPercent * 100;
             _monsterMpBarFillSlider.SetBlockSignals(false);
-            _monsterMpBarFillValue.Text = $"{(int)(cfg.MpBarFillPercent * 100)}%";
+            UpdateAttachedValue(_monsterMpBarFillSlider, $"{(int)(cfg.MpBarFillPercent * 100)}%");
             _monsterMpBarOffsetXSlider.SetBlockSignals(true);
             _monsterMpBarOffsetXSlider.Value = cfg.MpBarOffsetX;
             _monsterMpBarOffsetXSlider.SetBlockSignals(false);
-            _monsterMpBarOffsetXValue.Text = ((int)cfg.MpBarOffsetX).ToString();
+            UpdateAttachedValue(_monsterMpBarOffsetXSlider, ((int)cfg.MpBarOffsetX).ToString());
             _monsterMpBarOffsetYSlider.SetBlockSignals(true);
             _monsterMpBarOffsetYSlider.Value = cfg.MpBarOffsetY;
             _monsterMpBarOffsetYSlider.SetBlockSignals(false);
-            _monsterMpBarOffsetYValue.Text = ((int)cfg.MpBarOffsetY).ToString();
+            UpdateAttachedValue(_monsterMpBarOffsetYSlider, ((int)cfg.MpBarOffsetY).ToString());
+
+            // MP条居中按钮
+            if (_monsterMpBarOffsetXCenterCheck != null)
+            {
+                _monsterMpBarOffsetXCenterCheck.SetBlockSignals(true);
+                _monsterMpBarOffsetXCenterCheck.ButtonPressed = cfg.MpBarCenterX;
+                _monsterMpBarOffsetXCenterCheck.SetBlockSignals(false);
+            }
+            _monsterMpBarOffsetXSlider.Editable = !cfg.MpBarCenterX;
+            _monsterMpBarOffsetXSlider.Modulate = cfg.MpBarCenterX ? new Color(0.5f, 0.5f, 0.5f, 1) : new Color(1, 1, 1, 1);
         }
         #endregion
 
@@ -775,6 +794,30 @@ namespace ClinetCSharp
                     cfg.SetValue(sec, $"label_center_x_{i}", c.LabelCenterX[i]);
                     cfg.SetValue(sec, $"label_y_offset_{i}", (double)c.LabelYOffsets[i]);
                 }
+
+                // 血条
+                cfg.SetValue(sec, "hp_bar_visible", c.HpBarVisible);
+                cfg.SetValue(sec, "hp_bar_length_scale", (double)c.HpBarLengthScale);
+                cfg.SetValue(sec, "hp_bar_height_scale", (double)c.HpBarHeightScale);
+                cfg.SetValue(sec, "hp_bar_fill_percent", (double)c.HpBarFillPercent);
+                cfg.SetValue(sec, "hp_bar_center_x", c.HpBarCenterX);
+                cfg.SetValue(sec, "hp_bar_offset_x", (double)c.HpBarOffsetX);
+                cfg.SetValue(sec, "hp_bar_offset_y", (double)c.HpBarOffsetY);
+                cfg.SetValue(sec, "hp_bar_color_r", (double)c.HpBarColor.R);
+                cfg.SetValue(sec, "hp_bar_color_g", (double)c.HpBarColor.G);
+                cfg.SetValue(sec, "hp_bar_color_b", (double)c.HpBarColor.B);
+
+                // MP 条
+                cfg.SetValue(sec, "mp_bar_visible", c.MpBarVisible);
+                cfg.SetValue(sec, "mp_bar_length_scale", (double)c.MpBarLengthScale);
+                cfg.SetValue(sec, "mp_bar_height_scale", (double)c.MpBarHeightScale);
+                cfg.SetValue(sec, "mp_bar_fill_percent", (double)c.MpBarFillPercent);
+                cfg.SetValue(sec, "mp_bar_center_x", c.MpBarCenterX);
+                cfg.SetValue(sec, "mp_bar_offset_x", (double)c.MpBarOffsetX);
+                cfg.SetValue(sec, "mp_bar_offset_y", (double)c.MpBarOffsetY);
+                cfg.SetValue(sec, "mp_bar_color_r", (double)c.MpBarColor.R);
+                cfg.SetValue(sec, "mp_bar_color_g", (double)c.MpBarColor.G);
+                cfg.SetValue(sec, "mp_bar_color_b", (double)c.MpBarColor.B);
             }
         }
         #endregion

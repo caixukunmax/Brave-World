@@ -86,6 +86,7 @@ namespace ClinetCSharp
         private HSlider _healthBarOffsetYSlider;
         private Label _healthBarOffsetXValue;
         private Label _healthBarOffsetYValue;
+        private CheckButton _healthBarOffsetXCenterCheck;
         #endregion
 
         #region MP Bar Controls
@@ -105,6 +106,7 @@ namespace ClinetCSharp
         private HSlider _mpBarOffsetYSlider;
         private Label _mpBarOffsetXValue;
         private Label _mpBarOffsetYValue;
+        private CheckButton _mpBarOffsetXCenterCheck;
         #endregion
 
         #region Cast Bar Controls
@@ -120,6 +122,7 @@ namespace ClinetCSharp
         private HSlider _castBarOffsetYSlider;
         private Label _castBarOffsetXValue;
         private Label _castBarOffsetYValue;
+        private CheckButton _castBarOffsetXCenterCheck;
         #endregion
 
         #region Action Bar Controls
@@ -140,6 +143,7 @@ namespace ClinetCSharp
         private HSlider _levelBadgeOffsetYSlider;
         private Label _levelBadgeOffsetXValue;
         private Label _levelBadgeOffsetYValue;
+        private CheckButton _levelBadgeOffsetXCenterCheck;
         #endregion
 
         #region Dynamic controls
@@ -437,6 +441,8 @@ namespace ClinetCSharp
             hpxRow.AddChild(new Label { Text = "X偏移", CustomMinimumSize = new Vector2(45, 0) });
             _healthBarOffsetXValue = new Label { Text = "0", CustomMinimumSize = new Vector2(30, 0), HorizontalAlignment = HorizontalAlignment.Right };
             hpxRow.AddChild(_healthBarOffsetXValue);
+            _healthBarOffsetXCenterCheck = new CheckButton { Text = "居中", ButtonPressed = true };
+            hpxRow.AddChild(_healthBarOffsetXCenterCheck);
             labelCtrlGroup.AddChild(hpxRow);
             _healthBarOffsetXSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = -150, MaxValue = 150, Step = 1, Value = 0 , Scrollable = false };
             labelCtrlGroup.AddChild(_healthBarOffsetXSlider);
@@ -455,25 +461,26 @@ namespace ClinetCSharp
             _healthBarColorBtn.Pressed += OnHealthBarColorPressed;
             _healthBarLengthSlider.ValueChanged += OnHealthBarLengthChanged;
             _healthBarLengthSlider.DragEnded += (changed) => Owner.PushCurrentStateToHistory();
-            AttachValueLineEdit(_healthBarLengthSlider, _healthBarLengthValue);
+            AttachValueLineEdit(_healthBarLengthSlider, _healthBarLengthValue, v => ((int)v).ToString());
             _healthBarLengthScaleSlider.ValueChanged += OnHealthBarLengthScaleChanged;
             _healthBarLengthScaleSlider.DragEnded += (changed) => Owner.PushCurrentStateToHistory();
             AttachValueLineEdit(_healthBarLengthScaleSlider, _healthBarLengthScaleValue);
             _healthBarHeightSlider.ValueChanged += OnHealthBarHeightChanged;
             _healthBarHeightSlider.DragEnded += (changed) => Owner.PushCurrentStateToHistory();
-            AttachValueLineEdit(_healthBarHeightSlider, _healthBarHeightValue);
+            AttachValueLineEdit(_healthBarHeightSlider, _healthBarHeightValue, v => ((int)v).ToString());
             _healthBarHeightScaleSlider.ValueChanged += OnHealthBarHeightScaleChanged;
             _healthBarHeightScaleSlider.DragEnded += (changed) => Owner.PushCurrentStateToHistory();
             AttachValueLineEdit(_healthBarHeightScaleSlider, _healthBarHeightScaleValue);
             _healthBarFillSlider.ValueChanged += OnHealthBarFillChanged;
             _healthBarFillSlider.DragEnded += (changed) => Owner.PushCurrentStateToHistory();
-            AttachValueLineEdit(_healthBarFillSlider, _healthBarFillValue);
+            AttachValueLineEdit(_healthBarFillSlider, _healthBarFillValue, v => $"{(int)v}%");
             _healthBarOffsetXSlider.ValueChanged += OnHealthBarOffsetXChanged;
             _healthBarOffsetXSlider.DragEnded += (changed) => Owner.PushCurrentStateToHistory();
-            AttachValueLineEdit(_healthBarOffsetXSlider, _healthBarOffsetXValue);
+            AttachValueLineEdit(_healthBarOffsetXSlider, _healthBarOffsetXValue, v => ((int)v).ToString());
+            _healthBarOffsetXCenterCheck.Toggled += OnHealthBarOffsetXCenterToggled;
             _healthBarOffsetYSlider.ValueChanged += OnHealthBarOffsetYChanged;
             _healthBarOffsetYSlider.DragEnded += (changed) => Owner.PushCurrentStateToHistory();
-            AttachValueLineEdit(_healthBarOffsetYSlider, _healthBarOffsetYValue);
+            AttachValueLineEdit(_healthBarOffsetYSlider, _healthBarOffsetYValue, v => ((int)v).ToString());
 
             // ========== MP条控制 ==========
             labelCtrlGroup.AddChild(new HSeparator { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill });
@@ -532,6 +539,8 @@ namespace ClinetCSharp
             mpOffXRow.AddChild(new Label { Text = "X偏移", CustomMinimumSize = new Vector2(45, 0) });
             _mpBarOffsetXValue = new Label { Text = "0", CustomMinimumSize = new Vector2(30, 0), HorizontalAlignment = HorizontalAlignment.Right };
             mpOffXRow.AddChild(_mpBarOffsetXValue);
+            _mpBarOffsetXCenterCheck = new CheckButton { Text = "居中", ButtonPressed = true };
+            mpOffXRow.AddChild(_mpBarOffsetXCenterCheck);
             labelCtrlGroup.AddChild(mpOffXRow);
             _mpBarOffsetXSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = -150, MaxValue = 150, Step = 1, Value = 0 , Scrollable = false };
             labelCtrlGroup.AddChild(_mpBarOffsetXSlider);
@@ -549,25 +558,26 @@ namespace ClinetCSharp
             _mpBarColorBtn.Pressed += OnMpBarColorPressed;
             _mpBarLengthSlider.ValueChanged += OnMpBarLengthChanged;
             _mpBarLengthSlider.DragEnded += (changed) => Owner.PushCurrentStateToHistory();
-            AttachValueLineEdit(_mpBarLengthSlider, _mpBarLengthValue);
+            AttachValueLineEdit(_mpBarLengthSlider, _mpBarLengthValue, v => ((int)v).ToString());
             _mpBarLengthScaleSlider.ValueChanged += OnMpBarLengthScaleChanged;
             _mpBarLengthScaleSlider.DragEnded += (changed) => Owner.PushCurrentStateToHistory();
             AttachValueLineEdit(_mpBarLengthScaleSlider, _mpBarLengthScaleValue);
             _mpBarHeightSlider.ValueChanged += OnMpBarHeightChanged;
             _mpBarHeightSlider.DragEnded += (changed) => Owner.PushCurrentStateToHistory();
-            AttachValueLineEdit(_mpBarHeightSlider, _mpBarHeightValue);
+            AttachValueLineEdit(_mpBarHeightSlider, _mpBarHeightValue, v => ((int)v).ToString());
             _mpBarHeightScaleSlider.ValueChanged += OnMpBarHeightScaleChanged;
             _mpBarHeightScaleSlider.DragEnded += (changed) => Owner.PushCurrentStateToHistory();
             AttachValueLineEdit(_mpBarHeightScaleSlider, _mpBarHeightScaleValue);
             _mpBarFillSlider.ValueChanged += OnMpBarFillChanged;
             _mpBarFillSlider.DragEnded += (changed) => Owner.PushCurrentStateToHistory();
-            AttachValueLineEdit(_mpBarFillSlider, _mpBarFillValue);
+            AttachValueLineEdit(_mpBarFillSlider, _mpBarFillValue, v => $"{(int)v}%");
             _mpBarOffsetXSlider.ValueChanged += OnMpBarOffsetXChanged;
             _mpBarOffsetXSlider.DragEnded += (changed) => Owner.PushCurrentStateToHistory();
-            AttachValueLineEdit(_mpBarOffsetXSlider, _mpBarOffsetXValue);
+            AttachValueLineEdit(_mpBarOffsetXSlider, _mpBarOffsetXValue, v => ((int)v).ToString());
+            _mpBarOffsetXCenterCheck.Toggled += OnMpBarOffsetXCenterToggled;
             _mpBarOffsetYSlider.ValueChanged += OnMpBarOffsetYChanged;
             _mpBarOffsetYSlider.DragEnded += (changed) => Owner.PushCurrentStateToHistory();
-            AttachValueLineEdit(_mpBarOffsetYSlider, _mpBarOffsetYValue);
+            AttachValueLineEdit(_mpBarOffsetYSlider, _mpBarOffsetYValue, v => ((int)v).ToString());
 
             // ========== 施法条控制 ==========
             labelCtrlGroup.AddChild(new HSeparator { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill });
@@ -614,6 +624,8 @@ namespace ClinetCSharp
             ctOxRow.AddChild(new Label { Text = "X偏移", CustomMinimumSize = new Vector2(45, 0) });
             _castBarOffsetXValue = new Label { Text = "0", CustomMinimumSize = new Vector2(30, 0), HorizontalAlignment = HorizontalAlignment.Right };
             ctOxRow.AddChild(_castBarOffsetXValue);
+            _castBarOffsetXCenterCheck = new CheckButton { Text = "居中", ButtonPressed = true };
+            ctOxRow.AddChild(_castBarOffsetXCenterCheck);
             labelCtrlGroup.AddChild(ctOxRow);
             _castBarOffsetXSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = -150, MaxValue = 150, Step = 1, Value = 0 , Scrollable = false };
             labelCtrlGroup.AddChild(_castBarOffsetXSlider);
@@ -632,19 +644,20 @@ namespace ClinetCSharp
             _castBarColorBtn.Pressed += OnCastBarColorPressed;
             _castBarLengthSlider.ValueChanged += OnCastBarLengthChanged;
             _castBarLengthSlider.DragEnded += (changed) => Owner.PushCurrentStateToHistory();
-            AttachValueLineEdit(_castBarLengthSlider, _castBarLengthValue);
+            AttachValueLineEdit(_castBarLengthSlider, _castBarLengthValue, v => ((int)v).ToString());
             _castBarHeightSlider.ValueChanged += OnCastBarHeightChanged;
             _castBarHeightSlider.DragEnded += (changed) => Owner.PushCurrentStateToHistory();
-            AttachValueLineEdit(_castBarHeightSlider, _castBarHeightValue);
+            AttachValueLineEdit(_castBarHeightSlider, _castBarHeightValue, v => ((int)v).ToString());
             _castBarFillSlider.ValueChanged += OnCastBarFillChanged;
             _castBarFillSlider.DragEnded += (changed) => Owner.PushCurrentStateToHistory();
-            AttachValueLineEdit(_castBarFillSlider, _castBarFillValue);
+            AttachValueLineEdit(_castBarFillSlider, _castBarFillValue, v => $"{(int)v}%");
             _castBarOffsetXSlider.ValueChanged += OnCastBarOffsetXChanged;
             _castBarOffsetXSlider.DragEnded += (changed) => Owner.PushCurrentStateToHistory();
-            AttachValueLineEdit(_castBarOffsetXSlider, _castBarOffsetXValue);
+            AttachValueLineEdit(_castBarOffsetXSlider, _castBarOffsetXValue, v => ((int)v).ToString());
+            _castBarOffsetXCenterCheck.Toggled += OnCastBarOffsetXCenterToggled;
             _castBarOffsetYSlider.ValueChanged += OnCastBarOffsetYChanged;
             _castBarOffsetYSlider.DragEnded += (changed) => Owner.PushCurrentStateToHistory();
-            AttachValueLineEdit(_castBarOffsetYSlider, _castBarOffsetYValue);
+            AttachValueLineEdit(_castBarOffsetYSlider, _castBarOffsetYValue, v => ((int)v).ToString());
 
             // ========== 动作栏控制 ==========
             labelCtrlGroup.AddChild(new HSeparator { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill });
@@ -677,10 +690,10 @@ namespace ClinetCSharp
             _actionBarForceShowCheck.Toggled += OnActionBarForceShowToggled;
             _actionBarTextYOffsetSlider.ValueChanged += OnActionBarTextYOffsetChanged;
             _actionBarTextYOffsetSlider.DragEnded += (changed) => Owner.PushCurrentStateToHistory();
-            AttachValueLineEdit(_actionBarTextYOffsetSlider, _actionBarTextYOffsetValue);
+            AttachValueLineEdit(_actionBarTextYOffsetSlider, _actionBarTextYOffsetValue, v => ((int)v).ToString());
             _actionBarProgressHeightSlider.ValueChanged += OnActionBarProgressHeightChanged;
             _actionBarProgressHeightSlider.DragEnded += (changed) => Owner.PushCurrentStateToHistory();
-            AttachValueLineEdit(_actionBarProgressHeightSlider, _actionBarProgressHeightValue);
+            AttachValueLineEdit(_actionBarProgressHeightSlider, _actionBarProgressHeightValue, v => ((int)v).ToString());
 
             // ========== 等级徽章控制 ==========
             labelCtrlGroup.AddChild(new HSeparator { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill });
@@ -716,6 +729,8 @@ namespace ClinetCSharp
             lvOxRow.AddChild(new Label { Text = "X偏移", CustomMinimumSize = new Vector2(45, 0) });
             _levelBadgeOffsetXValue = new Label { Text = "-35", CustomMinimumSize = new Vector2(30, 0), HorizontalAlignment = HorizontalAlignment.Right };
             lvOxRow.AddChild(_levelBadgeOffsetXValue);
+            _levelBadgeOffsetXCenterCheck = new CheckButton { Text = "居中", ButtonPressed = false };
+            lvOxRow.AddChild(_levelBadgeOffsetXCenterCheck);
             labelCtrlGroup.AddChild(lvOxRow);
             _levelBadgeOffsetXSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = -150, MaxValue = 150, Step = 1, Value = -35 , Scrollable = false };
             labelCtrlGroup.AddChild(_levelBadgeOffsetXSlider);
@@ -735,13 +750,14 @@ namespace ClinetCSharp
             _levelBadgeTextEdit.TextChanged += OnLevelBadgeTextChanged;
             _levelBadgeFontSizeSlider.ValueChanged += OnLevelBadgeFontSizeChanged;
             _levelBadgeFontSizeSlider.DragEnded += (changed) => Owner.PushCurrentStateToHistory();
-            AttachValueLineEdit(_levelBadgeFontSizeSlider, _levelBadgeFontSizeValue);
+            AttachValueLineEdit(_levelBadgeFontSizeSlider, _levelBadgeFontSizeValue, v => ((int)v).ToString());
             _levelBadgeOffsetXSlider.ValueChanged += OnLevelBadgeOffsetXChanged;
             _levelBadgeOffsetXSlider.DragEnded += (changed) => Owner.PushCurrentStateToHistory();
-            AttachValueLineEdit(_levelBadgeOffsetXSlider, _levelBadgeOffsetXValue);
+            AttachValueLineEdit(_levelBadgeOffsetXSlider, _levelBadgeOffsetXValue, v => ((int)v).ToString());
+            _levelBadgeOffsetXCenterCheck.Toggled += OnLevelBadgeOffsetXCenterToggled;
             _levelBadgeOffsetYSlider.ValueChanged += OnLevelBadgeOffsetYChanged;
             _levelBadgeOffsetYSlider.DragEnded += (changed) => Owner.PushCurrentStateToHistory();
-            AttachValueLineEdit(_levelBadgeOffsetYSlider, _levelBadgeOffsetYValue);
+            AttachValueLineEdit(_levelBadgeOffsetYSlider, _levelBadgeOffsetYValue, v => ((int)v).ToString());
         }
 
         // ═══════════════════════════════════════════════════════════════════════
@@ -1344,14 +1360,14 @@ namespace ClinetCSharp
                 _healthBarLengthSlider.SetBlockSignals(true);
                 _healthBarLengthSlider.Value = Player.HealthBarLength;
                 _healthBarLengthSlider.SetBlockSignals(false);
-                _healthBarLengthValue.Text = ((int)Player.HealthBarLength).ToString();
+                UpdateAttachedValue(_healthBarLengthSlider, ((int)Player.HealthBarLength).ToString());
             }
             if (_healthBarLengthScaleSlider != null)
             {
                 _healthBarLengthScaleSlider.SetBlockSignals(true);
                 _healthBarLengthScaleSlider.Value = Player.HealthBarLengthScale;
                 _healthBarLengthScaleSlider.SetBlockSignals(false);
-                _healthBarLengthScaleValue.Text = Player.HealthBarLengthScale.ToString(DebugPanelLengthScalePolicy.FormatStr);
+                UpdateAttachedValue(_healthBarLengthScaleSlider, Player.HealthBarLengthScale.ToString(DebugPanelLengthScalePolicy.FormatStr));
             }
 
             // Health bar height + scale
@@ -1360,14 +1376,14 @@ namespace ClinetCSharp
                 _healthBarHeightSlider.SetBlockSignals(true);
                 _healthBarHeightSlider.Value = Player.HealthBarHeight;
                 _healthBarHeightSlider.SetBlockSignals(false);
-                _healthBarHeightValue.Text = ((int)Player.HealthBarHeight).ToString();
+                UpdateAttachedValue(_healthBarHeightSlider, ((int)Player.HealthBarHeight).ToString());
             }
             if (_healthBarHeightScaleSlider != null)
             {
                 _healthBarHeightScaleSlider.SetBlockSignals(true);
                 _healthBarHeightScaleSlider.Value = Player.HealthBarHeightScale;
                 _healthBarHeightScaleSlider.SetBlockSignals(false);
-                _healthBarHeightScaleValue.Text = Player.HealthBarHeightScale.ToString(DebugPanelLengthScalePolicy.FormatStr);
+                UpdateAttachedValue(_healthBarHeightScaleSlider, Player.HealthBarHeightScale.ToString(DebugPanelLengthScalePolicy.FormatStr));
             }
         }
 
@@ -1444,7 +1460,7 @@ namespace ClinetCSharp
 
         private void OnHealthBarLengthChanged(double value)
         {
-            _healthBarLengthValue.Text = ((int)value).ToString();
+            UpdateAttachedValue(_healthBarLengthSlider, ((int)value).ToString());
             int gridSize = (int)Owner._gridSizeSlider.Value;
             if (Player != null)
             {
@@ -1455,14 +1471,14 @@ namespace ClinetCSharp
                     _healthBarLengthScaleSlider.SetBlockSignals(true);
                     _healthBarLengthScaleSlider.Value = scale;
                     _healthBarLengthScaleSlider.SetBlockSignals(false);
-                    _healthBarLengthScaleValue.Text = scale.ToString(DebugPanelLengthScalePolicy.FormatStr);
+                    UpdateAttachedValue(_healthBarLengthScaleSlider, scale.ToString(DebugPanelLengthScalePolicy.FormatStr));
                 }
             }
         }
 
         private void OnHealthBarLengthScaleChanged(double value)
         {
-            _healthBarLengthScaleValue.Text = value.ToString(DebugPanelLengthScalePolicy.FormatStr);
+            UpdateAttachedValue(_healthBarLengthScaleSlider, value.ToString(DebugPanelLengthScalePolicy.FormatStr));
             if (Player != null)
             {
                 Player.SetHealthBarLengthScale((float)value);
@@ -1472,14 +1488,14 @@ namespace ClinetCSharp
                     _healthBarLengthSlider.SetBlockSignals(true);
                     _healthBarLengthSlider.Value = newLength;
                     _healthBarLengthSlider.SetBlockSignals(false);
-                    _healthBarLengthValue.Text = ((int)newLength).ToString();
+                    UpdateAttachedValue(_healthBarLengthSlider, ((int)newLength).ToString());
                 }
             }
         }
 
         private void OnHealthBarHeightChanged(double value)
         {
-            _healthBarHeightValue.Text = ((int)value).ToString();
+            UpdateAttachedValue(_healthBarHeightSlider, ((int)value).ToString());
             int gridSize = (int)Owner._gridSizeSlider.Value;
             if (Player != null)
             {
@@ -1490,14 +1506,14 @@ namespace ClinetCSharp
                     _healthBarHeightScaleSlider.SetBlockSignals(true);
                     _healthBarHeightScaleSlider.Value = scale;
                     _healthBarHeightScaleSlider.SetBlockSignals(false);
-                    _healthBarHeightScaleValue.Text = scale.ToString(DebugPanelLengthScalePolicy.FormatStr);
+                    UpdateAttachedValue(_healthBarHeightScaleSlider, scale.ToString(DebugPanelLengthScalePolicy.FormatStr));
                 }
             }
         }
 
         private void OnHealthBarHeightScaleChanged(double value)
         {
-            _healthBarHeightScaleValue.Text = value.ToString(DebugPanelLengthScalePolicy.FormatStr);
+            UpdateAttachedValue(_healthBarHeightScaleSlider, value.ToString(DebugPanelLengthScalePolicy.FormatStr));
             if (Player != null)
             {
                 Player.SetHealthBarHeightScale((float)value);
@@ -1507,21 +1523,21 @@ namespace ClinetCSharp
                     _healthBarHeightSlider.SetBlockSignals(true);
                     _healthBarHeightSlider.Value = newHeight;
                     _healthBarHeightSlider.SetBlockSignals(false);
-                    _healthBarHeightValue.Text = ((int)newHeight).ToString();
+                    UpdateAttachedValue(_healthBarHeightSlider, ((int)newHeight).ToString());
                 }
             }
         }
 
         private void OnHealthBarFillChanged(double value)
         {
-            _healthBarFillValue.Text = $"{(int)value}%";
+            UpdateAttachedValue(_healthBarFillSlider, $"{(int)value}%");
             if (Player != null)
                 Player.SetHealthBarFillPercent((float)(value / 100.0));
         }
 
         private void OnHealthBarOffsetXChanged(double value)
         {
-            _healthBarOffsetXValue.Text = ((int)value).ToString();
+            UpdateAttachedValue(_healthBarOffsetXSlider, ((int)value).ToString());
             if (Player != null)
             {
                 var offset = Player.GetHealthBarOffset();
@@ -1534,14 +1550,29 @@ namespace ClinetCSharp
 
         private void OnHealthBarOffsetYChanged(double value)
         {
-            _healthBarOffsetYValue.Text = ((int)value).ToString();
+            UpdateAttachedValue(_healthBarOffsetYSlider, ((int)value).ToString());
             if (Player != null)
             {
                 var offset = Player.GetHealthBarOffset();
                 Player.SetHealthBarOffset(new Vector2(offset.X, (float)value));
             }
+        }
+
+        private void OnHealthBarOffsetXCenterToggled(bool centered)
+        {
+            _healthBarOffsetXSlider.Editable = !centered;
+            _healthBarOffsetXSlider.Modulate = centered ? new Color(0.5f, 0.5f, 0.5f, 1) : new Color(1, 1, 1, 1);
+            if (centered)
             {
-                var offset = Player.GetHealthBarOffset();
+                _healthBarOffsetXSlider.SetBlockSignals(true);
+                _healthBarOffsetXSlider.Value = 0;
+                _healthBarOffsetXSlider.SetBlockSignals(false);
+                UpdateAttachedValue(_healthBarOffsetXSlider, "0");
+                if (Player != null)
+                {
+                    var offset = Player.GetHealthBarOffset();
+                    Player.SetHealthBarOffset(new Vector2(0, offset.Y));
+                }
             }
         }
 
@@ -1575,7 +1606,7 @@ namespace ClinetCSharp
 
         private void OnMpBarLengthChanged(double value)
         {
-            _mpBarLengthValue.Text = ((int)value).ToString();
+            UpdateAttachedValue(_mpBarLengthSlider, ((int)value).ToString());
             if (Player != null)
             {
                 float scale = Player.GridSize > 0 ? (float)(value / Player.GridSize) : 0;
@@ -1585,14 +1616,14 @@ namespace ClinetCSharp
                     _mpBarLengthScaleSlider.SetBlockSignals(true);
                     _mpBarLengthScaleSlider.Value = scale;
                     _mpBarLengthScaleSlider.SetBlockSignals(false);
-                    _mpBarLengthScaleValue.Text = scale.ToString(DebugPanelLengthScalePolicy.FormatStr);
+                    UpdateAttachedValue(_mpBarLengthScaleSlider, scale.ToString(DebugPanelLengthScalePolicy.FormatStr));
                 }
             }
         }
 
         private void OnMpBarLengthScaleChanged(double value)
         {
-            _mpBarLengthScaleValue.Text = value.ToString(DebugPanelLengthScalePolicy.FormatStr);
+            UpdateAttachedValue(_mpBarLengthScaleSlider, value.ToString(DebugPanelLengthScalePolicy.FormatStr));
             if (Player != null)
             {
                 Player.SetMpBarLengthScale((float)value);
@@ -1602,14 +1633,14 @@ namespace ClinetCSharp
                     _mpBarLengthSlider.SetBlockSignals(true);
                     _mpBarLengthSlider.Value = newLength;
                     _mpBarLengthSlider.SetBlockSignals(false);
-                    _mpBarLengthValue.Text = ((int)newLength).ToString();
+                    UpdateAttachedValue(_mpBarLengthSlider, ((int)newLength).ToString());
                 }
             }
         }
 
         private void OnMpBarHeightChanged(double value)
         {
-            _mpBarHeightValue.Text = ((int)value).ToString();
+            UpdateAttachedValue(_mpBarHeightSlider, ((int)value).ToString());
             int gridSize = (int)Owner._gridSizeSlider.Value;
             if (Player != null)
             {
@@ -1620,14 +1651,14 @@ namespace ClinetCSharp
                     _mpBarHeightScaleSlider.SetBlockSignals(true);
                     _mpBarHeightScaleSlider.Value = scale;
                     _mpBarHeightScaleSlider.SetBlockSignals(false);
-                    _mpBarHeightScaleValue.Text = scale.ToString(DebugPanelLengthScalePolicy.FormatStr);
+                    UpdateAttachedValue(_mpBarHeightScaleSlider, scale.ToString(DebugPanelLengthScalePolicy.FormatStr));
                 }
             }
         }
 
         private void OnMpBarHeightScaleChanged(double value)
         {
-            _mpBarHeightScaleValue.Text = value.ToString(DebugPanelLengthScalePolicy.FormatStr);
+            UpdateAttachedValue(_mpBarHeightScaleSlider, value.ToString(DebugPanelLengthScalePolicy.FormatStr));
             if (Player != null)
             {
                 Player.SetMpBarHeightScale((float)value);
@@ -1637,21 +1668,21 @@ namespace ClinetCSharp
                     _mpBarHeightSlider.SetBlockSignals(true);
                     _mpBarHeightSlider.Value = newHeight;
                     _mpBarHeightSlider.SetBlockSignals(false);
-                    _mpBarHeightValue.Text = ((int)newHeight).ToString();
+                    UpdateAttachedValue(_mpBarHeightSlider, ((int)newHeight).ToString());
                 }
             }
         }
 
         private void OnMpBarFillChanged(double value)
         {
-            _mpBarFillValue.Text = $"{(int)value}%";
+            UpdateAttachedValue(_mpBarFillSlider, $"{(int)value}%");
             if (Player != null)
                 Player.SetMpBarFillPercent((float)(value / 100.0));
         }
 
         private void OnMpBarOffsetXChanged(double value)
         {
-            _mpBarOffsetXValue.Text = ((int)value).ToString();
+            UpdateAttachedValue(_mpBarOffsetXSlider, ((int)value).ToString());
             if (Player != null)
             {
                 var offset = Player.GetMpBarOffset();
@@ -1664,7 +1695,7 @@ namespace ClinetCSharp
 
         private void OnMpBarOffsetYChanged(double value)
         {
-            _mpBarOffsetYValue.Text = ((int)value).ToString();
+            UpdateAttachedValue(_mpBarOffsetYSlider, ((int)value).ToString());
             if (Player != null)
             {
                 var offset = Player.GetMpBarOffset();
@@ -1672,6 +1703,24 @@ namespace ClinetCSharp
             }
             {
                 var offset = Player.GetMpBarOffset();
+            }
+        }
+
+        private void OnMpBarOffsetXCenterToggled(bool centered)
+        {
+            _mpBarOffsetXSlider.Editable = !centered;
+            _mpBarOffsetXSlider.Modulate = centered ? new Color(0.5f, 0.5f, 0.5f, 1) : new Color(1, 1, 1, 1);
+            if (centered)
+            {
+                _mpBarOffsetXSlider.SetBlockSignals(true);
+                _mpBarOffsetXSlider.Value = 0;
+                _mpBarOffsetXSlider.SetBlockSignals(false);
+                UpdateAttachedValue(_mpBarOffsetXSlider, "0");
+                if (Player != null)
+                {
+                    var offset = Player.GetMpBarOffset();
+                    Player.SetMpBarOffset(new Vector2(0, offset.Y));
+                }
             }
         }
 
@@ -1704,7 +1753,7 @@ namespace ClinetCSharp
 
         private void OnCastBarLengthChanged(double value)
         {
-            _castBarLengthValue.Text = ((int)value).ToString();
+            UpdateAttachedValue(_castBarLengthSlider, ((int)value).ToString());
             if (Player != null)
             {
                 float scale = Player.GridSize > 0 ? (float)(value / Player.GridSize) : 0;
@@ -1714,7 +1763,7 @@ namespace ClinetCSharp
 
         private void OnCastBarHeightChanged(double value)
         {
-            _castBarHeightValue.Text = ((int)value).ToString();
+            UpdateAttachedValue(_castBarHeightSlider, ((int)value).ToString());
             if (Player != null)
             {
                 float scale = Player.GridSize > 0 ? (float)(value / Player.GridSize) : 0;
@@ -1724,13 +1773,13 @@ namespace ClinetCSharp
 
         private void OnCastBarFillChanged(double value)
         {
-            _castBarFillValue.Text = $"{(int)value}%";
+            UpdateAttachedValue(_castBarFillSlider, $"{(int)value}%");
             if (Player != null) Player.SetCastBarFillPercent((float)(value / 100.0));
         }
 
         private void OnCastBarOffsetXChanged(double value)
         {
-            _castBarOffsetXValue.Text = ((int)value).ToString();
+            UpdateAttachedValue(_castBarOffsetXSlider, ((int)value).ToString());
             if (Player != null)
             {
                 var offset = Player.GetCastBarOffset();
@@ -1740,11 +1789,29 @@ namespace ClinetCSharp
 
         private void OnCastBarOffsetYChanged(double value)
         {
-            _castBarOffsetYValue.Text = ((int)value).ToString();
+            UpdateAttachedValue(_castBarOffsetYSlider, ((int)value).ToString());
             if (Player != null)
             {
                 var offset = Player.GetCastBarOffset();
                 Player.SetCastBarOffset(new Vector2(offset.X, (float)value));
+            }
+        }
+
+        private void OnCastBarOffsetXCenterToggled(bool centered)
+        {
+            _castBarOffsetXSlider.Editable = !centered;
+            _castBarOffsetXSlider.Modulate = centered ? new Color(0.5f, 0.5f, 0.5f, 1) : new Color(1, 1, 1, 1);
+            if (centered)
+            {
+                _castBarOffsetXSlider.SetBlockSignals(true);
+                _castBarOffsetXSlider.Value = 0;
+                _castBarOffsetXSlider.SetBlockSignals(false);
+                UpdateAttachedValue(_castBarOffsetXSlider, "0");
+                if (Player != null)
+                {
+                    var offset = Player.GetCastBarOffset();
+                    Player.SetCastBarOffset(new Vector2(0, offset.Y));
+                }
             }
         }
 
@@ -1763,13 +1830,13 @@ namespace ClinetCSharp
 
         private void OnActionBarTextYOffsetChanged(double value)
         {
-            _actionBarTextYOffsetValue.Text = ((int)value).ToString();
+            UpdateAttachedValue(_actionBarTextYOffsetSlider, ((int)value).ToString());
             if (Player != null) Player.SetActionBarTextYOffset((float)value);
         }
 
         private void OnActionBarProgressHeightChanged(double value)
         {
-            _actionBarProgressHeightValue.Text = ((int)value).ToString();
+            UpdateAttachedValue(_actionBarProgressHeightSlider, ((int)value).ToString());
             if (Player != null) Player.SetActionBarProgressHeight((float)value);
         }
 
@@ -1803,13 +1870,13 @@ namespace ClinetCSharp
 
         private void OnLevelBadgeFontSizeChanged(double value)
         {
-            _levelBadgeFontSizeValue.Text = ((int)value).ToString();
+            UpdateAttachedValue(_levelBadgeFontSizeSlider, ((int)value).ToString());
             if (Player != null) Player.SetLevelBadgeFontSize((float)value);
         }
 
         private void OnLevelBadgeOffsetXChanged(double value)
         {
-            _levelBadgeOffsetXValue.Text = ((int)value).ToString();
+            UpdateAttachedValue(_levelBadgeOffsetXSlider, ((int)value).ToString());
             if (Player != null)
             {
                 var offset = Player.GetLevelBadgeOffset();
@@ -1819,11 +1886,29 @@ namespace ClinetCSharp
 
         private void OnLevelBadgeOffsetYChanged(double value)
         {
-            _levelBadgeOffsetYValue.Text = ((int)value).ToString();
+            UpdateAttachedValue(_levelBadgeOffsetYSlider, ((int)value).ToString());
             if (Player != null)
             {
                 var offset = Player.GetLevelBadgeOffset();
                 Player.SetLevelBadgeOffset(new Vector2(offset.X, (float)value));
+            }
+        }
+
+        private void OnLevelBadgeOffsetXCenterToggled(bool centered)
+        {
+            _levelBadgeOffsetXSlider.Editable = !centered;
+            _levelBadgeOffsetXSlider.Modulate = centered ? new Color(0.5f, 0.5f, 0.5f, 1) : new Color(1, 1, 1, 1);
+            if (centered)
+            {
+                _levelBadgeOffsetXSlider.SetBlockSignals(true);
+                _levelBadgeOffsetXSlider.Value = 0;
+                _levelBadgeOffsetXSlider.SetBlockSignals(false);
+                UpdateAttachedValue(_levelBadgeOffsetXSlider, "0");
+                if (Player != null)
+                {
+                    var offset = Player.GetLevelBadgeOffset();
+                    Player.SetLevelBadgeOffset(new Vector2(0, offset.Y));
+                }
             }
         }
 
@@ -1888,6 +1973,24 @@ namespace ClinetCSharp
                 _fontAutoSizeCheck.ButtonPressed = Player.FontSizeOverride == 0;
 
             SyncLabelOffsetSlidersFromPlayer();
+
+            // 同步居中按钮状态
+            SyncCenterCheckFromOffset(_healthBarOffsetXCenterCheck, _healthBarOffsetXSlider, Player.GetHealthBarOffset().X);
+            SyncCenterCheckFromOffset(_mpBarOffsetXCenterCheck, _mpBarOffsetXSlider, Player.GetMpBarOffset().X);
+            SyncCenterCheckFromOffset(_castBarOffsetXCenterCheck, _castBarOffsetXSlider, Player.GetCastBarOffset().X);
+            SyncCenterCheckFromOffset(_levelBadgeOffsetXCenterCheck, _levelBadgeOffsetXSlider, Player.GetLevelBadgeOffset().X);
+        }
+
+        /// <summary>根据偏移值同步居中按钮状态：偏移为0则居中，否则不居中</summary>
+        private void SyncCenterCheckFromOffset(CheckButton check, HSlider slider, float offsetX)
+        {
+            if (check == null || slider == null) return;
+            bool centered = Mathf.IsEqualApprox(offsetX, 0f);
+            check.SetBlockSignals(true);
+            check.ButtonPressed = centered;
+            check.SetBlockSignals(false);
+            slider.Editable = !centered;
+            slider.Modulate = centered ? new Color(0.5f, 0.5f, 0.5f, 1) : new Color(1, 1, 1, 1);
         }
 
         // ═══════════════════════════════════════════════════════════════════════
@@ -1978,10 +2081,30 @@ namespace ClinetCSharp
                 cfg.SetValue("healthbar", "fill", _healthBarFillSlider?.Value ?? 100);
                 cfg.SetValue("healthbar", "offset_x", (double)hpOffset.X);
                 cfg.SetValue("healthbar", "offset_y", (double)hpOffset.Y);
+                cfg.SetValue("healthbar", "center_x", _healthBarOffsetXCenterCheck?.ButtonPressed ?? true);
                 var hpColor = Player.HealthBarColor;
                 cfg.SetValue("healthbar", "color_r", hpColor.R);
                 cfg.SetValue("healthbar", "color_g", hpColor.G);
                 cfg.SetValue("healthbar", "color_b", hpColor.B);
+            }
+
+            // MP bar settings
+            if (Player != null)
+            {
+                var mpOffset = Player.GetMpBarOffset();
+                cfg.SetValue("mpbar", "visible", _mpBarVisibleCheck?.ButtonPressed ?? true);
+                cfg.SetValue("mpbar", "length", _mpBarLengthSlider?.Value ?? 80);
+                cfg.SetValue("mpbar", "length_scale", _mpBarLengthScaleSlider?.Value ?? (80.0 / 111.0));
+                cfg.SetValue("mpbar", "height", _mpBarHeightSlider?.Value ?? 4);
+                cfg.SetValue("mpbar", "height_scale", _mpBarHeightScaleSlider?.Value ?? (4.0 / 111.0));
+                cfg.SetValue("mpbar", "fill", _mpBarFillSlider?.Value ?? 100);
+                cfg.SetValue("mpbar", "offset_x", (double)mpOffset.X);
+                cfg.SetValue("mpbar", "offset_y", (double)mpOffset.Y);
+                cfg.SetValue("mpbar", "center_x", _mpBarOffsetXCenterCheck?.ButtonPressed ?? true);
+                var mpColor = Player.MpBarColor;
+                cfg.SetValue("mpbar", "color_r", mpColor.R);
+                cfg.SetValue("mpbar", "color_g", mpColor.G);
+                cfg.SetValue("mpbar", "color_b", mpColor.B);
             }
 
             // Cast bar settings
@@ -1990,10 +2113,13 @@ namespace ClinetCSharp
                 var ctOffset = Player.GetCastBarOffset();
                 cfg.SetValue("castbar", "visible", _castBarVisibleCheck?.ButtonPressed ?? true);
                 cfg.SetValue("castbar", "length", _castBarLengthSlider?.Value ?? 60);
+                cfg.SetValue("castbar", "length_scale", Player.GridSize > 0 ? (double)(Player.CastBarLengthScale) : (_castBarLengthSlider?.Value ?? 60) / 111.0);
                 cfg.SetValue("castbar", "height", _castBarHeightSlider?.Value ?? 4);
+                cfg.SetValue("castbar", "height_scale", Player.GridSize > 0 ? (double)(Player.CastBarHeightScale) : (_castBarHeightSlider?.Value ?? 4) / 111.0);
                 cfg.SetValue("castbar", "fill", _castBarFillSlider?.Value ?? 60);
                 cfg.SetValue("castbar", "offset_x", (double)ctOffset.X);
                 cfg.SetValue("castbar", "offset_y", (double)ctOffset.Y);
+                cfg.SetValue("castbar", "center_x", _castBarOffsetXCenterCheck?.ButtonPressed ?? true);
                 var ctColor = Player.CastBarColor;
                 cfg.SetValue("castbar", "color_r", ctColor.R);
                 cfg.SetValue("castbar", "color_g", ctColor.G);
@@ -2016,6 +2142,7 @@ namespace ClinetCSharp
                 cfg.SetValue("levelbadge", "text", Player.LevelBadgeText);
                 cfg.SetValue("levelbadge", "offset_x", (double)lvOffset.X);
                 cfg.SetValue("levelbadge", "offset_y", (double)lvOffset.Y);
+                cfg.SetValue("levelbadge", "center_x", _levelBadgeOffsetXCenterCheck?.ButtonPressed ?? false);
                 var lvTxtColor = Player.LevelBadgeTextColor;
                 cfg.SetValue("levelbadge", "txt_r", lvTxtColor.R);
                 cfg.SetValue("levelbadge", "txt_g", lvTxtColor.G);
@@ -2180,19 +2307,71 @@ namespace ClinetCSharp
                 if (_healthBarVisibleCheck != null) { _healthBarVisibleCheck.SetBlockSignals(true); _healthBarVisibleCheck.ButtonPressed = hpVisible; _healthBarVisibleCheck.SetBlockSignals(false); }
                 if (_healthBarLengthSlider != null) { _healthBarLengthSlider.SetBlockSignals(true); _healthBarLengthSlider.Value = hpLength; _healthBarLengthSlider.SetBlockSignals(false); }
                 if (_healthBarLengthScaleSlider != null) { _healthBarLengthScaleSlider.SetBlockSignals(true); _healthBarLengthScaleSlider.Value = hpLengthScale; _healthBarLengthScaleSlider.SetBlockSignals(false); }
-                if (_healthBarLengthScaleValue != null) _healthBarLengthScaleValue.Text = hpLengthScale.ToString(DebugPanelLengthScalePolicy.FormatStr);
+                if (_healthBarLengthScaleSlider != null) UpdateAttachedValue(_healthBarLengthScaleSlider, hpLengthScale.ToString(DebugPanelLengthScalePolicy.FormatStr));
                 if (_healthBarHeightSlider != null) { _healthBarHeightSlider.SetBlockSignals(true); _healthBarHeightSlider.Value = hpHeight; _healthBarHeightSlider.SetBlockSignals(false); }
                 if (_healthBarHeightScaleSlider != null) { _healthBarHeightScaleSlider.SetBlockSignals(true); _healthBarHeightScaleSlider.Value = hpHeightScale; _healthBarHeightScaleSlider.SetBlockSignals(false); }
-                if (_healthBarHeightScaleValue != null) _healthBarHeightScaleValue.Text = hpHeightScale.ToString(DebugPanelLengthScalePolicy.FormatStr);
+                if (_healthBarHeightScaleSlider != null) UpdateAttachedValue(_healthBarHeightScaleSlider, hpHeightScale.ToString(DebugPanelLengthScalePolicy.FormatStr));
                 if (_healthBarFillSlider != null) { _healthBarFillSlider.SetBlockSignals(true); _healthBarFillSlider.Value = hpFill; _healthBarFillSlider.SetBlockSignals(false); }
                 if (_healthBarOffsetXSlider != null) { _healthBarOffsetXSlider.SetBlockSignals(true); _healthBarOffsetXSlider.Value = hpOffX; _healthBarOffsetXSlider.SetBlockSignals(false); }
                 if (_healthBarOffsetYSlider != null) { _healthBarOffsetYSlider.SetBlockSignals(true); _healthBarOffsetYSlider.Value = hpOffY; _healthBarOffsetYSlider.SetBlockSignals(false); }
-                if (_healthBarLengthValue != null) _healthBarLengthValue.Text = ((int)hpLength).ToString();
-                if (_healthBarHeightValue != null) _healthBarHeightValue.Text = ((int)hpHeight).ToString();
-                if (_healthBarFillValue != null) _healthBarFillValue.Text = $"{(int)hpFill}%";
-                if (_healthBarOffsetXValue != null) _healthBarOffsetXValue.Text = ((int)hpOffX).ToString();
-                if (_healthBarOffsetYValue != null) _healthBarOffsetYValue.Text = ((int)hpOffY).ToString();
+                if (_healthBarLengthSlider != null) UpdateAttachedValue(_healthBarLengthSlider, ((int)hpLength).ToString());
+                if (_healthBarHeightSlider != null) UpdateAttachedValue(_healthBarHeightSlider, ((int)hpHeight).ToString());
+                if (_healthBarFillSlider != null) UpdateAttachedValue(_healthBarFillSlider, $"{(int)hpFill}%");
+                if (_healthBarOffsetXSlider != null) UpdateAttachedValue(_healthBarOffsetXSlider, ((int)hpOffX).ToString());
+                if (_healthBarOffsetYSlider != null) UpdateAttachedValue(_healthBarOffsetYSlider, ((int)hpOffY).ToString());
                 if (_healthBarColorBtn != null) _healthBarColorBtn.Modulate = new Color(hpR, hpG, hpB);
+
+                // 居中按钮恢复
+                bool hpCenterX = (bool)cfg.GetValue("healthbar", "center_x", true);
+                if (_healthBarOffsetXCenterCheck != null) { _healthBarOffsetXCenterCheck.SetBlockSignals(true); _healthBarOffsetXCenterCheck.ButtonPressed = hpCenterX; _healthBarOffsetXCenterCheck.SetBlockSignals(false); }
+                if (_healthBarOffsetXSlider != null) { _healthBarOffsetXSlider.Editable = !hpCenterX; _healthBarOffsetXSlider.Modulate = hpCenterX ? new Color(0.5f, 0.5f, 0.5f, 1) : new Color(1, 1, 1, 1); }
+            }
+
+            // MP bar
+            {
+                bool mpVisible = (bool)cfg.GetValue("mpbar", "visible", true);
+                double mpLength = (double)cfg.GetValue("mpbar", "length", 80);
+                double mpLengthScale = (double)cfg.GetValue("mpbar", "length_scale", 80.0 / 111.0);
+                double mpHeight = (double)cfg.GetValue("mpbar", "height", 4);
+                double mpHeightScale = (double)cfg.GetValue("mpbar", "height_scale", 4.0 / 111.0);
+                double mpFill = (double)cfg.GetValue("mpbar", "fill", 100);
+                double mpOffX = (double)cfg.GetValue("mpbar", "offset_x", 0);
+                double mpOffY = (double)cfg.GetValue("mpbar", "offset_y", -62);
+                float mpR = (float)(double)cfg.GetValue("mpbar", "color_r", 0.2);
+                float mpG = (float)(double)cfg.GetValue("mpbar", "color_g", 0.4);
+                float mpB = (float)(double)cfg.GetValue("mpbar", "color_b", 1.0);
+
+                if (Player != null)
+                {
+                    Player.SetMpBarVisible(mpVisible);
+                    Player.SetMpBarLengthScale((float)mpLengthScale);
+                    Player.SetMpBarHeightScale((float)mpHeightScale);
+                    Player.SetMpBarFillPercent((float)(mpFill / 100.0));
+                    Player.SetMpBarOffset(new Vector2((float)mpOffX, (float)mpOffY));
+                    Player.SetMpBarColor(new Color(mpR, mpG, mpB));
+                }
+
+                if (_mpBarVisibleCheck != null) { _mpBarVisibleCheck.SetBlockSignals(true); _mpBarVisibleCheck.ButtonPressed = mpVisible; _mpBarVisibleCheck.SetBlockSignals(false); }
+                if (_mpBarLengthSlider != null) { _mpBarLengthSlider.SetBlockSignals(true); _mpBarLengthSlider.Value = mpLength; _mpBarLengthSlider.SetBlockSignals(false); }
+                if (_mpBarLengthScaleSlider != null) { _mpBarLengthScaleSlider.SetBlockSignals(true); _mpBarLengthScaleSlider.Value = mpLengthScale; _mpBarLengthScaleSlider.SetBlockSignals(false); }
+                if (_mpBarLengthScaleSlider != null) UpdateAttachedValue(_mpBarLengthScaleSlider, mpLengthScale.ToString(DebugPanelLengthScalePolicy.FormatStr));
+                if (_mpBarHeightSlider != null) { _mpBarHeightSlider.SetBlockSignals(true); _mpBarHeightSlider.Value = mpHeight; _mpBarHeightSlider.SetBlockSignals(false); }
+                if (_mpBarHeightScaleSlider != null) { _mpBarHeightScaleSlider.SetBlockSignals(true); _mpBarHeightScaleSlider.Value = mpHeightScale; _mpBarHeightScaleSlider.SetBlockSignals(false); }
+                if (_mpBarHeightScaleSlider != null) UpdateAttachedValue(_mpBarHeightScaleSlider, mpHeightScale.ToString(DebugPanelLengthScalePolicy.FormatStr));
+                if (_mpBarFillSlider != null) { _mpBarFillSlider.SetBlockSignals(true); _mpBarFillSlider.Value = mpFill; _mpBarFillSlider.SetBlockSignals(false); }
+                if (_mpBarOffsetXSlider != null) { _mpBarOffsetXSlider.SetBlockSignals(true); _mpBarOffsetXSlider.Value = mpOffX; _mpBarOffsetXSlider.SetBlockSignals(false); }
+                if (_mpBarOffsetYSlider != null) { _mpBarOffsetYSlider.SetBlockSignals(true); _mpBarOffsetYSlider.Value = mpOffY; _mpBarOffsetYSlider.SetBlockSignals(false); }
+                if (_mpBarLengthSlider != null) UpdateAttachedValue(_mpBarLengthSlider, ((int)mpLength).ToString());
+                if (_mpBarHeightSlider != null) UpdateAttachedValue(_mpBarHeightSlider, ((int)mpHeight).ToString());
+                if (_mpBarFillSlider != null) UpdateAttachedValue(_mpBarFillSlider, $"{(int)mpFill}%");
+                if (_mpBarOffsetXSlider != null) UpdateAttachedValue(_mpBarOffsetXSlider, ((int)mpOffX).ToString());
+                if (_mpBarOffsetYSlider != null) UpdateAttachedValue(_mpBarOffsetYSlider, ((int)mpOffY).ToString());
+                if (_mpBarColorBtn != null) _mpBarColorBtn.Modulate = new Color(mpR, mpG, mpB);
+
+                // 居中按钮恢复
+                bool mpCenterX = (bool)cfg.GetValue("mpbar", "center_x", true);
+                if (_mpBarOffsetXCenterCheck != null) { _mpBarOffsetXCenterCheck.SetBlockSignals(true); _mpBarOffsetXCenterCheck.ButtonPressed = mpCenterX; _mpBarOffsetXCenterCheck.SetBlockSignals(false); }
+                if (_mpBarOffsetXSlider != null) { _mpBarOffsetXSlider.Editable = !mpCenterX; _mpBarOffsetXSlider.Modulate = mpCenterX ? new Color(0.5f, 0.5f, 0.5f, 1) : new Color(1, 1, 1, 1); }
             }
 
             // Cast bar
@@ -2210,10 +2389,10 @@ namespace ClinetCSharp
                 if (Player != null)
                 {
                     Player.SetCastBarVisible(ctVisible);
-                    float ctLenScale = Player.GridSize > 0 ? (float)(ctLength / Player.GridSize) : 0;
-                    float ctHScale = Player.GridSize > 0 ? (float)(ctHeight / Player.GridSize) : 0;
-                    Player.SetCastBarLengthScale(ctLenScale);
-                    Player.SetCastBarHeightScale(ctHScale);
+                    double ctLenScale = (double)cfg.GetValue("castbar", "length_scale", Player.GridSize > 0 ? ctLength / Player.GridSize : 60.0 / 111.0);
+                    double ctHScale = (double)cfg.GetValue("castbar", "height_scale", Player.GridSize > 0 ? ctHeight / Player.GridSize : 4.0 / 111.0);
+                    Player.SetCastBarLengthScale((float)ctLenScale);
+                    Player.SetCastBarHeightScale((float)ctHScale);
                     Player.SetCastBarFillPercent((float)(ctFill / 100.0));
                     Player.SetCastBarOffset(new Vector2((float)ctOffX, (float)ctOffY));
                     Player.SetCastBarColor(new Color(ctR, ctG, ctB));
@@ -2225,12 +2404,17 @@ namespace ClinetCSharp
                 if (_castBarFillSlider != null) { _castBarFillSlider.SetBlockSignals(true); _castBarFillSlider.Value = ctFill; _castBarFillSlider.SetBlockSignals(false); }
                 if (_castBarOffsetXSlider != null) { _castBarOffsetXSlider.SetBlockSignals(true); _castBarOffsetXSlider.Value = ctOffX; _castBarOffsetXSlider.SetBlockSignals(false); }
                 if (_castBarOffsetYSlider != null) { _castBarOffsetYSlider.SetBlockSignals(true); _castBarOffsetYSlider.Value = ctOffY; _castBarOffsetYSlider.SetBlockSignals(false); }
-                if (_castBarLengthValue != null) _castBarLengthValue.Text = ((int)ctLength).ToString();
-                if (_castBarHeightValue != null) _castBarHeightValue.Text = ((int)ctHeight).ToString();
-                if (_castBarFillValue != null) _castBarFillValue.Text = $"{(int)ctFill}%";
-                if (_castBarOffsetXValue != null) _castBarOffsetXValue.Text = ((int)ctOffX).ToString();
-                if (_castBarOffsetYValue != null) _castBarOffsetYValue.Text = ((int)ctOffY).ToString();
+                if (_castBarLengthSlider != null) UpdateAttachedValue(_castBarLengthSlider, ((int)ctLength).ToString());
+                if (_castBarHeightSlider != null) UpdateAttachedValue(_castBarHeightSlider, ((int)ctHeight).ToString());
+                if (_castBarFillSlider != null) UpdateAttachedValue(_castBarFillSlider, $"{(int)ctFill}%");
+                if (_castBarOffsetXSlider != null) UpdateAttachedValue(_castBarOffsetXSlider, ((int)ctOffX).ToString());
+                if (_castBarOffsetYSlider != null) UpdateAttachedValue(_castBarOffsetYSlider, ((int)ctOffY).ToString());
                 if (_castBarColorBtn != null) _castBarColorBtn.Modulate = new Color(ctR, ctG, ctB);
+
+                // 居中按钮恢复
+                bool ctCenterX = (bool)cfg.GetValue("castbar", "center_x", true);
+                if (_castBarOffsetXCenterCheck != null) { _castBarOffsetXCenterCheck.SetBlockSignals(true); _castBarOffsetXCenterCheck.ButtonPressed = ctCenterX; _castBarOffsetXCenterCheck.SetBlockSignals(false); }
+                if (_castBarOffsetXSlider != null) { _castBarOffsetXSlider.Editable = !ctCenterX; _castBarOffsetXSlider.Modulate = ctCenterX ? new Color(0.5f, 0.5f, 0.5f, 1) : new Color(1, 1, 1, 1); }
             }
 
             // Action bar
@@ -2239,8 +2423,8 @@ namespace ClinetCSharp
                 double abPh = (double)cfg.GetValue("actionbar", "progress_height", 4);
                 if (_actionBarTextYOffsetSlider != null) { _actionBarTextYOffsetSlider.SetBlockSignals(true); _actionBarTextYOffsetSlider.Value = abTextY; _actionBarTextYOffsetSlider.SetBlockSignals(false); }
                 if (_actionBarProgressHeightSlider != null) { _actionBarProgressHeightSlider.SetBlockSignals(true); _actionBarProgressHeightSlider.Value = abPh; _actionBarProgressHeightSlider.SetBlockSignals(false); }
-                if (_actionBarTextYOffsetValue != null) _actionBarTextYOffsetValue.Text = ((int)abTextY).ToString();
-                if (_actionBarProgressHeightValue != null) _actionBarProgressHeightValue.Text = ((int)abPh).ToString();
+                if (_actionBarTextYOffsetSlider != null) UpdateAttachedValue(_actionBarTextYOffsetSlider, ((int)abTextY).ToString());
+                if (_actionBarProgressHeightSlider != null) UpdateAttachedValue(_actionBarProgressHeightSlider, ((int)abPh).ToString());
             }
 
             // Level badge
@@ -2267,11 +2451,16 @@ namespace ClinetCSharp
                 if (_levelBadgeFontSizeSlider != null) { _levelBadgeFontSizeSlider.SetBlockSignals(true); _levelBadgeFontSizeSlider.Value = lvFontSize; _levelBadgeFontSizeSlider.SetBlockSignals(false); }
                 if (_levelBadgeOffsetXSlider != null) { _levelBadgeOffsetXSlider.SetBlockSignals(true); _levelBadgeOffsetXSlider.Value = lvOffX; _levelBadgeOffsetXSlider.SetBlockSignals(false); }
                 if (_levelBadgeOffsetYSlider != null) { _levelBadgeOffsetYSlider.SetBlockSignals(true); _levelBadgeOffsetYSlider.Value = lvOffY; _levelBadgeOffsetYSlider.SetBlockSignals(false); }
-                if (_levelBadgeFontSizeValue != null) _levelBadgeFontSizeValue.Text = ((int)lvFontSize).ToString();
-                if (_levelBadgeOffsetXValue != null) _levelBadgeOffsetXValue.Text = ((int)lvOffX).ToString();
-                if (_levelBadgeOffsetYValue != null) _levelBadgeOffsetYValue.Text = ((int)lvOffY).ToString();
+                if (_levelBadgeFontSizeSlider != null) UpdateAttachedValue(_levelBadgeFontSizeSlider, ((int)lvFontSize).ToString());
+                if (_levelBadgeOffsetXSlider != null) UpdateAttachedValue(_levelBadgeOffsetXSlider, ((int)lvOffX).ToString());
+                if (_levelBadgeOffsetYSlider != null) UpdateAttachedValue(_levelBadgeOffsetYSlider, ((int)lvOffY).ToString());
                 if (_levelBadgeTextColorBtn != null) _levelBadgeTextColorBtn.Modulate = new Color(lvTxtR, lvTxtG, lvTxtB);
                 if (_levelBadgeTextEdit != null) _levelBadgeTextEdit.Text = lvText;
+
+                // 居中按钮恢复
+                bool lvCenterX = (bool)cfg.GetValue("levelbadge", "center_x", false);
+                if (_levelBadgeOffsetXCenterCheck != null) { _levelBadgeOffsetXCenterCheck.SetBlockSignals(true); _levelBadgeOffsetXCenterCheck.ButtonPressed = lvCenterX; _levelBadgeOffsetXCenterCheck.SetBlockSignals(false); }
+                if (_levelBadgeOffsetXSlider != null) { _levelBadgeOffsetXSlider.Editable = !lvCenterX; _levelBadgeOffsetXSlider.Modulate = lvCenterX ? new Color(0.5f, 0.5f, 0.5f, 1) : new Color(1, 1, 1, 1); }
             }
         }
 
@@ -2411,6 +2600,10 @@ namespace ClinetCSharp
                 Player.RefreshLabels();
                 Player.QueueRedraw();
 
+                // Apply label auto-center setting
+                bool autoCenterX = (bool)config.GetValue("labels", "auto_center_x", false);
+                Player.SetLabelAutoCenterX(autoCenterX);
+
                 // Apply label control settings
                 for (int i = 0; i < LabelCount; i++)
                 {
@@ -2448,6 +2641,19 @@ namespace ClinetCSharp
                 float hg = (float)(double)config.GetValue("healthbar", "color_g", 0.8);
                 float hb = (float)(double)config.GetValue("healthbar", "color_b", 0.0);
                 Player.SetHealthBarColor(new Color(hr, hg, hb));
+
+                // Apply MP bar settings
+                Player.SetMpBarVisible((bool)config.GetValue("mpbar", "visible", true));
+                Player.SetMpBarLengthScale((float)(double)config.GetValue("mpbar", "length_scale", 80.0 / 111.0));
+                Player.SetMpBarHeightScale((float)(double)config.GetValue("mpbar", "height_scale", 4.0 / 111.0));
+                Player.SetMpBarFillPercent((float)((double)config.GetValue("mpbar", "fill", 100) / 100.0));
+                Player.SetMpBarOffset(new Vector2(
+                    (float)(double)config.GetValue("mpbar", "offset_x", 0),
+                    (float)(double)config.GetValue("mpbar", "offset_y", -62)));
+                float mr = (float)(double)config.GetValue("mpbar", "color_r", 0.2);
+                float mg = (float)(double)config.GetValue("mpbar", "color_g", 0.4);
+                float mb = (float)(double)config.GetValue("mpbar", "color_b", 1.0);
+                Player.SetMpBarColor(new Color(mr, mg, mb));
 
                 // Apply cast bar settings
                 Player.SetCastBarVisible((bool)config.GetValue("castbar", "visible", true));
