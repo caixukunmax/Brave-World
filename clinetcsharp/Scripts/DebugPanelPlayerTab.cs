@@ -531,6 +531,10 @@ namespace ClinetCSharp
             if (_fontFileDialog != null)
                 _fontFileDialog.FileSelected += OnFontFileSelected;
 
+            _healthBarGroup?.ConnectSignals();
+            _mpBarGroup?.ConnectSignals();
+            _castBarGroup?.ConnectSignals();
+
             SetupFontOptions();
             SetupLineColorButtons();
         }
@@ -599,6 +603,10 @@ namespace ClinetCSharp
 
             if (_fontFileDialog != null)
                 _fontFileDialog.FileSelected -= OnFontFileSelected;
+
+            _healthBarGroup?.DisconnectSignals();
+            _mpBarGroup?.DisconnectSignals();
+            _castBarGroup?.DisconnectSignals();
         }
 
         private void SetupFontOptions()
