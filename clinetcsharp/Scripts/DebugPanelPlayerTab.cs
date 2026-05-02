@@ -1629,8 +1629,8 @@ namespace ClinetCSharp
 
         #region ApplyLoadedPlayerSettings — called by Owner.DeferredLoadConfig
         /// <summary>
-        /// Apply loaded player settings from config to the Player object.
-        /// This method reads the config file and applies values directly.
+        /// Apply loaded player settings when Player becomes available after initial LoadConfig.
+        /// Delegates to LoadConfig which handles both UI sync and entity application.
         /// </summary>
         public void ApplyLoadedPlayerSettings()
         {
@@ -1645,81 +1645,8 @@ namespace ClinetCSharp
             Error err = config.Load(DebugPanel.CONFIG_PATH);
             if (err == Error.Ok)
             {
-                // Read and apply directly from config
-                // SetVisualSizeScale recalculates VisualSize = GridSize * scale,
-                // so call it last to ensure scale takes effect.
-                double savedScale = (double)config.GetValue("player", "visual_size_scale", 1.0);
-                Player.SetVisualSizeScale((float)savedScale);
-                double savedBorderScale = (double)config.GetValue("player", "border_width_scale", 3.0 / 111.0);
-                Player.SetBorderWidthScale((float)savedBorderScale);
-                Player.SetCornerRadius((float)(double)config.GetValue("player", "corner_radius", 0.0));
-                Player.SetBgOpacity((float)(double)config.GetValue("player", "bg_opacity", 0.1));
-                Player.SetLineSpacing((float)(double)config.GetValue("player", "line_spacing", 0.8));
-                Player.SetLetterSpacing((float)(double)config.GetValue("player", "letter_spacing", 0.0));
-                Player.SetFontBold((bool)config.GetValue("player", "font_bold", false));
-                Player.SetFontItalic((bool)config.GetValue("player", "font_italic", false));
-                Player.SetFontShadow((bool)config.GetValue("player", "font_shadow", false));
-                Player.SetTextAlignment((HorizontalAlignment)(int)config.GetValue("player", "text_alignment", (int)HorizontalAlignment.Center));
-
-                // Apply font size
-                double savedFontSize = (double)config.GetValue("player", "font_size", 0);
-                bool savedAutoSize = (bool)config.GetValue("player", "font_auto_size", false);
-                if (savedAutoSize)
-                    Player.SetFontSize(0);
-                else if (savedFontSize > 0)
-                    Player.SetFontSize((int)savedFontSize);
-
-                Player.RefreshLabels();
-                Player.QueueRedraw();
-
-                // Apply label auto-center setting
-                bool autoCenterX = (bool)config.GetValue("labels", "auto_center_x", false);
-                Player.SetLabelAutoCenterX(autoCenterX);
-
-                // Apply label control settings
-                for (int i = 0; i < LabelCount; i++)
-                {
-                    string prefix = $"label_{i}";
-                    bool visible = (bool)config.GetValue("labels", $"{prefix}_visible", true);
-                    string name = (string)config.GetValue("labels", $"{prefix}_name", new[] { "名称", "职业", "称号", "状态" }[i]);
-                    string text = (string)config.GetValue("labels", $"{prefix}_text", "");
-                    double fontSize = (double)config.GetValue("labels", $"{prefix}_font_size", 0);
-                    double offsetX = (double)config.GetValue("labels", $"{prefix}_offset_x", Player.DefaultOffsets[i].X);
-                    double offsetY = (double)config.GetValue("labels", $"{prefix}_offset_y", Player.DefaultOffsets[i].Y);
-
-                    Player.SetLabelName(i, name);
-                    if (!string.IsNullOrEmpty(text)) Player.SetLabelText(i, text);
-                    Player.SetLabelVisible(i, visible);
-                    Player.SetLabelFontSize(i, (int)fontSize);
-                    Player.SetLabelOffset(i, new Vector2((float)offsetX, (float)offsetY));
-
-                    float cr = (float)(double)config.GetValue("labels", $"{prefix}_color_r", 0.0);
-                    float cg = (float)(double)config.GetValue("labels", $"{prefix}_color_g", 0.0);
-                    float cb = (float)(double)config.GetValue("labels", $"{prefix}_color_b", 0.0);
-                    float ca = (float)(double)config.GetValue("labels", $"{prefix}_color_a", 1.0);
-                    Player.SetLineColor(i, new Color(cr, cg, cb, ca));
-                }
-                Player.RefreshLabels();
-
-                // Apply action bar settings
-                float abTextY = (float)(double)config.GetValue("actionbar", "text_y_offset", 0);
-                float abPh = (float)(double)config.GetValue("actionbar", "progress_height", 4);
-                Player.SetActionBarTextYOffset(abTextY);
-                Player.SetActionBarProgressHeight(abPh);
-
-                // Apply level badge settings
-                Player.SetLevelBadgeVisible((bool)config.GetValue("levelbadge", "visible", true));
-                Player.SetLevelBadgeFontSize((float)(double)config.GetValue("levelbadge", "font_size", 12));
-                Player.SetLevelBadgeText((string)config.GetValue("levelbadge", "text", "Lv.{level}"));
-                Player.SetLevelBadgeOffset(new Vector2(
-                    (float)(double)config.GetValue("levelbadge", "offset_x", -35),
-                    (float)(double)config.GetValue("levelbadge", "offset_y", -35)));
-                float lvTxtR = (float)(double)config.GetValue("levelbadge", "txt_r", 1.0);
-                float lvTxtG = (float)(double)config.GetValue("levelbadge", "txt_g", 1.0);
-                float lvTxtB = (float)(double)config.GetValue("levelbadge", "txt_b", 0.0);
-                Player.SetLevelBadgeTextColor(new Color(lvTxtR, lvTxtG, lvTxtB));
-
-                GD.Print($"[DebugPanel] Player settings applied, visual_size={Player.VisualSize}");
+                LoadConfig(config, true);
+                GD.Print($"[DebugPanel] Player settings applied via LoadConfig, visual_size={Player.VisualSize}");
             }
         }
         #endregion
