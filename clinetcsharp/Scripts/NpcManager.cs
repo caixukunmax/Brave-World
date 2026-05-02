@@ -59,19 +59,19 @@ namespace ClinetCSharp
         {
             if (StyleConfigs.TryGetValue(id, out var cfg))
                 return cfg;
-            if (StyleConfigs.Count > 0)
-                return StyleConfigs.Values.First();
-            StyleConfigs[1] = EntityStyleConfig.CreateNpcDefault();
-            return StyleConfigs[1];
+            GD.PrintErr($"[NpcManager] No StyleConfig for NpcType={id}! Available: [{string.Join(", ", StyleConfigs.Keys)}]. Fix: change this NPC's config ID to an existing one.");
+            return null;
         }
 
         public static EntityStyleConfig GetOrCreateStyleConfig(int id)
         {
             if (StyleConfigs.TryGetValue(id, out var cfg))
                 return cfg;
-            cfg = GetStyleConfig(0).Clone();
-            StyleConfigs[id] = cfg;
-            return cfg;
+            GD.PrintErr($"[NpcManager] No StyleConfig for NpcType={id}! Available: [{string.Join(", ", StyleConfigs.Keys)}]. Create it in the debug panel first.");
+            if (StyleConfigs.Count > 0)
+                return StyleConfigs.Values.First();
+            StyleConfigs[1] = EntityStyleConfig.CreateNpcDefault();
+            return StyleConfigs[1];
         }
 
         public override void _Ready()
@@ -185,11 +185,7 @@ namespace ClinetCSharp
                 int ntype = (int)n.NpcType;
                 if (!StyleConfigs.ContainsKey(ntype))
                 {
-                    var newCfg = StyleConfigs.Count > 0
-                        ? StyleConfigs.Values.First().Clone()
-                        : EntityStyleConfig.CreateNpcDefault();
-                    StyleConfigs[ntype] = newCfg;
-                    GD.Print($"[NpcManager] Auto-created StyleConfig for NpcType={ntype}");
+                    GD.PrintErr($"[NpcManager] No StyleConfig for NpcType={ntype} ({n.NpcName})! Available: [{string.Join(", ", StyleConfigs.Keys)}]");
                 }
 
                 var npc = new Npc();
@@ -207,6 +203,7 @@ namespace ClinetCSharp
         {
             if (npc == null) return;
             var cfg = GetStyleConfig(npc.NpcType);
+            if (cfg == null) return; // no config — skip, user must fix config ID
             npc.ApplyStyle(cfg);
         }
 

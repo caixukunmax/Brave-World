@@ -24,21 +24,20 @@ namespace ClinetCSharp
         {
             if (StyleConfigs.TryGetValue(id, out var cfg))
                 return cfg;
-            // 回退到任意已有配置
-            if (StyleConfigs.Count > 0)
-                return StyleConfigs.Values.First();
-            // 绌哄瓧鍏告椂鑷姩鍒涘缓榛樿
-            StyleConfigs[1] = EntityStyleConfig.CreateMonsterDefault();
-            return StyleConfigs[1];
+            GD.PrintErr($"[MonsterManager] No StyleConfig for MonsterId={id}! Available: [{string.Join(", ", StyleConfigs.Keys)}]. Fix: change this monster's config ID to an existing one.");
+            return null;
         }
 
         public EntityStyleConfig GetOrCreateStyleConfig(int id)
         {
             if (StyleConfigs.TryGetValue(id, out var cfg))
                 return cfg;
-            cfg = GetStyleConfig(0).Clone();
-            StyleConfigs[id] = cfg;
-            return cfg;
+            GD.PrintErr($"[MonsterManager] No StyleConfig for MonsterId={id}! Available: [{string.Join(", ", StyleConfigs.Keys)}]. Create it in the debug panel first.");
+            // 回退到第一个已有配置，避免 NPE
+            if (StyleConfigs.Count > 0)
+                return StyleConfigs.Values.First();
+            StyleConfigs[1] = EntityStyleConfig.CreateMonsterDefault();
+            return StyleConfigs[1];
         }
 
         public override void _Ready()
@@ -203,15 +202,11 @@ namespace ClinetCSharp
 
             foreach (var m in monsterData)
             {
-                // 确保每个 MonsterId 都有对应的 StyleConfig
+                // 检查是否有对应 StyleConfig，没有则报错
                 int mid = (int)m.MonsterId;
                 if (!StyleConfigs.ContainsKey(mid))
                 {
-                    var newCfg = StyleConfigs.Count > 0
-                        ? StyleConfigs.Values.First().Clone()
-                        : EntityStyleConfig.CreateMonsterDefault();
-                    StyleConfigs[mid] = newCfg;
-                    GD.Print($"[MonsterManager] Auto-created StyleConfig for MonsterId={mid}");
+                    GD.PrintErr($"[MonsterManager] No StyleConfig for MonsterId={mid} ({m.Name})! Available: [{string.Join(", ", StyleConfigs.Keys)}]");
                 }
 
                 var monster = new Monster();
@@ -238,6 +233,7 @@ namespace ClinetCSharp
         {
             if (monster == null) return;
             var cfg = GetStyleConfig((int)monster.MonsterId);
+            if (cfg == null) return; // no config — skip, user must fix config ID
             monster.ApplyStyle(cfg);
         }
 
