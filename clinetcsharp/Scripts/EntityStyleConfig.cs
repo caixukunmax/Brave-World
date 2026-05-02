@@ -131,7 +131,7 @@ namespace ClinetCSharp
             HpBarLengthScale = entity.HealthBarLengthScale;
             HpBarHeightScale = entity.HealthBarHeightScale;
             HpBarFillPercent = entity.HealthBarFillPercent;
-            HpBarCenterX = entity.HealthBarOffset.X == 0;
+            HpBarCenterX = entity.HealthBarCenterX;
             HpBarOffsetX = entity.HealthBarOffset.X;
             HpBarOffsetY = entity.HealthBarOffset.Y;
             HpBarColor = entity.HealthBarColor;
@@ -140,7 +140,7 @@ namespace ClinetCSharp
             MpBarLengthScale = entity.MpBarLengthScale;
             MpBarHeightScale = entity.MpBarHeightScale;
             MpBarFillPercent = entity.MpBarFillPercent;
-            MpBarCenterX = entity.MpBarOffset.X == 0;
+            MpBarCenterX = entity.MpBarCenterX;
             MpBarOffsetX = entity.MpBarOffset.X;
             MpBarOffsetY = entity.MpBarOffset.Y;
             MpBarColor = entity.MpBarColor;

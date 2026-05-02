@@ -203,6 +203,17 @@ namespace ClinetCSharp
 
             foreach (var m in monsterData)
             {
+                // 确保每个 MonsterId 都有对应的 StyleConfig
+                int mid = (int)m.MonsterId;
+                if (!StyleConfigs.ContainsKey(mid))
+                {
+                    var newCfg = StyleConfigs.Count > 0
+                        ? StyleConfigs.Values.First().Clone()
+                        : EntityStyleConfig.CreateMonsterDefault();
+                    StyleConfigs[mid] = newCfg;
+                    GD.Print($"[MonsterManager] Auto-created StyleConfig for MonsterId={mid}");
+                }
+
                 var monster = new Monster();
                 monster.Setup(
                     m.InstanceId,

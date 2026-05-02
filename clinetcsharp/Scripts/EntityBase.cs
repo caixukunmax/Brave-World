@@ -29,6 +29,7 @@ namespace ClinetCSharp
         public Color HealthBarColor { get; set; } = new Color(0, 0.8f, 0, 1);
         public Color HealthBarBgColor { get; set; } = new Color(0.3f, 0.3f, 0.3f, 0.5f);
         public bool HealthBarVisible { get; set; } = true;
+        public bool HealthBarCenterX { get; set; } = true;
         public float HealthBarFillPercent { get; set; } = 1.0f;
 
         // ========== 血条 — 计算属性（只读） ==========
@@ -42,6 +43,7 @@ namespace ClinetCSharp
         public Color MpBarColor { get; set; } = new Color(0.2f, 0.4f, 1.0f, 1);
         public Color MpBarBgColor { get; set; } = new Color(0.3f, 0.3f, 0.3f, 0.5f);
         public bool MpBarVisible { get; set; } = true;
+        public bool MpBarCenterX { get; set; } = true;
         public float MpBarFillPercent { get; set; } = 1.0f;
 
         // ========== MP条 — 计算属性（只读） ==========
@@ -236,6 +238,7 @@ namespace ClinetCSharp
             }
 
             HealthBarVisible = cfg.HpBarVisible;
+            HealthBarCenterX = cfg.HpBarCenterX;
             HealthBarLengthScale = cfg.HpBarLengthScale;
             HealthBarHeightScale = cfg.HpBarHeightScale;
             HealthBarFillPercent = cfg.HpBarFillPercent;
@@ -243,6 +246,7 @@ namespace ClinetCSharp
             HealthBarColor = cfg.HpBarColor;
 
             MpBarVisible = cfg.MpBarVisible;
+            MpBarCenterX = cfg.MpBarCenterX;
             MpBarLengthScale = cfg.MpBarLengthScale;
             MpBarHeightScale = cfg.MpBarHeightScale;
             MpBarFillPercent = cfg.MpBarFillPercent;

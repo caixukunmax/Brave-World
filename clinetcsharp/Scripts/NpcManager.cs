@@ -181,6 +181,17 @@ namespace ClinetCSharp
 
             foreach (var n in npcData)
             {
+                // 确保每个 NpcType 都有对应的 StyleConfig
+                int ntype = (int)n.NpcType;
+                if (!StyleConfigs.ContainsKey(ntype))
+                {
+                    var newCfg = StyleConfigs.Count > 0
+                        ? StyleConfigs.Values.First().Clone()
+                        : EntityStyleConfig.CreateNpcDefault();
+                    StyleConfigs[ntype] = newCfg;
+                    GD.Print($"[NpcManager] Auto-created StyleConfig for NpcType={ntype}");
+                }
+
                 var npc = new Npc();
                 npc.Setup(n.NpcInstanceId, n.NpcName, n.NpcType, n.X, n.Y, gridSize);
                 ApplyDefaultStyle(npc);
