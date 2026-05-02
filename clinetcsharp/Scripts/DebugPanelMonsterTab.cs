@@ -6,50 +6,10 @@ namespace ClinetCSharp
 {
     /// <summary>
     /// DebugPanel Monster Tab — 怪物全局样式、标签、AI/移动配置相关控件和逻辑
-    /// 支持多配置：每个配置ID绑定一组样式，怪物按MonsterId查找配置
+    /// 继承 EntityStyleTabBase，复用公共样式逻辑，保留血条/MP条/AI等子类特有内容
     /// </summary>
-    public class DebugPanelMonsterTab : DebugPanelTab
+    public class DebugPanelMonsterTab : DebugPanelEntityStyleTabBase
     {
-        #region Fields - Config ID Selector
-        private SpinBox _configIdSpin;
-        private OptionButton _configIdOption;
-        private Button _addConfigBtn;
-        private Button _deleteConfigBtn;
-        private int _selectedConfigId = 1;
-        #endregion
-
-        #region Fields - Visual Style
-        private HSlider _monsterSizeSlider;
-        private Label _monsterSizeValue;
-        private HSlider _monsterSizeScaleSlider;
-        private Label _monsterSizeScaleValue;
-        private HSlider _monsterBorderWidthSlider;
-        private Label _monsterBorderWidthValue;
-        private HSlider _monsterBorderWidthScaleSlider;
-        private Label _monsterBorderWidthScaleValue;
-        private HSlider _monsterCornerRadiusSlider;
-        private Label _monsterCornerRadiusValue;
-        private HSlider _monsterBgOpacitySlider;
-        private Label _monsterBgOpacityValue;
-        private HSlider _monsterFontSizeSlider;
-        private Label _monsterFontSizeValue;
-
-        private ColorPickerButton _monsterBorderColorPicker;
-        private ColorPickerButton _monsterBgColorPicker;
-        private ColorPickerButton _monsterTextColorPicker;
-        #endregion
-
-        #region Fields - Label Controls (4 independent)
-        private LineEdit[] _monsterLabelEdits = new LineEdit[4];
-        private HSlider[] _monsterLabelFontSizeSliders = new HSlider[4];
-        private Label[] _monsterLabelFontSizeValues = new Label[4];
-        private HSlider[] _monsterLabelXOffsetSliders = new HSlider[4];
-        private Label[] _monsterLabelXOffsetValues = new Label[4];
-        private HSlider[] _monsterLabelYOffsetSliders = new HSlider[4];
-        private Label[] _monsterLabelYOffsetValues = new Label[4];
-        private CheckButton[] _monsterLabelCenterXChecks = new CheckButton[4];
-        #endregion
-
         #region Fields - AI / Movement Config
         private HSlider _monsterMoveSpeedSlider;
         private Label _monsterMoveSpeedValue;
@@ -60,8 +20,9 @@ namespace ClinetCSharp
         private HSlider _monsterMoveIntervalSlider;
         private Label _monsterMoveIntervalValue;
         private Button _saveMonsterConfigBtn;
+        #endregion
 
-        // 血条
+        #region Fields - HP Bar
         private CheckButton _monsterHpBarVisibleCheck;
         private Button _monsterHpBarColorBtn;
         private Label _monsterHpBarLengthValue;
@@ -77,8 +38,9 @@ namespace ClinetCSharp
         private CheckButton _monsterHpBarOffsetXCenterCheck;
         private HSlider _monsterHpBarOffsetYSlider;
         private Label _monsterHpBarOffsetYValue;
+        #endregion
 
-        // MP 条
+        #region Fields - MP Bar
         private CheckButton _monsterMpBarVisibleCheck;
         private Button _monsterMpBarColorBtn;
         private Label _monsterMpBarLengthValue;
@@ -100,142 +62,85 @@ namespace ClinetCSharp
 
         public override string TabKey => "monster";
 
+        #region Abstract implementations
+        protected override string ConfigSectionPrefix => "monster";
+        protected override EntityStyleConfig GetStyleConfig(int id) => MonsterManager.GetStyleConfig(id);
+        protected override EntityStyleConfig GetOrCreateStyleConfig(int id) => MonsterManager.GetOrCreateStyleConfig(id);
+        protected override Dictionary<int, EntityStyleConfig> GetAllStyleConfigs() => MonsterManager.StyleConfigs;
+        protected override void ApplyStyleToAll() => MonsterManager?.ApplyStyleToAll();
+        #endregion
+
         #region BuildUI
         public override void BuildUI(VBoxContainer tabContainer)
         {
-            // 标题
-            var title = new Label { Text = "怪物全局样式", HorizontalAlignment = HorizontalAlignment.Center };
-            title.AddThemeFontSizeOverride("font_size", 13);
-            tabContainer.AddChild(title);
+            BuildEntityStyleUI(tabContainer, "怪物全局样式");
+            _borderColorPicker.Color = new Color(0.9f, 0.3f, 0.3f);
+            _bgColorPicker.Color = new Color(0.8f, 0.2f, 0.2f);
+            _textColorPicker.Color = new Color(1, 0.95f, 0.95f);
+            BuildSubclassUI(tabContainer);
+            ConnectStyleSignals();
+            ConnectBorderWidthLinkageSignals();
+            ConnectSubclassSignals();
+        }
+        #endregion
 
-            tabContainer.AddChild(new HSeparator());
+        #region BorderWidth Linkage
+        private void ConnectBorderWidthLinkageSignals()
+        {
+            _borderWidthSlider.ValueChanged += OnBorderWidthChanged;
+            _borderWidthSlider.DragEnded += OnBorderWidthDragEnded;
+            _borderWidthScaleSlider.ValueChanged += OnBorderWidthScaleChanged;
+            _borderWidthScaleSlider.DragEnded += OnBorderWidthScaleDragEnded;
+        }
 
-            // 配置ID选择器
-            BuildConfigIdSelector(tabContainer);
+        private void OnBorderWidthChanged(double value)
+        {
+            if (_borderWidthValue != null)
+                _borderWidthValue.Text = ((int)value).ToString();
+        }
 
-            tabContainer.AddChild(new HSeparator());
-
-            // 滑块
-            (_monsterSizeSlider, _monsterSizeValue) = CreateMonsterSliderRow(tabContainer, "视觉大小", 32, 256, 111);
-            (_monsterSizeScaleSlider, _monsterSizeScaleValue) = CreateMonsterSliderRow(tabContainer, "角色比例", 0.1f, 1.0f, 1.0f);
-            (_monsterBorderWidthSlider, _monsterBorderWidthValue) = CreateMonsterSliderRow(tabContainer, "边框粗细", 0, 20, 3);
-            (_monsterBorderWidthScaleSlider, _monsterBorderWidthScaleValue) = CreateMonsterSliderRow(tabContainer, "边框比例", 0.0f, 0.2f, 3.0f / 111.0f, DebugPanelLengthScalePolicy.StepF);
-            (_monsterCornerRadiusSlider, _monsterCornerRadiusValue) = CreateMonsterSliderRow(tabContainer, "圆角半径", 0, 60, 12);
-            (_monsterBgOpacitySlider, _monsterBgOpacityValue) = CreateMonsterSliderRow(tabContainer, "背景不透明度", 0, 1, 0.9f);
-            (_monsterFontSizeSlider, _monsterFontSizeValue) = CreateMonsterSliderRow(tabContainer, "字体大小", 0, 48, 0);
-
-            // 颜色
-            var bcRow = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
-            bcRow.AddChild(new Label { Text = "边框颜色:", CustomMinimumSize = new Vector2(80, 0) });
-            _monsterBorderColorPicker = new ColorPickerButton { Color = new Color(0.9f, 0.3f, 0.3f), CustomMinimumSize = new Vector2(60, 26) };
-            bcRow.AddChild(_monsterBorderColorPicker);
-            tabContainer.AddChild(bcRow);
-
-            var bgcRow = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
-            bgcRow.AddChild(new Label { Text = "背景颜色:", CustomMinimumSize = new Vector2(80, 0) });
-            _monsterBgColorPicker = new ColorPickerButton { Color = new Color(0.8f, 0.2f, 0.2f), CustomMinimumSize = new Vector2(60, 26) };
-            bgcRow.AddChild(_monsterBgColorPicker);
-            tabContainer.AddChild(bgcRow);
-
-            var tcRow = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
-            tcRow.AddChild(new Label { Text = "文字颜色:", CustomMinimumSize = new Vector2(80, 0) });
-            _monsterTextColorPicker = new ColorPickerButton { Color = new Color(1, 0.95f, 0.95f), CustomMinimumSize = new Vector2(60, 26) };
-            tcRow.AddChild(_monsterTextColorPicker);
-            tabContainer.AddChild(tcRow);
-
-            tabContainer.AddChild(new HSeparator());
-
-            // 4 行文字（每行含内容、字号、X偏移、X居中、Y偏移）
-            tabContainer.AddChild(new Label { Text = "显示文字:" });
-            for (int i = 0; i < 4; i++)
+        private void OnBorderWidthDragEnded(bool valueChanged)
+        {
+            if (!valueChanged) return;
+            int gridSize = (int)Owner._gridSizeSlider.Value;
+            float scale = gridSize > 0 ? (float)(_borderWidthSlider.Value / gridSize) : 0.0f;
+            if (_borderWidthScaleSlider != null)
             {
-                var row = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
-                row.AddChild(new Label { Text = $"行{i + 1}:", CustomMinimumSize = new Vector2(40, 0) });
-                var edit = new LineEdit { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, CustomMinimumSize = new Vector2(0, 26) };
-                row.AddChild(edit);
-                _monsterLabelEdits[i] = edit;
-                tabContainer.AddChild(row);
-
-                // 字号行
-                var fsRow = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
-                fsRow.AddChild(new Control { CustomMinimumSize = new Vector2(40, 0) }); // 缩进占位
-                var fsLbl = new Label { Text = "字号:", CustomMinimumSize = new Vector2(36, 0) };
-                fsRow.AddChild(fsLbl);
-                var fsSlider = new HSlider { MinValue = 0, MaxValue = 48, Value = 0, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, CustomMinimumSize = new Vector2(0, 20), Step = 1 , Scrollable = false };
-                fsRow.AddChild(fsSlider);
-                var fsVal = new Label { Text = "0", CustomMinimumSize = new Vector2(24, 0) };
-                fsRow.AddChild(fsVal);
-                fsSlider.ValueChanged += (v) => fsVal.Text = ((int)v).ToString();
-                _monsterLabelFontSizeSliders[i] = fsSlider;
-                _monsterLabelFontSizeValues[i] = fsVal;
-                tabContainer.AddChild(fsRow);
-
-                // X偏移 + 居中行
-                var xRow = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
-                xRow.AddChild(new Control { CustomMinimumSize = new Vector2(40, 0) }); // 缩进占位
-                var xLbl = new Label { Text = "X:", CustomMinimumSize = new Vector2(24, 0) };
-                xRow.AddChild(xLbl);
-                var xSlider = new HSlider { MinValue = -40, MaxValue = 40, Value = 0, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, CustomMinimumSize = new Vector2(0, 20), Step = 1 , Scrollable = false };
-                xRow.AddChild(xSlider);
-                var xVal = new Label { Text = "0", CustomMinimumSize = new Vector2(28, 0) };
-                xRow.AddChild(xVal);
-                var centerCheck = new CheckButton { Text = "居中", ButtonPressed = true };
-                xRow.AddChild(centerCheck);
-                xSlider.ValueChanged += (v) => xVal.Text = ((int)v).ToString();
-                centerCheck.Toggled += (enabled) => { xSlider.Editable = !enabled; xSlider.Modulate = enabled ? new Color(0.5f, 0.5f, 0.5f, 1) : new Color(1, 1, 1, 1); };
-                _monsterLabelXOffsetSliders[i] = xSlider;
-                _monsterLabelXOffsetValues[i] = xVal;
-                _monsterLabelCenterXChecks[i] = centerCheck;
-                tabContainer.AddChild(xRow);
-
-                // Y偏移行
-                var yRow = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
-                yRow.AddChild(new Control { CustomMinimumSize = new Vector2(40, 0) }); // 缩进占位
-                var yLbl = new Label { Text = "Y:", CustomMinimumSize = new Vector2(24, 0) };
-                yRow.AddChild(yLbl);
-                var ySlider = new HSlider { MinValue = -40, MaxValue = 40, Value = 0, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, CustomMinimumSize = new Vector2(0, 20), Step = 1 , Scrollable = false };
-                yRow.AddChild(ySlider);
-                var yVal = new Label { Text = "0", CustomMinimumSize = new Vector2(28, 0) };
-                yRow.AddChild(yVal);
-                ySlider.ValueChanged += (v) => yVal.Text = ((int)v).ToString();
-                _monsterLabelYOffsetSliders[i] = ySlider;
-                _monsterLabelYOffsetValues[i] = yVal;
-                tabContainer.AddChild(yRow);
+                _borderWidthScaleSlider.SetBlockSignals(true);
+                _borderWidthScaleSlider.Value = scale;
+                _borderWidthScaleSlider.SetBlockSignals(false);
+                _borderWidthScaleValue.Text = scale.ToString(DebugPanelLengthScalePolicy.FormatStr);
             }
+            ApplyStyleChanges();
+        }
 
-            // 事件绑定
-            _monsterSizeSlider.ValueChanged += (_) => ApplyMonsterDebugChanges();
-            _monsterSizeSlider.DragEnded += (_) => ApplyMonsterDebugChanges();
-            _monsterSizeScaleSlider.ValueChanged += (_) => ApplyMonsterDebugChanges();
-            _monsterSizeScaleSlider.DragEnded += (_) => ApplyMonsterDebugChanges();
-            _monsterBorderWidthSlider.ValueChanged += (v) => OnMonsterBorderWidthChanged(v);
-            _monsterBorderWidthSlider.DragEnded += (v) => OnMonsterBorderWidthDragEnded(v);
-            _monsterBorderWidthScaleSlider.ValueChanged += (v) => OnMonsterBorderWidthScaleChanged(v);
-            _monsterBorderWidthScaleSlider.DragEnded += (v) => OnMonsterBorderWidthScaleDragEnded(v);
-            _monsterCornerRadiusSlider.ValueChanged += (_) => ApplyMonsterDebugChanges();
-            _monsterCornerRadiusSlider.DragEnded += (_) => ApplyMonsterDebugChanges();
-            _monsterBgOpacitySlider.ValueChanged += (_) => ApplyMonsterDebugChanges();
-            _monsterBgOpacitySlider.DragEnded += (_) => ApplyMonsterDebugChanges();
-            _monsterFontSizeSlider.ValueChanged += (_) => ApplyMonsterDebugChanges();
-            _monsterFontSizeSlider.DragEnded += (_) => ApplyMonsterDebugChanges();
-            _monsterBorderColorPicker.ColorChanged += (_) => ApplyMonsterDebugChanges();
-            _monsterBgColorPicker.ColorChanged += (_) => ApplyMonsterDebugChanges();
-            _monsterTextColorPicker.ColorChanged += (_) => ApplyMonsterDebugChanges();
-            for (int i = 0; i < 4; i++)
+        private void OnBorderWidthScaleChanged(double value)
+        {
+            if (_borderWidthScaleValue != null)
+                _borderWidthScaleValue.Text = value.ToString(DebugPanelLengthScalePolicy.FormatStr);
+        }
+
+        private void OnBorderWidthScaleDragEnded(bool valueChanged)
+        {
+            if (!valueChanged) return;
+            int gridSize = (int)Owner._gridSizeSlider.Value;
+            float newWidth = Mathf.Clamp((float)_borderWidthScaleSlider.Value * gridSize, 1.0f, 20.0f);
+            if (_borderWidthSlider != null)
             {
-                _monsterLabelEdits[i].TextChanged += (_) => ApplyMonsterDebugChanges();
-                _monsterLabelFontSizeSliders[i].ValueChanged += (_) => ApplyMonsterDebugChanges();
-                _monsterLabelFontSizeSliders[i].DragEnded += (_) => ApplyMonsterDebugChanges();
-                _monsterLabelXOffsetSliders[i].ValueChanged += (_) => ApplyMonsterDebugChanges();
-                _monsterLabelXOffsetSliders[i].DragEnded += (_) => ApplyMonsterDebugChanges();
-                _monsterLabelCenterXChecks[i].Toggled += (_) => ApplyMonsterDebugChanges();
-                _monsterLabelYOffsetSliders[i].ValueChanged += (_) => ApplyMonsterDebugChanges();
-                _monsterLabelYOffsetSliders[i].DragEnded += (_) => ApplyMonsterDebugChanges();
+                _borderWidthSlider.SetBlockSignals(true);
+                _borderWidthSlider.Value = newWidth;
+                _borderWidthSlider.SetBlockSignals(false);
+                _borderWidthValue.Text = ((int)newWidth).ToString();
             }
+            ApplyStyleChanges();
+        }
+        #endregion
 
-                        // ---- 血条 ----
+        #region BuildSubclassUI
+        protected override void BuildSubclassUI(VBoxContainer tabContainer)
+        {
+            // ---- 血条 ----
             tabContainer.AddChild(new HSeparator());
-
             var hpTitleRow = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
             hpTitleRow.AddChild(new Label { Text = "血条", CustomMinimumSize = new Vector2(45, 0) });
             _monsterHpBarVisibleCheck = new CheckButton { ButtonPressed = true };
@@ -246,38 +151,24 @@ namespace ClinetCSharp
             hpTitleRow.AddChild(_monsterHpBarColorBtn);
             tabContainer.AddChild(hpTitleRow);
 
-            // 长度（计算值，只读显示）
             _monsterHpBarLengthValue = CreateBarReadOnlyRow(tabContainer, "长度", "102");
-
-            // 长度比例
             (_monsterHpBarLengthScaleSlider, _monsterHpBarLengthScaleValue) = CreateBarSliderRow(
                 tabContainer, "长度比例", 0.1, 2.0, 102.0 / 111.0,
                 DebugPanelLengthScalePolicy.Step, v => v.ToString(DebugPanelLengthScalePolicy.FormatStr));
-
-            // 高度（计算值，只读显示）
             _monsterHpBarHeightValue = CreateBarReadOnlyRow(tabContainer, "高度", "6");
-
-            // 高度比例
             (_monsterHpBarHeightScaleSlider, _monsterHpBarHeightScaleValue) = CreateBarSliderRow(
                 tabContainer, "高度比例", 0.01, 0.3, 6.0 / 111.0,
                 DebugPanelLengthScalePolicy.Step, v => v.ToString(DebugPanelLengthScalePolicy.FormatStr));
-
-            // 填充
             (_monsterHpBarFillSlider, _monsterHpBarFillValue) = CreateBarSliderRow(
                 tabContainer, "填充", 0, 100, 100, 1, v => $"{(int)v}%", labelMinWidth: 35);
-
-            // X偏移
             _monsterHpBarOffsetXCenterCheck = new CheckButton { Text = "居中", ButtonPressed = true };
             (_monsterHpBarOffsetXSlider, _monsterHpBarOffsetXValue) = CreateBarSliderRow(
                 tabContainer, "X偏移", -150, 150, 0, 1, v => ((int)v).ToString(), labelMinWidth: 45, centerCheck: _monsterHpBarOffsetXCenterCheck);
-
-            // Y偏移
             (_monsterHpBarOffsetYSlider, _monsterHpBarOffsetYValue) = CreateBarSliderRow(
                 tabContainer, "Y偏移", -150, 150, -70, 1, v => ((int)v).ToString(), labelMinWidth: 45);
 
             // ---- MP 条 ----
             tabContainer.AddChild(new HSeparator());
-
             var mpTitleRow = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
             mpTitleRow.AddChild(new Label { Text = "MP条", CustomMinimumSize = new Vector2(45, 0) });
             _monsterMpBarVisibleCheck = new CheckButton { ButtonPressed = true };
@@ -288,62 +179,21 @@ namespace ClinetCSharp
             mpTitleRow.AddChild(_monsterMpBarColorBtn);
             tabContainer.AddChild(mpTitleRow);
 
-            // 长度（计算值，只读显示）
             _monsterMpBarLengthValue = CreateBarReadOnlyRow(tabContainer, "长度", "80");
-
-            // MP 长度比例
             (_monsterMpBarLengthScaleSlider, _monsterMpBarLengthScaleValue) = CreateBarSliderRow(
                 tabContainer, "长度比例", 0.1, 2.0, 80.0 / 111.0,
                 DebugPanelLengthScalePolicy.Step, v => v.ToString(DebugPanelLengthScalePolicy.FormatStr));
-
-            // MP 高度（计算值，只读显示）
             _monsterMpBarHeightValue = CreateBarReadOnlyRow(tabContainer, "高度", "4");
-
-            // MP 高度比例
             (_monsterMpBarHeightScaleSlider, _monsterMpBarHeightScaleValue) = CreateBarSliderRow(
                 tabContainer, "高度比例", 0.01, 0.3, 4.0 / 111.0,
                 DebugPanelLengthScalePolicy.Step, v => v.ToString(DebugPanelLengthScalePolicy.FormatStr));
-
-            // 填充
             (_monsterMpBarFillSlider, _monsterMpBarFillValue) = CreateBarSliderRow(
                 tabContainer, "填充", 0, 100, 100, 1, v => $"{(int)v}%", labelMinWidth: 35);
-
-            // X偏移
             _monsterMpBarOffsetXCenterCheck = new CheckButton { Text = "居中", ButtonPressed = true };
             (_monsterMpBarOffsetXSlider, _monsterMpBarOffsetXValue) = CreateBarSliderRow(
                 tabContainer, "X偏移", -150, 150, 0, 1, v => ((int)v).ToString(), labelMinWidth: 45, centerCheck: _monsterMpBarOffsetXCenterCheck);
-
-            // Y偏移
             (_monsterMpBarOffsetYSlider, _monsterMpBarOffsetYValue) = CreateBarSliderRow(
                 tabContainer, "Y偏移", -150, 150, -62, 1, v => ((int)v).ToString(), labelMinWidth: 45);
-
-            // 信号绑定
-            _monsterHpBarVisibleCheck.Toggled += _ => ApplyMonsterDebugChanges();
-            _monsterHpBarColorBtn.Pressed += OnMonsterHpBarColorPressed;
-            _monsterHpBarLengthScaleSlider.ValueChanged += _ => ApplyMonsterDebugChanges();
-            AttachValueLineEdit(_monsterHpBarLengthScaleSlider, _monsterHpBarLengthScaleValue);
-            _monsterHpBarHeightScaleSlider.ValueChanged += _ => ApplyMonsterDebugChanges();
-            AttachValueLineEdit(_monsterHpBarHeightScaleSlider, _monsterHpBarHeightScaleValue);
-            _monsterHpBarFillSlider.ValueChanged += _ => ApplyMonsterDebugChanges();
-            AttachValueLineEdit(_monsterHpBarFillSlider, _monsterHpBarFillValue);
-            _monsterHpBarOffsetXSlider.ValueChanged += _ => ApplyMonsterDebugChanges();
-            AttachValueLineEdit(_monsterHpBarOffsetXSlider, _monsterHpBarOffsetXValue);
-            _monsterHpBarOffsetXCenterCheck.Toggled += _ => ApplyMonsterDebugChanges();
-            _monsterHpBarOffsetYSlider.ValueChanged += _ => ApplyMonsterDebugChanges();
-            AttachValueLineEdit(_monsterHpBarOffsetYSlider, _monsterHpBarOffsetYValue);
-            _monsterMpBarVisibleCheck.Toggled += _ => ApplyMonsterDebugChanges();
-            _monsterMpBarColorBtn.Pressed += OnMonsterMpBarColorPressed;
-            _monsterMpBarLengthScaleSlider.ValueChanged += _ => ApplyMonsterDebugChanges();
-            AttachValueLineEdit(_monsterMpBarLengthScaleSlider, _monsterMpBarLengthScaleValue);
-            _monsterMpBarHeightScaleSlider.ValueChanged += _ => ApplyMonsterDebugChanges();
-            AttachValueLineEdit(_monsterMpBarHeightScaleSlider, _monsterMpBarHeightScaleValue);
-            _monsterMpBarFillSlider.ValueChanged += _ => ApplyMonsterDebugChanges();
-            AttachValueLineEdit(_monsterMpBarFillSlider, _monsterMpBarFillValue);
-            _monsterMpBarOffsetXSlider.ValueChanged += _ => ApplyMonsterDebugChanges();
-            AttachValueLineEdit(_monsterMpBarOffsetXSlider, _monsterMpBarOffsetXValue);
-            _monsterMpBarOffsetXCenterCheck.Toggled += _ => ApplyMonsterDebugChanges();
-            _monsterMpBarOffsetYSlider.ValueChanged += _ => ApplyMonsterDebugChanges();
-            AttachValueLineEdit(_monsterMpBarOffsetYSlider, _monsterMpBarOffsetYValue);
 
             // ---- 怪物配置（AI / 移动） ----
             tabContainer.AddChild(new HSeparator());
@@ -373,177 +223,44 @@ namespace ClinetCSharp
             _saveMonsterConfigBtn.Pressed += OnSaveMonsterConfigPressed;
             tabContainer.AddChild(_saveMonsterConfigBtn);
         }
+        #endregion
 
-        private void BuildConfigIdSelector(Container parent)
+        #region ConnectSubclassSignals
+        private void ConnectSubclassSignals()
         {
-            var row = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
-            row.AddChild(new Label { Text = "配置ID:", CustomMinimumSize = new Vector2(56, 0) });
+            _monsterHpBarVisibleCheck.Toggled += _ => ApplyStyleChanges();
+            _monsterHpBarColorBtn.Pressed += OnMonsterHpBarColorPressed;
+            _monsterHpBarLengthScaleSlider.ValueChanged += _ => ApplyStyleChanges();
+            AttachValueLineEdit(_monsterHpBarLengthScaleSlider, _monsterHpBarLengthScaleValue);
+            _monsterHpBarHeightScaleSlider.ValueChanged += _ => ApplyStyleChanges();
+            AttachValueLineEdit(_monsterHpBarHeightScaleSlider, _monsterHpBarHeightScaleValue);
+            _monsterHpBarFillSlider.ValueChanged += _ => ApplyStyleChanges();
+            AttachValueLineEdit(_monsterHpBarFillSlider, _monsterHpBarFillValue);
+            _monsterHpBarOffsetXSlider.ValueChanged += _ => ApplyStyleChanges();
+            AttachValueLineEdit(_monsterHpBarOffsetXSlider, _monsterHpBarOffsetXValue);
+            _monsterHpBarOffsetXCenterCheck.Toggled += _ => ApplyStyleChanges();
+            _monsterHpBarOffsetYSlider.ValueChanged += _ => ApplyStyleChanges();
+            AttachValueLineEdit(_monsterHpBarOffsetYSlider, _monsterHpBarOffsetYValue);
 
-            _configIdSpin = new SpinBox { MinValue = 1, MaxValue = 99999, Step = 1, Value = 1, CustomMinimumSize = new Vector2(60, 0) };
-            row.AddChild(_configIdSpin);
-
-            _configIdOption = new OptionButton { CustomMinimumSize = new Vector2(80, 0) };
-            row.AddChild(_configIdOption);
-
-            _addConfigBtn = new Button { Text = "新增", CustomMinimumSize = new Vector2(44, 0) };
-            row.AddChild(_addConfigBtn);
-
-            _deleteConfigBtn = new Button { Text = "删除", CustomMinimumSize = new Vector2(44, 0) };
-            row.AddChild(_deleteConfigBtn);
-
-            parent.AddChild(row);
-
-            _configIdOption.ItemSelected += OnConfigIdOptionSelected;
-            _addConfigBtn.Pressed += OnAddConfigPressed;
-            _deleteConfigBtn.Pressed += OnDeleteConfigPressed;
-        }
-
-        private void RefreshConfigIdList()
-        {
-            var mm = MonsterManager;
-            if (mm == null) return;
-            _configIdOption.Clear();
-            foreach (var kv in mm.StyleConfigs)
-            {
-                int idx = _configIdOption.GetItemCount();
-                _configIdOption.AddItem(kv.Key.ToString());
-                _configIdOption.SetItemMetadata(idx, kv.Key);
-            }
-            // 选中当前 _selectedConfigId
-            for (int i = 0; i < _configIdOption.GetItemCount(); i++)
-            {
-                if ((int)_configIdOption.GetItemMetadata(i) == _selectedConfigId)
-                {
-                    _configIdOption.Select(i);
-                    break;
-                }
-            }
-        }
-
-        private void OnConfigIdOptionSelected(long index)
-        {
-            if (index < 0 || index >= _configIdOption.GetItemCount()) return;
-            _selectedConfigId = (int)_configIdOption.GetItemMetadata((int)index);
-            _configIdSpin.Value = _selectedConfigId;
-            SyncMonsterDebugUI();
-        }
-
-        private void OnAddConfigPressed()
-        {
-            var mm = MonsterManager;
-            if (mm == null) return;
-            int newId = (int)_configIdSpin.Value;
-            if (mm.StyleConfigs.ContainsKey(newId))
-            {
-                _selectedConfigId = newId;
-                RefreshConfigIdList();
-                SyncMonsterDebugUI();
-                return;
-            }
-            mm.GetOrCreateStyleConfig(newId);
-            _selectedConfigId = newId;
-            RefreshConfigIdList();
-            SyncMonsterDebugUI();
-        }
-
-        private void OnDeleteConfigPressed()
-        {
-            var mm = MonsterManager;
-            if (mm == null) return;
-            // 禁止删除到0
-            if (mm.StyleConfigs.Count <= 1) return;
-            if (!mm.StyleConfigs.ContainsKey(_selectedConfigId)) return;
-            mm.StyleConfigs.Remove(_selectedConfigId);
-            // 切换到第一个剩余配置
-            _selectedConfigId = mm.StyleConfigs.Keys.First();
-            RefreshConfigIdList();
-            SyncMonsterDebugUI();
-            mm.ApplyStyleToAll();
+            _monsterMpBarVisibleCheck.Toggled += _ => ApplyStyleChanges();
+            _monsterMpBarColorBtn.Pressed += OnMonsterMpBarColorPressed;
+            _monsterMpBarLengthScaleSlider.ValueChanged += _ => ApplyStyleChanges();
+            AttachValueLineEdit(_monsterMpBarLengthScaleSlider, _monsterMpBarLengthScaleValue);
+            _monsterMpBarHeightScaleSlider.ValueChanged += _ => ApplyStyleChanges();
+            AttachValueLineEdit(_monsterMpBarHeightScaleSlider, _monsterMpBarHeightScaleValue);
+            _monsterMpBarFillSlider.ValueChanged += _ => ApplyStyleChanges();
+            AttachValueLineEdit(_monsterMpBarFillSlider, _monsterMpBarFillValue);
+            _monsterMpBarOffsetXSlider.ValueChanged += _ => ApplyStyleChanges();
+            AttachValueLineEdit(_monsterMpBarOffsetXSlider, _monsterMpBarOffsetXValue);
+            _monsterMpBarOffsetXCenterCheck.Toggled += _ => ApplyStyleChanges();
+            _monsterMpBarOffsetYSlider.ValueChanged += _ => ApplyStyleChanges();
+            AttachValueLineEdit(_monsterMpBarOffsetYSlider, _monsterMpBarOffsetYValue);
         }
         #endregion
 
-        #region ConnectSignals / DisconnectSignals
-        public override void ConnectSignals()
+        #region ApplySubclassChanges
+        protected override void ApplySubclassChanges(EntityStyleConfig cfg)
         {
-            // All monster signals are connected inline in BuildUI (lambdas / delegate +=).
-            // This tab has no separately-referenceable handlers that need += / -= management.
-        }
-
-        public override void DisconnectSignals()
-        {
-            // Matching the above: no separate handlers to disconnect.
-            // Lambda-based connections will be GC'd when the tab is freed.
-        }
-        #endregion
-
-        #region Event Handlers - Monster Border Width
-        private void OnMonsterBorderWidthChanged(double value)
-        {
-            if (_monsterBorderWidthValue != null)
-                _monsterBorderWidthValue.Text = ((int)value).ToString();
-        }
-
-        private void OnMonsterBorderWidthDragEnded(bool valueChanged)
-        {
-            if (!valueChanged) return;
-            int gridSize = (int)Owner._gridSizeSlider.Value;
-            float scale = gridSize > 0 ? (float)(_monsterBorderWidthSlider.Value / gridSize) : 0.0f;
-            if (_monsterBorderWidthScaleSlider != null)
-            {
-                _monsterBorderWidthScaleSlider.SetBlockSignals(true);
-                _monsterBorderWidthScaleSlider.Value = scale;
-                _monsterBorderWidthScaleSlider.SetBlockSignals(false);
-                _monsterBorderWidthScaleValue.Text = scale.ToString(DebugPanelLengthScalePolicy.FormatStr);
-            }
-            ApplyMonsterDebugChanges();
-        }
-
-        private void OnMonsterBorderWidthScaleChanged(double value)
-        {
-            if (_monsterBorderWidthScaleValue != null)
-                _monsterBorderWidthScaleValue.Text = value.ToString(DebugPanelLengthScalePolicy.FormatStr);
-        }
-
-        private void OnMonsterBorderWidthScaleDragEnded(bool valueChanged)
-        {
-            if (!valueChanged) return;
-            int gridSize = (int)Owner._gridSizeSlider.Value;
-            float newWidth = Mathf.Clamp((float)_monsterBorderWidthScaleSlider.Value * gridSize, 1.0f, 20.0f);
-            if (_monsterBorderWidthSlider != null)
-            {
-                _monsterBorderWidthSlider.SetBlockSignals(true);
-                _monsterBorderWidthSlider.Value = newWidth;
-                _monsterBorderWidthSlider.SetBlockSignals(false);
-                _monsterBorderWidthValue.Text = ((int)newWidth).ToString();
-            }
-            ApplyMonsterDebugChanges();
-        }
-        #endregion
-
-        #region Apply Monster Debug Changes
-        private void ApplyMonsterDebugChanges()
-        {
-            var mm = MonsterManager;
-            if (mm == null) return;
-
-            var cfg = mm.GetOrCreateStyleConfig(_selectedConfigId);
-            cfg.VisualSizeScale = (float)_monsterSizeScaleSlider.Value;
-            cfg.BorderWidthScale = (float)_monsterBorderWidthScaleSlider.Value;
-            cfg.CornerRadius = (float)_monsterCornerRadiusSlider.Value;
-            cfg.BgOpacity = (float)_monsterBgOpacitySlider.Value;
-            cfg.FontSize = (int)_monsterFontSizeSlider.Value;
-            cfg.BorderColor = _monsterBorderColorPicker.Color;
-            cfg.BgColor = _monsterBgColorPicker.Color;
-            cfg.TextColor = _monsterTextColorPicker.Color;
-            for (int i = 0; i < 4; i++)
-            {
-                cfg.LabelTexts[i] = _monsterLabelEdits[i].Text;
-                cfg.LabelFontSizes[i] = (int)_monsterLabelFontSizeSliders[i].Value;
-                cfg.LabelXOffsets[i] = (float)_monsterLabelXOffsetSliders[i].Value;
-                cfg.LabelCenterX[i] = _monsterLabelCenterXChecks[i].ButtonPressed;
-                cfg.LabelYOffsets[i] = (float)_monsterLabelYOffsetSliders[i].Value;
-            }
-
             cfg.HpBarVisible = _monsterHpBarVisibleCheck.ButtonPressed;
             cfg.HpBarLengthScale = (float)_monsterHpBarLengthScaleSlider.Value;
             cfg.HpBarHeightScale = (float)_monsterHpBarHeightScaleSlider.Value;
@@ -559,7 +276,6 @@ namespace ClinetCSharp
             cfg.MpBarCenterX = _monsterMpBarOffsetXCenterCheck?.ButtonPressed ?? true;
             cfg.MpBarOffsetY = (float)_monsterMpBarOffsetYSlider.Value;
 
-            // 更新只读标签（长度/高度 = GridSize × Scale）
             int gridSize = (int)Owner._gridSizeSlider.Value;
             if (_monsterHpBarLengthValue != null)
                 _monsterHpBarLengthValue.Text = ((int)(gridSize * cfg.HpBarLengthScale)).ToString();
@@ -569,8 +285,101 @@ namespace ClinetCSharp
                 _monsterMpBarLengthValue.Text = ((int)(gridSize * cfg.MpBarLengthScale)).ToString();
             if (_monsterMpBarHeightValue != null)
                 _monsterMpBarHeightValue.Text = ((int)(gridSize * cfg.MpBarHeightScale)).ToString();
+        }
+        #endregion
 
-            mm.ApplyStyleToAll();
+        #region SyncAfterStyleUI
+        protected override void SyncAfterStyleUI()
+        {
+            var cfg = MonsterManager.GetStyleConfig(_selectedConfigId);
+
+            // 血条
+            _monsterHpBarVisibleCheck.SetBlockSignals(true);
+            _monsterHpBarVisibleCheck.ButtonPressed = cfg.HpBarVisible;
+            _monsterHpBarVisibleCheck.SetBlockSignals(false);
+            _monsterHpBarColorBtn.Modulate = cfg.HpBarColor;
+            _monsterHpBarLengthScaleSlider.SetBlockSignals(true);
+            _monsterHpBarLengthScaleSlider.Value = cfg.HpBarLengthScale;
+            _monsterHpBarLengthScaleSlider.SetBlockSignals(false);
+            UpdateAttachedValue(_monsterHpBarLengthScaleSlider, cfg.HpBarLengthScale.ToString(DebugPanelLengthScalePolicy.FormatStr));
+            _monsterHpBarHeightScaleSlider.SetBlockSignals(true);
+            _monsterHpBarHeightScaleSlider.Value = cfg.HpBarHeightScale;
+            _monsterHpBarHeightScaleSlider.SetBlockSignals(false);
+            UpdateAttachedValue(_monsterHpBarHeightScaleSlider, cfg.HpBarHeightScale.ToString(DebugPanelLengthScalePolicy.FormatStr));
+            int gs = (int)Owner._gridSizeSlider.Value;
+            if (_monsterHpBarLengthValue != null)
+                _monsterHpBarLengthValue.Text = ((int)(gs * cfg.HpBarLengthScale)).ToString();
+            if (_monsterHpBarHeightValue != null)
+                _monsterHpBarHeightValue.Text = ((int)(gs * cfg.HpBarHeightScale)).ToString();
+            _monsterHpBarFillSlider.SetBlockSignals(true);
+            _monsterHpBarFillSlider.Value = cfg.HpBarFillPercent * 100;
+            _monsterHpBarFillSlider.SetBlockSignals(false);
+            UpdateAttachedValue(_monsterHpBarFillSlider, $"{(int)(cfg.HpBarFillPercent * 100)}%");
+            _monsterHpBarOffsetXSlider.SetBlockSignals(true);
+            _monsterHpBarOffsetXSlider.Value = cfg.HpBarOffsetX;
+            _monsterHpBarOffsetXSlider.SetBlockSignals(false);
+            UpdateAttachedValue(_monsterHpBarOffsetXSlider, ((int)cfg.HpBarOffsetX).ToString());
+            _monsterHpBarOffsetYSlider.SetBlockSignals(true);
+            _monsterHpBarOffsetYSlider.Value = cfg.HpBarOffsetY;
+            _monsterHpBarOffsetYSlider.SetBlockSignals(false);
+            UpdateAttachedValue(_monsterHpBarOffsetYSlider, ((int)cfg.HpBarOffsetY).ToString());
+
+            if (_monsterHpBarOffsetXCenterCheck != null)
+            {
+                _monsterHpBarOffsetXCenterCheck.SetBlockSignals(true);
+                _monsterHpBarOffsetXCenterCheck.ButtonPressed = cfg.HpBarCenterX;
+                _monsterHpBarOffsetXCenterCheck.SetBlockSignals(false);
+            }
+            _monsterHpBarOffsetXSlider.Editable = !cfg.HpBarCenterX;
+            _monsterHpBarOffsetXSlider.Modulate = cfg.HpBarCenterX ? new Color(0.5f, 0.5f, 0.5f, 1) : new Color(1, 1, 1, 1);
+
+            // MP 条
+            _monsterMpBarVisibleCheck.SetBlockSignals(true);
+            _monsterMpBarVisibleCheck.ButtonPressed = cfg.MpBarVisible;
+            _monsterMpBarVisibleCheck.SetBlockSignals(false);
+            _monsterMpBarColorBtn.Modulate = cfg.MpBarColor;
+            _monsterMpBarLengthScaleSlider.SetBlockSignals(true);
+            _monsterMpBarLengthScaleSlider.Value = cfg.MpBarLengthScale;
+            _monsterMpBarLengthScaleSlider.SetBlockSignals(false);
+            UpdateAttachedValue(_monsterMpBarLengthScaleSlider, cfg.MpBarLengthScale.ToString(DebugPanelLengthScalePolicy.FormatStr));
+            _monsterMpBarHeightScaleSlider.SetBlockSignals(true);
+            _monsterMpBarHeightScaleSlider.Value = cfg.MpBarHeightScale;
+            _monsterMpBarHeightScaleSlider.SetBlockSignals(false);
+            UpdateAttachedValue(_monsterMpBarHeightScaleSlider, cfg.MpBarHeightScale.ToString(DebugPanelLengthScalePolicy.FormatStr));
+            if (_monsterMpBarLengthValue != null)
+                _monsterMpBarLengthValue.Text = ((int)(gs * cfg.MpBarLengthScale)).ToString();
+            if (_monsterMpBarHeightValue != null)
+                _monsterMpBarHeightValue.Text = ((int)(gs * cfg.MpBarHeightScale)).ToString();
+            _monsterMpBarFillSlider.SetBlockSignals(true);
+            _monsterMpBarFillSlider.Value = cfg.MpBarFillPercent * 100;
+            _monsterMpBarFillSlider.SetBlockSignals(false);
+            UpdateAttachedValue(_monsterMpBarFillSlider, $"{(int)(cfg.MpBarFillPercent * 100)}%");
+            _monsterMpBarOffsetXSlider.SetBlockSignals(true);
+            _monsterMpBarOffsetXSlider.Value = cfg.MpBarOffsetX;
+            _monsterMpBarOffsetXSlider.SetBlockSignals(false);
+            UpdateAttachedValue(_monsterMpBarOffsetXSlider, ((int)cfg.MpBarOffsetX).ToString());
+            _monsterMpBarOffsetYSlider.SetBlockSignals(true);
+            _monsterMpBarOffsetYSlider.Value = cfg.MpBarOffsetY;
+            _monsterMpBarOffsetYSlider.SetBlockSignals(false);
+            UpdateAttachedValue(_monsterMpBarOffsetYSlider, ((int)cfg.MpBarOffsetY).ToString());
+
+            if (_monsterMpBarOffsetXCenterCheck != null)
+            {
+                _monsterMpBarOffsetXCenterCheck.SetBlockSignals(true);
+                _monsterMpBarOffsetXCenterCheck.ButtonPressed = cfg.MpBarCenterX;
+                _monsterMpBarOffsetXCenterCheck.SetBlockSignals(false);
+            }
+            _monsterMpBarOffsetXSlider.Editable = !cfg.MpBarCenterX;
+            _monsterMpBarOffsetXSlider.Modulate = cfg.MpBarCenterX ? new Color(0.5f, 0.5f, 0.5f, 1) : new Color(1, 1, 1, 1);
+        }
+        #endregion
+
+        #region SyncToCurrentValues
+        public override void SyncToCurrentValues()
+        {
+            RefreshConfigIdList();
+            SyncStyleUI();
+            SyncAfterStyleUI();
         }
         #endregion
 
@@ -616,208 +425,20 @@ namespace ClinetCSharp
         }
         #endregion
 
-        #region SyncToCurrentValues
-        public override void SyncToCurrentValues()
-        {
-            RefreshConfigIdList();
-            SyncMonsterDebugUI();
-        }
-
-        /// <summary>
-        /// Sync all monster debug UI controls to current selected config values.
-        /// Called when the panel is opened and during config load.
-        /// </summary>
-        public void SyncMonsterDebugUI()
-        {
-            var mm = MonsterManager;
-            if (mm == null) return;
-
-            var cfg = mm.GetStyleConfig(_selectedConfigId);
-
-            // Block signals while syncing to prevent ValueChanged from firing
-            _monsterSizeSlider.SetBlockSignals(true);
-            _monsterSizeScaleSlider.SetBlockSignals(true);
-            _monsterBorderWidthSlider.SetBlockSignals(true);
-            _monsterBorderWidthScaleSlider.SetBlockSignals(true);
-            _monsterCornerRadiusSlider.SetBlockSignals(true);
-            _monsterBgOpacitySlider.SetBlockSignals(true);
-            _monsterFontSizeSlider.SetBlockSignals(true);
-
-            _monsterSizeScaleSlider.Value = cfg.VisualSizeScale;
-            _monsterSizeScaleValue.Text = cfg.VisualSizeScale.ToString(DebugPanelLengthScalePolicy.FormatStr);
-            _monsterBorderWidthScaleSlider.Value = cfg.BorderWidthScale;
-            _monsterBorderWidthScaleValue.Text = cfg.BorderWidthScale.ToString(DebugPanelLengthScalePolicy.FormatStr);
-            _monsterCornerRadiusSlider.Value = cfg.CornerRadius;
-            _monsterBgOpacitySlider.Value = cfg.BgOpacity;
-            _monsterFontSizeSlider.Value = cfg.FontSize;
-            _monsterBorderColorPicker.Color = cfg.BorderColor;
-            _monsterBgColorPicker.Color = cfg.BgColor;
-            _monsterTextColorPicker.Color = cfg.TextColor;
-
-            _monsterSizeSlider.SetBlockSignals(false);
-            _monsterSizeScaleSlider.SetBlockSignals(false);
-            _monsterBorderWidthSlider.SetBlockSignals(false);
-            _monsterBorderWidthScaleSlider.SetBlockSignals(false);
-            _monsterCornerRadiusSlider.SetBlockSignals(false);
-            _monsterBgOpacitySlider.SetBlockSignals(false);
-            _monsterFontSizeSlider.SetBlockSignals(false);
-
-            for (int i = 0; i < 4; i++)
-            {
-                _monsterLabelEdits[i].Text = cfg.LabelTexts[i] ?? "";
-                _monsterLabelFontSizeSliders[i].Value = cfg.LabelFontSizes[i];
-                _monsterLabelFontSizeValues[i].Text = cfg.LabelFontSizes[i].ToString();
-                _monsterLabelXOffsetSliders[i].Value = cfg.LabelXOffsets[i];
-                _monsterLabelXOffsetValues[i].Text = cfg.LabelXOffsets[i].ToString("F0");
-                _monsterLabelCenterXChecks[i].ButtonPressed = cfg.LabelCenterX[i];
-                _monsterLabelXOffsetSliders[i].Editable = !cfg.LabelCenterX[i];
-                _monsterLabelXOffsetSliders[i].Modulate = cfg.LabelCenterX[i] ? new Color(0.5f, 0.5f, 0.5f, 1) : new Color(1, 1, 1, 1);
-                _monsterLabelYOffsetSliders[i].Value = cfg.LabelYOffsets[i];
-                _monsterLabelYOffsetValues[i].Text = cfg.LabelYOffsets[i].ToString("F0");
-            }
-
-            // 血条
-            _monsterHpBarVisibleCheck.SetBlockSignals(true);
-            _monsterHpBarVisibleCheck.ButtonPressed = cfg.HpBarVisible;
-            _monsterHpBarVisibleCheck.SetBlockSignals(false);
-            _monsterHpBarColorBtn.Modulate = cfg.HpBarColor;
-            _monsterHpBarLengthScaleSlider.SetBlockSignals(true);
-            _monsterHpBarLengthScaleSlider.Value = cfg.HpBarLengthScale;
-            _monsterHpBarLengthScaleSlider.SetBlockSignals(false);
-            UpdateAttachedValue(_monsterHpBarLengthScaleSlider, cfg.HpBarLengthScale.ToString(DebugPanelLengthScalePolicy.FormatStr));
-            _monsterHpBarHeightScaleSlider.SetBlockSignals(true);
-            _monsterHpBarHeightScaleSlider.Value = cfg.HpBarHeightScale;
-            _monsterHpBarHeightScaleSlider.SetBlockSignals(false);
-            UpdateAttachedValue(_monsterHpBarHeightScaleSlider, cfg.HpBarHeightScale.ToString(DebugPanelLengthScalePolicy.FormatStr));
-            // 长度/高度只读显示
-            int gs = (int)Owner._gridSizeSlider.Value;
-            if (_monsterHpBarLengthValue != null)
-                _monsterHpBarLengthValue.Text = ((int)(gs * cfg.HpBarLengthScale)).ToString();
-            if (_monsterHpBarHeightValue != null)
-                _monsterHpBarHeightValue.Text = ((int)(gs * cfg.HpBarHeightScale)).ToString();
-            _monsterHpBarFillSlider.SetBlockSignals(true);
-            _monsterHpBarFillSlider.Value = cfg.HpBarFillPercent * 100;
-            _monsterHpBarFillSlider.SetBlockSignals(false);
-            UpdateAttachedValue(_monsterHpBarFillSlider, $"{(int)(cfg.HpBarFillPercent * 100)}%");
-            _monsterHpBarOffsetXSlider.SetBlockSignals(true);
-            _monsterHpBarOffsetXSlider.Value = cfg.HpBarOffsetX;
-            _monsterHpBarOffsetXSlider.SetBlockSignals(false);
-            UpdateAttachedValue(_monsterHpBarOffsetXSlider, ((int)cfg.HpBarOffsetX).ToString());
-            _monsterHpBarOffsetYSlider.SetBlockSignals(true);
-            _monsterHpBarOffsetYSlider.Value = cfg.HpBarOffsetY;
-            _monsterHpBarOffsetYSlider.SetBlockSignals(false);
-            UpdateAttachedValue(_monsterHpBarOffsetYSlider, ((int)cfg.HpBarOffsetY).ToString());
-
-            // 血条居中按钮
-            if (_monsterHpBarOffsetXCenterCheck != null)
-            {
-                _monsterHpBarOffsetXCenterCheck.SetBlockSignals(true);
-                _monsterHpBarOffsetXCenterCheck.ButtonPressed = cfg.HpBarCenterX;
-                _monsterHpBarOffsetXCenterCheck.SetBlockSignals(false);
-            }
-            _monsterHpBarOffsetXSlider.Editable = !cfg.HpBarCenterX;
-            _monsterHpBarOffsetXSlider.Modulate = cfg.HpBarCenterX ? new Color(0.5f, 0.5f, 0.5f, 1) : new Color(1, 1, 1, 1);
-
-            // MP 条
-            _monsterMpBarVisibleCheck.SetBlockSignals(true);
-            _monsterMpBarVisibleCheck.ButtonPressed = cfg.MpBarVisible;
-            _monsterMpBarVisibleCheck.SetBlockSignals(false);
-            _monsterMpBarColorBtn.Modulate = cfg.MpBarColor;
-            _monsterMpBarLengthScaleSlider.SetBlockSignals(true);
-            _monsterMpBarLengthScaleSlider.Value = cfg.MpBarLengthScale;
-            _monsterMpBarLengthScaleSlider.SetBlockSignals(false);
-            UpdateAttachedValue(_monsterMpBarLengthScaleSlider, cfg.MpBarLengthScale.ToString(DebugPanelLengthScalePolicy.FormatStr));
-            _monsterMpBarHeightScaleSlider.SetBlockSignals(true);
-            _monsterMpBarHeightScaleSlider.Value = cfg.MpBarHeightScale;
-            _monsterMpBarHeightScaleSlider.SetBlockSignals(false);
-            UpdateAttachedValue(_monsterMpBarHeightScaleSlider, cfg.MpBarHeightScale.ToString(DebugPanelLengthScalePolicy.FormatStr));
-            // 长度/高度只读显示
-            if (_monsterMpBarLengthValue != null)
-                _monsterMpBarLengthValue.Text = ((int)(gs * cfg.MpBarLengthScale)).ToString();
-            if (_monsterMpBarHeightValue != null)
-                _monsterMpBarHeightValue.Text = ((int)(gs * cfg.MpBarHeightScale)).ToString();
-            _monsterMpBarFillSlider.SetBlockSignals(true);
-            _monsterMpBarFillSlider.Value = cfg.MpBarFillPercent * 100;
-            _monsterMpBarFillSlider.SetBlockSignals(false);
-            UpdateAttachedValue(_monsterMpBarFillSlider, $"{(int)(cfg.MpBarFillPercent * 100)}%");
-            _monsterMpBarOffsetXSlider.SetBlockSignals(true);
-            _monsterMpBarOffsetXSlider.Value = cfg.MpBarOffsetX;
-            _monsterMpBarOffsetXSlider.SetBlockSignals(false);
-            UpdateAttachedValue(_monsterMpBarOffsetXSlider, ((int)cfg.MpBarOffsetX).ToString());
-            _monsterMpBarOffsetYSlider.SetBlockSignals(true);
-            _monsterMpBarOffsetYSlider.Value = cfg.MpBarOffsetY;
-            _monsterMpBarOffsetYSlider.SetBlockSignals(false);
-            UpdateAttachedValue(_monsterMpBarOffsetYSlider, ((int)cfg.MpBarOffsetY).ToString());
-
-            // MP条居中按钮
-            if (_monsterMpBarOffsetXCenterCheck != null)
-            {
-                _monsterMpBarOffsetXCenterCheck.SetBlockSignals(true);
-                _monsterMpBarOffsetXCenterCheck.ButtonPressed = cfg.MpBarCenterX;
-                _monsterMpBarOffsetXCenterCheck.SetBlockSignals(false);
-            }
-            _monsterMpBarOffsetXSlider.Editable = !cfg.MpBarCenterX;
-            _monsterMpBarOffsetXSlider.Modulate = cfg.MpBarCenterX ? new Color(0.5f, 0.5f, 0.5f, 1) : new Color(1, 1, 1, 1);
-        }
-        #endregion
-
         #region SaveConfig
         public override void SaveConfig(ConfigFile cfg)
         {
             var mm = MonsterManager;
             if (mm == null) return;
 
-            // 写入所有 [monster_*] sections
             foreach (var kv in mm.StyleConfigs)
             {
                 string sec = $"monster_{kv.Key}";
                 var c = kv.Value;
-                cfg.SetValue(sec, "visual_size_scale", (double)c.VisualSizeScale);
-                cfg.SetValue(sec, "border_width_scale", (double)c.BorderWidthScale);
-                cfg.SetValue(sec, "corner_radius", (double)c.CornerRadius);
-                cfg.SetValue(sec, "bg_opacity", (double)c.BgOpacity);
-                cfg.SetValue(sec, "font_size", (double)c.FontSize);
-                cfg.SetValue(sec, "border_color_r", (double)c.BorderColor.R);
-                cfg.SetValue(sec, "border_color_g", (double)c.BorderColor.G);
-                cfg.SetValue(sec, "border_color_b", (double)c.BorderColor.B);
-                cfg.SetValue(sec, "bg_color_r", (double)c.BgColor.R);
-                cfg.SetValue(sec, "bg_color_g", (double)c.BgColor.G);
-                cfg.SetValue(sec, "bg_color_b", (double)c.BgColor.B);
-                cfg.SetValue(sec, "text_color_r", (double)c.TextColor.R);
-                cfg.SetValue(sec, "text_color_g", (double)c.TextColor.G);
-                cfg.SetValue(sec, "text_color_b", (double)c.TextColor.B);
-                for (int i = 0; i < 4; i++)
-                {
-                    cfg.SetValue(sec, $"label_text_{i}", c.LabelTexts[i] ?? "");
-                    cfg.SetValue(sec, $"label_font_size_{i}", (double)c.LabelFontSizes[i]);
-                    cfg.SetValue(sec, $"label_x_offset_{i}", (double)c.LabelXOffsets[i]);
-                    cfg.SetValue(sec, $"label_center_x_{i}", c.LabelCenterX[i]);
-                    cfg.SetValue(sec, $"label_y_offset_{i}", (double)c.LabelYOffsets[i]);
-                }
-
-                // 血条
-                cfg.SetValue(sec, "hp_bar_visible", c.HpBarVisible);
-                cfg.SetValue(sec, "hp_bar_length_scale", (double)c.HpBarLengthScale);
-                cfg.SetValue(sec, "hp_bar_height_scale", (double)c.HpBarHeightScale);
-                cfg.SetValue(sec, "hp_bar_fill_percent", (double)c.HpBarFillPercent);
-                cfg.SetValue(sec, "hp_bar_center_x", c.HpBarCenterX);
-                cfg.SetValue(sec, "hp_bar_offset_x", (double)c.HpBarOffsetX);
-                cfg.SetValue(sec, "hp_bar_offset_y", (double)c.HpBarOffsetY);
-                cfg.SetValue(sec, "hp_bar_color_r", (double)c.HpBarColor.R);
-                cfg.SetValue(sec, "hp_bar_color_g", (double)c.HpBarColor.G);
-                cfg.SetValue(sec, "hp_bar_color_b", (double)c.HpBarColor.B);
-
-                // MP 条
-                cfg.SetValue(sec, "mp_bar_visible", c.MpBarVisible);
-                cfg.SetValue(sec, "mp_bar_length_scale", (double)c.MpBarLengthScale);
-                cfg.SetValue(sec, "mp_bar_height_scale", (double)c.MpBarHeightScale);
-                cfg.SetValue(sec, "mp_bar_fill_percent", (double)c.MpBarFillPercent);
-                cfg.SetValue(sec, "mp_bar_center_x", c.MpBarCenterX);
-                cfg.SetValue(sec, "mp_bar_offset_x", (double)c.MpBarOffsetX);
-                cfg.SetValue(sec, "mp_bar_offset_y", (double)c.MpBarOffsetY);
-                cfg.SetValue(sec, "mp_bar_color_r", (double)c.MpBarColor.R);
-                cfg.SetValue(sec, "mp_bar_color_g", (double)c.MpBarColor.G);
-                cfg.SetValue(sec, "mp_bar_color_b", (double)c.MpBarColor.B);
+                SaveCommonStyleConfig(cfg, sec, c);
+                SaveBarConfig(cfg, sec, "hp", c);
+                SaveBarConfig(cfg, sec, "mp", c);
+                SaveSubclassConfig(cfg, sec, c);
             }
         }
         #endregion
@@ -828,26 +449,19 @@ namespace ClinetCSharp
             var mm = MonsterManager;
             if (mm == null) return;
 
-            // MonsterManager._Ready already loaded StyleConfigs from config file,
-            // so just sync UI to the current state
             RefreshConfigIdList();
             mm.ApplyStyleToAll();
-            SyncMonsterDebugUI();
+            SyncStyleUI();
+            SyncAfterStyleUI();
         }
         #endregion
 
-        #region Undo State
-        public override Godot.Collections.Dictionary CaptureUndoState()
-        {
-            return new Godot.Collections.Dictionary();
-        }
-
-        public override void ApplyUndoState(Godot.Collections.Dictionary state)
-        {
-        }
+        #region SaveSubclassConfig / ExportSubclassConfigData
+        protected override void SaveSubclassConfig(ConfigFile cfg, string section, EntityStyleConfig c) { }
+        protected override void ExportSubclassConfigData(Godot.Collections.Dictionary dict, EntityStyleConfig c) { }
         #endregion
 
-        #region Export to JSON (for Owner.ExportConfigToJson)
+        #region ExportConfigData
         public override Godot.Collections.Dictionary ExportConfigData()
         {
             var mm = MonsterManager;
@@ -857,14 +471,10 @@ namespace ClinetCSharp
             foreach (var kv in mm.StyleConfigs)
             {
                 var c = kv.Value;
-                data[$"config_{kv.Key}"] = new Godot.Collections.Dictionary
-                {
-                    ["visual_size_scale"] = c.VisualSizeScale,
-                    ["border_width_scale"] = c.BorderWidthScale,
-                    ["corner_radius"] = c.CornerRadius,
-                    ["bg_opacity"] = c.BgOpacity,
-                    ["font_size"] = c.FontSize,
-                };
+                var dict = new Godot.Collections.Dictionary();
+                ExportCommonConfigData(dict, c);
+                ExportSubclassConfigData(dict, c);
+                data[$"config_{kv.Key}"] = dict;
             }
             return data;
         }
@@ -872,16 +482,16 @@ namespace ClinetCSharp
 
         #region HP/MP Bar Color Handlers
         private static readonly Color[] HpColors = {
-            new Color(0, 0.8f, 0, 1),     // 绿
-            new Color(1, 0.2f, 0.2f, 1),   // 红
-            new Color(1, 0.8f, 0, 1),     // 黄
-            new Color(0.5f, 0.5f, 0.5f, 1), // 灰
+            new Color(0, 0.8f, 0, 1),
+            new Color(1, 0.2f, 0.2f, 1),
+            new Color(1, 0.8f, 0, 1),
+            new Color(0.5f, 0.5f, 0.5f, 1),
         };
         private static readonly Color[] MpColors = {
-            new Color(0.2f, 0.4f, 1.0f, 1),  // 蓝
-            new Color(0.6f, 0.2f, 0.8f, 1),  // 紫
-            new Color(0.2f, 0.8f, 0.8f, 1),  // 青
-            new Color(0.8f, 0.4f, 0.2f, 1),  // 橙
+            new Color(0.2f, 0.4f, 1.0f, 1),
+            new Color(0.6f, 0.2f, 0.8f, 1),
+            new Color(0.2f, 0.8f, 0.8f, 1),
+            new Color(0.8f, 0.4f, 0.2f, 1),
         };
 
         private void OnMonsterHpBarColorPressed()

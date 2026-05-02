@@ -26,9 +26,9 @@ fix_commit:
 ## 修改记录
 
 ### 2026-05-02 创建
-- [ ] 1. 配置 key 常量化 — 消除手写字符串
-- [ ] 2. BarControlGroup 抽象 — 血条/MP条/施法条统一
-- [ ] 3. LoadConfig/ApplyLoadedPlayerSettings 合并 — 消除双重真相源
-- [ ] 4. EntityStyleTabBase 抽象 — Monster/Npc 重复消除
-- [ ] 5. Undo 要么做完整要么去掉
-- [ ] 6. AttachValueLineEdit 全局状态修复
+- [x] 1. 配置 key 常量化 — BarControlGroup 里定义了所有 key 常量
+- [x] 2. BarControlGroup 抽象 — 血条/MP条/施法条统一，PlayerTab 2685→1616 行
+- [x] 3. LoadConfig/ApplyLoadedPlayerSettings 合并 — ApplyLoadedPlayerSettings 现在委托给 LoadConfig
+- [ ] 4. EntityStyleTabBase 抽象 — Monster/Npc 重复消除（子代理正在做）
+- [x] 5. Undo 去掉 — 半吊子 Undo 比没有更糟，改为空操作
+- [x] 6. AttachValueLineEdit 全局状态修复 — 改为 SetActiveLineEdit/ClearActiveLineEdit
