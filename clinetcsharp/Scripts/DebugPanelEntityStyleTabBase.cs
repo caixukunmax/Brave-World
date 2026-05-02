@@ -214,7 +214,7 @@ namespace ClinetCSharp
         private void BuildConfigIdSelector(Container parent)
         {
             var row = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
-            row.AddChild(new Label { Text = "配置ID:", CustomMinimumSize = new Vector2(56, 0) });
+            row.AddChild(new Label { Text = "UI配置ID:", CustomMinimumSize = new Vector2(72, 0) });
             _configIdSpin = new SpinBox { MinValue = 1, MaxValue = 99999, Step = 1, Value = 1, CustomMinimumSize = new Vector2(60, 0) };
             row.AddChild(_configIdSpin);
             _configIdOption = new OptionButton { CustomMinimumSize = new Vector2(80, 0) };
