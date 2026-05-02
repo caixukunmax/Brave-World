@@ -54,13 +54,18 @@ namespace ClinetCSharp
 
         // 多配置样式系统 — Key = 配置ID（NpcType）
         public static readonly Dictionary<int, EntityStyleConfig> StyleConfigs = new();
+        private static readonly HashSet<int> _missingConfigWarned = new();
 
         public static EntityStyleConfig GetStyleConfig(int id)
         {
             if (StyleConfigs.TryGetValue(id, out var cfg))
                 return cfg;
-            GD.PrintErr($"[NpcManager] No StyleConfig for NpcType={id}! Available: [{string.Join(", ", StyleConfigs.Keys)}]. Fix: change this NPC's config ID to an existing one.");
-            return null;
+            if (!_missingConfigWarned.Contains(id))
+            {
+                GD.PrintErr($"[NpcManager] No StyleConfig for NpcType={id}! Available: [{string.Join(", ", StyleConfigs.Keys)}]. Using default. Fix: create config for this ID in debug panel.");
+                _missingConfigWarned.Add(id);
+            }
+            return EntityStyleConfig.CreateNpcDefault();
         }
 
         public static EntityStyleConfig GetOrCreateStyleConfig(int id)
@@ -203,7 +208,6 @@ namespace ClinetCSharp
         {
             if (npc == null) return;
             var cfg = GetStyleConfig(npc.NpcType);
-            if (cfg == null) return; // no config — skip, user must fix config ID
             npc.ApplyStyle(cfg);
         }
 

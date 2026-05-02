@@ -19,13 +19,19 @@ namespace ClinetCSharp
 
         // 多配置样式系统：Key = 配置ID（MonsterId）
         public readonly Dictionary<int, EntityStyleConfig> StyleConfigs = new();
+        private readonly HashSet<int> _missingConfigWarned = new();
 
         public EntityStyleConfig GetStyleConfig(int id)
         {
             if (StyleConfigs.TryGetValue(id, out var cfg))
                 return cfg;
-            GD.PrintErr($"[MonsterManager] No StyleConfig for MonsterId={id}! Available: [{string.Join(", ", StyleConfigs.Keys)}]. Fix: change this monster's config ID to an existing one.");
-            return null;
+            // 没有配置时用默认值显示，只报一次错
+            if (!_missingConfigWarned.Contains(id))
+            {
+                GD.PrintErr($"[MonsterManager] No StyleConfig for MonsterId={id}! Available: [{string.Join(", ", StyleConfigs.Keys)}]. Using default. Fix: create config for this ID in debug panel.");
+                _missingConfigWarned.Add(id);
+            }
+            return EntityStyleConfig.CreateMonsterDefault();
         }
 
         public EntityStyleConfig GetOrCreateStyleConfig(int id)
@@ -233,7 +239,6 @@ namespace ClinetCSharp
         {
             if (monster == null) return;
             var cfg = GetStyleConfig((int)monster.MonsterId);
-            if (cfg == null) return; // no config — skip, user must fix config ID
             monster.ApplyStyle(cfg);
         }
 
