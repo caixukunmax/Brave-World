@@ -244,7 +244,11 @@ namespace ClinetCSharp
         public void ApplyStyleToAll()
         {
             foreach (var m in _monsters)
+            {
+                var cfg = GetStyleConfig((int)m.MonsterId);
+                GD.Print($"[MonsterManager] ApplyStyleToAll: MonsterId={m.MonsterId}, MpBarLengthScale={cfg.MpBarLengthScale:F4}, entity.MpBarLengthScale={m.MpBarLengthScale:F4}");
                 ApplyDefaultStyle(m);
+            }
         }
 
         public void SetActionBarTextYOffsetAll(float offset)
