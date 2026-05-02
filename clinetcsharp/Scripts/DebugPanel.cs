@@ -79,10 +79,32 @@ namespace ClinetCSharp
         internal CameraController _camera;
         internal bool _calibrationEnabled = false;
 
-        /// <summary>全局输入回调，用于 LineEdit 编辑模式下点击外部取消编辑</summary>
-        internal Action<InputEvent>? _inputCallback;
+        /// <summary>当前活跃的 LineEdit（用于点击外部取消编辑）</summary>
+        private LineEdit _activeLineEdit;
+        private Action _activeLineEditApply;
         internal bool _isZoomSliderDragging = false;
         #endregion
+
+        /// <summary>
+        /// 设置当前活跃的 LineEdit。替换旧的全局 _inputCallback 方案。
+        /// 同一时间只有一个 LineEdit 可以处于编辑状态。
+        /// </summary>
+        internal void SetActiveLineEdit(LineEdit edit, Action applyAction)
+        {
+            // 如果已有活跃 LineEdit，先应用它的值
+            if (_activeLineEdit != null && _activeLineEdit != edit)
+            {
+                _activeLineEditApply?.Invoke();
+            }
+            _activeLineEdit = edit;
+            _activeLineEditApply = applyAction;
+        }
+
+        internal void ClearActiveLineEdit()
+        {
+            _activeLineEdit = null;
+            _activeLineEditApply = null;
+        }
 
         #region Cross-Tab Reference — set by MapTab.BuildUI
         internal HSlider _gridSizeSlider;
@@ -190,9 +212,14 @@ namespace ClinetCSharp
         public override void _Input(InputEvent @event)
         {
             // LineEdit 编辑模式下点击外部取消编辑
-            if (_inputCallback != null)
+            if (_activeLineEdit != null && @event is InputEventMouseButton mb && mb.Pressed)
             {
-                _inputCallback(@event);
+                var editRect = _activeLineEdit.GetGlobalRect();
+                if (!editRect.HasPoint(mb.GlobalPosition))
+                {
+                    _activeLineEditApply?.Invoke();
+                    ClearActiveLineEdit();
+                }
             }
         }
 
