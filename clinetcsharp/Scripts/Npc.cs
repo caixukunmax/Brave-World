@@ -24,12 +24,12 @@ namespace ClinetCSharp
         public int GridY => _gridY;
         public string NpcName { get; private set; } = "";
 
-        public void Setup(ulong instanceId, string name, int npcType, int x, int y, int gridSize, int uiConfigId = 0)
+        public void Setup(ulong instanceId, string name, int npcType, int x, int y, int gridSize, int uiConfigId = 1)
         {
             _instanceId = instanceId;
             NpcName = name;
             NpcType = npcType;
-            UiConfigId = uiConfigId > 0 ? uiConfigId : npcType;
+            UiConfigId = uiConfigId;
             _gridX = x;
             _gridY = y;
             _gridSize = gridSize;

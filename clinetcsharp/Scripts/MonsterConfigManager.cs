@@ -120,8 +120,8 @@ namespace ClinetCSharp
         public int Hp { get; set; } = 100;
         public int MaxHp { get; set; } = 100;
         public int Level { get; set; } = 1;
-        /// <summary>UI配置ID，指定使用哪个 EntityStyleConfig。默认等于 MonsterId</summary>
-        public int UiConfigId { get; set; } = 0; // 0 = use MonsterId
+        /// <summary>UI配置ID，指定使用哪个 EntityStyleConfig。必填，默认1</summary>
+        public int UiConfigId { get; set; } = 1;
     }
 
     public class AiDefaults

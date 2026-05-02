@@ -33,7 +33,7 @@ namespace ClinetCSharp
         // 标签名称（调试面板用，LabelTexts 在 EntityBase）
         public string[] LabelNames = new string[4] { "名称", "等级", "属性1", "属性2" };
 
-        public void Setup(uint instanceId, uint monsterId, int x, int y, string name, uint level, int gridSize, int uiConfigId = 0)
+        public void Setup(uint instanceId, uint monsterId, int x, int y, string name, uint level, int gridSize, int uiConfigId = 1)
         {
             _instanceId = instanceId;
             _monsterId = monsterId;
@@ -42,7 +42,7 @@ namespace ClinetCSharp
             MonsterName = name;
             Level = level;
             _gridSize = gridSize;
-            UiConfigId = uiConfigId > 0 ? uiConfigId : (int)monsterId;
+            UiConfigId = uiConfigId;
             Position = UiUtils.GridToWorld(x, y, _gridSize);
 
             // 默认外观：红色系主题，实心背景（与玩家样式对齐）

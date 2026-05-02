@@ -208,14 +208,14 @@ namespace ClinetCSharp
 
             foreach (var m in monsterData)
             {
-                // 从本地配置查 ui_config_id，默认用 MonsterId
+                // 从本地配置查 ui_config_id，默认1
                 int mid = (int)m.MonsterId;
-                int uiConfigId = mid; // 默认
+                int uiConfigId = 1;
                 var mcm = GetNodeOrNull<MonsterConfigManager>("/root/MonsterConfigManager");
                 if (mcm != null)
                 {
                     var def = mcm.Config.Monsters.Find(d => d.MonsterId == mid);
-                    if (def != null && def.UiConfigId > 0)
+                    if (def != null)
                         uiConfigId = def.UiConfigId;
                 }
 
