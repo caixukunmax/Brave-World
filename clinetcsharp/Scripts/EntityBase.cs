@@ -175,16 +175,11 @@ namespace ClinetCSharp
         {
             if (@event is InputEventMouseButton mb && mb.ButtonIndex == MouseButton.Left && mb.Pressed)
             {
-                bool overUi = UiUtils.IsMouseOverAnyUi(GetViewport());
                 var localMouse = ToLocal(mb.GlobalPosition);
                 float half = VisualSize / 2.0f;
                 var rect = new Rect2(new Vector2(-half, -half), new Vector2(VisualSize, VisualSize));
-                bool hit = rect.HasPoint(localMouse);
-                GD.Print($"[EntityBase.CheckEntityClick] {GetType().Name} overUi={overUi} localMouse={localMouse:F1} half={half:F1} hit={hit}");
-                if (overUi) return;
-                if (hit)
+                if (rect.HasPoint(localMouse))
                 {
-                    GD.Print($"[EntityBase] EntityClicked: {GetType().Name}");
                     EntityClicked?.Invoke(this);
                 }
             }

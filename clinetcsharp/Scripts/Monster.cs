@@ -84,8 +84,6 @@ namespace ClinetCSharp
 
         public override void _Input(InputEvent @event)
         {
-            if (@event is InputEventMouseButton mb && mb.Pressed)
-                GD.Print($"[Monster._Input] {MonsterName} id={MonsterId} event={@event}");
             CheckEntityClick(@event);
         }
 
