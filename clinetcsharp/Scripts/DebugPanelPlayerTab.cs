@@ -1559,72 +1559,11 @@ namespace ClinetCSharp
 
         public override Godot.Collections.Dictionary CaptureUndoState()
         {
-            var state = new Godot.Collections.Dictionary
-            {
-                ["player_size"] = _playerSizeSlider.Value,
-                ["visual_size_scale"] = _playerSizeScaleSlider?.Value ?? 1.0,
-                ["border_width"] = _borderWidthSlider.Value,
-                ["border_width_scale"] = _borderWidthScaleSlider?.Value ?? (3.0 / 111.0),
-                ["corner_radius"] = _cornerRadiusSlider.Value,
-                ["bg_opacity"] = _bgOpacitySlider.Value,
-                ["font_size"] = _fontSizeSlider.Value,
-                ["line_spacing"] = _lineSpacingSlider.Value,
-                ["letter_spacing"] = _letterSpacingSlider.Value,
-            };
-            if (_fontAutoSizeCheck != null)
-                state["font_auto_size"] = _fontAutoSizeCheck.ButtonPressed;
-            if (_labelAutoCenterXCheck != null)
-                state["label_auto_center_x"] = _labelAutoCenterXCheck.ButtonPressed;
-            return state;
+            return new Godot.Collections.Dictionary();
         }
 
         public override void ApplyUndoState(Godot.Collections.Dictionary state)
         {
-            if (state.ContainsKey("player_size"))
-                _playerSizeSlider.Value = (double)state["player_size"];
-            if (state.ContainsKey("visual_size_scale") && _playerSizeScaleSlider != null)
-            {
-                _playerSizeScaleSlider.SetBlockSignals(true);
-                _playerSizeScaleSlider.Value = (double)state["visual_size_scale"];
-                _playerSizeScaleSlider.SetBlockSignals(false);
-            }
-            if (state.ContainsKey("border_width"))
-                _borderWidthSlider.Value = (double)state["border_width"];
-            if (state.ContainsKey("border_width_scale") && _borderWidthScaleSlider != null)
-            {
-                _borderWidthScaleSlider.SetBlockSignals(true);
-                _borderWidthScaleSlider.Value = (double)state["border_width_scale"];
-                _borderWidthScaleSlider.SetBlockSignals(false);
-            }
-            if (state.ContainsKey("corner_radius"))
-                _cornerRadiusSlider.Value = (double)state["corner_radius"];
-            if (state.ContainsKey("bg_opacity"))
-                _bgOpacitySlider.Value = (double)state["bg_opacity"];
-            if (state.ContainsKey("font_size"))
-                _fontSizeSlider.Value = (double)state["font_size"];
-            if (state.ContainsKey("line_spacing"))
-                _lineSpacingSlider.Value = (double)state["line_spacing"];
-            if (state.ContainsKey("letter_spacing"))
-                _letterSpacingSlider.Value = (double)state["letter_spacing"];
-            if (state.ContainsKey("font_auto_size") && _fontAutoSizeCheck != null)
-                _fontAutoSizeCheck.ButtonPressed = (bool)state["font_auto_size"];
-            if (state.ContainsKey("label_auto_center_x") && _labelAutoCenterXCheck != null)
-            {
-                _labelAutoCenterXCheck.SetBlockSignals(true);
-                _labelAutoCenterXCheck.ButtonPressed = (bool)state["label_auto_center_x"];
-                _labelAutoCenterXCheck.SetBlockSignals(false);
-                OnLabelAutoCenterXToggled(_labelAutoCenterXCheck.ButtonPressed);
-            }
-            // Trigger all player updates
-            OnPlayerSizeDragEnded(true);
-            OnPlayerSizeScaleDragEnded(true);
-            OnBorderWidthDragEnded(true);
-            OnBorderWidthScaleDragEnded(true);
-            OnCornerRadiusDragEnded(true);
-            OnBgOpacityDragEnded(true);
-            OnFontSizeDragEnded(true);
-            OnLineSpacingDragEnded(true);
-            OnLetterSpacingDragEnded(true);
         }
 
         #region ApplyLoadedPlayerSettings — called by Owner.DeferredLoadConfig

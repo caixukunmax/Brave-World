@@ -30,7 +30,6 @@ namespace ClinetCSharp
         private const int CONFIG_VERSION = 2;
         internal const string CONFIG_PATH = "user://debug_panel_config.cfg";
         private const string PRESET_PATH = "user://debug_panel_presets.cfg";
-        private const int MAX_HISTORY_STEPS = 20;
 
         public static readonly Color[] COLOR_PRESETS = new Color[]
         {
@@ -82,10 +81,7 @@ namespace ClinetCSharp
 
         /// <summary>全局输入回调，用于 LineEdit 编辑模式下点击外部取消编辑</summary>
         internal Action<InputEvent>? _inputCallback;
-        private List<Godot.Collections.Dictionary> _configHistory = new List<Godot.Collections.Dictionary>();
-        private int _historyIndex = -1;
         internal bool _isZoomSliderDragging = false;
-        internal bool _isRestoring = false;
         #endregion
 
         #region Cross-Tab Reference — set by MapTab.BuildUI
@@ -211,11 +207,6 @@ namespace ClinetCSharp
                         Toggle();
                         GetViewport().SetInputAsHandled();
                     }
-                }
-                else if (keyEvent.Keycode == Key.Z && keyEvent.CtrlPressed)
-                {
-                    UndoLastChange();
-                    GetViewport().SetInputAsHandled();
                 }
             }
         }
