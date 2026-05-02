@@ -1308,8 +1308,7 @@ namespace ClinetCSharp
 
         public override void SaveConfig(ConfigFile cfg)
         {
-            // Player settings
-            cfg.SetValue("player", "player_size", _playerSizeSlider.Value);
+            // Player settings — Scale is the source of truth, player_size is derived
             cfg.SetValue("player", "visual_size_scale", _playerSizeScaleSlider?.Value ?? 1.0);
             cfg.SetValue("player", "border_width", _borderWidthSlider.Value);
             cfg.SetValue("player", "border_width_scale", _borderWidthScaleSlider?.Value ?? (3.0 / 111.0));
@@ -1398,17 +1397,19 @@ namespace ClinetCSharp
         {
             if (Player == null) return;
 
-            // Player sliders
-            _playerSizeSlider.SetBlockSignals(true);
-            _playerSizeSlider.Value = (double)cfg.GetValue("player", "player_size", 111);
-            _playerSizeSlider.SetBlockSignals(false);
-
+            // Player sliders — Scale is source of truth
             _playerSizeScaleSlider?.SetBlockSignals(true);
             double loadedVisualScale = (double)cfg.GetValue("player", "visual_size_scale", 1.0);
             _playerSizeScaleSlider?.SetValue(loadedVisualScale);
             _playerSizeScaleSlider?.SetBlockSignals(false);
             if (_playerSizeScaleValue != null)
                 _playerSizeScaleValue.Text = loadedVisualScale.ToString(DebugPanelLengthScalePolicy.FormatStr);
+
+            // Derive player_size from Scale for the slider display
+            _playerSizeSlider.SetBlockSignals(true);
+            int gridSize = (int)Owner._gridSizeSlider.Value;
+            _playerSizeSlider.Value = gridSize > 0 ? gridSize * loadedVisualScale : 111;
+            _playerSizeSlider.SetBlockSignals(false);
 
             _borderWidthSlider.SetBlockSignals(true);
             _borderWidthSlider.Value = (double)cfg.GetValue("player", "border_width", 3.0);
@@ -1618,7 +1619,6 @@ namespace ClinetCSharp
         {
             var playerData = new Godot.Collections.Dictionary
             {
-                ["player_size"] = _playerSizeSlider?.Value ?? 111,
                 ["visual_size_scale"] = _playerSizeScaleSlider?.Value ?? 1.0,
                 ["border_width"] = _borderWidthSlider?.Value ?? 3.0,
                 ["border_width_scale"] = _borderWidthScaleSlider?.Value ?? (3.0 / 111.0),

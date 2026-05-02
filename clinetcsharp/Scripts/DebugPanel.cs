@@ -152,13 +152,14 @@ namespace ClinetCSharp
             _uiTab = new DebugPanelUITab(this);
             _tabs = new DebugPanelTab[] { _mapTab, _playerTab, _monsterTab, _npcTab, _systemTab, _uiTab };
 
-            // Build UI for each tab
-            var mapTab = GetNode<VBoxContainer>("VBoxContainer/Content/ScrollContainer/TabContainer/地图");
-            var playerTab = GetNode<VBoxContainer>("VBoxContainer/Content/ScrollContainer/TabContainer/玩家");
-            var monsterTab = GetNode<VBoxContainer>("VBoxContainer/Content/ScrollContainer/TabContainer/怪物");
-            var npcTab = GetNode<VBoxContainer>("VBoxContainer/Content/ScrollContainer/TabContainer/NPC");
-            var sysTab = GetNode<VBoxContainer>("VBoxContainer/Content/ScrollContainer/TabContainer/系统");
-            var uiTab = GetNode<VBoxContainer>("VBoxContainer/Content/ScrollContainer/TabContainer/UI");
+            // Build UI for each tab — get containers from TabContainer
+            var tabContainer = GetNode<TabContainer>("VBoxContainer/Content/ScrollContainer/TabContainer");
+            var mapTab = tabContainer.GetNode<VBoxContainer>("地图");
+            var playerTab = tabContainer.GetNode<VBoxContainer>("玩家");
+            var monsterTab = tabContainer.GetNode<VBoxContainer>("怪物");
+            var npcTab = tabContainer.GetNode<VBoxContainer>("NPC");
+            var sysTab = tabContainer.GetNode<VBoxContainer>("系统");
+            var uiTab = tabContainer.GetNode<VBoxContainer>("UI");
 
             _mapTab.BuildUI(mapTab);
             _playerTab.BuildUI(playerTab);
