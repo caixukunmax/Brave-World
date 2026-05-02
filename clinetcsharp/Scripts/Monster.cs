@@ -92,6 +92,7 @@ namespace ClinetCSharp
             DrawLabels();
             DrawCastBar();
             DrawActionBar();
+            GD.PrintRich($"[Monster._Draw] {MonsterName} id={MonsterId} hpLen={HealthBarLength:F1} mpLen={MpBarLength:F1} hpScale={HealthBarLengthScale:F4} mpScale={MpBarLengthScale:F4}");
         }
 
         // ========== 移动 override（更新 _gridX/_gridY 后调用基类） ==========
