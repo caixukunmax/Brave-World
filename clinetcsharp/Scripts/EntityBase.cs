@@ -166,6 +166,26 @@ namespace ClinetCSharp
             QueueRedraw();
         }
 
+        // ========== 点击检测 ==========
+        /// <summary>实体被点击时触发，参数为被点击的实体</summary>
+        public static event System.Action<EntityBase> EntityClicked;
+
+        /// <summary>检测鼠标点击是否命中实体，子类 override _Input 时应调用此方法</summary>
+        protected void CheckEntityClick(InputEvent @event)
+        {
+            if (@event is InputEventMouseButton mb && mb.ButtonIndex == MouseButton.Left && mb.Pressed)
+            {
+                if (UiUtils.IsMouseOverAnyUi(GetViewport())) return;
+                var localMouse = ToLocal(mb.GlobalPosition);
+                float half = VisualSize / 2.0f;
+                var rect = new Rect2(new Vector2(-half, -half), new Vector2(VisualSize, VisualSize));
+                if (rect.HasPoint(localMouse))
+                {
+                    EntityClicked?.Invoke(this);
+                }
+            }
+        }
+
         // ========== 绘制 ==========
         protected void DrawBars()
         {

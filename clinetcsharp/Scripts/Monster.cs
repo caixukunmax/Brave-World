@@ -82,6 +82,11 @@ namespace ClinetCSharp
             QueueRedraw();
         }
 
+        public override void _Input(InputEvent @event)
+        {
+            CheckEntityClick(@event);
+        }
+
         public override void _Draw()
         {
             var drawSize = VisualSize;

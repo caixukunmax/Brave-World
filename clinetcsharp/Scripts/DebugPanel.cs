@@ -127,6 +127,9 @@ namespace ClinetCSharp
             AddToGroup("debug_panel");
             VisibilityChanged += OnPanelVisibilityChanged;
 
+            // 订阅实体点击事件
+            EntityBase.EntityClicked += OnEntityClicked;
+
             InitializeNodeReferences();
 
             // 延迟初始化，等待其他节点就绪
@@ -207,6 +210,7 @@ namespace ClinetCSharp
                 pm.UnregisterPanel(this);
 
             VisibilityChanged -= OnPanelVisibilityChanged;
+            EntityBase.EntityClicked -= OnEntityClicked;
             base._ExitTree();
         }
 
@@ -221,6 +225,29 @@ namespace ClinetCSharp
                     _activeLineEditApply?.Invoke();
                     ClearActiveLineEdit();
                 }
+            }
+        }
+
+        /// <summary>
+        /// 实体被点击时，自动切到对应 Tab 和配置 ID（仅切一次，不持续跟随）
+        /// </summary>
+        private void OnEntityClicked(EntityBase entity)
+        {
+            if (!IsVisibleInTree()) return; // 面板不可见时不切
+
+            switch (entity)
+            {
+                case Player:
+                    _tabContainer.CurrentTab = 1; // 玩家 Tab
+                    break;
+                case Monster monster:
+                    _tabContainer.CurrentTab = 2; // 怪物 Tab
+                    _monsterTab?.SelectConfigId((int)monster.MonsterId);
+                    break;
+                case Npc npc:
+                    _tabContainer.CurrentTab = 3; // NPC Tab
+                    _npcTab?.SelectConfigId((int)npc.NpcType);
+                    break;
             }
         }
 

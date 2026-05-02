@@ -297,6 +297,8 @@ namespace ClinetCSharp
 
         public override void _Input(InputEvent @event)
         {
+            CheckEntityClick(@event);
+
             if (@event is InputEventMouseButton mb && mb.ButtonIndex == MouseButton.Left)
             {
                 if (mb.Pressed)

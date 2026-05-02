@@ -17,6 +17,23 @@ namespace ClinetCSharp
         protected Button _addConfigBtn;
         protected Button _deleteConfigBtn;
         protected int _selectedConfigId = 1;
+
+        /// <summary>切换到指定配置 ID（供外部调用，如实体点击选中）</summary>
+        public void SelectConfigId(int id)
+        {
+            if (_configIdOption == null) return;
+            for (int i = 0; i < _configIdOption.GetItemCount(); i++)
+            {
+                if ((int)_configIdOption.GetItemMetadata(i) == id)
+                {
+                    _configIdOption.Select(i);
+                    _selectedConfigId = id;
+                    SyncStyleUI();
+                    SyncAfterStyleUI();
+                    return;
+                }
+            }
+        }
         #endregion
 
         #region Fields - Visual Style
