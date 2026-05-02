@@ -244,10 +244,7 @@ namespace ClinetCSharp
 
             _monsterMpBarVisibleCheck.Toggled += _ => ApplyStyleChanges();
             _monsterMpBarColorBtn.Pressed += OnMonsterMpBarColorPressed;
-            _monsterMpBarLengthScaleSlider.ValueChanged += v => {
-                GD.Print($"[MonsterTab] MP LengthScale slider changed: {v:F4}");
-                ApplyStyleChanges();
-            };
+            _monsterMpBarLengthScaleSlider.ValueChanged += _ => ApplyStyleChanges();
             AttachValueLineEdit(_monsterMpBarLengthScaleSlider, _monsterMpBarLengthScaleValue);
             _monsterMpBarHeightScaleSlider.ValueChanged += _ => ApplyStyleChanges();
             AttachValueLineEdit(_monsterMpBarHeightScaleSlider, _monsterMpBarHeightScaleValue);
@@ -273,7 +270,6 @@ namespace ClinetCSharp
             cfg.HpBarOffsetY = (float)_monsterHpBarOffsetYSlider.Value;
             cfg.MpBarVisible = _monsterMpBarVisibleCheck.ButtonPressed;
             cfg.MpBarLengthScale = (float)_monsterMpBarLengthScaleSlider.Value;
-            GD.Print($"[MonsterTab] ApplySubclassChanges: MpBarLengthScale={cfg.MpBarLengthScale:F4}");
             cfg.MpBarHeightScale = (float)_monsterMpBarHeightScaleSlider.Value;
             cfg.MpBarFillPercent = (float)(_monsterMpBarFillSlider.Value / 100.0);
             cfg.MpBarOffsetX = _monsterMpBarOffsetXCenterCheck?.ButtonPressed == true ? 0 : (float)_monsterMpBarOffsetXSlider.Value;
