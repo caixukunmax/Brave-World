@@ -179,8 +179,10 @@ namespace ClinetCSharp
                 var localMouse = ToLocal(mb.GlobalPosition);
                 float half = VisualSize / 2.0f;
                 var rect = new Rect2(new Vector2(-half, -half), new Vector2(VisualSize, VisualSize));
+                GD.Print($"[EntityBase] CheckEntityClick: localMouse={localMouse:F1}, half={half:F1}, hit={rect.HasPoint(localMouse)}");
                 if (rect.HasPoint(localMouse))
                 {
+                    GD.Print($"[EntityBase] EntityClicked: {GetType().Name}");
                     EntityClicked?.Invoke(this);
                 }
             }

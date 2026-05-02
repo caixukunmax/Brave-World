@@ -233,6 +233,7 @@ namespace ClinetCSharp
         /// </summary>
         private void OnEntityClicked(EntityBase entity)
         {
+            GD.Print($"[DebugPanel] OnEntityClicked: {entity.GetType().Name}, visible={IsVisibleInTree()}");
             if (!IsVisibleInTree()) return; // 面板不可见时不切
 
             switch (entity)
