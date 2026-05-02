@@ -17,16 +17,19 @@ namespace ClinetCSharp
 
         public ulong InstanceId => _instanceId;
         public int NpcType { get; private set; }
+        /// <summary>UI配置ID，指定使用哪个 EntityStyleConfig</summary>
+        public int UiConfigId { get; private set; }
         protected override Vector2I GetGridPos() => new Vector2I(_gridX, _gridY);
         public int GridX => _gridX;
         public int GridY => _gridY;
         public string NpcName { get; private set; } = "";
 
-        public void Setup(ulong instanceId, string name, int npcType, int x, int y, int gridSize)
+        public void Setup(ulong instanceId, string name, int npcType, int x, int y, int gridSize, int uiConfigId = 0)
         {
             _instanceId = instanceId;
             NpcName = name;
             NpcType = npcType;
+            UiConfigId = uiConfigId > 0 ? uiConfigId : npcType;
             _gridX = x;
             _gridY = y;
             _gridSize = gridSize;

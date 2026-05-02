@@ -208,11 +208,15 @@ namespace ClinetCSharp
 
             foreach (var m in monsterData)
             {
-                // 检查是否有对应 StyleConfig，没有则报错
+                // 从本地配置查 ui_config_id，默认用 MonsterId
                 int mid = (int)m.MonsterId;
-                if (!StyleConfigs.ContainsKey(mid))
+                int uiConfigId = mid; // 默认
+                var mcm = GetNodeOrNull<MonsterConfigManager>("/root/MonsterConfigManager");
+                if (mcm != null)
                 {
-                    GD.PrintErr($"[MonsterManager] No StyleConfig for MonsterId={mid} ({m.Name})! Available: [{string.Join(", ", StyleConfigs.Keys)}]");
+                    var def = mcm.Config.Monsters.Find(d => d.MonsterId == mid);
+                    if (def != null && def.UiConfigId > 0)
+                        uiConfigId = def.UiConfigId;
                 }
 
                 var monster = new Monster();
@@ -224,7 +228,8 @@ namespace ClinetCSharp
                     m.Name,
                     m.Level,
                     gridSize,
-                    m.Attrs
+                    m.Attrs,
+                    uiConfigId
                 );
                 ApplyDefaultStyle(monster);
                 AddChild(monster);
@@ -238,7 +243,7 @@ namespace ClinetCSharp
         public void ApplyDefaultStyle(Monster monster)
         {
             if (monster == null) return;
-            var cfg = GetStyleConfig((int)monster.MonsterId);
+            var cfg = GetStyleConfig(monster.UiConfigId);
             monster.ApplyStyle(cfg);
         }
 

@@ -243,11 +243,11 @@ namespace ClinetCSharp
                     break;
                 case Monster monster:
                     _tabContainer.CurrentTab = 2; // 怪物 Tab
-                    _monsterTab?.SelectConfigId((int)monster.MonsterId);
+                    _monsterTab?.SelectConfigId(monster.UiConfigId);
                     break;
                 case Npc npc:
                     _tabContainer.CurrentTab = 3; // NPC Tab
-                    _npcTab?.SelectConfigId((int)npc.NpcType);
+                    _npcTab?.SelectConfigId(npc.UiConfigId);
                     break;
             }
         }

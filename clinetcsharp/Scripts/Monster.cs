@@ -19,6 +19,8 @@ namespace ClinetCSharp
 
         public uint InstanceId => _instanceId;
         public uint MonsterId => _monsterId;
+        /// <summary>UI配置ID，指定使用哪个 EntityStyleConfig</summary>
+        public int UiConfigId { get; private set; }
         protected override Vector2I GetGridPos() => new Vector2I(_gridX, _gridY);
         public int GridX => _gridX;
         public int GridY => _gridY;
@@ -31,7 +33,7 @@ namespace ClinetCSharp
         // 标签名称（调试面板用，LabelTexts 在 EntityBase）
         public string[] LabelNames = new string[4] { "名称", "等级", "属性1", "属性2" };
 
-        public void Setup(uint instanceId, uint monsterId, int x, int y, string name, uint level, int gridSize)
+        public void Setup(uint instanceId, uint monsterId, int x, int y, string name, uint level, int gridSize, int uiConfigId = 0)
         {
             _instanceId = instanceId;
             _monsterId = monsterId;
@@ -40,6 +42,7 @@ namespace ClinetCSharp
             MonsterName = name;
             Level = level;
             _gridSize = gridSize;
+            UiConfigId = uiConfigId > 0 ? uiConfigId : (int)monsterId;
             Position = UiUtils.GridToWorld(x, y, _gridSize);
 
             // 默认外观：红色系主题，实心背景（与玩家样式对齐）
@@ -58,9 +61,9 @@ namespace ClinetCSharp
             QueueRedraw();
         }
 
-        public void Setup(uint instanceId, uint monsterId, int x, int y, string name, uint level, int gridSize, Google.Protobuf.Collections.RepeatedField<Game.MonsterAttr> attrs)
+        public void Setup(uint instanceId, uint monsterId, int x, int y, string name, uint level, int gridSize, Google.Protobuf.Collections.RepeatedField<Game.MonsterAttr> attrs, int uiConfigId = 0)
         {
-            Setup(instanceId, monsterId, x, y, name, level, gridSize);
+            Setup(instanceId, monsterId, x, y, name, level, gridSize, uiConfigId);
 
             int attrLine = 2;
             foreach (var attr in attrs)

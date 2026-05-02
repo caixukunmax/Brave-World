@@ -207,7 +207,7 @@ namespace ClinetCSharp
         public void ApplyDefaultStyle(Npc npc)
         {
             if (npc == null) return;
-            var cfg = GetStyleConfig(npc.NpcType);
+            var cfg = GetStyleConfig(npc.UiConfigId);
             npc.ApplyStyle(cfg);
         }
 
