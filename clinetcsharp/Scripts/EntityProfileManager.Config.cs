@@ -43,6 +43,11 @@ namespace ClinetCSharp
                 config.SetValue(section, "components",
                     string.Join(",", profile.ComponentNames));
 
+                // 保存停用组件列表
+                var disabled = profile.ComponentNames.Where(c => profile.IsComponentDisabled(c)).ToList();
+                config.SetValue(section, "disabled_components",
+                    disabled.Count > 0 ? string.Join(",", disabled) : "");
+
                 foreach (string compName in profile.ComponentNames)
                 {
                     var data = profile.GetData(compName);
@@ -131,6 +136,18 @@ namespace ClinetCSharp
                         var data = ReadComponentData(config, compSection, trimmed);
                         if (data != null)
                             profile.SetData(trimmed, data);
+                    }
+                }
+
+                // 读取停用组件列表
+                string disabledStr = (string)config.GetValue(section, "disabled_components", "");
+                if (!string.IsNullOrEmpty(disabledStr))
+                {
+                    foreach (string compName in disabledStr.Split(','))
+                    {
+                        string trimmed = compName.Trim();
+                        if (!string.IsNullOrEmpty(trimmed))
+                            profile.SetComponentDisabled(trimmed, true);
                     }
                 }
 

@@ -24,6 +24,7 @@ namespace ClinetCSharp
 
         private Button _manageComponentsBtn;
         private AcceptDialog _manageComponentsDialog;
+        private Action _manageComponentsHandler;
 
         private VBoxContainer _componentContainer;
         private readonly Dictionary<string, IEntityTabComponent> _activeComponents = new();
@@ -227,60 +228,148 @@ namespace ClinetCSharp
             var vbox = new VBoxContainer();
             _manageComponentsDialog.AddChild(vbox);
 
-            // 列出所有可用组件
+            // 收集所有可用组件
             var allComponents = ComponentRegistry.GetComponentsForType(profile.EntityType).ToList();
-            // 也加上通用组件
             foreach (var c in ComponentRegistry.GetAllComponents())
                 if (!allComponents.Any(x => x.name == c.name))
                     allComponents.Add(c);
 
-            var toggles = new Dictionary<string, CheckButton>();
-            foreach (var (name, displayName) in allComponents)
+            // 跟踪变更
+            var toAdd = new HashSet<string>();
+            var toRemove = new HashSet<string>();
+            var toDisable = new HashSet<string>();
+            var toEnable = new HashSet<string>();
+
+            void RefreshList()
             {
-                var row = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
-                var toggle = new CheckButton
+                foreach (var child in vbox.GetChildren()) { if (child is Node n) n.QueueFree(); }
+
+                // 三种状态：启用、停用、未添加
+                var enabled = new List<(string name, string displayName)>();
+                var disabled = new List<(string name, string displayName)>();
+                var available = new List<(string name, string displayName)>();
+
+                foreach (var (name, displayName) in allComponents)
                 {
-                    Text = displayName,
-                    ButtonPressed = profile.HasComponent(name),
-                    SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
-                };
-                toggles[name] = toggle;
-                row.AddChild(toggle);
-                vbox.AddChild(row);
+                    bool has = profile.HasComponent(name) && !toRemove.Contains(name);
+                    bool pending = toAdd.Contains(name) && !profile.HasComponent(name);
+                    bool isActive = has || pending;
+                    if (!isActive) { available.Add((name, displayName)); continue; }
+
+                    bool isDisabled = (profile.IsComponentDisabled(name) && !toEnable.Contains(name)) || toDisable.Contains(name);
+                    if (isDisabled) disabled.Add((name, displayName));
+                    else enabled.Add((name, displayName));
+                }
+
+                if (enabled.Count > 0)
+                {
+                    vbox.AddChild(new Label { Text = "启用", HorizontalAlignment = HorizontalAlignment.Left });
+                    foreach (var (name, displayName) in enabled)
+                    {
+                        var row = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+                        row.AddChild(new Label { Text = "●", CustomMinimumSize = new Vector2(20, 0), HorizontalAlignment = HorizontalAlignment.Center });
+                        row.AddChild(new Label { Text = displayName, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill });
+                        var disableBtn = new Button { Text = "停用", CustomMinimumSize = new Vector2(44, 26), SizeFlagsHorizontal = Control.SizeFlags.ShrinkEnd };
+                        var removeBtn = new Button { Text = "移除", CustomMinimumSize = new Vector2(44, 26), SizeFlagsHorizontal = Control.SizeFlags.ShrinkEnd };
+                        string capturedName = name;
+                        disableBtn.Pressed += () => { toDisable.Add(capturedName); toEnable.Remove(capturedName); RefreshList(); };
+                        removeBtn.Pressed += () => { if (profile.HasComponent(capturedName)) toRemove.Add(capturedName); toAdd.Remove(capturedName); RefreshList(); };
+                        row.AddChild(disableBtn);
+                        row.AddChild(removeBtn);
+                        vbox.AddChild(row);
+                    }
+                }
+
+                if (disabled.Count > 0)
+                {
+                    vbox.AddChild(new HSeparator());
+                    vbox.AddChild(new Label { Text = "停用", HorizontalAlignment = HorizontalAlignment.Left });
+                    foreach (var (name, displayName) in disabled)
+                    {
+                        var row = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+                        row.AddChild(new Label { Text = "◐", CustomMinimumSize = new Vector2(20, 0), HorizontalAlignment = HorizontalAlignment.Center });
+                        var nameLabel = new Label { Text = displayName, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+                        nameLabel.Modulate = new Color(0.6f, 0.6f, 0.6f); // 灰色表示停用
+                        row.AddChild(nameLabel);
+                        var enableBtn = new Button { Text = "启用", CustomMinimumSize = new Vector2(44, 26), SizeFlagsHorizontal = Control.SizeFlags.ShrinkEnd };
+                        var removeBtn = new Button { Text = "移除", CustomMinimumSize = new Vector2(44, 26), SizeFlagsHorizontal = Control.SizeFlags.ShrinkEnd };
+                        string capturedName = name;
+                        enableBtn.Pressed += () => { toEnable.Add(capturedName); toDisable.Remove(capturedName); RefreshList(); };
+                        removeBtn.Pressed += () => { if (profile.HasComponent(capturedName)) toRemove.Add(capturedName); toAdd.Remove(capturedName); RefreshList(); };
+                        row.AddChild(enableBtn);
+                        row.AddChild(removeBtn);
+                        vbox.AddChild(row);
+                    }
+                }
+
+                if (available.Count > 0)
+                {
+                    vbox.AddChild(new HSeparator());
+                    var addRow = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+                    addRow.AddChild(new Label { Text = "添加:", CustomMinimumSize = new Vector2(35, 0) });
+                    var addOption = new OptionButton { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+                    foreach (var (name, displayName) in available)
+                    {
+                        int idx = addOption.GetItemCount();
+                        addOption.AddItem(displayName);
+                        addOption.SetItemMetadata(idx, name);
+                    }
+                    addRow.AddChild(addOption);
+                    var addBtn = new Button { Text = "+", CustomMinimumSize = new Vector2(32, 26) };
+                    addBtn.Pressed += () =>
+                    {
+                        int idx = addOption.Selected;
+                        if (idx < 0 || idx >= addOption.GetItemCount()) return;
+                        string capturedName = (string)addOption.GetItemMetadata(idx);
+                        toRemove.Remove(capturedName);
+                        if (!profile.HasComponent(capturedName)) toAdd.Add(capturedName);
+                        RefreshList();
+                    };
+                    addRow.AddChild(addBtn);
+                    vbox.AddChild(addRow);
+                }
             }
 
-            // 确认时应用变更
-            _manageComponentsDialog.Confirmed += () =>
+            RefreshList();
+
+            // 确认时应用变更（先断开旧 handler 避免重复）
+            if (_manageComponentsHandler != null)
+                _manageComponentsDialog.Confirmed -= _manageComponentsHandler;
+            _manageComponentsHandler = () =>
             {
                 bool changed = false;
-                foreach (var (name, toggle) in toggles)
+                foreach (string name in toRemove)
                 {
-                    bool had = profile.HasComponent(name);
-                    bool want = toggle.ButtonPressed;
-                    if (had && !want)
+                    profile.RemoveComponent(name);
+                    RemoveComponentUI(name);
+                    changed = true;
+                }
+                foreach (string name in toAdd)
+                {
+                    var comp = ComponentRegistry.Create(name);
+                    if (comp != null)
                     {
-                        // 删除组件
-                        profile.RemoveComponent(name);
-                        RemoveComponentUI(name);
+                        profile.SetData(name, comp.SyncToData());
+                        comp.Dispose();
+                        AddComponentUI(name);
                         changed = true;
                     }
-                    else if (!had && want)
-                    {
-                        // 添加组件
-                        var comp = ComponentRegistry.Create(name);
-                        if (comp != null)
-                        {
-                            profile.SetData(name, comp.SyncToData());
-                            comp.Dispose();
-                            AddComponentUI(name);
-                            changed = true;
-                        }
-                    }
+                }
+                foreach (string name in toDisable)
+                {
+                    profile.SetComponentDisabled(name, true);
+                    changed = true;
+                }
+                foreach (string name in toEnable)
+                {
+                    profile.SetComponentDisabled(name, false);
+                    changed = true;
                 }
                 if (changed) pm.ApplyProfileToAll(_currentProfileId);
             };
+            _manageComponentsDialog.Confirmed += _manageComponentsHandler;
 
-            _manageComponentsDialog.PopupCentered(new Vector2I(300, 0));
+            _manageComponentsDialog.PopupCentered(new Vector2I(280, 0));
         }
 
         private void OnRemoveComponentPressed(string compName)
@@ -397,6 +486,14 @@ namespace ClinetCSharp
                 .FirstOrDefault(c => c.name == compName).displayName ?? compName;
 
             var container = new CollapsibleContainer(displayName);
+
+            // 停用的组件灰色显示 + 默认折叠
+            bool isDisabled = profile.IsComponentDisabled(compName);
+            if (isDisabled)
+            {
+                container.Modulate = new Color(0.6f, 0.6f, 0.6f);
+                container.SetCollapsedSilent(true);
+            }
 
             // Build component UI inside CollapsibleContainer's content area
             comp.BuildUI(container.Content);

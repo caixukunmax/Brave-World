@@ -122,22 +122,13 @@ namespace ClinetCSharp
                 if (centered) { _oxs[i].SetBlockSignals(true); _oxs[i].Value = 0; _oxs[i].SetBlockSignals(false); _oxv[i].Text = "0"; }
             };
 
-            // 名称变化时更新 CollapsibleContainer 标题
-            _names[i].TextChanged += (text) => UpdateCollapsibleTitle(i);
+            // 名称输入框只是注释，不影响标题
 
             c.AddChild(collapsible);
         }
 
-        /// <summary>更新折叠容器的标题</summary>
-        private void UpdateCollapsibleTitle(int i)
-        {
-            if (_collapsibles[i] == null) return;
-            string name = LabelDisplayName(i);
-            // 保留箭头前缀
-            bool collapsed = _collapsibles[i].Collapsed;
-            _collapsibles[i].Title = name;
-            _collapsibles[i].SetCollapsedSilent(collapsed);
-        }
+        /// <summary>LabelDisplayName 不再用于标题，标题固定为"标签N"</summary>
+        private static string FixedTitle(int i) => DefaultLabelName(i);
 
         public void SyncFromData(IComponentData data)
         {
@@ -156,7 +147,6 @@ namespace ClinetCSharp
                 SC(_cxs[i], d.CenterX[i]); _oxs[i].Editable = !d.CenterX[i];
                 _oxs[i].Modulate = d.CenterX[i] ? new Color(0.5f, 0.5f, 0.5f, 1) : new Color(1, 1, 1, 1);
                 SS(_oys[i], d.YOffset[i], _oyv[i], ((int)d.YOffset[i]).ToString());
-                UpdateCollapsibleTitle(i);
             }
             _locked = new HashSet<string>(d.LockedProperties); ApplyLocks();
         }
@@ -216,7 +206,6 @@ namespace ClinetCSharp
                 SC(_cxs[i], e.LabelCenterX[i]); _oxs[i].Editable = !e.LabelCenterX[i];
                 _oxs[i].Modulate = e.LabelCenterX[i] ? new Color(0.5f, 0.5f, 0.5f, 1) : new Color(1, 1, 1, 1);
                 SS(_oys[i], e.LabelYOffsets[i], _oyv[i], ((int)e.LabelYOffsets[i]).ToString());
-                UpdateCollapsibleTitle(i);
             }
             if (e is Player p) { SC(_boldCheck, p.FontBold); SC(_italicCheck, p.FontItalic); SC(_shadowCheck, p.FontShadow); }
             SS(_fontSizeSlider, e.FontSize, _fontSizeValue, e.FontSize.ToString());

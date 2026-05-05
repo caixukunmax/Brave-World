@@ -15,8 +15,22 @@ namespace ClinetCSharp
         public string EntityType = ""; // "player" / "monster" / "npc" / 自定义
 
         private Dictionary<string, IComponentData> _componentData = new();
+        private HashSet<string> _disabledComponents = new();
 
         public bool HasComponent(string name) => _componentData.ContainsKey(name);
+
+        /// <summary>组件是否停用（数据保留但不应用）</summary>
+        public bool IsComponentDisabled(string name) => _disabledComponents.Contains(name);
+
+        /// <summary>设置组件停用状态</summary>
+        public void SetComponentDisabled(string name, bool disabled)
+        {
+            if (disabled) _disabledComponents.Add(name);
+            else _disabledComponents.Remove(name);
+        }
+
+        /// <summary>获取启用的组件名（非停用）</summary>
+        public IEnumerable<string> ActiveComponentNames => _componentData.Keys.Where(k => !_disabledComponents.Contains(k));
 
         public T GetData<T>(string name) where T : class, IComponentData
             => _componentData.TryGetValue(name, out var d) ? (T)d : null;
@@ -26,7 +40,7 @@ namespace ClinetCSharp
 
         public void SetData(string name, IComponentData data) => _componentData[name] = data;
 
-        public void RemoveComponent(string name) => _componentData.Remove(name);
+        public void RemoveComponent(string name) { _componentData.Remove(name); _disabledComponents.Remove(name); }
 
         public IEnumerable<string> ComponentNames => _componentData.Keys;
 

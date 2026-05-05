@@ -192,7 +192,7 @@ namespace ClinetCSharp
 
             // Appearance
             var app = profile.GetData<AppearanceData>("appearance");
-            if (app != null)
+            if (app != null && !profile.IsComponentDisabled("appearance"))
             {
                 entity.SetVisualSizeScale(app.VisualSizeScale);
                 entity.SetBorderWidthScale(app.BorderWidthScale);
@@ -206,7 +206,7 @@ namespace ClinetCSharp
 
             // Labels
             var labels = profile.GetData<LabelGroupData>("labels");
-            if (labels != null)
+            if (labels != null && !profile.IsComponentDisabled("labels"))
             {
                 for (int i = 0; i < 4; i++)
                 {
@@ -248,7 +248,7 @@ namespace ClinetCSharp
 
             // HealthBar
             var hpBar = profile.GetData<BarData>("healthbar");
-            if (hpBar != null)
+            if (hpBar != null && !profile.IsComponentDisabled("healthbar"))
             {
                 entity.HealthBarVisible = hpBar.Visible;
                 entity.SetHealthBarLengthScale(hpBar.LengthScale);
@@ -261,7 +261,7 @@ namespace ClinetCSharp
 
             // MPBar
             var mpBar = profile.GetData<BarData>("mpbar");
-            if (mpBar != null)
+            if (mpBar != null && !profile.IsComponentDisabled("mpbar"))
             {
                 entity.MpBarVisible = mpBar.Visible;
                 entity.SetMpBarLengthScale(mpBar.LengthScale);
@@ -274,7 +274,7 @@ namespace ClinetCSharp
 
             // CastBar
             var castBar = profile.GetData<CastBarData>("castbar");
-            if (castBar != null)
+            if (castBar != null && !profile.IsComponentDisabled("castbar"))
             {
                 entity.CastBarVisible = castBar.Visible;
                 entity.SetCastBarLengthScale(castBar.LengthScale);
@@ -287,7 +287,7 @@ namespace ClinetCSharp
 
             // ActionBar
             var actionBar = profile.GetData<ActionBarData>("actionbar");
-            if (actionBar != null)
+            if (actionBar != null && !profile.IsComponentDisabled("actionbar"))
             {
                 entity.ActionBarTextYOffset = actionBar.TextYOffset;
                 entity.ActionBarProgressHeight = actionBar.ProgressHeight;
@@ -297,7 +297,7 @@ namespace ClinetCSharp
             if (entity is Player player)
             {
                 var badge = profile.GetData<LevelBadgeData>("levelbadge");
-                if (badge != null)
+                if (badge != null && !profile.IsComponentDisabled("levelbadge"))
                 {
                     player.LevelBadgeVisible = badge.Visible;
                     player.LevelBadgeFontSize = badge.FontSize;
@@ -311,7 +311,7 @@ namespace ClinetCSharp
             if (entity is Npc npc)
             {
                 var interact = profile.GetData<NpcInteractData>("npc_interact");
-                if (interact != null)
+                if (interact != null && !profile.IsComponentDisabled("npc_interact"))
                 {
                     // NPC 交互面板偏移通过 NpcManager 设置
                     // 这里预留接口，Phase 2+ 实际对接
