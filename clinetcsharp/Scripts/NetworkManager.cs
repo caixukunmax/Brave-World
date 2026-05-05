@@ -30,9 +30,13 @@ namespace ClinetCSharp
         public event Action<Game.MonsterMoveCancelNotify> MonsterMoveCancelNotify;
         public event Action<Game.MapInfoSyncNotify> MapInfoReceived;
         public event Action<Game.ChestUpdateNotify> ChestUpdateNotify;
+        public event Action<Game.DropSpawnNotify> DropSpawnNotify;
+        public event Action<Game.DropPickupNotify> DropPickupNotify;
+        public event Action<Game.DropRemoveNotify> DropRemoveNotify;
         public event Action<Game.OpenChestResponse> OpenChestResponse;
         public event Action<Game.CombatLogNotify> CombatLogNotify;
         public event Action<Game.CombatStateNotify> CombatStateNotify;
+        public event Action<Game.BuffUpdateNotify> BuffUpdateNotify;
         public event Action<Game.CombatStartNotify> CombatStartNotify;
         public event Action<Game.CombatEndNotify> CombatEndNotify;
         public event Action<Game.FullRoleInfo> RoleAttrUpdated;
@@ -89,6 +93,7 @@ namespace ClinetCSharp
         public List<Game.ChestInfo> Chests { get; set; } = new();
         public List<Game.MonsterInfo> Monsters { get; set; } = new();
         public List<Game.NpcInfo> Npcs { get; set; } = new();
+        public List<Game.DropItemInfo> Drops { get; set; } = new();
         public List<Game.ItemInfo> CachedItems { get; set; } = new();
         public List<uint> CachedLearnedSkills { get; set; } = new();
         public List<uint> CachedEquippedSkills { get; set; } = new();
@@ -436,7 +441,8 @@ namespace ClinetCSharp
                         Chests = new List<Game.ChestInfo>(notify.Chests);
                         Monsters = new List<Game.MonsterInfo>(notify.Monsters);
                         Npcs = new List<Game.NpcInfo>(notify.Npcs);
-                        GD.Print($"[NetworkManager] MapInfoSync map={notify.MapName} chests={Chests.Count} monsters={Monsters.Count} npcs={Npcs.Count}");
+                        Drops = new List<Game.DropItemInfo>(notify.Drops);
+                        GD.Print($"[NetworkManager] MapInfoSync map={notify.MapName} chests={Chests.Count} monsters={Monsters.Count} npcs={Npcs.Count} drops={Drops.Count}");
                         MapInfoReceived?.Invoke(notify);
                         break;
                     }
@@ -460,6 +466,27 @@ namespace ClinetCSharp
                         Chests = new List<Game.ChestInfo>(Chests);
                         Chests.AddRange(notify.Chests);
                         ChestUpdateNotify?.Invoke(notify);
+                        break;
+                    }
+
+                    case MessageId.GameDropSpawnNotify:
+                    {
+                        var notify = Game.DropSpawnNotify.Parser.ParseFrom(data);
+                        DropSpawnNotify?.Invoke(notify);
+                        break;
+                    }
+
+                    case MessageId.GameDropPickupNotify:
+                    {
+                        var notify = Game.DropPickupNotify.Parser.ParseFrom(data);
+                        DropPickupNotify?.Invoke(notify);
+                        break;
+                    }
+
+                    case MessageId.GameDropRemoveNotify:
+                    {
+                        var notify = Game.DropRemoveNotify.Parser.ParseFrom(data);
+                        DropRemoveNotify?.Invoke(notify);
                         break;
                     }
 
@@ -504,6 +531,13 @@ namespace ClinetCSharp
                     {
                         var notify = Game.CombatStateNotify.Parser.ParseFrom(data);
                         CombatStateNotify?.Invoke(notify);
+                        break;
+                    }
+
+                    case MessageId.GameBuffUpdateNotify:
+                    {
+                        var notify = Game.BuffUpdateNotify.Parser.ParseFrom(data);
+                        BuffUpdateNotify?.Invoke(notify);
                         break;
                     }
 
@@ -585,6 +619,13 @@ namespace ClinetCSharp
                     {
                         var rsp = Game.UnequipSkillResponse.Parser.ParseFrom(data);
                         UnequipSkillResponse?.Invoke(rsp);
+                        break;
+                    }
+
+                    case MessageId.GameSetPreferredSkillRsp:
+                    {
+                        var rsp = Game.SetPreferredSkillResponse.Parser.ParseFrom(data);
+                        GD.Print($"[Network] SetPreferredSkill: skill={rsp.PreferredSkillId} code={rsp.Code}");
                         break;
                     }
 

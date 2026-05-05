@@ -1,0 +1,244 @@
+[
+  {
+    "id": 1,
+    "name": "中毒",
+    "buff_type": "Debuff",
+    "tags": [
+      "dot",
+      "poison"
+    ],
+    "duration": 6,
+    "max_stacks": 1,
+    "stack_rule": "Refresh",
+    "tick_interval": 1,
+    "effects": [
+      {
+        "trigger": "OnTick",
+        "action_type": 1,
+        "damage_type": 2,
+        "coefficient": 0.3,
+        "buff_id": 0
+      }
+    ],
+    "attr_modifiers": [],
+    "shield_base": 0,
+    "clear_on_disengage": true
+  },
+  {
+    "id": 2,
+    "name": "冰冻",
+    "buff_type": "Debuff",
+    "tags": [
+      "stun",
+      "freeze"
+    ],
+    "duration": 2,
+    "max_stacks": 1,
+    "stack_rule": "Refresh",
+    "tick_interval": 0,
+    "effects": [],
+    "attr_modifiers": [],
+    "shield_base": 0,
+    "clear_on_disengage": true
+  },
+  {
+    "id": 3,
+    "name": "战吼",
+    "buff_type": "Buff",
+    "tags": [
+      "stat_boost"
+    ],
+    "duration": 8,
+    "max_stacks": 1,
+    "stack_rule": "Refresh",
+    "tick_interval": 0,
+    "effects": [],
+    "attr_modifiers": [
+      {
+        "attr": "patk",
+        "value": 20,
+        "is_pct": false
+      }
+    ],
+    "shield_base": 0,
+    "clear_on_disengage": true
+  },
+  {
+    "id": 4,
+    "name": "护盾",
+    "buff_type": "Buff",
+    "tags": [
+      "shield"
+    ],
+    "duration": 10,
+    "max_stacks": 1,
+    "stack_rule": "Refresh",
+    "tick_interval": 0,
+    "effects": [],
+    "attr_modifiers": [],
+    "shield_base": 50,
+    "clear_on_disengage": true
+  },
+  {
+    "id": 5,
+    "name": "石肤",
+    "buff_type": "Buff",
+    "tags": [
+      "stat_boost"
+    ],
+    "duration": 10,
+    "max_stacks": 1,
+    "stack_rule": "Refresh",
+    "tick_interval": 0,
+    "effects": [],
+    "attr_modifiers": [
+      {
+        "attr": "pdef",
+        "value": 30,
+        "is_pct": false
+      }
+    ],
+    "shield_base": 0,
+    "clear_on_disengage": true
+  },
+  {
+    "id": 6,
+    "name": "减速",
+    "buff_type": "Debuff",
+    "tags": [
+      "slow"
+    ],
+    "duration": 4,
+    "max_stacks": 1,
+    "stack_rule": "Refresh",
+    "tick_interval": 0,
+    "effects": [],
+    "attr_modifiers": [
+      {
+        "attr": "agility",
+        "value": -30,
+        "is_pct": false
+      }
+    ],
+    "shield_base": 0,
+    "clear_on_disengage": true
+  },
+  {
+    "id": 7,
+    "name": "灼烧",
+    "buff_type": "Debuff",
+    "tags": [
+      "dot",
+      "burn"
+    ],
+    "duration": 5,
+    "max_stacks": 1,
+    "stack_rule": "Refresh",
+    "tick_interval": 1,
+    "effects": [
+      {
+        "trigger": "OnTick",
+        "action_type": 2,
+        "damage_type": 2,
+        "coefficient": 0.4,
+        "buff_id": 0
+      }
+    ],
+    "attr_modifiers": [],
+    "shield_base": 0,
+    "clear_on_disengage": true
+  },
+  {
+    "id": 8,
+    "name": "祝福",
+    "buff_type": "Buff",
+    "tags": [
+      "stat_boost"
+    ],
+    "duration": 8,
+    "max_stacks": 1,
+    "stack_rule": "Refresh",
+    "tick_interval": 0,
+    "effects": [],
+    "attr_modifiers": [
+      {
+        "attr": "patk",
+        "value": 10,
+        "is_pct": false
+      },
+      {
+        "attr": "matk",
+        "value": 10,
+        "is_pct": false
+      }
+    ],
+    "shield_base": 0,
+    "clear_on_disengage": true
+  },
+  {
+    "id": 9,
+    "name": "破甲",
+    "buff_type": "Debuff",
+    "tags": [
+      "stat_reduce"
+    ],
+    "duration": 6,
+    "max_stacks": 1,
+    "stack_rule": "Refresh",
+    "tick_interval": 0,
+    "effects": [],
+    "attr_modifiers": [
+      {
+        "attr": "pdef",
+        "value": -15,
+        "is_pct": false
+      }
+    ],
+    "shield_base": 0,
+    "clear_on_disengage": true
+  },
+  {
+    "id": 10,
+    "name": "眩晕",
+    "buff_type": "Debuff",
+    "tags": [
+      "stun"
+    ],
+    "duration": 2,
+    "max_stacks": 1,
+    "stack_rule": "Refresh",
+    "tick_interval": 0,
+    "effects": [],
+    "attr_modifiers": [],
+    "shield_base": 0,
+    "clear_on_disengage": true
+  },
+  {
+    "id": 11,
+    "name": "狂暴",
+    "buff_type": "Buff",
+    "tags": [
+      "stat_boost",
+      "rage"
+    ],
+    "duration": 8,
+    "max_stacks": 1,
+    "stack_rule": "Refresh",
+    "tick_interval": 0,
+    "effects": [],
+    "attr_modifiers": [
+      {
+        "attr": "patk",
+        "value": 25,
+        "is_pct": false
+      },
+      {
+        "attr": "pdef",
+        "value": -10,
+        "is_pct": false
+      }
+    ],
+    "shield_base": 0,
+    "clear_on_disengage": true
+  }
+]

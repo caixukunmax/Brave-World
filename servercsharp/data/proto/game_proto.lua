@@ -36,10 +36,22 @@ M.CombatStateNotify = {
     decode = function(data) return pb.decode("game.CombatStateNotify", data) end,
 }
 
--- Fields: entity_id(uint64) -- account_id 或 instance_id entity_name(string) -- 显示名称 atb(float) -- 0.0 ~ 100.0 is_player(bool) -- true=玩家, false=怪物 hp(int32) -- 当前血量 max_hp(int32) -- 最大血量 casting_skill(string) -- 正在蓄力的技能名（空=不在蓄力） cast_progress(float) -- 蓄力进度 0.0~1.0 skill_cds(SkillCdEntry[]) -- 当前正在CD中的技能 mp(int32) -- 当前魔法 max_mp(int32) -- 最大魔法
+-- Fields: entity_id(uint64) -- account_id 或 instance_id entity_name(string) -- 显示名称 atb(float) -- 0.0 ~ 100.0 is_player(bool) -- true=玩家, false=怪物 hp(int32) -- 当前血量 max_hp(int32) -- 最大血量 casting_skill(string) -- 正在蓄力的技能名（空=不在蓄力） cast_progress(float) -- 蓄力进度 0.0~1.0 skill_cds(SkillCdEntry[]) -- 当前正在CD中的技能 mp(int32) -- 当前魔法 max_mp(int32) -- 最大魔法 buffs(BuffInfo[]) -- 当前 Buff/Debuff 列表
 M.CombatUnit = {
     encode = function(data) return pb.encode("game.CombatUnit", data) end,
     decode = function(data) return pb.decode("game.CombatUnit", data) end,
+}
+
+-- Fields: buff_id(int32) -- Buff 配置 ID buff_name(string) -- Buff 名称 stacks(int32) -- 叠加层数 remaining_time(float) -- 剩余时间（秒） shield_amount(int32) -- 护盾剩余量
+M.BuffInfo = {
+    encode = function(data) return pb.encode("game.BuffInfo", data) end,
+    decode = function(data) return pb.decode("game.BuffInfo", data) end,
+}
+
+-- Fields: entity_id(uint64) -- 目标实体 ID buffs(BuffEntry[]) -- 当前完整 buff 列表（全量替换） buff_id(int32) -- Buff 配置 ID buff_name(string) -- Buff 名称 stacks(int32) -- 叠加层数 remaining_time(float) -- 剩余时间（秒） shield_amount(int32) -- 护盾剩余量
+M.BuffUpdateNotify = {
+    encode = function(data) return pb.encode("game.BuffUpdateNotify", data) end,
+    decode = function(data) return pb.decode("game.BuffUpdateNotify", data) end,
 }
 
 -- Fields: role_id(uint64) -- 角色ID role_name(string) -- 角色名 level(uint32) -- 等级 exp(uint64) -- 经验值 avatar_id(uint32) -- 头像ID gold(uint64) -- 金币 diamond(uint64) -- 钻石 total_power(uint64) -- 总战力 vip_level(uint32) -- VIP等级 create_time(uint64) -- 创建时间 last_login_time(uint64) -- 上次登录时间 job(string) -- 职业 title(string) -- 称号 status(string) -- 状态 current_map(string) -- 当前地图 grid_x(int32) -- 格子X grid_y(int32) -- 格子Y ui_panel_pos_x(float) -- 综合面板位置X ui_panel_pos_y(float) -- 综合面板位置Y ui_panel_width(float) -- 综合面板宽度 ui_panel_height(float) -- 综合面板高度 attrs(AttrItem[]) -- 战斗属性集合（key-value，接 luban 枚举） learned_skills(uint32[]) -- 已学会的技能ID列表 equipped_skills(uint32[]) -- 已装备的技能ID列表
@@ -162,6 +174,54 @@ M.GmCommandResponse = {
     decode = function(data) return pb.decode("game.GmCommandResponse", data) end,
 }
 
+-- Fields: hp(int32) max_hp(int32) mp(int32) max_mp(int32) level(int32) attrs(AttrItem[]) in_combat(bool)
+M.CombatComponentData = {
+    encode = function(data) return pb.encode("game.CombatComponentData", data) end,
+    decode = function(data) return pb.decode("game.CombatComponentData", data) end,
+}
+
+-- Fields: speed_ms(int32) is_moving(bool) target_x(int32) target_y(int32)
+M.MoveComponentData = {
+    encode = function(data) return pb.encode("game.MoveComponentData", data) end,
+    decode = function(data) return pb.decode("game.MoveComponentData", data) end,
+}
+
+-- Fields: equipped_skills(uint32[]) casting_skill_id(uint32)
+M.CastComponentData = {
+    encode = function(data) return pb.encode("game.CastComponentData", data) end,
+    decode = function(data) return pb.decode("game.CastComponentData", data) end,
+}
+
+-- Fields: npc_id(int32) npc_type(int32) in_combat(bool)
+M.InteractComponentData = {
+    encode = function(data) return pb.encode("game.InteractComponentData", data) end,
+    decode = function(data) return pb.decode("game.InteractComponentData", data) end,
+}
+
+-- Fields: entity_id(uint64) entity_type(EntityType) components(ComponentType[]) x(int32) y(int32) name(string) template_id(int32) -- MonsterId/NpcId 等 combat(CombatComponentData) move(MoveComponentData) cast(CastComponentData) interact(InteractComponentData)
+M.EntitySnapshot = {
+    encode = function(data) return pb.encode("game.EntitySnapshot", data) end,
+    decode = function(data) return pb.decode("game.EntitySnapshot", data) end,
+}
+
+-- Fields: entities(EntitySnapshot[])
+M.MapEntityListNotify = {
+    encode = function(data) return pb.encode("game.MapEntityListNotify", data) end,
+    decode = function(data) return pb.decode("game.MapEntityListNotify", data) end,
+}
+
+-- Fields: entity(EntitySnapshot)
+M.EntityCreateNotify = {
+    encode = function(data) return pb.encode("game.EntityCreateNotify", data) end,
+    decode = function(data) return pb.decode("game.EntityCreateNotify", data) end,
+}
+
+-- Fields: entity_id(uint64)
+M.EntityDestroyNotify = {
+    encode = function(data) return pb.encode("game.EntityDestroyNotify", data) end,
+    decode = function(data) return pb.decode("game.EntityDestroyNotify", data) end,
+}
+
 -- Fields: key(uint32) value(int32)
 M.AttrItem = {
     encode = function(data) return pb.encode("game.AttrItem", data) end,
@@ -252,13 +312,25 @@ M.UnequipSkillResponse = {
     decode = function(data) return pb.decode("game.UnequipSkillResponse", data) end,
 }
 
+-- Fields: skill_id(uint32) -- 0 = 取消优先
+M.SetPreferredSkillRequest = {
+    encode = function(data) return pb.encode("game.SetPreferredSkillRequest", data) end,
+    decode = function(data) return pb.decode("game.SetPreferredSkillRequest", data) end,
+}
+
+-- Fields: code(common.ErrorCode) message(string) preferred_skill_id(uint32)
+M.SetPreferredSkillResponse = {
+    encode = function(data) return pb.encode("game.SetPreferredSkillResponse", data) end,
+    decode = function(data) return pb.decode("game.SetPreferredSkillResponse", data) end,
+}
+
 -- Fields: old_level(int32) new_level(int32) max_hp(int32) max_mp(int32) hp(int32) mp(int32) patk(int32) matk(int32) pdef(int32) mdef(int32) agility(int32)
 M.LevelUpNotify = {
     encode = function(data) return pb.encode("game.LevelUpNotify", data) end,
     decode = function(data) return pb.decode("game.LevelUpNotify", data) end,
 }
 
--- Fields: map_name(string) -- 地图名 chests(ChestInfo[]) -- 地图宝箱列表 monsters(MonsterInfo[]) -- 地图怪物列表 npcs(NpcInfo[]) -- 地图NPC列表
+-- Fields: map_name(string) -- 地图名 chests(ChestInfo[]) -- 地图宝箱列表 monsters(MonsterInfo[]) -- 地图怪物列表 npcs(NpcInfo[]) -- 地图NPC列表 drops(DropItemInfo[]) -- 地图掉落物列表
 M.MapInfoSyncNotify = {
     encode = function(data) return pb.encode("game.MapInfoSyncNotify", data) end,
     decode = function(data) return pb.decode("game.MapInfoSyncNotify", data) end,
@@ -316,6 +388,30 @@ M.CombatEndNotify = {
 M.MonsterMoveCancelNotify = {
     encode = function(data) return pb.encode("game.MonsterMoveCancelNotify", data) end,
     decode = function(data) return pb.decode("game.MonsterMoveCancelNotify", data) end,
+}
+
+-- Fields: drop_id(uint64) -- 掉落物唯一 ID item_id(uint32) -- 物品 ID count(uint32) -- 数量 x(int32) -- 格子 X y(int32) -- 格子 Y owner_id(uint64) -- 归属玩家（0=所有人可见可拾取）
+M.DropItemInfo = {
+    encode = function(data) return pb.encode("game.DropItemInfo", data) end,
+    decode = function(data) return pb.decode("game.DropItemInfo", data) end,
+}
+
+-- Fields: drops(DropItemInfo[])
+M.DropSpawnNotify = {
+    encode = function(data) return pb.encode("game.DropSpawnNotify", data) end,
+    decode = function(data) return pb.decode("game.DropSpawnNotify", data) end,
+}
+
+-- Fields: drop_id(uint64) -- 被拾取的掉落物 ID picker_id(uint64) -- 拾取者 ID item_id(uint32) -- 物品 ID count(uint32) -- 数量
+M.DropPickupNotify = {
+    encode = function(data) return pb.encode("game.DropPickupNotify", data) end,
+    decode = function(data) return pb.decode("game.DropPickupNotify", data) end,
+}
+
+-- Fields: drop_ids(uint64[])
+M.DropRemoveNotify = {
+    encode = function(data) return pb.encode("game.DropRemoveNotify", data) end,
+    decode = function(data) return pb.decode("game.DropRemoveNotify", data) end,
 }
 
 return M

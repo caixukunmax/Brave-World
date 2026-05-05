@@ -363,6 +363,8 @@ namespace ClinetCSharp
             config.SetValue("panel_geo", "offset_bottom", Position.Y + persistedHeight);
         }
 
+        internal void SaveConfigFromTab() => SaveConfig();
+
         private void SaveConfig()
         {
             ConfigFile config = new ConfigFile();
@@ -488,13 +490,6 @@ namespace ClinetCSharp
                 GD.PushError($"[DebugPanel] Failed to reset config: {err}");
             }
             LoadConfig();
-        }
-        #endregion
-
-        #region Apply Loaded Player Settings — delegates to PlayerTab
-        private void ApplyLoadedPlayerSettings()
-        {
-            _playerTab?.ApplyLoadedPlayerSettings();
         }
         #endregion
 

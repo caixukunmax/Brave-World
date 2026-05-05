@@ -15,7 +15,6 @@ namespace ClinetCSharp
         // UI refs
         private VBoxContainer _content;
         private LineEdit _cmdEdit;
-        private RichTextLabel _logOutput;
         private ScrollContainer _groupScroll;
         private VBoxContainer _groupContainer;
 
@@ -45,12 +44,14 @@ namespace ClinetCSharp
         {
             public string Name;
             public List<GmCommand> Commands = new();
+            public bool Collapsed; // 折叠状态
         }
         private readonly List<GmGroup> _groups = new();
 
         protected override void OnPanelInitialized()
         {
             SetToggleKey(Key.F2);
+            MinHeight = 300;
 
             _content = GetNodeOrNull<VBoxContainer>("VBoxContainer/Content");
             if (_content == null) return;
@@ -76,6 +77,13 @@ namespace ClinetCSharp
         {
             if (_cmdEdit != null)
                 _cmdEdit.GrabFocus();
+        }
+
+        private bool _debugLogged;
+
+        public override void _Process(double delta)
+        {
+            base._Process(delta);
         }
 
         private void BuildContent()
@@ -106,7 +114,6 @@ namespace ClinetCSharp
             _groupScroll = new ScrollContainer
             {
                 SizeFlagsVertical = Control.SizeFlags.ExpandFill,
-                CustomMinimumSize = new Vector2(0, 80),
                 HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
             };
             _groupContainer = new VBoxContainer
@@ -180,17 +187,6 @@ namespace ClinetCSharp
             toolbar.AddChild(addGroupBtn);
             _content.AddChild(toolbar);
 
-            // ── 日志输出 ──
-            _logOutput = new RichTextLabel
-            {
-                CustomMinimumSize = new Vector2(0, 80),
-                BbcodeEnabled = true,
-                ScrollActive = true,
-                ScrollFollowing = true,
-                SizeFlagsVertical = Control.SizeFlags.ExpandFill,
-            };
-            _content.AddChild(_logOutput);
-
             // ── 右键菜单 ──
             _cmdMenu = new PopupMenu();
             _cmdMenu.AddItem("编辑", 0);
@@ -206,6 +202,8 @@ namespace ClinetCSharp
         private void AddDefaultGroups()
         {
             var grpItem = AddGroupData("道具");
+            // 第一个分组默认展开，其余默认折叠
+            grpItem.Collapsed = false;
             AddCommandData(grpItem, "药水x1", "additem,1001,1");
             AddCommandData(grpItem, "药水x10", "additem,1001,10");
             AddCommandData(grpItem, "药水x99", "additem,1001,99");
@@ -229,6 +227,23 @@ namespace ClinetCSharp
             AddCommandData(grpSkill, "学习盾击(3)", "learnskill,3");
             AddCommandData(grpSkill, "学习旋风斩(4)", "learnskill,4");
 
+            var grpBuff = AddGroupData("Buff");
+            AddCommandData(grpBuff, "中毒(1)", "addbuff,1");
+            AddCommandData(grpBuff, "冰冻(2)", "addbuff,2");
+            AddCommandData(grpBuff, "战吼(3)", "addbuff,3");
+            AddCommandData(grpBuff, "护盾(4)", "addbuff,4");
+            AddCommandData(grpBuff, "石肤(5)", "addbuff,5");
+            AddCommandData(grpBuff, "减速(6)", "addbuff,6");
+            AddCommandData(grpBuff, "灼烧(7)", "addbuff,7");
+            AddCommandData(grpBuff, "祝福(8)", "addbuff,8");
+            AddCommandData(grpBuff, "破甲(9)", "addbuff,9");
+            AddCommandData(grpBuff, "眩晕(10)", "addbuff,10");
+            AddCommandData(grpBuff, "狂暴(11)", "addbuff,11");
+            AddCommandData(grpBuff, "移除中毒", "removebuff,1");
+            AddCommandData(grpBuff, "移除冰冻", "removebuff,2");
+            AddCommandData(grpBuff, "移除战吼", "removebuff,3");
+            AddCommandData(grpBuff, "移除护盾", "removebuff,4");
+
             RebuildGroupUI();
         }
 
@@ -236,7 +251,7 @@ namespace ClinetCSharp
 
         private GmGroup AddGroupData(string name)
         {
-            var g = new GmGroup { Name = name };
+            var g = new GmGroup { Name = name, Collapsed = true };
             _groups.Add(g);
             return g;
         }
@@ -353,9 +368,25 @@ namespace ClinetCSharp
 
             foreach (var grp in _groups)
             {
+                GmGroup capturedGrp = grp;
+
                 // 分组标题行
                 var header = new HBoxContainer();
                 header.AddThemeConstantOverride("separation", 4);
+
+                // 折叠/展开按钮
+                var collapseBtn = new Button
+                {
+                    Text = grp.Collapsed ? "▶" : "▼",
+                    CustomMinimumSize = new Vector2(24, 24),
+                    TooltipText = grp.Collapsed ? "展开" : "折叠",
+                };
+                collapseBtn.Pressed += () =>
+                {
+                    capturedGrp.Collapsed = !capturedGrp.Collapsed;
+                    RebuildGroupUI();
+                };
+                header.AddChild(collapseBtn);
 
                 var nameLbl = new Label
                 {
@@ -371,7 +402,6 @@ namespace ClinetCSharp
                     CustomMinimumSize = new Vector2(28, 24),
                     TooltipText = "添加命令",
                 };
-                GmGroup capturedGrp = grp;
                 addCmdBtn.Pressed += () => ShowAddCommandRow(capturedGrp);
                 header.AddChild(addCmdBtn);
 
@@ -390,8 +420,11 @@ namespace ClinetCSharp
                 header.AddChild(delGroupBtn);
                 _groupContainer.AddChild(header);
 
-                // 命令按钮流
-                var flow = new HFlowContainer();
+                // 命令按钮流（折叠时隐藏）
+                var flow = new HFlowContainer
+                {
+                    Visible = !grp.Collapsed,
+                };
                 flow.AddThemeConstantOverride("h_separation", 4);
                 flow.AddThemeConstantOverride("v_separation", 4);
 
@@ -477,7 +510,8 @@ namespace ClinetCSharp
 
         private void AppendLog(string bbcode)
         {
-            _logOutput?.AppendText(bbcode + "\n");
+            // 日志区已移除，输出到控制台
+            GD.Print($"[GM] {bbcode}");
         }
     }
 }

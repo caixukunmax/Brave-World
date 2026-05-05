@@ -13,6 +13,7 @@ public class MonsterRow
     [JsonPropertyName("drop_items")] public string DropItems { get; set; } = "";
     [JsonPropertyName("attrs")] public List<MonsterAttrRow> Attrs { get; set; } = new();
     [JsonPropertyName("skills")] public List<int> Skills { get; set; } = new();
+    [JsonPropertyName("drop_group_id")] public int DropGroupId { get; set; }
 }
 
 public class MonsterAttrRow
@@ -95,6 +96,7 @@ public class CombatActionBeanRow
     [JsonPropertyName("action_type")] public int ActionType { get; set; }
     [JsonPropertyName("damage_type")] public int DamageType { get; set; }
     [JsonPropertyName("coefficient")] public double Coefficient { get; set; }
+    [JsonPropertyName("buff_id")] public int BuffId { get; set; }
 }
 
 public class SkillConfigRow
@@ -138,6 +140,40 @@ public class CombatNarrationRow
     [JsonPropertyName("cooldown")] public double Cooldown { get; set; }
 }
 
+// ---- Buff ----
+
+public class BuffEffectRow
+{
+    [JsonPropertyName("trigger")] public string Trigger { get; set; } = "";
+    [JsonPropertyName("action_type")] public int ActionType { get; set; }
+    [JsonPropertyName("damage_type")] public int DamageType { get; set; }
+    [JsonPropertyName("coefficient")] public double Coefficient { get; set; }
+    [JsonPropertyName("buff_id")] public int BuffId { get; set; }
+}
+
+public class BuffAttrModifierRow
+{
+    [JsonPropertyName("attr")] public string Attr { get; set; } = "";
+    [JsonPropertyName("value")] public double Value { get; set; }
+    [JsonPropertyName("is_pct")] public bool IsPct { get; set; }
+}
+
+public class BuffConfigRow
+{
+    [JsonPropertyName("id")] public int Id { get; set; }
+    [JsonPropertyName("name")] public string Name { get; set; } = "";
+    [JsonPropertyName("buff_type")] public string BuffType { get; set; } = "Buff";
+    [JsonPropertyName("tags")] public List<string> Tags { get; set; } = new();
+    [JsonPropertyName("duration")] public double Duration { get; set; }
+    [JsonPropertyName("max_stacks")] public int MaxStacks { get; set; } = 1;
+    [JsonPropertyName("stack_rule")] public string StackRule { get; set; } = "Refresh";
+    [JsonPropertyName("tick_interval")] public double TickInterval { get; set; }
+    [JsonPropertyName("effects")] public List<BuffEffectRow> Effects { get; set; } = new();
+    [JsonPropertyName("attr_modifiers")] public List<BuffAttrModifierRow> AttrModifiers { get; set; } = new();
+    [JsonPropertyName("shield_base")] public int ShieldBase { get; set; }
+    [JsonPropertyName("clear_on_disengage")] public bool ClearOnDisengage { get; set; } = true;
+}
+
 // ---- LevelUp ----
 
 public class LevelUpRow
@@ -151,4 +187,22 @@ public class LevelUpRow
     [JsonPropertyName("pdef")] public int Pdef { get; set; }
     [JsonPropertyName("mdef")] public int Mdef { get; set; }
     [JsonPropertyName("agility")] public int Agility { get; set; }
+}
+
+// ---- DropGroup ----
+
+public class DropEntryRow
+{
+    [JsonPropertyName("item_id")] public int ItemId { get; set; }
+    [JsonPropertyName("count_min")] public int CountMin { get; set; }
+    [JsonPropertyName("count_max")] public int CountMax { get; set; }
+    [JsonPropertyName("weight")] public int Weight { get; set; }
+    [JsonPropertyName("guaranteed")] public bool Guaranteed { get; set; }
+}
+
+public class DropGroupRow
+{
+    [JsonPropertyName("id")] public int Id { get; set; }
+    [JsonPropertyName("name")] public string Name { get; set; } = "";
+    [JsonPropertyName("entries")] public List<DropEntryRow> Entries { get; set; } = new();
 }

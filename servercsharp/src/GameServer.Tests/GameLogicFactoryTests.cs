@@ -3,6 +3,7 @@ using GameServer.GameLogic;
 using GameServer.Services.Core;
 using GameServer.Services.Player;
 using GameServer.Services.Player.Handlers;
+using GameServer.Tables;
 using Microsoft.Extensions.Logging;
 using Xunit;
 
@@ -14,7 +15,7 @@ public class GameLogicFactoryTests
     public void CreateHandler_ResolvesGenericLoggerDependency()
     {
         using var loggerFactory = LoggerFactory.Create(builder => { });
-        var factory = new GameLogicFactory(loggerFactory);
+        var factory = new GameLogicFactory(loggerFactory, new LubanTableLoader(loggerFactory.CreateLogger<LubanTableLoader>()));
         var dependencies = new Dictionary<Type, Func<object>>
         {
             [typeof(PlayerSessionManager)] = static () => null!,

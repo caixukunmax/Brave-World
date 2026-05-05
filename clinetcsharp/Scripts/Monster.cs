@@ -1,4 +1,5 @@
 using Godot;
+using ClinetCSharp.RenderComponents;
 using Protocol;
 
 namespace ClinetCSharp
@@ -35,6 +36,7 @@ namespace ClinetCSharp
 
         public void Setup(uint instanceId, uint monsterId, int x, int y, string name, uint level, int gridSize, int uiConfigId = 1)
         {
+            AddToGroup("monster");
             _instanceId = instanceId;
             _monsterId = monsterId;
             _gridX = x;
@@ -58,6 +60,12 @@ namespace ClinetCSharp
             LabelTexts[2] = "";
             LabelTexts[3] = "";
 
+            // 添加渲染组件（只添加一次）
+            EnsureRenderComponents();
+
+            // 使用 RichTextLabel 控件替代 DrawString
+            SetupRichLabels();
+
             QueueRedraw();
         }
 
@@ -78,7 +86,7 @@ namespace ClinetCSharp
                     3 => "DEF",
                     _ => $"ATTR{key}",
                 };
-                LabelTexts[attrLine] = $"{keyName}:{val}";
+                SetRichLabelText(attrLine, $"{keyName}:{val}");
                 attrLine++;
             }
 
@@ -92,14 +100,21 @@ namespace ClinetCSharp
 
         public override void _Draw()
         {
-            var drawSize = VisualSize;
-            if (drawSize < 10) drawSize = 10;
+            // 渲染组件模式：按 DrawOrder 顺序遍历
+            foreach (var comp in _renderComponents)
+                comp.Draw();
+        }
 
-            EntityDrawUtils.DrawBody(this, drawSize, BgColor, BgOpacity, BorderColor, BorderWidth, CornerRadius);
-            DrawBars();
-            DrawLabels();
-            DrawCastBar();
-            DrawActionBar();
+        /// <summary>确保渲染组件已添加（幂等，只添加一次）</summary>
+        private void EnsureRenderComponents()
+        {
+            if (_renderComponents.Count > 0) return;
+            AddRenderComponent(new RenderComponents.AppearanceComponent());
+            AddRenderComponent(new RenderComponents.HealthBarComponent());
+            AddRenderComponent(new RenderComponents.MpBarComponent());
+            AddRenderComponent(new RenderComponents.CastBarComponent());
+            AddRenderComponent(new RenderComponents.ActionBarComponent());
+            // 不再使用 LabelComponent — 改用 RichTextLabel 控件
         }
 
         // ========== 移动 override（更新 _gridX/_gridY 后调用基类） ==========

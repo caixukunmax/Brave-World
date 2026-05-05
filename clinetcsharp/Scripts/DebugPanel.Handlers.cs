@@ -36,9 +36,6 @@ namespace ClinetCSharp
         {
             // Delegate map-specific control states
             _mapTab?.UpdateControlStates();
-
-            // Delegate player-specific control states
-            _playerTab?.UpdateControlStates();
         }
         #endregion
     }

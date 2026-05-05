@@ -250,6 +250,9 @@ public class SkillPipeline
                 1 => "DealDamage",    // ECombatActionType.DealDamage
                 2 => "InterruptCast", // ECombatActionType.InterruptCast
                 3 => "Heal",          // ECombatActionType.Heal
+                4 => "ApplyBuff",     // ECombatActionType.ApplyBuff
+                5 => "ApplyBuff",     // ECombatActionType.ApplyShield (复用 ApplyBuff，shield_base 在 BuffConfig 里)
+                6 => "Purify",        // ECombatActionType.Purify
                 _ => null!
             };
             if (actionType == null) continue;
@@ -262,6 +265,7 @@ public class SkillPipeline
                     ["type"] = actionType,
                     ["damageType"] = actionCfg.DamageType == 2 ? "magical" : "physical",
                     ["coefficient"] = actionCfg.Coefficient,
+                    ["buff_id"] = actionCfg.BuffId,
                 };
                 context.ActionParams = paramDict;
                 try
@@ -311,15 +315,19 @@ public class SkillPipeline
 
         // 阶段 1: Pre-Check
         var (ok, err) = PreCheck(skillId, ctx, casterId, maps);
+        var combatId = CombatManager?.GetCombatId(casterId) ?? 0;
+        CombatTrace.SkillPreCheck(_logger, combatId, casterId, SkillPipeline.GetEntityName(casterId, maps!), skillId, ok, err);
         if (!ok) return "FAILURE";
 
         // 阶段 2: Target Selection
         var targets = SelectTargets(skillId, casterId, ctx, maps);
         if (targets == null || targets.Count == 0) return "FAILURE";
+        var cfg = GetSkillConfig(skillId);
+        CombatTrace.SkillSelectTargets(_logger, combatId, casterId, SkillPipeline.GetEntityName(casterId, maps!), skillId, cfg?.TargetType ?? "", targets);
 
         // 阶段 3: Cast Start
-        var cfg = GetSkillConfig(skillId);
         double castTime = cfg?.CastTime ?? 0;
+        CombatTrace.SkillStartCast(_logger, combatId, casterId, SkillPipeline.GetEntityName(casterId, maps!), skillId, castTime, cfg?.MpCost ?? 0);
         StartCast(casterId, skillId, maps);
 
         if (castTime > 0) return "PENDING";
@@ -327,15 +335,19 @@ public class SkillPipeline
         // 阶段 4: Final Validation
         if (!FinalValidation(skillId, casterId, targets, maps))
         {
+            CombatTrace.SkillFinalValidation(_logger, combatId, casterId, SkillPipeline.GetEntityName(casterId, maps!), skillId, false, targets);
             EndCast(casterId, skillId, true);
             return "MISS";
         }
+        CombatTrace.SkillFinalValidation(_logger, combatId, casterId, SkillPipeline.GetEntityName(casterId, maps!), skillId, true, targets);
 
         // 阶段 5: Execute Actions
+        CombatTrace.SkillExecuteAction(_logger, combatId, casterId, SkillPipeline.GetEntityName(casterId, maps!), skillId, "ExecuteActions", targets);
         ExecuteActions(skillId, casterId, targets, maps);
 
         // 阶段 6: Cast End
         EndCast(casterId, skillId, false);
+        CombatTrace.SkillCastResult(_logger, combatId, casterId, SkillPipeline.GetEntityName(casterId, maps!), skillId, "SUCCESS");
         return "SUCCESS";
     }
 
@@ -369,6 +381,7 @@ public class SkillPipeline
 
         ExecuteActions(skillId.Value, casterId, targets, maps);
         EndCast(casterId, skillId.Value, false);
+        CombatTrace.SkillCastResult(_logger, CombatManager?.GetCombatId(casterId) ?? 0, casterId, SkillPipeline.GetEntityName(casterId, maps!), skillId.Value, "SUCCESS");
         return "SUCCESS";
     }
 

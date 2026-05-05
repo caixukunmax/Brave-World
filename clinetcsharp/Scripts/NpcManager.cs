@@ -53,6 +53,7 @@ namespace ClinetCSharp
         public static NpcManager Instance;
 
         // 多配置样式系统 — Key = 配置ID（NpcType）
+        // [Obsolete] 已被 EntityProfileManager 接管。保留仅用于旧代码兼容和迁移。
         public static readonly Dictionary<int, EntityStyleConfig> StyleConfigs = new();
         private static readonly HashSet<int> _missingConfigWarned = new();
 
@@ -196,7 +197,11 @@ namespace ClinetCSharp
                 var npc = new Npc();
                 npc.Setup(n.NpcInstanceId, n.NpcName, n.NpcType, n.X, n.Y, gridSize);
                 ApplyDefaultStyle(npc);
+                npc.ProfileId = 3;
                 AddChild(npc);
+                // 创建后立即应用 Profile
+                var pm = EntityProfileManager.Instance;
+                if (pm != null) pm.ApplyProfile(npc, 3);
                 _npcs.Add(npc);
                 _npcByPos[new Vector2I(n.X, n.Y)] = npc;
 

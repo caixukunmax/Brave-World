@@ -42,6 +42,10 @@ enum CombatLogType {
   COMBAT_LOG_DODGE = 5;      // 闪避/打空
   COMBAT_LOG_DEATH = 6;      // 死亡
   COMBAT_LOG_END = 7;        // 战斗结束/脱战
+  COMBAT_LOG_BUFF_APPLY = 8;   // 施加 Buff
+  COMBAT_LOG_BUFF_REMOVE = 9;  // Buff 消失
+  COMBAT_LOG_BUFF_TICK = 10;   // Buff tick 效果（DOT 等）
+  COMBAT_LOG_SHIELD_ABSORB = 11; // 护盾吸收
 }
 
 /**
@@ -85,8 +89,33 @@ message CombatStateNotify {
     repeated SkillCdEntry skill_cds = 9;  // 当前正在CD中的技能
     int32 mp = 10;             // 当前魔法
     int32 max_mp = 11;         // 最大魔法
+    repeated BuffInfo buffs = 12;  // 当前 Buff/Debuff 列表
+  }
+  message BuffInfo {
+    int32 buff_id = 1;         // Buff 配置 ID
+    string buff_name = 2;      // Buff 名称
+       int32 stacks = 3;          // 叠加层数
+    float remaining_time = 4;  // 剩余时间（秒）
+    int32 shield_amount = 5;   // 护盾剩余量
   }
   repeated CombatUnit units = 1;
+}
+
+/**
+ * Buff 独立更新推送（非战斗场景下的 buff 变化通知）
+ * 战斗场景仍由 CombatStateNotify 推送完整状态
+ */
+message BuffUpdateNotify {
+  uint64 entity_id = 1;              // 目标实体 ID
+  repeated BuffEntry buffs = 2;     // 当前完整 buff 列表（全量替换）
+
+  message BuffEntry {
+    int32 buff_id = 1;              // Buff 配置 ID
+    string buff_name = 2;           // Buff 名称
+    int32 stacks = 3;               // 叠加层数
+    float remaining_time = 4;       // 剩余时间（秒）
+    int32 shield_amount = 5;        // 护盾剩余量
+  }
 }
 
 /**
@@ -320,6 +349,116 @@ message GmCommandResponse {
 }
 
 /**
+ * ==================== 统一实体系统 ====================
+ */
+
+/**
+ * 实体类型枚举
+ */
+enum EntityType {
+  ENTITY_TYPE_PLAYER = 0;
+  ENTITY_TYPE_MONSTER = 1;
+  ENTITY_TYPE_NPC = 2;
+  ENTITY_TYPE_BOSS = 3;
+  ENTITY_TYPE_PET = 4;
+  ENTITY_TYPE_GUARD = 5;
+  ENTITY_TYPE_GATHER_NODE = 6;
+  ENTITY_TYPE_PORTAL = 7;
+  ENTITY_TYPE_CHEST = 8;
+}
+
+/**
+ * 组件类型枚举
+ */
+enum ComponentType {
+  COMPONENT_COMBAT = 0;
+  COMPONENT_MOVE = 1;
+  COMPONENT_CAST = 2;
+  COMPONENT_AI = 3;
+  COMPONENT_INTERACT = 4;
+  COMPONENT_GATHER = 5;
+}
+
+/**
+ * 战斗组件数据
+ */
+message CombatComponentData {
+  int32 hp = 1;
+  int32 max_hp = 2;
+  int32 mp = 3;
+  int32 max_mp = 4;
+  int32 level = 5;
+  repeated AttrItem attrs = 6;
+  bool in_combat = 7;
+}
+
+/**
+ * 移动组件数据
+ */
+message MoveComponentData {
+  int32 speed_ms = 1;
+  bool is_moving = 2;
+  int32 target_x = 3;
+  int32 target_y = 4;
+}
+
+/**
+ * 施法组件数据
+ */
+message CastComponentData {
+  repeated uint32 equipped_skills = 1;
+  uint32 casting_skill_id = 2;
+}
+
+/**
+ * 交互组件数据
+ */
+message InteractComponentData {
+  int32 npc_id = 1;
+  int32 npc_type = 2;
+  bool in_combat = 3;
+}
+
+/**
+ * 实体快照（创建/同步用）
+ */
+message EntitySnapshot {
+  uint64 entity_id = 1;
+  EntityType entity_type = 2;
+  repeated ComponentType components = 3;
+  int32 x = 4;
+  int32 y = 5;
+  string name = 6;
+  int32 template_id = 7;  // MonsterId/NpcId 等
+  // 组件数据按需附加
+  CombatComponentData combat = 10;
+  MoveComponentData move = 11;
+  CastComponentData cast = 12;
+  InteractComponentData interact = 14;
+}
+
+/**
+ * 地图实体列表通知（进入地图时下发）
+ */
+message MapEntityListNotify {
+  repeated EntitySnapshot entities = 1;
+}
+
+/**
+ * 实体创建通知（新实体出现）
+ */
+message EntityCreateNotify {
+  EntitySnapshot entity = 1;
+}
+
+/**
+ * 实体销毁通知
+ */
+message EntityDestroyNotify {
+  uint64 entity_id = 1;
+}
+
+/**
  * ==================== 怪物系统 ====================
  */
 
@@ -462,6 +601,19 @@ message UnequipSkillResponse {
 }
 
 /**
+ * 设置优先技能请求 — 被选中的技能在 ATB 满时优先释放
+ */
+message SetPreferredSkillRequest {
+  uint32 skill_id = 1;  // 0 = 取消优先
+}
+
+message SetPreferredSkillResponse {
+  common.ErrorCode code = 1;
+  string           message = 2;
+  uint32           preferred_skill_id = 3;
+}
+
+/**
  * 升级通知
  */
 message LevelUpNotify {
@@ -490,6 +642,7 @@ message MapInfoSyncNotify {
   repeated ChestInfo chests = 2;        // 地图宝箱列表
   repeated MonsterInfo monsters = 3;    // 地图怪物列表
   repeated NpcInfo npcs = 4;            // 地图NPC列表
+  repeated DropItemInfo drops = 5;      // 地图掉落物列表
 }
 
 /**
@@ -586,4 +739,43 @@ message MonsterMoveCancelNotify {
   uint32 instance_id = 1;
   int32 rollback_x = 2;
   int32 rollback_y = 3;
+}
+
+
+// ==================== 掉落/拾取 ====================
+
+/**
+ * 掉落物信息
+ */
+message DropItemInfo {
+  uint64 drop_id = 1;       // 掉落物唯一 ID
+  uint32 item_id = 2;       // 物品 ID
+  uint32 count = 3;         // 数量
+  int32 x = 4;              // 格子 X
+  int32 y = 5;              // 格子 Y
+  uint64 owner_id = 6;      // 归属玩家（0=所有人可见可拾取）
+}
+
+/**
+ * 掉落物生成通知（广播给地图上所有玩家）
+ */
+message DropSpawnNotify {
+  repeated DropItemInfo drops = 1;
+}
+
+/**
+ * 掉落物拾取通知（广播给地图上所有玩家）
+ */
+message DropPickupNotify {
+  uint64 drop_id = 1;       // 被拾取的掉落物 ID
+  uint64 picker_id = 2;     // 拾取者 ID
+  uint32 item_id = 3;       // 物品 ID
+  uint32 count = 4;         // 数量
+}
+
+/**
+ * 掉落物消失通知（超时消失）
+ */
+message DropRemoveNotify {
+  repeated uint64 drop_ids = 1;
 }

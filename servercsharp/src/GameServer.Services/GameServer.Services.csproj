@@ -2,5 +2,6 @@
   <ItemGroup>
     <ProjectReference Include="..\GameServer.Common\GameServer.Common.csproj" />
     <ProjectReference Include="..\GameServer.Database\GameServer.Database.csproj" />
+    <ProjectReference Include="..\GameServer.Proto\GameServer.Proto.csproj" />
   </ItemGroup>
 </Project>

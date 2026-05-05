@@ -27,7 +27,9 @@ namespace ClinetCSharp
         #region BuildUI
         public override void BuildUI(VBoxContainer tabContainer)
         {
-            var title = new Label { Text = "全局系统配置", HorizontalAlignment = HorizontalAlignment.Center };
+            _tabContainer = tabContainer;
+            var title = new Label { Name = "_lbl", Text = "全局系统配置", HorizontalAlignment = HorizontalAlignment.Center };
+            title.Name = "_lbl";
             title.AddThemeFontSizeOverride("font_size", 13);
             tabContainer.AddChild(title);
             tabContainer.AddChild(new HSeparator());
@@ -35,7 +37,7 @@ namespace ClinetCSharp
             var cm = Owner.GetTree()?.GetFirstNodeInGroup("monster_config_manager") as MonsterConfigManager;
 
             // 移动系统配置
-            var moveTitle = new Label { Text = "移动系统配置 (JSON)", HorizontalAlignment = HorizontalAlignment.Left };
+            var moveTitle = new Label { Name = "_lbl", Text = "移动系统配置 (JSON)", HorizontalAlignment = HorizontalAlignment.Left };
             moveTitle.AddThemeFontSizeOverride("font_size", 12);
             tabContainer.AddChild(moveTitle);
 

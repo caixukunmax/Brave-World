@@ -1,5 +1,5 @@
 using GameServer.Common;
-
+using GameServer.Common.Buffs;
 using System.Collections.Concurrent;
 namespace GameServer.Services.Core;
 
@@ -113,6 +113,15 @@ public class MapPlayerState : CombatEntityState
     public string Job { get; set; } = "";
     public int MoveSpeedMs { get; set; }
     public List<int> EquippedSkills { get; set; } = new();
+
+    /// <summary>优先释放的技能 ID（0=无优先）— 由客户端技能栏选中设置</summary>
+    public int PreferredSkillId { get; set; } = 0;
+
+    /// <summary>Buff 容器 — 非战斗状态下也能挂载 Buff</summary>
+    public BuffContainer Buffs { get; set; } = new();
+
+    /// <summary>是否在战斗中 — 由 CombatManager 进入/脱战时设置</summary>
+    public bool InCombat { get; set; } = false;
 }
 
 /// <summary>

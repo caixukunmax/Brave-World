@@ -20,25 +20,15 @@ namespace GameServer.GameLogic;
 public class GameLogicFactory : IGameLogicFactory
 {
     private readonly ILoggerFactory _loggerFactory;
-    private LubanTableLoader? _tables;
+    private readonly LubanTableLoader _tables;
 
-    public GameLogicFactory(ILoggerFactory loggerFactory)
+    public GameLogicFactory(ILoggerFactory loggerFactory, LubanTableLoader tables)
     {
         _loggerFactory = loggerFactory;
+        _tables = tables;
     }
 
-    public LubanTableLoader Tables
-    {
-        get
-        {
-            if (_tables == null)
-            {
-                _tables = new LubanTableLoader(_loggerFactory.CreateLogger<LubanTableLoader>());
-                _tables.Load();
-            }
-            return _tables;
-        }
-    }
+    public LubanTableLoader Tables => _tables;
 
     public ICombatService CreateCombatService(ILogger logger, INetworkSender network)
     {
@@ -49,6 +39,9 @@ public class GameLogicFactory : IGameLogicFactory
             _loggerFactory.CreateLogger<InterruptCastAction>()));
         actionRegistry.Register(new HealAction(
             _loggerFactory.CreateLogger<HealAction>()));
+        actionRegistry.Register(new ApplyBuffAction(Tables));
+        actionRegistry.Register(new PurifyAction(
+            _loggerFactory.CreateLogger<PurifyAction>()));
 
         var pipeline = new SkillPipeline(
             _loggerFactory.CreateLogger<SkillPipeline>(), actionRegistry, Tables);

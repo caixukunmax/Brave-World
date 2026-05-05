@@ -223,6 +223,22 @@ function main(): void {
     success('Skill config → clinetcsharp/data/skill_config.json');
   }
 
+  // 将 Buff 配置 JSON 复制到客户端 data 目录
+  const BUFF_JSON_SRC = path.join(JSON_DATA_DIR, 'common_tbbuff.json');
+  const BUFF_JSON_DST = path.join(CLIENT_DATA_DIR, 'buff_config.json');
+  if (fs.existsSync(BUFF_JSON_SRC)) {
+    fs.mkdirSync(CLIENT_DATA_DIR, { recursive: true });
+    fs.copyFileSync(BUFF_JSON_SRC, BUFF_JSON_DST);
+    success('Buff config → clinetcsharp/data/buff_config.json');
+  }
+
+  // 将生成的 JSON 同步到服务端 bin 目录（运行时读取位置）
+  const BIN_DATA_DIR = path.resolve(ROOT_DIR, 'servercsharp/src/GameServer/bin/Debug/net8.0/data/tables');
+  if (fs.existsSync(BIN_DATA_DIR)) {
+    copyDirSync(JSON_DATA_DIR, BIN_DATA_DIR);
+    success('JSON data → bin/Debug/net8.0/data/tables (runtime sync)');
+  }
+
   // 清理临时目录
   removeDirSync(TMP_DIR);
 

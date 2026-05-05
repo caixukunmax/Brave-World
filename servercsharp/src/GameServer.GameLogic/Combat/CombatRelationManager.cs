@@ -1,3 +1,6 @@
+using GameServer.Common.Buffs;
+using GameServer.Tables;
+
 namespace GameServer.Services.Map.Combat;
 
 /// <summary>
@@ -8,12 +11,18 @@ public class CombatRelationManager
     public readonly Dictionary<int, CombatRelation> Relations = new();
     public readonly Dictionary<long, CombatContext> Contexts = new();
     private int _nextRelationId = 1;
+    private readonly LubanTableLoader? _tables;
 
-    public CombatContext GetOrCreateContext(long entityId)
+    public CombatRelationManager(LubanTableLoader? tables = null)
+    {
+        _tables = tables;
+    }
+
+    public CombatContext GetOrCreateContext(long entityId, BuffContainer? sharedBuffs = null)
     {
         if (!Contexts.TryGetValue(entityId, out var ctx))
         {
-            ctx = new CombatContext { EntityId = entityId };
+            ctx = new CombatContext { EntityId = entityId, Buffs = sharedBuffs ?? new BuffContainer(_tables) };
             Contexts[entityId] = ctx;
         }
         return ctx;

@@ -1,9 +1,14 @@
+using GameServer.Common.Buffs;
 using GameServer.Common.Events;
 using System.Collections.Concurrent;
 using GameServer.Services.Core;
 using GameServer.Services.World;
+using GameServer.Tables;
+using Google.Protobuf;
 using Microsoft.Extensions.Logging;
 using INetworkSender = GameServer.Services.Core.INetworkSender;
+using PGame = global::Game;
+using PProtocol = global::Protocol;
 
 namespace GameServer.Services.Map;
 
@@ -17,13 +22,15 @@ public class MapService
     private readonly WorldState _worldState;
     private readonly CollisionDetector _collision;
     private readonly INetworkSender _network;
+    private readonly LubanTableLoader _tables;
 
-    public MapService(ILogger<MapService> logger, WorldState worldState, CollisionDetector collision, INetworkSender network)
+    public MapService(ILogger<MapService> logger, WorldState worldState, CollisionDetector collision, INetworkSender network, LubanTableLoader tables)
     {
         _logger = logger;
         _worldState = worldState;
         _collision = collision;
         _network = network;
+        _tables = tables;
     }
 
     // 暴露 WorldState 供需要旧接口的地方使用
@@ -55,6 +62,7 @@ public class MapService
             Job = snapshot.Job,
             MoveSpeedMs = snapshot.MoveSpeedMs,
             EquippedSkills = snapshot.EquippedSkills,
+            Buffs = new BuffContainer(_tables),
         });
         _logger.LogInformation("PlayerEnter: account={AccountId} map={Map} pos=({X},{Y})",
             snapshot.AccountId, snapshot.CurrentMap, snapshot.GridX, snapshot.GridY);
@@ -164,6 +172,7 @@ public class MapService
                     Job = p.Job,
                     CombatPositions = combatPos,
                     EquippedSkills = new List<int>(p.EquippedSkills),
+                    Buffs = new BuffContainer(_tables),
                 };
             }
             foreach (var (id, m) in instance.Monsters)
@@ -214,6 +223,60 @@ public class MapService
                     if (auth.Hp != m.Hp) auth.Hp = m.Hp;
                 }
             }
+        }
+    }
+
+    /// <summary>
+    /// 非战斗状态的 buff 过期检查 + 推送
+    /// 战斗中的 buff 由 CombatManager.TickBuffs 处理
+    /// </summary>
+    public void TickOutOfCombatBuffs(Dictionary<string, MapState> maps)
+    {
+        var now = Environment.TickCount64;
+        var changedPlayers = new List<(long AccountId, int ServerId, MapPlayerState Player)>();
+
+        foreach (var map in maps.Values)
+        {
+            foreach (var (id, p) in map.Players)
+            {
+                if (p.Buffs.Buffs.Count == 0) continue;
+                // 战斗中的 buff 由 CombatManager.TickBuffs 处理，跳过
+                if (p.InCombat) continue;
+
+                bool changed = false;
+                for (int i = p.Buffs.Buffs.Count - 1; i >= 0; i--)
+                {
+                    var buff = p.Buffs.Buffs[i];
+                    if (buff.ExpireTime > 0 && now >= buff.ExpireTime)
+                    {
+                        p.Buffs.RemoveBuff(buff.BuffId);
+                        changed = true;
+                    }
+                }
+
+                if (changed)
+                    changedPlayers.Add((id, p.ServerId, p));
+            }
+        }
+
+        // 推送过期通知
+        foreach (var (accountId, serverId, p) in changedPlayers)
+        {
+            var notify = new PGame.BuffUpdateNotify { EntityId = (ulong)accountId };
+            foreach (var b in p.Buffs.Buffs)
+            {
+                var cfg = _tables.GetBuff(b.BuffId);
+                string bName = cfg?.Name ?? $"Buff{b.BuffId}";
+                float remaining = b.ExpireTime <= 0 ? -1f : (float)(b.ExpireTime - now) / 1000f;
+                if (remaining < 0 && b.ExpireTime > 0) remaining = 0;
+                notify.Buffs.Add(new PGame.BuffUpdateNotify.Types.BuffEntry
+                {
+                    BuffId = b.BuffId, BuffName = bName, Stacks = b.Stacks,
+                    RemainingTime = remaining, ShieldAmount = b.ShieldRemaining,
+                });
+            }
+            _network.SendToAccount(accountId, serverId,
+                (int)PProtocol.MessageId.GameBuffUpdateNotify, notify.ToByteArray());
         }
     }
 }

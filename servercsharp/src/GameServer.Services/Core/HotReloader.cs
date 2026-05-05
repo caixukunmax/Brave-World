@@ -3,6 +3,7 @@ using System.Runtime.Loader;
 using GameServer.Common.Events;
 using GameServer.Common.Net;
 using GameServer.Services.World;
+using GameServer.Tables;
 using Microsoft.Extensions.Logging;
 
 namespace GameServer.Services.Core;
@@ -14,6 +15,7 @@ public class HotReloader
 {
     private readonly ILogger<HotReloader> _logger;
     private readonly ILoggerFactory _loggerFactory;
+    private readonly LubanTableLoader _tables;
     private readonly string _dllPath;
     private CollectibleAssemblyLoadContext? _alc;
     private IGameLogicFactory? _factory;
@@ -23,9 +25,10 @@ public class HotReloader
     public IMonsterAiService? MonsterService { get; private set; }
     public INpcManager? NpcManager { get; set; }
 
-    public HotReloader(ILoggerFactory loggerFactory, string? dllPath = null)
+    public HotReloader(ILoggerFactory loggerFactory, LubanTableLoader tables, string? dllPath = null)
     {
         _loggerFactory = loggerFactory;
+        _tables = tables;
         _logger = loggerFactory.CreateLogger<HotReloader>();
         _dllPath = dllPath ?? Path.Combine(AppContext.BaseDirectory, "GameServer.GameLogic.dll");
     }
@@ -41,7 +44,7 @@ public class HotReloader
         var factoryType = assembly.GetType("GameServer.GameLogic.GameLogicFactory")
             ?? throw new InvalidOperationException("GameLogicFactory type not found");
 
-        _factory = (IGameLogicFactory)Activator.CreateInstance(factoryType, _loggerFactory)!;
+        _factory = (IGameLogicFactory)Activator.CreateInstance(factoryType, _loggerFactory, _tables)!;
         _logger.LogInformation("[HotReload] Factory created: {Type}", factoryType.FullName);
         return _factory;
     }

@@ -79,7 +79,9 @@ namespace ClinetCSharp
         #region BuildUI
         public override void BuildUI(VBoxContainer tabContainer)
         {
-            var title = new Label { Text = "地图设置", HorizontalAlignment = HorizontalAlignment.Center };
+            _tabContainer = tabContainer;
+            var title = new Label { Name = "_lbl", Text = "地图设置", HorizontalAlignment = HorizontalAlignment.Center };
+            title.Name = "_lbl";
             title.AddThemeFontSizeOverride("font_size", 13);
             tabContainer.AddChild(title);
             tabContainer.AddChild(new HSeparator());
@@ -100,7 +102,7 @@ namespace ClinetCSharp
             (_cameraReturnSpeedSlider, _cameraReturnSpeedValue) = CreateSliderRow(tabContainer, "回退速度", 1.0f, 20.0f, 5.0f, 1f);
 
             var easeRow = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
-            easeRow.AddChild(new Label { Text = "缓动曲线:", CustomMinimumSize = new Vector2(80, 0) });
+            easeRow.AddChild(new Label { Name = "_lbl", Text = "缓动曲线:", CustomMinimumSize = new Vector2(80, 0) });
             _cameraEaseTypeOption = new OptionButton { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
             easeRow.AddChild(_cameraEaseTypeOption);
             tabContainer.AddChild(easeRow);
@@ -137,7 +139,7 @@ namespace ClinetCSharp
             row.Name = "FreeLookRow";
             row.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
 
-            Label label = new Label();
+            Label label = new Label { Name = "_lbl" };
             label.Text = "自由视角";
             label.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
 
@@ -163,7 +165,7 @@ namespace ClinetCSharp
             row.Name = "LineWidthScaleRow";
             row.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
 
-            Label label = new Label();
+            Label label = new Label { Name = "_lbl" };
             label.Text = "网格线最大宽度";
             label.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
 
@@ -184,7 +186,7 @@ namespace ClinetCSharp
             rowToggle.Name = "CalibrationToggleRow";
             rowToggle.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
 
-            Label label = new Label();
+            Label label = new Label { Name = "_lbl" };
             label.Text = "线宽自适应校准";
             label.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
 
@@ -205,12 +207,12 @@ namespace ClinetCSharp
             rowA.Name = "RefPointARow";
             rowA.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
 
-            Label labelA = new Label();
+            Label labelA = new Label { Name = "_lbl" };
             labelA.Text = "参考点A: zoom=";
 
             _refZoomASpin = CreateSpinBox(0.2, 3.0, 0.1, 0.4, 60);
 
-            Label labelWidthA = new Label();
+            Label labelWidthA = new Label { Name = "_lbl" };
             labelWidthA.Text = " 线宽=";
 
             _refWidthASpin = CreateSpinBox(0.1, 10.0, 0.1, 5.0, 60);
@@ -225,12 +227,12 @@ namespace ClinetCSharp
             rowB.Name = "RefPointBRow";
             rowB.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
 
-            Label labelB = new Label();
+            Label labelB = new Label { Name = "_lbl" };
             labelB.Text = "参考点B: zoom=";
 
             _refZoomBSpin = CreateSpinBox(0.2, 3.0, 0.1, 1.0, 60);
 
-            Label labelWidthB = new Label();
+            Label labelWidthB = new Label { Name = "_lbl" };
             labelWidthB.Text = " 线宽=";
 
             _refWidthBSpin = CreateSpinBox(0.1, 10.0, 0.1, 1.5, 60);
@@ -248,7 +250,7 @@ namespace ClinetCSharp
             rowToggle.Name = "ResponsiveToggleRow";
             rowToggle.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
 
-            Label label = new Label();
+            Label label = new Label { Name = "_lbl" };
             label.Text = "响应式布局";
             label.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
 
@@ -263,7 +265,7 @@ namespace ClinetCSharp
             rowX.Name = "VisibleGridsXRow";
             rowX.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
 
-            Label labelX = new Label();
+            Label labelX = new Label { Name = "_lbl" };
             labelX.Text = "横向格子数";
             labelX.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
 
@@ -281,7 +283,7 @@ namespace ClinetCSharp
             rowDrag.Name = "EditorDragButtonRow";
             rowDrag.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
 
-            Label labelDrag = new Label();
+            Label labelDrag = new Label { Name = "_lbl" };
             labelDrag.Text = "拖动视野按键";
             labelDrag.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
 
@@ -299,7 +301,7 @@ namespace ClinetCSharp
             rowSelect.Name = "EditorSelectModRow";
             rowSelect.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
 
-            Label labelSelect = new Label();
+            Label labelSelect = new Label { Name = "_lbl" };
             labelSelect.Text = "Ctrl+点击选中";
             labelSelect.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
 
@@ -498,9 +500,9 @@ namespace ClinetCSharp
                 GD.PushError("[DebugPanel] _gridManager is null!");
             }
 
-            // Sync player size/border/healthbar sliders after grid resize
-            // (SetGridSize auto-recalculates scale-dependent values on the Player)
-            Owner._playerTab?.SyncSizeSlidersFromPlayer();
+            // Sync entity tab after grid resize
+            // (SetGridSize auto-recalculates scale-dependent values on entities)
+            // TODO: EntityTab should react to grid size changes via EntityProfileManager
 
             GridUpdate();
             Owner.PushCurrentStateToHistory();

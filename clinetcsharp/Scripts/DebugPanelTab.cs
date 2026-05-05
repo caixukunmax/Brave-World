@@ -6,7 +6,7 @@ namespace ClinetCSharp
 {
     /// <summary>
     /// DebugPanel tab base class — each tab independently manages its controls, events, and config.
-    /// Subclasses: DebugPanelMapTab, DebugPanelPlayerTab, DebugPanelMonsterTab, DebugPanelSystemTab, DebugPanelUITab
+    /// Subclasses: DebugPanelMapTab, DebugPanelEntityTab, DebugPanelSystemTab, DebugPanelUITab
     /// </summary>
     public abstract class DebugPanelTab
     {
@@ -14,6 +14,12 @@ namespace ClinetCSharp
 
         /// <summary>slider → AttachValueLineEdit 创建的 Button，用于外部更新文本</summary>
         private readonly Dictionary<HSlider, Button> _attachedValueButtons = new();
+
+        /// <summary>Tab 内容容器，用于遍历子控件</summary>
+        protected VBoxContainer _tabContainer;
+
+        /// <summary>标签是否可见</summary>
+        protected bool _labelsVisible = true;
 
         protected DebugPanelTab(DebugPanel owner)
         {
@@ -32,6 +38,32 @@ namespace ClinetCSharp
 
         /// <summary>Create all controls for this tab and add to tabContainer</summary>
         public abstract void BuildUI(VBoxContainer tabContainer);
+
+        /// <summary>切换标签可见性</summary>
+        public void ToggleLabels()
+        {
+            _labelsVisible = !_labelsVisible;
+            ApplyLabelsVisible(_tabContainer, _labelsVisible);
+        }
+
+        /// <summary>直接设置标签可见性</summary>
+        public void SetLabelsVisible(bool visible)
+        {
+            _labelsVisible = visible;
+            ApplyLabelsVisible(_tabContainer, _labelsVisible);
+        }
+
+        /// <summary>递归设置所有 Name="_lbl" 的 Label 可见性</summary>
+        private static void ApplyLabelsVisible(Node node, bool visible)
+        {
+            if (node is Label lbl && lbl.Name == "_lbl")
+            {
+                lbl.Visible = visible;
+                return;
+            }
+            foreach (var child in node.GetChildren())
+                ApplyLabelsVisible(child, visible);
+        }
 
         /// <summary>Connect all event subscriptions</summary>
         public abstract void ConnectSignals();
@@ -63,7 +95,9 @@ namespace ClinetCSharp
         {
             float actualStep = step > 0 ? step : (max <= 1.0f ? 0.05f : 1f);
             var row = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
-            row.AddChild(new Label { Text = label + ":", CustomMinimumSize = new Vector2(80, 0) });
+            var labelNode = new Label { Text = label + ":", CustomMinimumSize = new Vector2(80, 0) };
+            labelNode.Name = "_lbl";
+            row.AddChild(labelNode);
 
             var slider = new HSlider
             {
@@ -88,7 +122,9 @@ namespace ClinetCSharp
             Container parent, string label, float min, float max, float def, float? step = null)
         {
             var row = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
-            row.AddChild(new Label { Text = label + ":", CustomMinimumSize = new Vector2(80, 0) });
+            var labelNode = new Label { Text = label + ":", CustomMinimumSize = new Vector2(80, 0) };
+            labelNode.Name = "_lbl";
+            row.AddChild(labelNode);
 
             var slider = new HSlider
             {
@@ -123,7 +159,9 @@ namespace ClinetCSharp
                 formatValue = v => v.ToString(DebugPanelLengthScalePolicy.FormatStr);
 
             var row = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
-            row.AddChild(new Label { Text = label, CustomMinimumSize = new Vector2(labelMinWidth, 0) });
+            var labelNode = new Label { Text = label, CustomMinimumSize = new Vector2(labelMinWidth, 0) };
+            labelNode.Name = "_lbl";
+            row.AddChild(labelNode);
 
             var slider = new HSlider
             {
@@ -173,7 +211,9 @@ namespace ClinetCSharp
         protected Label CreateBarReadOnlyRow(Container parent, string label, string initialValue)
         {
             var row = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
-            row.AddChild(new Label { Text = label, CustomMinimumSize = new Vector2(60, 0) });
+            var labelNode = new Label { Text = label, CustomMinimumSize = new Vector2(60, 0) };
+            labelNode.Name = "_lbl";
+            row.AddChild(labelNode);
             var valLbl = new Label { Text = initialValue, CustomMinimumSize = new Vector2(30, 0), HorizontalAlignment = HorizontalAlignment.Right };
             row.AddChild(valLbl);
             parent.AddChild(row);

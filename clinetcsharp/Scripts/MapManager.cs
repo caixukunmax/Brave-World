@@ -26,6 +26,9 @@ namespace ClinetCSharp
             // 连接地图信息同步信号
             nm.MapInfoReceived += OnMapInfoReceived;
             nm.MonsterMoveNotify += OnMonsterMove;
+            nm.DropSpawnNotify += OnDropSpawn;
+            nm.DropPickupNotify += OnDropPickup;
+            nm.DropRemoveNotify += OnDropRemove;
 
             // 如果已经有缓存数据（热加载场景），直接生成
             if (nm.Chests.Count > 0 || nm.Monsters.Count > 0 || nm.Npcs.Count > 0)
@@ -44,6 +47,40 @@ namespace ClinetCSharp
         {
             var monsterMgr = GetTree()?.GetFirstNodeInGroup("monster_manager") as MonsterManager;
             monsterMgr?.OnMonsterMove(notify.InstanceId, new Vector2I(notify.FromX, notify.FromY), new Vector2I(notify.ToX, notify.ToY), notify.State, notify.DurationMs);
+        }
+
+        private void OnDropSpawn(Game.DropSpawnNotify notify)
+        {
+            var dropMgr = GetDropManager();
+            dropMgr?.OnDropSpawnNotify(notify);
+        }
+
+        private void OnDropPickup(Game.DropPickupNotify notify)
+        {
+            var dropMgr = GetDropManager();
+            dropMgr?.OnDropPickupNotify(notify);
+        }
+
+        private void OnDropRemove(Game.DropRemoveNotify notify)
+        {
+            var dropMgr = GetDropManager();
+            dropMgr?.OnDropRemoveNotify(notify);
+        }
+
+        private DropManager? GetDropManager()
+        {
+            var dropMgr = GetTree()?.GetFirstNodeInGroup("drop_manager") as DropManager;
+            if (dropMgr == null)
+            {
+                dropMgr = new DropManager();
+                dropMgr.Name = "DropManager";
+                var gridMgr = GetTree()?.GetFirstNodeInGroup("grid_manager") as GridManager;
+                int gridSize = gridMgr?.GridSize ?? 111;
+                dropMgr.Init(gridSize);
+                AddChild(dropMgr);
+                dropMgr.AddToGroup("drop_manager");
+            }
+            return dropMgr;
         }
 
         private void SpawnMapEntities()
@@ -79,6 +116,14 @@ namespace ClinetCSharp
                 npcMgr.SpawnNpcs(nm.Npcs, gridSize);
                 GD.Print($"[MapManager] Spawned {nm.Npcs.Count} NPCs");
             }
+
+            // 生成掉落物
+            var dropMgr = GetDropManager();
+            if (dropMgr != null && nm.Drops.Count > 0)
+            {
+                dropMgr.OnMapInfoSyncDrops(nm.Drops);
+                GD.Print($"[MapManager] Spawned {nm.Drops.Count} drops");
+            }
         }
 
         public override void _ExitTree()
@@ -88,6 +133,9 @@ namespace ClinetCSharp
             {
                 nm.MapInfoReceived -= OnMapInfoReceived;
                 nm.MonsterMoveNotify -= OnMonsterMove;
+                nm.DropSpawnNotify -= OnDropSpawn;
+                nm.DropPickupNotify -= OnDropPickup;
+                nm.DropRemoveNotify -= OnDropRemove;
             }
         }
     }

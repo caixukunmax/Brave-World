@@ -1,4 +1,5 @@
 using Godot;
+using ClinetCSharp.RenderComponents;
 
 namespace ClinetCSharp
 {
@@ -26,6 +27,7 @@ namespace ClinetCSharp
 
         public void Setup(ulong instanceId, string name, int npcType, int x, int y, int gridSize, int uiConfigId = 1)
         {
+            AddToGroup("npc");
             _instanceId = instanceId;
             NpcName = name;
             NpcType = npcType;
@@ -52,6 +54,12 @@ namespace ClinetCSharp
             LabelTexts[2] = "";
             LabelTexts[3] = "";
 
+            // 添加渲染组件（只添加一次）
+            EnsureRenderComponents();
+
+            // 使用 RichTextLabel 控件替代 DrawString
+            SetupRichLabels();
+
             QueueRedraw();
         }
 
@@ -62,12 +70,19 @@ namespace ClinetCSharp
 
         public override void _Draw()
         {
-            var drawSize = VisualSize;
-            if (drawSize < 10) drawSize = 10;
+            // 渲染组件模式：按 DrawOrder 顺序遍历
+            foreach (var comp in _renderComponents)
+                comp.Draw();
+        }
 
-            EntityDrawUtils.DrawBody(this, drawSize, BgColor, BgOpacity, BorderColor, BorderWidth, CornerRadius);
-            DrawBars();  // NPC 血条默认不可见，但基类方法统一处理
-            DrawLabels();
+        /// <summary>确保渲染组件已添加（幂等，只添加一次）</summary>
+        private void EnsureRenderComponents()
+        {
+            if (_renderComponents.Count > 0) return;
+            AddRenderComponent(new RenderComponents.AppearanceComponent());
+            AddRenderComponent(new RenderComponents.HealthBarComponent());
+            AddRenderComponent(new RenderComponents.MpBarComponent());
+            // 不再使用 LabelComponent — 改用 RichTextLabel 控件
         }
     }
 }

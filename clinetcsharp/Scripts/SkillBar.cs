@@ -161,6 +161,14 @@ namespace ClinetCSharp
             _selectedSlot = _selectedSlot == slotIndex ? -1 : slotIndex;
             for (int i = 0; i < MaxSlots; i++)
                 _slots[i].SetSelected(i == _selectedSlot);
+
+            // 发送优先技能请求
+            if (_network != null)
+            {
+                uint preferredSkillId = _selectedSlot >= 0 ? _slots[_selectedSlot].SkillId : 0;
+                var req = new Game.SetPreferredSkillRequest { SkillId = preferredSkillId };
+                _network.SendPacket(Protocol.MessageId.GameSetPreferredSkillReq, req);
+            }
         }
 
         // ============ SkillSlot (inner control) ============

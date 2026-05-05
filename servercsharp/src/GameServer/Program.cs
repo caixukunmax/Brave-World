@@ -80,6 +80,14 @@ class Program
                 services.AddSingleton<WorldState>();
                 services.AddSingleton<CollisionDetector>();
 
+                // Luban 配置表
+                services.AddSingleton<LubanTableLoader>(sp =>
+                {
+                    var loader = new LubanTableLoader(sp.GetRequiredService<ILogger<LubanTableLoader>>());
+                    loader.Load();
+                    return loader;
+                });
+
                 // Services (host framework)
                 services.AddSingleton<MapService>();
                 services.AddSingleton<LoginService>();
@@ -259,6 +267,9 @@ public class GameServerHostedService : IHostedService
             var maps = mapService.GetAllMapsLegacy();
             hotReloader.CombatService?.Tick(0.1, maps, hotReloader.MonsterService as IMonsterRegistry);
             mapService.SyncCombatHp(maps);
+
+            // 非战斗状态的 buff 过期检查
+            mapService.TickOutOfCombatBuffs(maps);
         }
     }
 

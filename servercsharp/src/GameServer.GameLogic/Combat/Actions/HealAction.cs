@@ -30,6 +30,12 @@ public class HealAction : ICombatAction
         {
             var (healAmount, htype) = CalcHeal(casterId, targetId, healType, coefficient, context.Maps);
 
+            var combatId = context.CombatManager?.GetCombatId(casterId) ?? 0;
+            var cmLogger = context.CombatManager?.Logger;
+            if (cmLogger != null)
+                CombatTrace.HealApply(cmLogger, combatId, casterId, SkillPipeline.GetEntityName(casterId, context.Maps!),
+                    targetId, SkillPipeline.GetEntityName(targetId, context.Maps!), healAmount, htype);
+
             if (context.CombatManager != null)
             {
                 context.CombatManager.ApplyHeal(casterId, targetId, healAmount, htype, context.Maps);

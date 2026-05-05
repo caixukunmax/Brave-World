@@ -23,6 +23,7 @@ public class ActionResult
 {
     public bool Success { get; set; }
     public List<DamageResult> Results { get; set; } = new();
+    public List<long> BuffAppliedTargets { get; set; } = new();
 }
 
 public class DamageResult

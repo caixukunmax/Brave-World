@@ -30,6 +30,15 @@ public class DealDamageAction : ICombatAction
         {
             var (damage, dtype) = CalcDamage(casterId, targetId, damageType, coefficient, context.Maps);
 
+            var combatId = context.CombatManager?.GetCombatId(casterId) ?? 0;
+            var cmLogger = context.CombatManager?.Logger;
+            if (cmLogger != null)
+                CombatTrace.DamageCalc(cmLogger, combatId, casterId, SkillPipeline.GetEntityName(casterId, context.Maps!),
+                    targetId, SkillPipeline.GetEntityName(targetId, context.Maps!),
+                    damageType == "physical" ? (GetEntityAttr(casterId, "patk", context.Maps) ?? 10) : (GetEntityAttr(casterId, "matk", context.Maps) ?? 10),
+                    damageType == "physical" ? (GetEntityAttr(targetId, "pdef", context.Maps) ?? 5) : (GetEntityAttr(targetId, "mdef", context.Maps) ?? 5),
+                    coefficient, damage, dtype);
+
             if (context.CombatManager != null)
             {
                 context.CombatManager.ApplyDamage(casterId, targetId, damage, dtype, context.Maps);
@@ -56,17 +65,21 @@ public class DealDamageAction : ICombatAction
         int baseDamage = 10;
         int targetDef = 0;
 
+        // 获取施法者的 buff 属性修正
+        int casterBuffAtk = GetBuffAttrModifier(casterId, damageType == "physical" ? "patk" : "matk", maps);
+        int targetBuffDef = GetBuffAttrModifier(targetId, damageType == "physical" ? "pdef" : "mdef", maps);
+
         if (damageType == "physical")
         {
-            int patk = GetEntityAttr(casterId, "patk", maps) ?? 10;
-            int pdef = GetEntityAttr(targetId, "pdef", maps) ?? 5;
+            int patk = (GetEntityAttr(casterId, "patk", maps) ?? 10) + casterBuffAtk;
+            int pdef = (GetEntityAttr(targetId, "pdef", maps) ?? 5) + targetBuffDef;
             baseDamage = patk;
             targetDef = pdef;
         }
         else
         {
-            int matk = GetEntityAttr(casterId, "matk", maps) ?? 10;
-            int mdef = GetEntityAttr(targetId, "mdef", maps) ?? 5;
+            int matk = (GetEntityAttr(casterId, "matk", maps) ?? 10) + casterBuffAtk;
+            int mdef = (GetEntityAttr(targetId, "mdef", maps) ?? 5) + targetBuffDef;
             baseDamage = matk;
             targetDef = mdef;
         }
@@ -75,6 +88,24 @@ public class DealDamageAction : ICombatAction
         if (damage < 1) damage = 1;
 
         return (damage, damageType);
+    }
+
+    /// <summary>获取实体的 buff 属性修正值</summary>
+    private static int GetBuffAttrModifier(long entityId, string attrName, Dictionary<string, MapState>? maps)
+    {
+        if (maps == null) return 0;
+        foreach (var map in maps.Values)
+        {
+            if (map.Players.TryGetValue(entityId, out var p))
+                return p.Buffs.GetAttrModifier(attrName);
+            if (map.Monsters.TryGetValue(entityId, out var m))
+            {
+                // 怪物的 buff 在 CombatContext 里，需要从 CombatManager 获取
+                // 暂时返回 0，后续补
+                return 0;
+            }
+        }
+        return 0;
     }
 
     internal static int? GetEntityAttr(long entityId, string attrName, Dictionary<string, MapState>? maps)

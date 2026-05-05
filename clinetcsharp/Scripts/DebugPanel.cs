@@ -1,6 +1,7 @@
 using Godot;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace ClinetCSharp
 {
@@ -18,9 +19,7 @@ namespace ClinetCSharp
     ///
     /// Tab 类（各自独立管理控件、事件、配置）：
     ///   DebugPanelMapTab        — 地图/摄像机/校准/响应式/编辑器键位
-    ///   DebugPanelPlayerTab     — 玩家外观/文字/标签/血条/施法条/动作栏/等级徽章
-    ///   DebugPanelMonsterTab    — 怪物全局样式/标签/AI配置
-    ///   DebugPanelNpcTab        — NPC全局样式/标签
+    ///   DebugPanelEntityTab     — 统一实体配置（玩家/怪物/NPC）
     ///   DebugPanelSystemTab     — 移动系统配置
     ///   DebugPanelUITab         — 技能栏配置
     /// </summary>
@@ -66,9 +65,7 @@ namespace ClinetCSharp
         #region Tab System
         internal DebugPanelTab[] _tabs;
         internal DebugPanelMapTab _mapTab;
-        internal DebugPanelPlayerTab _playerTab;
-        internal DebugPanelMonsterTab _monsterTab;
-        internal DebugPanelNpcTab _npcTab;
+        internal DebugPanelEntityTab _entityTab;
         internal DebugPanelSystemTab _systemTab;
         internal DebugPanelUITab _uiTab;
         #endregion
@@ -148,28 +145,25 @@ namespace ClinetCSharp
 
             // Create tab instances
             _mapTab = new DebugPanelMapTab(this);
-            _playerTab = new DebugPanelPlayerTab(this);
-            _monsterTab = new DebugPanelMonsterTab(this);
-            _npcTab = new DebugPanelNpcTab(this);
+            _entityTab = new DebugPanelEntityTab(this);
             _systemTab = new DebugPanelSystemTab(this);
             _uiTab = new DebugPanelUITab(this);
-            _tabs = new DebugPanelTab[] { _mapTab, _playerTab, _monsterTab, _npcTab, _systemTab, _uiTab };
+            _tabs = new DebugPanelTab[] { _mapTab, _entityTab, _systemTab, _uiTab };
 
             // Build UI for each tab — get containers from TabContainer
             var tabContainer = GetNode<TabContainer>("VBoxContainer/Content/ScrollContainer/TabContainer");
             var mapTab = tabContainer.GetNode<VBoxContainer>("地图");
-            var playerTab = tabContainer.GetNode<VBoxContainer>("玩家");
-            var monsterTab = tabContainer.GetNode<VBoxContainer>("怪物");
-            var npcTab = tabContainer.GetNode<VBoxContainer>("NPC");
+            var entityTab = tabContainer.GetNode<VBoxContainer>("实体");
             var sysTab = tabContainer.GetNode<VBoxContainer>("系统");
             var uiTab = tabContainer.GetNode<VBoxContainer>("UI");
 
             _mapTab.BuildUI(mapTab);
-            _playerTab.BuildUI(playerTab);
-            _monsterTab.BuildUI(monsterTab);
-            _npcTab.BuildUI(npcTab);
+            _entityTab.BuildUI(entityTab);
             _systemTab.BuildUI(sysTab);
             _uiTab.BuildUI(uiTab);
+
+            // 在 TabContainer 上方插入"隐藏标签"按钮
+            CreateToggleLabelsButton(tabContainer);
 
             // Connect all tab signals
             foreach (var tab in _tabs)
@@ -188,7 +182,7 @@ namespace ClinetCSharp
             // MapTab handles grid size application
             _mapTab?.ApplyInitialGridSize();
 
-            _playerTab?.ApplyLoadedPlayerSettings();
+            _entityTab?.SyncToCurrentValues();
 
             var nm = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
             if (nm?.CachedRoleInfo != null && _player is Player playerObj)
@@ -216,6 +210,8 @@ namespace ClinetCSharp
 
         public override void _Input(InputEvent @event)
         {
+            base._Input(@event); // DraggablePanel 拖拽/resize 逻辑
+
             // LineEdit 编辑模式下点击外部取消编辑
             if (_activeLineEdit != null && @event is InputEventMouseButton mb && mb.Pressed)
             {
@@ -229,31 +225,22 @@ namespace ClinetCSharp
         }
 
         /// <summary>
-        /// 实体被点击时，自动切到对应 Tab 和配置 ID（仅切一次，不持续跟随）
+        /// 实体被点击时，自动切到 EntityTab 并选中对应 Profile
         /// </summary>
         private void OnEntityClicked(EntityBase entity)
         {
             GD.Print($"[DebugPanel] OnEntityClicked: {entity.GetType().Name}, visible={IsVisibleInTree()}");
             if (!IsVisibleInTree()) return; // 面板不可见时不切
 
-            switch (entity)
-            {
-                case Player:
-                    _tabContainer.CurrentTab = 1; // 玩家 Tab
-                    break;
-                case Monster monster:
-                    _tabContainer.CurrentTab = 2; // 怪物 Tab
-                    _monsterTab?.SelectConfigId(monster.UiConfigId);
-                    break;
-                case Npc npc:
-                    _tabContainer.CurrentTab = 3; // NPC Tab
-                    _npcTab?.SelectConfigId(npc.UiConfigId);
-                    break;
-            }
+            // 切到 EntityTab（index 1）
+            _tabContainer.CurrentTab = 1;
         }
 
         public override void _UnhandledInput(InputEvent @event)
         {
+            // 先处理 SliderValueInput 的点击外部关闭
+            SliderValueInput.HandleUnhandledInput(@event);
+
             if (@event is InputEventKey keyEvent && keyEvent.Pressed)
             {
                 if (keyEvent.Keycode == Key.F12)
@@ -277,6 +264,46 @@ namespace ClinetCSharp
         #endregion
 
         #region Panel State
+
+        private bool _labelsVisible = true;
+
+        private void CreateToggleLabelsButton(TabContainer tabContainer)
+        {
+            // 在 TabContainer 的父级（ScrollContainer）里，在 TabContainer 前面插入按钮
+            var scroll = tabContainer.GetParent();
+            var btn = new Button
+            {
+                Text = "隐藏标签",
+                Name = "ToggleLabelsBtn",
+                CustomMinimumSize = new Vector2(0, 24),
+                SizeFlagsHorizontal = SizeFlags.ExpandFill,
+                Flat = false,
+            };
+            btn.AddThemeFontSizeOverride("font_size", 11);
+
+            int tabIndex = tabContainer.GetIndex();
+            scroll.AddChild(btn);
+            scroll.MoveChild(btn, tabIndex); // 放在 TabContainer 前面
+
+            btn.Pressed += () =>
+            {
+                _labelsVisible = !_labelsVisible;
+                btn.Text = _labelsVisible ? "隐藏标签" : "显示标签";
+                foreach (var tab in _tabs)
+                    tab.SetLabelsVisible(_labelsVisible);
+                // 同步控制实体身上的标签
+                EntityBase.GlobalLabelsVisible = _labelsVisible;
+                foreach (var entity in GetTree().GetNodesInGroup("monster").Cast<EntityBase>())
+                    entity.RefreshLabelVisibility();
+                foreach (var entity in GetTree().GetNodesInGroup("npc").Cast<EntityBase>())
+                    entity.RefreshLabelVisibility();
+                // Player 也更新
+                var player = GetTree().GetFirstNodeInGroup("player");
+                if (player is EntityBase p)
+                    p.RefreshLabelVisibility();
+            };
+        }
+
         private void OnPanelVisibilityChanged()
         {
             if (!Visible || _tabs == null)

@@ -30,6 +30,19 @@ namespace ClinetCSharp
         private Label _fnBarSpacingValue;
         #endregion
 
+        #region Fields - BuffBar Controls
+        private HSlider _buffBarIconSizeSlider;
+        private Label _buffBarIconSizeValue;
+        private HSlider _buffBarSpacingSlider;
+        private Label _buffBarSpacingValue;
+        private HSlider _buffBarOffsetXSlider;
+        private Label _buffBarOffsetXValue;
+        private HSlider _buffBarOffsetYSlider;
+        private Label _buffBarOffsetYValue;
+        private Button _buffBarForceShowBtn;
+        private CheckBox _buffBarRightAlignCheck;
+        #endregion
+
         public DebugPanelUITab(DebugPanel owner) : base(owner) { }
 
         public override string TabKey => "ui";
@@ -37,13 +50,15 @@ namespace ClinetCSharp
         #region BuildUI
         public override void BuildUI(VBoxContainer tabContainer)
         {
-            var title = new Label { Text = "UI 配置", HorizontalAlignment = HorizontalAlignment.Center };
+            _tabContainer = tabContainer;
+            var title = new Label { Name = "_lbl", Text = "UI 配置", HorizontalAlignment = HorizontalAlignment.Center };
+            title.Name = "_lbl";
             title.AddThemeFontSizeOverride("font_size", 13);
             tabContainer.AddChild(title);
             tabContainer.AddChild(new HSeparator());
 
             // ── 技能栏 ──
-            var skillBarTitle = new Label { Text = "技能栏", HorizontalAlignment = HorizontalAlignment.Left };
+            var skillBarTitle = new Label { Name = "_lbl", Text = "技能栏", HorizontalAlignment = HorizontalAlignment.Left };
             skillBarTitle.AddThemeFontSizeOverride("font_size", 12);
             tabContainer.AddChild(skillBarTitle);
 
@@ -64,7 +79,7 @@ namespace ClinetCSharp
 
             // ── 功能按钮栏 ──
             tabContainer.AddChild(new HSeparator());
-            var fnBarTitle = new Label { Text = "功能按钮栏 (左上)", HorizontalAlignment = HorizontalAlignment.Left };
+            var fnBarTitle = new Label { Name = "_lbl", Text = "功能按钮栏 (左上)", HorizontalAlignment = HorizontalAlignment.Left };
             fnBarTitle.AddThemeFontSizeOverride("font_size", 12);
             tabContainer.AddChild(fnBarTitle);
 
@@ -76,6 +91,33 @@ namespace ClinetCSharp
             (_fnBarOffsetXSlider, _fnBarOffsetXValue) = CreateSliderRow(tabContainer, "水平偏移", 0, 300, fnOffsetXDefault, 1f);
             (_fnBarOffsetYSlider, _fnBarOffsetYValue) = CreateSliderRow(tabContainer, "垂直偏移", 0, 300, fnOffsetYDefault, 1f);
             (_fnBarSpacingSlider, _fnBarSpacingValue) = CreateSliderRow(tabContainer, "按钮间距", 0, 20, fnSpacingDefault, 1f);
+
+            // ── Buff 栏 ──
+            tabContainer.AddChild(new HSeparator());
+            var buffBarTitle = new Label { Name = "_lbl", Text = "Buff 栏", HorizontalAlignment = HorizontalAlignment.Left };
+            buffBarTitle.AddThemeFontSizeOverride("font_size", 12);
+            tabContainer.AddChild(buffBarTitle);
+
+            var buffBar = Owner.GetTree()?.GetFirstNodeInGroup("buff_bar") as BuffBar;
+            float buffIconSizeDefault = buffBar?.IconSize ?? 36;
+            float buffSpacingDefault = buffBar?.SlotSpacing ?? 4;
+
+            (_buffBarIconSizeSlider, _buffBarIconSizeValue) = CreateSliderRow(tabContainer, "图标大小", 16, 64, buffIconSizeDefault, 1f);
+            (_buffBarSpacingSlider, _buffBarSpacingValue) = CreateSliderRow(tabContainer, "槽位间距", 0, 20, buffSpacingDefault, 1f);
+
+            float buffOffsetXDefault = buffBar?.OffsetX ?? 0;
+            float buffOffsetYDefault = buffBar?.OffsetY ?? 0;
+            (_buffBarOffsetXSlider, _buffBarOffsetXValue) = CreateSliderRow(tabContainer, "X 偏移", -500, 500, buffOffsetXDefault, 1f);
+            (_buffBarOffsetYSlider, _buffBarOffsetYValue) = CreateSliderRow(tabContainer, "Y 偏移", -500, 500, buffOffsetYDefault, 1f);
+
+            _buffBarForceShowBtn = new Button { Text = "强制显示" };
+            _buffBarForceShowBtn.Pressed += OnBuffBarForceShow;
+            tabContainer.AddChild(_buffBarForceShowBtn);
+
+            _buffBarRightAlignCheck = new CheckBox { Text = "靠右对齐（新buff压栈）" };
+            _buffBarRightAlignCheck.ButtonPressed = buffBar?.RightAlign ?? false;
+            _buffBarRightAlignCheck.Toggled += OnBuffBarRightAlignToggled;
+            tabContainer.AddChild(_buffBarRightAlignCheck);
         }
         #endregion
 
@@ -99,6 +141,17 @@ namespace ClinetCSharp
                 _fnBarOffsetYSlider.ValueChanged += OnFnBarOffsetYChanged;
             if (_fnBarSpacingSlider != null)
                 _fnBarSpacingSlider.ValueChanged += OnFnBarSpacingChanged;
+
+            if (_buffBarIconSizeSlider != null)
+                _buffBarIconSizeSlider.ValueChanged += OnBuffBarIconSizeChanged;
+            if (_buffBarSpacingSlider != null)
+                _buffBarSpacingSlider.ValueChanged += OnBuffBarSpacingChanged;
+            if (_buffBarOffsetXSlider != null)
+                _buffBarOffsetXSlider.ValueChanged += OnBuffBarOffsetXChanged;
+            if (_buffBarOffsetYSlider != null)
+                _buffBarOffsetYSlider.ValueChanged += OnBuffBarOffsetYChanged;
+            if (_buffBarRightAlignCheck != null)
+                _buffBarRightAlignCheck.Toggled += OnBuffBarRightAlignToggled;
         }
 
         public override void DisconnectSignals()
@@ -120,6 +173,17 @@ namespace ClinetCSharp
                 _fnBarOffsetYSlider.ValueChanged -= OnFnBarOffsetYChanged;
             if (_fnBarSpacingSlider != null)
                 _fnBarSpacingSlider.ValueChanged -= OnFnBarSpacingChanged;
+
+            if (_buffBarIconSizeSlider != null)
+                _buffBarIconSizeSlider.ValueChanged -= OnBuffBarIconSizeChanged;
+            if (_buffBarSpacingSlider != null)
+                _buffBarSpacingSlider.ValueChanged -= OnBuffBarSpacingChanged;
+            if (_buffBarOffsetXSlider != null)
+                _buffBarOffsetXSlider.ValueChanged -= OnBuffBarOffsetXChanged;
+            if (_buffBarOffsetYSlider != null)
+                _buffBarOffsetYSlider.ValueChanged -= OnBuffBarOffsetYChanged;
+            if (_buffBarRightAlignCheck != null)
+                _buffBarRightAlignCheck.Toggled -= OnBuffBarRightAlignToggled;
         }
         #endregion
 
@@ -188,6 +252,38 @@ namespace ClinetCSharp
             fnBar.ButtonSpacing = (int)_fnBarSpacingSlider.Value;
             fnBar.RebuildLayout();
         }
+
+        private void OnBuffBarIconSizeChanged(double value) => ApplyBuffBarSettings();
+        private void OnBuffBarSpacingChanged(double value) => ApplyBuffBarSettings();
+        private void OnBuffBarOffsetXChanged(double value) => ApplyBuffBarSettings();
+        private void OnBuffBarOffsetYChanged(double value) => ApplyBuffBarSettings();
+
+        private void OnBuffBarForceShow()
+        {
+            var buffBar = Owner.GetTree()?.GetFirstNodeInGroup("buff_bar") as BuffBar;
+            buffBar?.ForceShowAll();
+        }
+
+        private void OnBuffBarRightAlignToggled(bool pressed)
+        {
+            var buffBar = Owner.GetTree()?.GetFirstNodeInGroup("buff_bar") as BuffBar;
+            if (buffBar == null) return;
+            buffBar.RightAlign = pressed;
+            buffBar.RebuildLayout();
+        }
+
+        private void ApplyBuffBarSettings()
+        {
+            var buffBar = Owner.GetTree()?.GetFirstNodeInGroup("buff_bar") as BuffBar;
+            if (buffBar == null) return;
+
+            buffBar.IconSize = (int)_buffBarIconSizeSlider.Value;
+            buffBar.SlotSpacing = (int)_buffBarSpacingSlider.Value;
+            buffBar.OffsetX = (int)_buffBarOffsetXSlider.Value;
+            buffBar.OffsetY = (int)_buffBarOffsetYSlider.Value;
+            buffBar.RightAlign = _buffBarRightAlignCheck?.ButtonPressed ?? false;
+            buffBar.RebuildLayout();
+        }
         #endregion
 
         #region Config
@@ -204,6 +300,13 @@ namespace ClinetCSharp
             cfg.SetValue("fn_bar", "offset_x", _fnBarOffsetXSlider?.Value ?? 8);
             cfg.SetValue("fn_bar", "offset_y", _fnBarOffsetYSlider?.Value ?? 8);
             cfg.SetValue("fn_bar", "spacing", _fnBarSpacingSlider?.Value ?? 3);
+
+            // Buff 栏
+            cfg.SetValue("buff_bar", "icon_size", _buffBarIconSizeSlider?.Value ?? 36);
+            cfg.SetValue("buff_bar", "spacing", _buffBarSpacingSlider?.Value ?? 4);
+            cfg.SetValue("buff_bar", "offset_x", _buffBarOffsetXSlider?.Value ?? 0);
+            cfg.SetValue("buff_bar", "offset_y", _buffBarOffsetYSlider?.Value ?? 0);
+            cfg.SetValue("buff_bar", "right_align", _buffBarRightAlignCheck?.ButtonPressed ?? false);
         }
 
         public override void LoadConfig(ConfigFile cfg, bool configLoaded)
@@ -263,6 +366,39 @@ namespace ClinetCSharp
                 _fnBarSpacingSlider.SetBlockSignals(false);
             }
             ApplyFnBarSettings();
+
+            // Buff 栏
+            if (_buffBarIconSizeSlider != null)
+            {
+                _buffBarIconSizeSlider.SetBlockSignals(true);
+                _buffBarIconSizeSlider.Value = (double)cfg.GetValue("buff_bar", "icon_size", 36.0);
+                _buffBarIconSizeSlider.SetBlockSignals(false);
+            }
+            if (_buffBarSpacingSlider != null)
+            {
+                _buffBarSpacingSlider.SetBlockSignals(true);
+                _buffBarSpacingSlider.Value = (double)cfg.GetValue("buff_bar", "spacing", 4.0);
+                _buffBarSpacingSlider.SetBlockSignals(false);
+            }
+            if (_buffBarOffsetXSlider != null)
+            {
+                _buffBarOffsetXSlider.SetBlockSignals(true);
+                _buffBarOffsetXSlider.Value = (double)cfg.GetValue("buff_bar", "offset_x", 0.0);
+                _buffBarOffsetXSlider.SetBlockSignals(false);
+            }
+            if (_buffBarOffsetYSlider != null)
+            {
+                _buffBarOffsetYSlider.SetBlockSignals(true);
+                _buffBarOffsetYSlider.Value = (double)cfg.GetValue("buff_bar", "offset_y", 0.0);
+                _buffBarOffsetYSlider.SetBlockSignals(false);
+            }
+            if (_buffBarRightAlignCheck != null)
+            {
+                _buffBarRightAlignCheck.SetBlockSignals(true);
+                _buffBarRightAlignCheck.ButtonPressed = (bool)cfg.GetValue("buff_bar", "right_align", false);
+                _buffBarRightAlignCheck.SetBlockSignals(false);
+            }
+            ApplyBuffBarSettings();
         }
         #endregion
 
@@ -323,6 +459,42 @@ namespace ClinetCSharp
                     _fnBarSpacingSlider.SetBlockSignals(true);
                     _fnBarSpacingSlider.Value = fnBar.ButtonSpacing;
                     _fnBarSpacingSlider.SetBlockSignals(false);
+                }
+            }
+
+            // Buff 栏
+            var buffBar = Owner.GetTree()?.GetFirstNodeInGroup("buff_bar") as BuffBar;
+            if (buffBar != null)
+            {
+                if (_buffBarIconSizeSlider != null)
+                {
+                    _buffBarIconSizeSlider.SetBlockSignals(true);
+                    _buffBarIconSizeSlider.Value = buffBar.IconSize;
+                    _buffBarIconSizeSlider.SetBlockSignals(false);
+                }
+                if (_buffBarSpacingSlider != null)
+                {
+                    _buffBarSpacingSlider.SetBlockSignals(true);
+                    _buffBarSpacingSlider.Value = buffBar.SlotSpacing;
+                    _buffBarSpacingSlider.SetBlockSignals(false);
+                }
+                if (_buffBarOffsetXSlider != null)
+                {
+                    _buffBarOffsetXSlider.SetBlockSignals(true);
+                    _buffBarOffsetXSlider.Value = buffBar.OffsetX;
+                    _buffBarOffsetXSlider.SetBlockSignals(false);
+                }
+                if (_buffBarOffsetYSlider != null)
+                {
+                    _buffBarOffsetYSlider.SetBlockSignals(true);
+                    _buffBarOffsetYSlider.Value = buffBar.OffsetY;
+                    _buffBarOffsetYSlider.SetBlockSignals(false);
+                }
+                if (_buffBarRightAlignCheck != null)
+                {
+                    _buffBarRightAlignCheck.SetBlockSignals(true);
+                    _buffBarRightAlignCheck.ButtonPressed = buffBar.RightAlign;
+                    _buffBarRightAlignCheck.SetBlockSignals(false);
                 }
             }
         }

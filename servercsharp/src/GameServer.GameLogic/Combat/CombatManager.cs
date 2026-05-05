@@ -22,13 +22,25 @@ public class CombatManager
     private readonly CombatRelationManager _relations;
     private readonly DisengageSystem _disengage;
     private readonly List<long> _pendingDisengages = new();
+    private readonly Dictionary<long, int> _lastBuffCount = new(); // 上一帧每个实体的 buff 数量
+    private readonly Dictionary<long, int> _lastShieldAmount = new(); // 上一帧每个实体的护盾总量
     private readonly LubanTableLoader? _tables;
     private readonly Dictionary<long, double> _mpRegenAccum = new();
     private readonly Dictionary<long, double> _hpRegenAccum = new();
     private readonly Dictionary<long, (int hp, int mp)> _lastSyncedHpMp = new();
     private readonly CombatNarrationEngine? _narration;
 
+    /// <summary>战斗序号 → 战斗ID，用于日志追踪</summary>
+    private readonly Dictionary<long, long> _entityCombatId = new();
+    private long _nextCombatId = 1;
+
+    /// <summary>分配下一个战斗 ID</summary>
+    private long AllocCombatId() => Interlocked.Increment(ref _nextCombatId);
+
     public CombatRelationManager RelationsMgr => _relations;
+
+    /// <summary>日志器（供 Action 输出 CombatTrace）</summary>
+    public ILogger Logger => _logger;
 
     /// <summary>玩家死亡回调 — 由外部 DeathResponder 绑定</summary>
     public Action<long, Dictionary<string, MapState>>? DeathCallback { get; set; }
@@ -46,7 +58,7 @@ public class CombatManager
         _logger = logger;
         _pipeline = pipeline;
         _network = network;
-        _relations = new CombatRelationManager();
+        _relations = new CombatRelationManager(tables);
         _disengage = new DisengageSystem(logger);
         _tables = tables;
 
@@ -69,6 +81,18 @@ public class CombatManager
         return ctx != null && ctx.SubState == "CASTING";
     }
 
+    /// <summary>获取实体的战斗上下文（供 GM 命令等外部调用）</summary>
+    public CombatContext? GetContext(long entityId)
+    {
+        return _relations.Contexts.GetValueOrDefault(entityId);
+    }
+
+    /// <summary>获取实体的战斗 ID（供日志追踪）</summary>
+    public long GetCombatId(long entityId)
+    {
+        return _entityCombatId.GetValueOrDefault(entityId);
+    }
+
     public void OnCollision(long entityA, long entityB, Dictionary<string, MapState> maps)
     {
         if (_relations.HasActiveRelation(entityA, entityB))
@@ -79,11 +103,19 @@ public class CombatManager
 
         _logger.LogInformation("[Combat] onCollision: A={A} B={B}", entityA, entityB);
 
+        var combatId = AllocCombatId();
+        _entityCombatId[entityA] = combatId;
+        _entityCombatId[entityB] = combatId;
+
+        var nameA = SkillPipeline.GetEntityName(entityA, maps);
+        var nameB = SkillPipeline.GetEntityName(entityB, maps);
+        CombatTrace.CombatStart(_logger, combatId, entityA, entityB, nameA, nameB);
+
         _relations.CreateRelation(entityA, entityB);
         _relations.CreateRelation(entityB, entityA);
 
-        var ctxA = _relations.GetOrCreateContext(entityA);
-        var ctxB = _relations.GetOrCreateContext(entityB);
+        var ctxA = _relations.GetOrCreateContext(entityA, FindPlayerBuffs(entityA, maps));
+        var ctxB = _relations.GetOrCreateContext(entityB, FindPlayerBuffs(entityB, maps));
 
         SetCombatJob(ctxA, entityA, maps);
         SetCombatJob(ctxB, entityB, maps);
@@ -96,6 +128,10 @@ public class CombatManager
 
         _relations.SetState(entityA, "COMBAT");
         _relations.SetState(entityB, "COMBAT");
+
+        // 设置 MapPlayerState.InCombat
+        SetPlayerInCombat(entityA, true, maps);
+        SetPlayerInCombat(entityB, true, maps);
 
         // 发送 CombatStartNotify 给参战玩家
         SendCombatStartNotify(entityA, entityB, maps);
@@ -131,6 +167,8 @@ public class CombatManager
 
         // 先手攻击：跳过读条阶段，直接执行技能 1（普攻）的 Action 序列
         // 这样走完整伤害公式 floor(patk * coefficient * (1 - pdef * 0.01))，而非硬编码伤害
+        var combatId = _entityCombatId.GetValueOrDefault(attackerId);
+        CombatTrace.FirstStrike(_logger, combatId, attackerId, SkillPipeline.GetEntityName(attackerId, maps), targetId, SkillPipeline.GetEntityName(targetId, maps), 1);
         _pipeline.ExecuteActions(1, attackerId, [targetId], maps);
     }
 
@@ -138,14 +176,15 @@ public class CombatManager
 
     public void ApplyDamage(long attackerId, long targetId, int damage, string damageType, Dictionary<string, MapState>? maps)
     {
-        _logger.LogInformation("[Combat] damage: attacker={Attacker} target={Target} dmg={Damage}", attackerId, targetId, damage);
-
         var mapsSafe = maps ?? new Dictionary<string, MapState>();
+        var combatId = _entityCombatId.GetValueOrDefault(attackerId);
+        string actorName = SkillPipeline.GetEntityName(attackerId, mapsSafe);
+        string targetName = SkillPipeline.GetEntityName(targetId, mapsSafe);
+
+        _logger.LogInformation("[Combat] damage: attacker={Attacker} target={Target} dmg={Damage}", attackerId, targetId, damage);
 
         // 先广播伤害日志（死亡处理前，避免重生后收到多余日志）
         long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        string actorName = SkillPipeline.GetEntityName(attackerId, mapsSafe);
-        string targetName = SkillPipeline.GetEntityName(targetId, mapsSafe);
         BroadcastCombatLog(new List<CombatLogEntry>
         {
             new()
@@ -175,6 +214,30 @@ public class CombatManager
         // 叙事触发：伤害
         TryNarrate("damage_taken", attackerId, targetId, actorName, targetName, damage, mapsSafe);
 
+        // 护盾吸收
+        int absorbed = 0;
+        MapPlayerState? targetPlayer = null;
+        if (maps != null)
+        {
+            foreach (var map in maps.Values)
+            {
+                if (map.Players.TryGetValue(targetId, out var p))
+                {
+                    absorbed = p.Buffs.AbsorbShield(damage);
+                    targetPlayer = p;
+                    break;
+                }
+                // 怪物的护盾在 CombatContext 里，后续补
+            }
+        }
+        int effectiveDamage = damage - absorbed;
+        if (effectiveDamage < 0) effectiveDamage = 0;
+        if (absorbed > 0)
+        {
+            _logger.LogInformation("[Combat] shield absorbed: target={Target} absorbed={Absorbed} effective={Effective}", targetId, absorbed, effectiveDamage);
+            CombatTrace.BuffShieldAbsorb(_logger, combatId, targetId, targetName, damage, absorbed, targetPlayer?.Buffs.GetShieldAmount() ?? 0);
+        }
+
         // 扣血 + 死亡处理（通过 CombatEntityState 基类统一）
         if (maps != null)
         {
@@ -194,12 +257,15 @@ public class CombatManager
 
                 if (target != null)
                 {
-                    target.Hp = Math.Max(0, target.Hp - damage);
+                    int hpBefore = target.Hp;
+                    target.Hp = Math.Max(0, target.Hp - effectiveDamage);
+                    CombatTrace.DamageApply(_logger, combatId, attackerId, actorName, targetId, targetName, damage, damageType, absorbed, effectiveDamage);
                     // 叙事触发：HP 低于阈值
                     if (target.MaxHp > 0)
                         TryNarrate("hp_below_pct", attackerId, targetId, actorName, targetName, (double)target.Hp / target.MaxHp, mapsSafe);
                     if (target.Hp == 0)
                     {
+                        CombatTrace.Death(_logger, combatId, targetId, targetName, hpBefore);
                         OnDeath(targetId, maps);
                         DeathCallback?.Invoke(targetId, maps);
                     }
@@ -237,6 +303,8 @@ public class CombatManager
             {
                 if (map.Npcs.TryGetValue(entityId, out var npc))
                     npc.InCombat = false;
+                if (map.Players.TryGetValue(entityId, out var p))
+                    p.InCombat = false;
             }
         }
 
@@ -334,6 +402,23 @@ public class CombatManager
 
     // ---- ATB Tick ----
 
+    /// <summary>同步玩家 PreferredSkillId 到 CombatContext（每帧检查）</summary>
+    private void SyncPreferredSkills(Dictionary<string, MapState> maps)
+    {
+        foreach (var ctx in _relations.Contexts.Values)
+        {
+            if (ctx.EntityId >= CombatConstants.MonsterIdThreshold) continue; // 怪物跳过
+            foreach (var map in maps.Values)
+            {
+                if (map.Players.TryGetValue(ctx.EntityId, out var p))
+                {
+                    ctx.PreferredSkillId = p.PreferredSkillId;
+                    break;
+                }
+            }
+        }
+    }
+
     public void TickATB(double dt, Dictionary<string, MapState> maps)
     {
         // 快照遍历：ResumeCast→ApplyDamage→OnDeath 可能删除其他实体的 context
@@ -372,9 +457,11 @@ public class CombatManager
                         if (skillId == 0)
                         {
                             ctx.AtbValue = CombatConstants.AtbMax; // 所有技能冷却中，待机
+                            CombatTrace.AtbFullNoSkill(_logger, _entityCombatId.GetValueOrDefault(entityId), entityId, SkillPipeline.GetEntityName(entityId, maps));
                         }
                         else
                         {
+                            CombatTrace.AtbFull(_logger, _entityCombatId.GetValueOrDefault(entityId), entityId, SkillPipeline.GetEntityName(entityId, maps), skillId);
                             // 保持 ATB=100，进入蓄力（蓄力完成后才重置）
                             RequestCast(entityId, skillId, maps);
                         }
@@ -637,6 +724,11 @@ public class CombatManager
             var endLogs = new List<CombatLogEntry>();
             foreach (var (_, attackerId, targetId) in disengaged)
             {
+                var combatId = _entityCombatId.GetValueOrDefault(attackerId);
+                CombatTrace.Disengage(_logger, combatId, attackerId, SkillPipeline.GetEntityName(attackerId, maps), "timeout");
+                CombatTrace.Disengage(_logger, combatId, targetId, SkillPipeline.GetEntityName(targetId, maps), "timeout");
+                _entityCombatId.Remove(attackerId);
+                _entityCombatId.Remove(targetId);
                 string mapName = SkillPipeline.GetEntityMapName(attackerId, maps) ?? SkillPipeline.GetEntityMapName(targetId, maps) ?? "";
                 string actorName = SkillPipeline.GetEntityName(attackerId, maps);
                 string targetName = SkillPipeline.GetEntityName(targetId, maps);
@@ -692,6 +784,26 @@ public class CombatManager
                         {
                             if (map.Players.TryGetValue(eid, out var p))
                             {
+                                // 脱战清除应移除的 buff
+                                p.Buffs.ClearOnDisengage();
+                                var buffNotify = new PGame.BuffUpdateNotify { EntityId = (ulong)eid };
+                                foreach (var b in p.Buffs.Buffs)
+                                {
+                                    var cfg = _tables?.GetBuff(b.BuffId);
+                                    string bName = cfg?.Name ?? $"Buff{b.BuffId}";
+                                    float remaining = b.ExpireTime <= 0 ? -1f : (float)(b.ExpireTime - Environment.TickCount64) / 1000f;
+                                    if (remaining < 0 && b.ExpireTime > 0) remaining = 0;
+                                    buffNotify.Buffs.Add(new PGame.BuffUpdateNotify.Types.BuffEntry
+                                    {
+                                        BuffId = b.BuffId, BuffName = bName, Stacks = b.Stacks,
+                                        RemainingTime = remaining, ShieldAmount = b.ShieldRemaining,
+                                    });
+                                }
+                                _network.SendToAccount(eid, p.ServerId,
+                                    (int)PProtocol.MessageId.GameBuffUpdateNotify,
+                                    buffNotify.ToByteArray());
+
+                                p.InCombat = false; // 脱战
                                 SendCombatEndNotify(eid, PGame.CombatEndReason.CombatEndDisengage, maps);
                                 _network.SendToAccount(eid, p.ServerId,
                                     (int)PProtocol.MessageId.GameCombatStateNotify,
@@ -703,10 +815,17 @@ public class CombatManager
                 }
             }
         }
+
+        // 同步玩家 PreferredSkillId 到 CombatContext
+        SyncPreferredSkills(maps);
+
         TickATB(dt, maps);
         TickMonsterRegen(dt, monsterRegistry);
         TickPlayerHpRegen(dt, maps);
         TickPlayerMpRegen(dt, maps);
+
+        // Buff 过期检查 + DOT tick
+        TickBuffs(dt, maps);
 
         // 脱战玩家的 HP/MP 变化推送
         SyncOutOfCombatHpMp(maps);
@@ -789,18 +908,24 @@ public class CombatManager
         }, maps);
     }
 
-    private static double GetAgilityCoefficient(long entityId, Dictionary<string, MapState> maps)
+    private double GetAgilityCoefficient(long entityId, Dictionary<string, MapState> maps)
     {
         foreach (var map in maps.Values)
         {
             if (map.Players.TryGetValue(entityId, out var p))
             {
                 int agility = p.Agility > 0 ? p.Agility : 100;
+                // 加上 buff 属性修正（减速 debuff 等）
+                agility += p.Buffs.GetAttrModifier("agility");
                 return 1.0 + (agility - 100) * 0.01;
             }
             if (map.Monsters.TryGetValue(entityId, out var m))
             {
                 int agility = m.Agility > 0 ? m.Agility : 100;
+                // 怪物的 buff 在 CombatContext 里
+                var ctx = _relations.Contexts.GetValueOrDefault(entityId);
+                if (ctx != null)
+                    agility += ctx.Buffs.GetAttrModifier("agility");
                 return 1.0 + (agility - 100) * 0.01;
             }
         }
@@ -810,6 +935,16 @@ public class CombatManager
     private static int SelectSkill(CombatContext ctx)
     {
         long now = Environment.TickCount64;
+
+        // 优先释放被选中的技能
+        if (ctx.PreferredSkillId > 0 &&
+            ctx.SkillPool.Contains(ctx.PreferredSkillId) &&
+            (!ctx.SkillCooldowns.TryGetValue(ctx.PreferredSkillId, out var preferredCdEnd) || now >= preferredCdEnd))
+        {
+            return ctx.PreferredSkillId;  // CombatTrace 在调用方 AtbFull 里记录
+        }
+
+        // 常规顺序选择
         foreach (var skillId in ctx.SkillPool)
         {
             if (!ctx.SkillCooldowns.TryGetValue(skillId, out var cdEnd) || now >= cdEnd)
@@ -827,6 +962,7 @@ public class CombatManager
             {
                 ctx.Job = p.Job ?? "";
                 ctx.SkillPool = new List<int>(p.EquippedSkills.Where(s => s > 0));
+                ctx.PreferredSkillId = p.PreferredSkillId;
                 return;
             }
         }
@@ -1011,6 +1147,146 @@ public class CombatManager
                 foreach (var (accountId, p) in map.Players)
                     _network.SendToAccount(accountId, p.ServerId, (int)PProtocol.MessageId.GameCombatLogNotify, data);
             }
+        }
+    }
+
+    /// <summary>
+    /// 从地图状态中查找玩家的 BuffContainer，用于战斗上下文共享
+    /// </summary>
+    private static BuffContainer? FindPlayerBuffs(long entityId, Dictionary<string, MapState> maps)
+    {
+        foreach (var (_, map) in maps)
+        {
+            if (map.Players.TryGetValue(entityId, out var player))
+                return player.Buffs;
+        }
+        return null; // 怪物/NPC 没有 MapPlayerState，返回 null 让 CombatRelationManager 创建新的
+    }
+
+    /// <summary>设置 MapPlayerState.InCombat 标志</summary>
+    private static void SetPlayerInCombat(long entityId, bool inCombat, Dictionary<string, MapState> maps)
+    {
+        foreach (var map in maps.Values)
+        {
+            if (map.Players.TryGetValue(entityId, out var p))
+            {
+                p.InCombat = inCombat;
+                return;
+            }
+        }
+    }
+
+    // ---- Buff Tick: 过期检查 + DOT tick + 变化推送 ----
+
+    /// <summary>
+    /// 每帧检查所有战斗中实体的 Buff：
+    /// 1. 过期移除
+    /// 2. DOT tick（中毒等）
+    /// 3. buff 数量变化时推送 BuffUpdateNotify
+    /// </summary>
+    private void TickBuffs(double dt, Dictionary<string, MapState> maps)
+    {
+        if (_tables == null) return;
+        var now = Environment.TickCount64;
+        var changedPlayers = new HashSet<long>(); // buff 列表变化的玩家
+        var dotResults = new List<(long TargetId, int Damage, string DamageType, long CasterId)>();
+
+        foreach (var (entityId, ctx) in _relations.Contexts)
+        {
+            var buffs = ctx.Buffs;
+            if (buffs == null) continue;
+
+            int prevCount = buffs.Buffs.Count;
+            bool expired = false;
+
+            for (int i = buffs.Buffs.Count - 1; i >= 0; i--)
+            {
+                var buff = buffs.Buffs[i];
+
+                // 过期检查
+                if (buff.ExpireTime > 0 && now >= buff.ExpireTime)
+                {
+                    CombatTrace.BuffExpire(_logger, _entityCombatId.GetValueOrDefault(entityId), entityId, SkillPipeline.GetEntityName(entityId, maps), buff.BuffId, _tables?.GetBuff(buff.BuffId)?.Name ?? $"Buff{buff.BuffId}");
+                    buffs.RemoveBuff(buff.BuffId);
+                    expired = true;
+                    continue;
+                }
+
+                // DOT tick
+                var cfg = _tables?.GetBuff(buff.BuffId);
+                if (cfg != null && cfg.TickInterval > 0 && cfg.Tags.Contains("dot"))
+                {
+                    if (buff.LastTickTime == 0) buff.LastTickTime = buff.ApplyTime;
+                    long elapsed = now - buff.LastTickTime;
+                    long intervalMs = (long)(cfg.TickInterval * 1000);
+                    if (elapsed >= intervalMs)
+                    {
+                        foreach (var effect in cfg.Effects)
+                        {
+                            if (effect.Trigger != "OnTick") continue;
+                            // 魔法 DOT 用 SnapshotMatk，物理 DOT 用 SnapshotAtk
+                            int baseAtk = effect.DamageType == 2 ? buff.SnapshotMatk : buff.SnapshotAtk;
+                            int dmg = (int)(baseAtk * effect.Coefficient);
+                            string dmgType = effect.DamageType == 2 ? "magical" : "physical";
+                            if (dmg > 0)
+                            {
+                                CombatTrace.BuffTick(_logger, _entityCombatId.GetValueOrDefault(entityId), entityId, SkillPipeline.GetEntityName(entityId, maps), buff.BuffId, cfg?.Name ?? $"Buff{buff.BuffId}", dmg, dmgType, buff.TickCount);
+                                dotResults.Add((entityId, dmg, dmgType, buff.CasterId));
+                            }
+                        }
+                        buff.LastTickTime = now;
+                        buff.TickCount++;
+                    }
+                }
+            }
+
+            // 检测 buff 数量变化（过期或技能新增）
+            // 也检测护盾消耗变化
+            int curCount = buffs.Buffs.Count;
+            int curShield = buffs.GetShieldAmount();
+            _lastBuffCount.TryGetValue(entityId, out int lastCount);
+            _lastShieldAmount.TryGetValue(entityId, out int lastShield);
+            bool shieldChanged = curShield != lastShield;
+            if (expired || curCount != lastCount || shieldChanged)
+            {
+                _lastBuffCount[entityId] = curCount;
+                _lastShieldAmount[entityId] = curShield;
+                if (entityId < 1000000) // 只给玩家推送
+                    changedPlayers.Add(entityId);
+            }
+        }
+
+        // 推送 buff 变化通知
+        foreach (var playerId in changedPlayers)
+        {
+            foreach (var map in maps.Values)
+            {
+                if (map.Players.TryGetValue(playerId, out var p))
+                {
+                    var notify = new PGame.BuffUpdateNotify { EntityId = (ulong)playerId };
+                    foreach (var b in p.Buffs.Buffs)
+                    {
+                        var cfg = _tables?.GetBuff(b.BuffId);
+                        string bName = cfg?.Name ?? $"Buff{b.BuffId}";
+                        float remaining = b.ExpireTime <= 0 ? -1f : (float)(b.ExpireTime - now) / 1000f;
+                        if (remaining < 0 && b.ExpireTime > 0) remaining = 0;
+                        notify.Buffs.Add(new PGame.BuffUpdateNotify.Types.BuffEntry
+                        {
+                            BuffId = b.BuffId, BuffName = bName, Stacks = b.Stacks,
+                            RemainingTime = remaining, ShieldAmount = b.ShieldRemaining,
+                        });
+                    }
+                    _network.SendToAccount(playerId, p.ServerId,
+                        (int)PProtocol.MessageId.GameBuffUpdateNotify, notify.ToByteArray());
+                    break;
+                }
+            }
+        }
+
+        // 应用 DOT 伤害
+        foreach (var (targetId, damage, damageType, casterId) in dotResults)
+        {
+            ApplyDamage(casterId, targetId, damage, damageType, maps);
         }
     }
 }

@@ -1,3 +1,4 @@
+using GameServer.Common.Buffs;
 using PGame = global::Game;
 
 namespace GameServer.Services.Map.Combat;
@@ -30,6 +31,8 @@ public class CombatContext
     public Dictionary<int, long> SkillCooldowns { get; set; } = new();
     public string Job { get; set; } = "";
     public List<int> SkillPool { get; set; } = new();
+    public int PreferredSkillId { get; set; }  // 优先释放的技能 ID（0=无优先）
+    public BuffContainer Buffs { get; set; } = new();
 }
 
 public class CombatLogEntry

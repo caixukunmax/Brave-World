@@ -1,5 +1,6 @@
 using Godot;
 using Godot.Collections;
+using ClinetCSharp.RenderComponents;
 using Protocol;
 
 namespace ClinetCSharp
@@ -116,6 +117,12 @@ namespace ClinetCSharp
             // 提前加载配置，确保 VisualSizeScale 等值在场景显示前就绪
             LoadStyleConfig();
 
+            // 绑定默认 ProfileId
+            ProfileId = 1;
+
+            // 添加渲染组件（Player 专用组合）
+            EnsureRenderComponents();
+
             Position = UiUtils.GridToWorld(_gridPos, GridSize);
             // 初始化默认偏移
             for (int i = 0; i < LabelCount; i++)
@@ -220,6 +227,13 @@ namespace ClinetCSharp
             UpdateAllLabelPositions();
             ApplyFontToLabels();
             UpdateLabelFontSize();
+
+            // 标签创建完成后，应用 Profile 配置
+            var pm = EntityProfileManager.Instance;
+            if (pm != null && ProfileId > 0)
+            {
+                pm.ApplyProfile(this, ProfileId);
+            }
         }
 
         private void UpdateAllLabelPositions()
@@ -227,7 +241,7 @@ namespace ClinetCSharp
             for (int i = 0; i < LabelCount; i++)
             {
                 if (_labelContainers[i] == null) continue;
-                _labelContainers[i].Visible = _labelVisible[i];
+                _labelContainers[i].Visible = GlobalLabelsVisible && _labelVisible[i];
                 if (!_labelVisible[i]) continue;
 
                 var label = _labels[i];
@@ -242,7 +256,7 @@ namespace ClinetCSharp
             }
         }
 
-        private void UpdateLabelFontSize()
+        internal void UpdateLabelFontSize()
         {
             var availableHeight = VisualSize - BorderWidth * 4;
             int globalFontSize;
@@ -394,7 +408,7 @@ namespace ClinetCSharp
             UpdateAllLabelPositions();
         }
 
-        public bool GetLabelVisible(int index)
+        public override bool GetLabelVisible(int index)
         {
             if (index < 0 || index >= LabelCount) return false;
             return _labelVisible[index];
@@ -429,7 +443,12 @@ namespace ClinetCSharp
             }
         }
 
-        public void SetLabelVisible(int index, bool visible)
+        public override void RefreshLabelVisibility()
+        {
+            UpdateAllLabelPositions();
+        }
+
+        public override void SetLabelVisible(int index, bool visible)
         {
             if (index < 0 || index >= LabelCount) return;
             _labelVisible[index] = visible;
@@ -454,7 +473,7 @@ namespace ClinetCSharp
         public override void SetGridSize(int newSize)
         {
             base.SetGridSize(newSize);
-            SetupLabels();
+            UpdateAllLabelPositions();
         }
 
         /// <summary>
@@ -480,21 +499,19 @@ namespace ClinetCSharp
         public override void SetVisualSizeScale(float scale)
         {
             VisualSizeScale = scale;
-            SetupLabels();
             QueueRedraw();
         }
 
         public override void SetBorderWidthScale(float scale)
         {
             BorderWidthScale = scale;
-            SetupLabels();
             QueueRedraw();
         }
 
         public void SetTextAlignment(HorizontalAlignment newAlignment)
         {
             TextAlignment = newAlignment;
-            SetupLabels();
+            UpdateAllLabelPositions();
         }
 
         public override void SetFontSize(int size)
@@ -708,49 +725,39 @@ namespace ClinetCSharp
 
         public override void _Draw()
         {
-            var drawSize = VisualSize;
-            if (drawSize < 10) drawSize = 10;
+            // 渲染组件模式：按 DrawOrder 顺序遍历
+            foreach (var comp in _renderComponents)
+                comp.Draw();
 
-            EntityDrawUtils.DrawBody(this, drawSize, BgColor, BgOpacity, BorderColor, BorderWidth, CornerRadius);
-            DrawBars();
-
-            // 施法条
-            DrawCastBar();
-
-            // 等级徽章
-            if (LevelBadgeVisible)
-            {
-                var levelText = LevelBadgeText.Replace("{level}", Level.ToString())
-                    .Replace("{name}", CharacterName)
-                    .Replace("{job}", Job)
-                    .Replace("{title}", Title)
-                    .Replace("{status}", Status);
-                var font = ThemeDB.FallbackFont;
-                int fontSize = Mathf.Max((int)LevelBadgeFontSize, 6);
-                var textSize = font.GetStringSize(levelText, HorizontalAlignment.Center, -1, fontSize);
-                var textPos = LevelBadgeOffset - textSize / 2.0f + new Vector2(0, fontSize * 0.15f);
-                DrawString(font, textPos, levelText, HorizontalAlignment.Center, -1, fontSize, LevelBadgeTextColor);
-            }
-
+            // 调试覆盖层（不走渲染组件，始终最后绘制）
             if (ShowDebugInfo)
                 DrawDebugOverlay();
 
-            // 动作栏（角色下方）
+            // 动作栏调试模式
             if (ActionBarForceShow)
             {
-                // 调试模式：临时覆盖基类属性以强制显示
                 var origSkill = CastingSkill;
                 var origProgress = CastProgress;
                 CastingSkill = "烈斩";
                 CastProgress = 0.6f;
-                DrawActionBar();
+                var actionBar = GetRenderComponent<RenderComponents.ActionBarComponent>();
+                if (actionBar != null) actionBar.Draw();
                 CastingSkill = origSkill;
                 CastProgress = origProgress;
             }
-            else
-            {
-                DrawActionBar();
-            }
+        }
+
+        /// <summary>确保渲染组件已添加（幂等，只添加一次）</summary>
+        private void EnsureRenderComponents()
+        {
+            if (_renderComponents.Count > 0) return;
+            AddRenderComponent(new RenderComponents.AppearanceComponent());
+            AddRenderComponent(new RenderComponents.HealthBarComponent());
+            AddRenderComponent(new RenderComponents.MpBarComponent());
+            AddRenderComponent(new RenderComponents.CastBarComponent());
+            AddRenderComponent(new RenderComponents.ActionBarComponent());
+            AddRenderComponent(new RenderComponents.RichLabelComponent());
+            AddRenderComponent(new RenderComponents.LevelBadgeComponent());
         }
 
 

@@ -6,6 +6,9 @@ namespace ClinetCSharp
     /// 实体样式配置 — 存储一套完整的视觉属性
     /// Monster 按 MonsterId 绑定配置，NPC 按 NpcType 绑定配置
     /// 设计原则：只存 Scale，Length/Height 是计算值（GridSize × Scale）
+    ///
+    /// 注意：已被 EntityProfile + ComponentData 架构替代，但保留用于旧代码兼容和迁移。
+    /// 新代码应使用 EntityProfile + AppearanceData / LabelGroupData / BarData 等。
     /// </summary>
     public class EntityStyleConfig
     {

@@ -1,4 +1,5 @@
 using GameServer.Common;
+using GameServer.Common.Buffs;
 using GameServer.Common.Models;
 using GameServer.Common.Net;
 using GameServer.Database.Models;
@@ -156,6 +157,68 @@ public class GmCommandHandler : IMessageHandler
             return rsp.ToByteArray();
         }
 
+        if (cmd == "addbuff")
+        {
+            var buffId = parts.Length > 1 ? int.Parse(parts[1]) : 0;
+            if (buffId <= 0)
+                return new PGame.GmCommandResponse { Code = PCommon.ErrorCode.InvalidRequest, Message = "usage: addbuff,buffId" }.ToByteArray();
+
+            var mapPlayer = _session.MapService.GetPlayerOnMap(player.CurrentMap, claims.AccountId);
+            if (mapPlayer == null)
+                return new PGame.GmCommandResponse { Code = PCommon.ErrorCode.InvalidRequest, Message = $"cannot add buff: player not on map" }.ToByteArray();
+
+            var now = Environment.TickCount64;
+            var cfg = _tables.GetBuff(buffId);
+            long expireTime = cfg != null && cfg.Duration > 0 ? now + (long)(cfg.Duration * 1000) : 0;
+            int shield = cfg?.ShieldBase ?? 0;
+
+            var buff = new BuffInstance
+            {
+                BuffId = buffId,
+                Stacks = 1,
+                ApplyTime = now,
+                ExpireTime = expireTime,
+                CasterId = claims.AccountId,
+                ShieldRemaining = shield,
+            };
+            mapPlayer.Buffs.AddBuff(buff);
+
+            var buffList = BuildBuffList(mapPlayer.Buffs);
+            var addNotify = new PGame.BuffUpdateNotify { EntityId = (ulong)claims.AccountId };
+            foreach (var b in buffList)
+                addNotify.Buffs.Add(new PGame.BuffUpdateNotify.Types.BuffEntry
+                {
+                    BuffId = b.BuffId, BuffName = b.BuffName, Stacks = b.Stacks,
+                    RemainingTime = b.RemainingTime, ShieldAmount = b.ShieldAmount,
+                });
+            _network.SendToAccount(claims.AccountId, claims.ServerId, (int)PProtocol.MessageId.GameBuffUpdateNotify, addNotify.ToByteArray());
+            return new PGame.GmCommandResponse { Code = PCommon.ErrorCode.Success, Message = $"added buff {buffId}" }.ToByteArray();
+        }
+
+        if (cmd == "removebuff")
+        {
+            var buffId = parts.Length > 1 ? int.Parse(parts[1]) : 0;
+            if (buffId <= 0)
+                return new PGame.GmCommandResponse { Code = PCommon.ErrorCode.InvalidRequest, Message = "usage: removebuff,buffId" }.ToByteArray();
+
+            var mapPlayer = _session.MapService.GetPlayerOnMap(player.CurrentMap, claims.AccountId);
+            if (mapPlayer == null)
+                return new PGame.GmCommandResponse { Code = PCommon.ErrorCode.InvalidRequest, Message = $"cannot remove buff: player not on map" }.ToByteArray();
+
+            mapPlayer.Buffs.RemoveBuff(buffId);
+
+            var buffList = BuildBuffList(mapPlayer.Buffs);
+            var rmNotify = new PGame.BuffUpdateNotify { EntityId = (ulong)claims.AccountId };
+            foreach (var b in buffList)
+                rmNotify.Buffs.Add(new PGame.BuffUpdateNotify.Types.BuffEntry
+                {
+                    BuffId = b.BuffId, BuffName = b.BuffName, Stacks = b.Stacks,
+                    RemainingTime = b.RemainingTime, ShieldAmount = b.ShieldAmount,
+                });
+            _network.SendToAccount(claims.AccountId, claims.ServerId, (int)PProtocol.MessageId.GameBuffUpdateNotify, rmNotify.ToByteArray());
+            return new PGame.GmCommandResponse { Code = PCommon.ErrorCode.Success, Message = $"removed buff {buffId}" }.ToByteArray();
+        }
+
         return new PGame.GmCommandResponse { Code = PCommon.ErrorCode.InvalidRequest, Message = $"unknown command: {cmd}" }.ToByteArray();
     }
 
@@ -212,5 +275,20 @@ public class GmCommandHandler : IMessageHandler
             case "mp_regen": player.MpRegen = value; break;
             case "move_speed": player.MoveSpeedMs = value; break;
         }
+    }
+
+    private List<(int BuffId, string BuffName, int Stacks, float RemainingTime, int ShieldAmount)> BuildBuffList(BuffContainer buffs)
+    {
+        var result = new List<(int, string, int, float, int)>();
+        var now = Environment.TickCount64;
+        foreach (var b in buffs.Buffs)
+        {
+            var cfg = _tables.GetBuff(b.BuffId);
+            string name = cfg?.Name ?? $"Buff{b.BuffId}";
+            float remaining = b.ExpireTime <= 0 ? -1f : (float)(b.ExpireTime - now) / 1000f;
+            if (remaining < 0 && b.ExpireTime > 0) remaining = 0;
+            result.Add((b.BuffId, name, b.Stacks, remaining, b.ShieldRemaining));
+        }
+        return result;
     }
 }

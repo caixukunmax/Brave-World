@@ -45,7 +45,6 @@
 	</bean>
 
 	<bean name="GlobalConfig">
-
 		<!-- 背包相关 -->
 	    <var name="x1" type="int" comment="背包容量"/>
 	    <var name="x2" type="int"/>
@@ -54,69 +53,8 @@
 	    <var name="x5" type="int"/>
 	    <var name="x6" type="int"/>
 	    <var name="x7" type="(list#sep=|),int"/>
-
 	</bean>
 
 	<table name="TbGlobalConfig" value="GlobalConfig" mode="one" input="common/全局常量配置表.xlsx"/>
-
-	<bean name="PlayerAttrCfg">
-		<var name="id" type="int"/>
-		<var name="hp" type="int"/>
-		<var name="mp" type="int"/>
-		<var name="agility" type="int"/>
-		<var name="patk" type="int"/>
-		<var name="matk" type="int"/>
-		<var name="pdef" type="int"/>
-		<var name="mdef" type="int"/>
-		<var name="move_speed" type="int" comment="移动速度(ms)"/>
-		<var name="mp_regen" type="int" comment="每秒MP恢复量"/>
-	</bean>
-
-		<enum name="ECombatLogType" comment="战斗日志文本类型">
-			<var name="Start" alias="战斗开始" value="0" comment="可用参数: {actor} {target}"/>
-			<var name="Skill" alias="释放技能" value="1" comment="可用参数: {actor} {skill}"/>
-			<var name="Damage" alias="造成伤害" value="2" comment="可用参数: {actor} {target} {value}"/>
-			<var name="Heal" alias="治疗回血" value="3" comment="可用参数: {actor} {value}"/>
-			<var name="Buff" alias="获得Buff" value="4" comment="可用参数: {actor} {extra}"/>
-			<var name="Dodge" alias="打空" value="5" comment="可用参数: {actor} {skill}"/>
-			<var name="Death" alias="死亡" value="6" comment="可用参数: {actor} {extra}"/>
-			<var name="End" alias="战斗结束" value="7" comment="可用参数: {actor} {extra}"/>
-		</enum>
-
-		<bean name="CombatLogTextRow">
-			<var name="id" type="int"/>
-			<var name="template" type="string" comment="文本模板，支持 {actor} {target} {skill} {value} {extra} 占位符"/>
-			<var name="color" type="string" comment="显示颜色（十六进制，留作扩展）"/>
-		</bean>
-
-	<bean name="SkillConfigRow">
-		<var name="id" type="int" comment="技能ID"/>
-		<var name="name" type="string" comment="技能名称"/>
-		<var name="cast_range" type="int" comment="施法距离"/>
-		<var name="cast_time" type="double" comment="施法时间(秒)"/>
-		<var name="interrupt_on_move" type="bool" comment="移动打断"/>
-		<var name="post_cast_time" type="double" comment="后摇时间(秒)"/>
-		<var name="cooldown" type="double" comment="冷却时间(秒)"/>
-		<var name="mp_cost" type="int" comment="MP消耗"/>
-		<var name="target_type" type="string" comment="目标类型"/>
-		<var name="actions" type="(list#sep=|),common.CombatActionBean" comment="动作列表"/>
-	</bean>
-
-
-		<table name="TbCombatLogText" value="CombatLogTextRow" input="common/CombatLogText-战斗日志文本.xlsx"/>
-
-	<bean name="LevelUpRow">
-		<var name="id" type="int" comment="等级"/>
-		<var name="exp_required" type="int" comment="升到下一级所需累计经验"/>
-		<var name="hp" type="int" comment="该等级HP加成"/>
-		<var name="mp" type="int" comment="该等级MP加成"/>
-		<var name="patk" type="int" comment="该等级物攻加成"/>
-		<var name="matk" type="int" comment="该等级魔攻加成"/>
-		<var name="pdef" type="int" comment="该等级物防加成"/>
-		<var name="mdef" type="int" comment="该等级魔防加成"/>
-		<var name="agility" type="int" comment="该等级敏捷加成"/>
-	</bean>
-
-	<table name="TbLevelUp" value="LevelUpRow" input="common/LevelUp-升级表.xlsx"/>
 
 </module>

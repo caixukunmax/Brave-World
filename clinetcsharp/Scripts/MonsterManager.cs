@@ -18,6 +18,7 @@ namespace ClinetCSharp
         private readonly Dictionary<ulong, Game.CombatStateNotify.Types.CombatUnit> _combatUnits = new();
 
         // 多配置样式系统：Key = 配置ID（MonsterId）
+        // [Obsolete] 已被 EntityProfileManager 接管。保留仅用于旧代码兼容和迁移。
         public readonly Dictionary<int, EntityStyleConfig> StyleConfigs = new();
         private readonly HashSet<int> _missingConfigWarned = new();
 
@@ -232,7 +233,12 @@ namespace ClinetCSharp
                     uiConfigId
                 );
                 ApplyDefaultStyle(monster);
+                monster.ProfileId = 2;
                 AddChild(monster);
+                // 创建后立即应用 Profile
+                var pm = EntityProfileManager.Instance;
+                if (pm != null) pm.ApplyProfile(monster, 2);
+                else GD.PrintErr("[MonsterManager] EntityProfileManager.Instance is null, cannot apply profile");
                 _monsters.Add(monster);
                 _monsterPositions.Add(new Vector2I(m.X, m.Y));
 

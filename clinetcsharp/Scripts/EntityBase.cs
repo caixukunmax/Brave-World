@@ -1,4 +1,7 @@
 using Godot;
+using ClinetCSharp.RenderComponents;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace ClinetCSharp
 {
@@ -8,6 +11,36 @@ namespace ClinetCSharp
     /// </summary>
     public abstract partial class EntityBase : Node2D
     {
+        // ========== 渲染组件系统 ==========
+        protected readonly List<IRenderComponent> _renderComponents = new();
+
+        /// <summary>添加渲染组件（自动按 DrawOrder 排序）</summary>
+        public void AddRenderComponent(IRenderComponent component)
+        {
+            _renderComponents.Add(component);
+            _renderComponents.Sort((a, b) => a.DrawOrder.CompareTo(b.DrawOrder));
+            component.OnAttach(this);
+        }
+
+        /// <summary>获取指定类型的渲染组件</summary>
+        public T? GetRenderComponent<T>() where T : class, IRenderComponent
+            => _renderComponents.OfType<T>().FirstOrDefault();
+
+        /// <summary>移除指定类型的渲染组件</summary>
+        public void RemoveRenderComponent<T>() where T : class, IRenderComponent
+        {
+            var comp = GetRenderComponent<T>();
+            if (comp != null)
+            {
+                comp.OnDetach(this);
+                _renderComponents.Remove(comp);
+            }
+        }
+
+        // ========== Profile 绑定 ==========
+        /// <summary>实体绑定的配置档案 ID，-1 表示未绑定</summary>
+        public int ProfileId { get; set; } = -1;
+
         // ========== 外观 ==========
         public float VisualSizeScale { get; set; } = 1.0f;
         public float BorderWidthScale { get; set; } = 3.0f / 111.0f;
@@ -57,6 +90,17 @@ namespace ClinetCSharp
         public bool[] LabelCenterX = new bool[4] { true, true, true, true };
         public float[] LabelYOffsets = new float[4] { 0, 0, 0, 0 };
 
+        // ========== 全局标签可见性开关 ==========
+        /// <summary>全局标签可见性（调试面板控制，影响所有实体的 RichTextLabel）</summary>
+        public static bool GlobalLabelsVisible = true;
+
+        // ========== RichTextLabel 控件（所有实体共用） ==========
+        private const int LabelCount = 4;
+        private RichTextLabel?[] _labels = new RichTextLabel?[LabelCount];
+        private Control?[] _labelContainers = new Control?[LabelCount];
+        private bool[] _labelVisible = new bool[LabelCount] { true, true, true, true };
+        private bool _useRichLabels = false; // 子类 SetupRichLabels() 后为 true
+
         // ========== 格子坐标 ==========
         public Vector2I GridPos => GetGridPos();
         protected virtual Vector2I GetGridPos() => Vector2I.Zero;
@@ -90,14 +134,14 @@ namespace ClinetCSharp
         protected virtual void SetGridSizeValue(int value) => _gridSize = value;
 
         // ========== 外观 setter ==========
-        public virtual void SetVisualSizeScale(float scale) { VisualSizeScale = scale; QueueRedraw(); }
+        public virtual void SetVisualSizeScale(float scale) { VisualSizeScale = scale; UpdateRichLabelFontSize(); QueueRedraw(); }
         public virtual void SetBorderWidthScale(float scale) { BorderWidthScale = scale; QueueRedraw(); }
         public void SetBorderColor(Color color) { BorderColor = color; QueueRedraw(); }
         public void SetBgColor(Color color) { BgColor = color; QueueRedraw(); }
-        public void SetTextColor(Color color) { TextColor = color; QueueRedraw(); }
+        public void SetTextColor(Color color) { TextColor = color; UpdateRichLabelColors(); QueueRedraw(); }
         public virtual void SetCornerRadius(float radius) { CornerRadius = radius; QueueRedraw(); }
         public virtual void SetBgOpacity(float opacity) { BgOpacity = opacity; QueueRedraw(); }
-        public virtual void SetFontSize(int size) { FontSize = size; QueueRedraw(); }
+        public virtual void SetFontSize(int size) { FontSize = size; UpdateRichLabelFontSize(); QueueRedraw(); }
 
         // ========== 血条 setter ==========
         public Vector2 GetHealthBarOffset() => HealthBarOffset;
@@ -139,30 +183,39 @@ namespace ClinetCSharp
         {
             if (index < 0 || index >= 4) return;
             LabelTexts[index] = text;
+            if (_useRichLabels && _labels[index] != null)
+            {
+                _labels[index]!.Text = text;
+                UpdateRichLabelPositions();
+            }
             QueueRedraw();
         }
         public virtual void SetLabelFontSize(int index, int size)
         {
             if (index < 0 || index >= 4) return;
             LabelFontSizes[index] = size;
+            UpdateRichLabelFontSize();
             QueueRedraw();
         }
         public void SetLabelXOffset(int index, float offset)
         {
             if (index < 0 || index >= 4) return;
             LabelXOffsets[index] = offset;
+            UpdateRichLabelPositions();
             QueueRedraw();
         }
         public void SetLabelCenterX(int index, bool center)
         {
             if (index < 0 || index >= 4) return;
             LabelCenterX[index] = center;
+            UpdateRichLabelPositions();
             QueueRedraw();
         }
         public void SetLabelYOffset(int index, float offset)
         {
             if (index < 0 || index >= 4) return;
             LabelYOffsets[index] = offset;
+            UpdateRichLabelPositions();
             QueueRedraw();
         }
 
@@ -219,12 +272,149 @@ namespace ClinetCSharp
             }
         }
 
+        // ========== RichTextLabel 控件管理 ==========
+
+        /// <summary>初始化 RichTextLabel 控件（替代 DrawString 画文字）</summary>
+        protected void SetupRichLabels()
+        {
+            _useRichLabels = true;
+            for (int i = 0; i < LabelCount; i++)
+            {
+                if (_labelContainers[i] != null && IsInstanceValid(_labelContainers[i]))
+                {
+                    _labelContainers[i]!.QueueFree();
+                    _labelContainers[i] = null;
+                    _labels[i] = null;
+                }
+
+                var container = new Control
+                {
+                    Name = $"LabelContainer_{i}",
+                    MouseFilter = Control.MouseFilterEnum.Ignore,
+                };
+                var label = new RichTextLabel
+                {
+                    Name = $"Label_{i}",
+                    FitContent = true,
+                    ScrollActive = false,
+                    BbcodeEnabled = false,
+                    Text = LabelTexts[i],
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    AutowrapMode = TextServer.AutowrapMode.Off,
+                    CustomMinimumSize = new Vector2(1, 1),
+                    MouseFilter = Control.MouseFilterEnum.Ignore,
+                };
+                label.AddThemeColorOverride("font_color", TextColor);
+                container.AddChild(label);
+                AddChild(container);
+                _labelContainers[i] = container;
+                _labels[i] = label;
+            }
+            UpdateRichLabelPositions();
+            UpdateRichLabelFontSize();
+        }
+
+        /// <summary>更新所有 RichTextLabel 的位置</summary>
+        public void UpdateRichLabelPositions()
+        {
+            if (!_useRichLabels) return;
+
+            // 计算行高和起始 Y（和旧 LabelComponent 一致：4 行垂直居中）
+            int baseFs = FontSize > 0 ? FontSize : Mathf.Max((int)(VisualSize / 4.0f * 0.7f), 8);
+            float baseLineHeight = baseFs * 1.1f;
+            float totalHeight = baseLineHeight * 4;
+            float startY = -(totalHeight / 2.0f) + baseLineHeight * 0.5f;
+
+            for (int i = 0; i < LabelCount; i++)
+            {
+                if (_labelContainers[i] == null) continue;
+                _labelContainers[i]!.Visible = GlobalLabelsVisible && _labelVisible[i] && !string.IsNullOrEmpty(LabelTexts[i]);
+                if (!_labelVisible[i]) continue;
+
+                var label = _labels[i];
+                if (label == null) continue;
+
+                var textSize = label.GetMinimumSize();
+                // Y: 居中排列 + 用户偏移
+                float posY = startY + i * baseLineHeight + LabelYOffsets[i];
+                // X: 居中或用户偏移
+                float posX = LabelCenterX[i] ? 0 : LabelXOffsets[i];
+                var pos = new Vector2(posX, posY) - textSize / 2;
+                if (LabelCenterX[i])
+                    pos.X = -textSize.X / 2;
+                _labelContainers[i]!.Position = pos;
+            }
+        }
+
+        /// <summary>更新所有 RichTextLabel 的字号</summary>
+        public void UpdateRichLabelFontSize()
+        {
+            if (!_useRichLabels) return;
+            int baseFs = FontSize > 0 ? FontSize : Mathf.Max((int)(VisualSize / 4.0f * 0.7f), 8);
+            for (int i = 0; i < LabelCount; i++)
+            {
+                if (_labels[i] == null) continue;
+                int fontSize = LabelFontSizes[i] > 0 ? LabelFontSizes[i] : baseFs;
+                _labels[i]!.AddThemeFontSizeOverride("normal_font_size", fontSize);
+            }
+            UpdateRichLabelPositions();
+        }
+
+        /// <summary>更新所有 RichTextLabel 的颜色</summary>
+        public void UpdateRichLabelColors()
+        {
+            if (!_useRichLabels) return;
+            for (int i = 0; i < LabelCount; i++)
+            {
+                if (_labels[i] == null) continue;
+                _labels[i]!.AddThemeColorOverride("font_color", TextColor);
+            }
+        }
+
+        /// <summary>设置标签可见性</summary>
+        public virtual void SetLabelVisible(int index, bool visible)
+        {
+            if (index < 0 || index >= LabelCount) return;
+            _labelVisible[index] = visible;
+            UpdateRichLabelPositions();
+        }
+
+        /// <summary>获取标签可见性</summary>
+        public virtual bool GetLabelVisible(int index)
+        {
+            if (index < 0 || index >= LabelCount) return false;
+            return _labelVisible[index];
+        }
+
+        /// <summary>设置标签文字（RichTextLabel 版）</summary>
+        public void SetRichLabelText(int index, string text)
+        {
+            if (index < 0 || index >= LabelCount) return;
+            LabelTexts[index] = text;
+            if (_labels[index] != null)
+            {
+                _labels[index]!.Text = text;
+                UpdateRichLabelPositions();
+            }
+        }
+
+        /// <summary>是否使用 RichTextLabel 控件</summary>
+        public bool UseRichLabels => _useRichLabels;
+
+        /// <summary>刷新标签可见性（子类可 override，Player 用自己的标签系统）</summary>
+        public virtual void RefreshLabelVisibility()
+        {
+            UpdateRichLabelPositions();
+        }
+
         // ========== 通用方法 ==========
 
         public virtual void SetGridSize(int size)
         {
             GridSize = size;
             Position = UiUtils.GridToWorld(GridPos, GridSize);
+            UpdateRichLabelFontSize();
             QueueRedraw();
         }
 
@@ -251,12 +441,15 @@ namespace ClinetCSharp
             for (int i = 0; i < 4; i++)
             {
                 if (!string.IsNullOrEmpty(cfg.LabelTexts[i]))
-                    LabelTexts[i] = cfg.LabelTexts[i];
+                    SetRichLabelText(i, cfg.LabelTexts[i]);
                 LabelFontSizes[i] = cfg.LabelFontSizes[i];
                 LabelXOffsets[i] = cfg.LabelXOffsets[i];
                 LabelCenterX[i] = cfg.LabelCenterX[i];
                 LabelYOffsets[i] = cfg.LabelYOffsets[i];
             }
+
+            UpdateRichLabelFontSize();
+            UpdateRichLabelPositions();
 
             HealthBarVisible = cfg.HpBarVisible;
             HealthBarCenterX = cfg.HpBarCenterX;

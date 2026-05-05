@@ -18,9 +18,11 @@ public class LubanTableLoader
     public Dictionary<int, PlayerAttrRow> PlayerAttrs { get; private set; } = new();
     public Dictionary<int, CombatLogTextRow> CombatLogTexts { get; private set; } = new();
     public Dictionary<int, SkillConfigRow> Skills { get; private set; } = new();
+    public Dictionary<int, BuffConfigRow> Buffs { get; private set; } = new();
     public Dictionary<int, JobRow> Jobs { get; private set; } = new();
     public Dictionary<int, CombatNarrationRow> CombatNarrations { get; private set; } = new();
     public Dictionary<int, LevelUpRow> LevelUps { get; private set; } = new();
+    public Dictionary<int, DropGroupRow> DropGroups { get; private set; } = new();
 
     // 反向索引: mapName → mapId
     private Dictionary<string, int> _mapNameToId = new();
@@ -51,9 +53,11 @@ public class LubanTableLoader
         PlayerAttrs = LoadTable<PlayerAttrRow>(dataDir, "common_tbplayerattr.json", opts);
         CombatLogTexts = LoadTable<CombatLogTextRow>(dataDir, "common_tbcombatlogtext.json", opts);
         Skills = LoadTable<SkillConfigRow>(dataDir, "common_tbskill.json", opts);
+        Buffs = LoadTable<BuffConfigRow>(dataDir, "common_tbbuff.json", opts);
         Jobs = LoadTable<JobRow>(dataDir, "common_tbjob.json", opts);
         CombatNarrations = LoadTable<CombatNarrationRow>(dataDir, "common_tbcombatnarration.json", opts);
         LevelUps = LoadTable<LevelUpRow>(dataDir, "common_tblevelup.json", opts);
+        DropGroups = LoadTable<DropGroupRow>(dataDir, "common_tbdropgroup.json", opts);
 
         // 建立地图名→ID 反向索引
         _mapNameToId = MapConfigs.Values.ToDictionary(m => m.MapName, m => m.Id);
@@ -74,6 +78,9 @@ public class LubanTableLoader
     /// <summary>获取 AI 配置</summary>
     public AiRow? GetAi(int aiId) => AiConfigs.GetValueOrDefault(aiId);
     public SkillConfigRow? GetSkill(int id) => Skills.GetValueOrDefault(id);
+
+    /// <summary>获取 Buff 配置</summary>
+    public BuffConfigRow? GetBuff(int id) => Buffs.GetValueOrDefault(id);
     public JobRow? GetJob(int id) => Jobs.GetValueOrDefault(id);
     public JobRow? GetJobByName(string name) => Jobs.Values.FirstOrDefault(j => j.Name == name);
 
@@ -107,6 +114,9 @@ public class LubanTableLoader
 
     /// <summary>获取指定等级的升级配置，找不到返回 null（已满级）</summary>
     public LevelUpRow? GetLevelUp(int level) => LevelUps.GetValueOrDefault(level);
+
+    /// <summary>获取掉落组配置</summary>
+    public DropGroupRow? GetDropGroup(int id) => DropGroups.GetValueOrDefault(id);
 
     /// <summary>获取最大等级</summary>
     public int GetMaxLevel() => LevelUps.Count > 0 ? LevelUps.Keys.Max() : 1;

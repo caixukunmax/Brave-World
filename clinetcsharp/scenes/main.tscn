@@ -22,6 +22,7 @@
 [ext_resource type="PackedScene" path="res://scenes/skill_panel.tscn" id="20_skill"]
 [ext_resource type="PackedScene" path="res://scenes/skill_bar.tscn" id="21_skillbar"]
 [ext_resource type="Script" path="res://Scripts/FunctionButtonBar.cs" id="22_fnbar"]
+[ext_resource type="PackedScene" path="res://scenes/buff_bar.tscn" id="23_buffbar"]
 
 [node name="Main" type="Node2D"]
 
@@ -102,6 +103,8 @@ script = ExtResource("14_pm")
 layer = 60
 
 [node name="SkillBar" parent="SkillBarCanvas" instance=ExtResource("21_skillbar")]
+
+[node name="BuffBar" parent="SkillBarCanvas" instance=ExtResource("23_buffbar")]
 
 [node name="CombatATBCanvas" type="CanvasLayer" parent="."]
 layer = 50
