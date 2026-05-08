@@ -135,7 +135,9 @@ namespace ClinetCSharp
                         string compSection = $"{section}.{trimmed}";
                         var data = ReadComponentData(config, compSection, trimmed);
                         if (data != null)
+                        {
                             profile.SetData(trimmed, data);
+                        }
                     }
                 }
 
@@ -161,7 +163,29 @@ namespace ClinetCSharp
         private void MigrateConfig(ConfigFile config, int fromVersion)
         {
             // v0-v2 → v3: 旧格式自动转换在新格式加载逻辑中处理
-            // 这里只更新版本号
+
+            // v3 → v4: 比例类字段从 double 转为定点整数
+            if (fromVersion < 4)
+            {
+                var scaleKeys = new HashSet<string>
+                {
+                    "visual_size_scale", "border_width_scale", "bg_opacity",
+                    "length_scale", "height_scale", "fill_percent",
+                    "hp_bar_length_scale", "hp_bar_height_scale", "hp_bar_fill_percent",
+                    "mp_bar_length_scale", "mp_bar_height_scale", "mp_bar_fill_percent",
+                };
+                foreach (string section in config.GetSections())
+                {
+                    foreach (string key in config.GetSectionKeys(section))
+                    {
+                        if (!scaleKeys.Contains(key)) continue;
+                        var v = config.GetValue(section, key, 0);
+                        if (v.VariantType == Variant.Type.Float)
+                            config.SetValue(section, key, ToFpD((double)v));
+                    }
+                }
+                GD.Print("[EntityProfileManager] Migrated scale values to fixed-point format (v3→v4)");
+            }
         }
 
         #endregion

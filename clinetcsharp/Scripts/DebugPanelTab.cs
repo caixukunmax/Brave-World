@@ -318,7 +318,13 @@ namespace ClinetCSharp
                 }
 
                 edit.TextSubmitted += (txt) => ApplyValue();
-                edit.FocusExited += () => ApplyValue();
+                edit.FocusExited += () =>
+                {
+                    // 延迟一帧执行，避免与 _Input 的点击外部处理双重触发
+                    // 如果 _Input 已经先 Apply 了，edit 会变成 null，这里直接跳过
+                    if (edit == null) return;
+                    ApplyValue();
+                };
 
                 // 注册全局输入回调：点击 LineEdit 外部时取消编辑
                 Owner.SetActiveLineEdit(edit, ApplyValue);

@@ -476,6 +476,29 @@ namespace ClinetCSharp
                     GD.Print("[DebugPanel] Migrated [npc] -> [npc_1]");
                 }
             }
+            // v3 -> v4: 比例类字段从 double 转为定点整数
+            // （与 EntityProfileManager.MigrateConfig 相同逻辑，双重保险）
+            if (fromVersion < 4)
+            {
+                var scaleKeys = new HashSet<string>
+                {
+                    "visual_size_scale", "border_width_scale", "bg_opacity",
+                    "length_scale", "height_scale", "fill_percent",
+                    "hp_bar_length_scale", "hp_bar_height_scale", "hp_bar_fill_percent",
+                    "mp_bar_length_scale", "mp_bar_height_scale", "mp_bar_fill_percent",
+                };
+                foreach (string section in config.GetSections())
+                {
+                    foreach (string key in config.GetSectionKeys(section))
+                    {
+                        if (!scaleKeys.Contains(key)) continue;
+                        var v = config.GetValue(section, key, 0);
+                        if (v.VariantType == Variant.Type.Float)
+                            config.SetValue(section, key, EntityProfileManager.ToFpD((double)v));
+                    }
+                }
+                GD.Print("[DebugPanel] Migrated scale values to fixed-point format (v3→v4)");
+            }
         }
 
         private void ResetConfigAndReload()

@@ -26,7 +26,7 @@ namespace ClinetCSharp
     public partial class DebugPanel : DraggablePanel
     {
         #region Constants
-        private const int CONFIG_VERSION = 2;
+        private const int CONFIG_VERSION = 4;
         internal const string CONFIG_PATH = "user://debug_panel_config.cfg";
         private const string PRESET_PATH = "user://debug_panel_presets.cfg";
 
@@ -184,6 +184,10 @@ namespace ClinetCSharp
 
             _entityTab?.SyncToCurrentValues();
 
+            // Apply profile to all entities — EntityProfileManager.AssignDefaultProfileIds
+            // may have run before Player was in the scene tree, so we re-apply here
+            EntityProfileManager.Instance?.ApplyAllProfiles();
+
             var nm = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
             if (nm?.CachedRoleInfo != null && _player is Player playerObj)
                 playerObj.ApplyRoleInfo(nm.CachedRoleInfo);
@@ -212,7 +216,10 @@ namespace ClinetCSharp
         {
             base._Input(@event); // DraggablePanel 拖拽/resize 逻辑
 
-            // LineEdit 编辑模式下点击外部取消编辑
+            // SliderValueInput 编辑模式下点击外部关闭（统一入口）
+            SliderValueInput.HandleInput(@event);
+
+            // 旧版 AttachValueLineEdit 的 LineEdit 兼容处理
             if (_activeLineEdit != null && @event is InputEventMouseButton mb && mb.Pressed)
             {
                 var editRect = _activeLineEdit.GetGlobalRect();
@@ -238,8 +245,8 @@ namespace ClinetCSharp
 
         public override void _UnhandledInput(InputEvent @event)
         {
-            // 先处理 SliderValueInput 的点击外部关闭
-            SliderValueInput.HandleUnhandledInput(@event);
+            // SliderValueInput 的点击外部关闭已移到 _Input 中统一处理
+            // 这里不再需要 HandleUnhandledInput 调用
 
             if (@event is InputEventKey keyEvent && keyEvent.Pressed)
             {

@@ -1,5 +1,6 @@
 using Godot;
 using System;
+using System.Collections.Generic;
 
 namespace ClinetCSharp
 {
@@ -10,6 +11,9 @@ namespace ClinetCSharp
     {
         private static LineEdit _activeEdit;
         private static Action _activeApply;
+
+        /// <summary>当前是否有活跃的编辑框</summary>
+        public static bool HasActiveEdit => _activeEdit != null;
 
         /// <summary>
         /// 将 slider 旁边的值 Label 替换为可点击输入的 Button
@@ -102,7 +106,12 @@ namespace ClinetCSharp
                 _activeApply = ApplyValue;
 
                 edit.TextSubmitted += (txt) => ApplyValue();
-                edit.FocusExited += () => ApplyValue();
+                edit.FocusExited += () =>
+                {
+                    // 延迟检查：如果 _Input 已经先 Apply 了，edit 会变成 null，直接跳过
+                    if (edit == null) return;
+                    ApplyValue();
+                };
             };
         }
 
@@ -118,16 +127,29 @@ namespace ClinetCSharp
         }
 
         /// <summary>
-        /// 在 SceneTree 的 _UnhandledInput 中调用，处理点击外部关闭编辑框
+        /// 在 DebugPanel._Input 中调用，处理点击外部关闭编辑框。
+        /// 点击 LineEdit 自身不关闭；点击其他任何位置都关闭并应用值。
+        /// </summary>
+        public static void HandleInput(InputEvent ev)
+        {
+            if (_activeEdit == null || _activeApply == null) return;
+            if (ev is InputEventMouseButton mb && mb.Pressed)
+            {
+                // 点击在 LineEdit 内部 → 不关闭
+                var editRect = _activeEdit.GetGlobalRect();
+                if (editRect.HasPoint(mb.GlobalPosition)) return;
+
+                // 点击在 LineEdit 外部 → 关闭并应用
+                _activeApply.Invoke();
+            }
+        }
+
+        /// <summary>
+        /// 旧接口，保留兼容。现在内部转发到 HandleInput。
         /// </summary>
         public static void HandleUnhandledInput(InputEvent ev)
         {
-            if (_activeEdit == null) return;
-            if (ev is InputEventMouseButton mb && mb.Pressed)
-            {
-                // 点击的不是当前编辑框本身，关闭
-                CloseActiveEdit();
-            }
+            HandleInput(ev);
         }
     }
 }

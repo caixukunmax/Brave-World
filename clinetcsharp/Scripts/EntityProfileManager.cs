@@ -17,7 +17,7 @@ namespace ClinetCSharp
         private int _nextId = 1;
 
         internal const string ConfigPath = "user://debug_panel_config.cfg";
-        internal const int ConfigVersion = 3; // v3 = profile 格式
+        internal const int ConfigVersion = 4; // v4 = 定点整数序列化
 
         public override void _Ready()
         {
@@ -359,6 +359,16 @@ namespace ClinetCSharp
                 { ApplyProfile(entity, profileId); applied++; }
             }
             GD.Print($"[ProfileMgr] ApplyProfileToAll: profileId={profileId}, type={entityType}, applied={applied} entities");
+        }
+
+        /// <summary>
+        /// 对所有 Profile 逐一调用 ApplyProfileToAll，确保每个实体都被应用其 Profile
+        /// 用于游戏启动时 Player 可能还没加入场景树的情况
+        /// </summary>
+        public void ApplyAllProfiles()
+        {
+            foreach (var profile in _profiles.Values)
+                ApplyProfileToAll(profile.Id);
         }
 
         #endregion

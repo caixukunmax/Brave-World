@@ -113,9 +113,9 @@ namespace ClinetCSharp
             {
                 Visible = _visibleCheck.ButtonPressed,
                 Color = _colorBtn.Modulate,
-                LengthScale = (float)_lengthScaleSlider.Value,
-                HeightScale = (float)_heightScaleSlider.Value,
-                FillPercent = (float)(_fillSlider.Value / 100.0),
+                LengthScale = EntityProfileManager.FromFp(EntityProfileManager.ToFpD(_lengthScaleSlider.Value)),
+                HeightScale = EntityProfileManager.FromFp(EntityProfileManager.ToFpD(_heightScaleSlider.Value)),
+                FillPercent = EntityProfileManager.FromFp(EntityProfileManager.ToFpD(_fillSlider.Value / 100.0)),
                 CenterX = _offsetXCenterCheck.ButtonPressed,
                 OffsetX = _offsetXCenterCheck.ButtonPressed ? 0 : (float)_offsetXSlider.Value,
                 OffsetY = (float)_offsetYSlider.Value,

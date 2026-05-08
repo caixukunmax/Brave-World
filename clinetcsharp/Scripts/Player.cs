@@ -487,11 +487,11 @@ namespace ClinetCSharp
             if (!config.HasSection("player"))
                 return;
 
-            float scale = (float)(double)config.GetValue("player", "visual_size_scale", 1.0);
+            float scale = EntityProfileManager.FromFp(EntityProfileManager.ReadFp(config, "player", "visual_size_scale", 10000));
             if (scale != 1.0f)
                 SetVisualSizeScale(scale);
 
-            float borderScale = (float)(double)config.GetValue("player", "border_width_scale", 3.0 / 111.0);
+            float borderScale = EntityProfileManager.FromFp(EntityProfileManager.ReadFp(config, "player", "border_width_scale", 270));
             if (borderScale != (3.0f / 111.0f))
                 SetBorderWidthScale(borderScale);
         }

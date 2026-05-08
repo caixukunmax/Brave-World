@@ -20,10 +20,10 @@ namespace ClinetCSharp
                 var profile = EntityProfile.CreatePlayerDefault(1);
                 var app = profile.GetData<AppearanceData>("appearance");
 
-                app.VisualSizeScale = (float)(double)config.GetValue("player", "visual_size_scale", 1.0);
-                app.BorderWidthScale = (float)(double)config.GetValue("player", "border_width_scale", 3.0 / 111.0);
+                app.VisualSizeScale = FromFp(ReadFp(config, "player", "visual_size_scale", 10000));
+                app.BorderWidthScale = FromFp(ReadFp(config, "player", "border_width_scale", 270));
                 app.CornerRadius = (float)(double)config.GetValue("player", "corner_radius", 12.0);
-                app.BgOpacity = (float)(double)config.GetValue("player", "bg_opacity", 0.1);
+                app.BgOpacity = FromFp(ReadFp(config, "player", "bg_opacity", 900));
                 app.FontSize = (int)(double)config.GetValue("player", "font_size", 0);
 
                 float bcR = (float)(double)config.GetValue("player", "border_color_r", 1.0);

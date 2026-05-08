@@ -129,10 +129,10 @@ namespace ClinetCSharp
 
         public static void LoadStyleConfigFromSection(ConfigFile config, string section, EntityStyleConfig cfg)
         {
-            cfg.VisualSizeScale = (float)(double)config.GetValue(section, "visual_size_scale", cfg.VisualSizeScale);
-            cfg.BorderWidthScale = (float)(double)config.GetValue(section, "border_width_scale", cfg.BorderWidthScale);
+            cfg.VisualSizeScale = EntityProfileManager.FromFp(EntityProfileManager.ReadFp(config, section, "visual_size_scale", EntityProfileManager.ToFp(cfg.VisualSizeScale)));
+            cfg.BorderWidthScale = EntityProfileManager.FromFp(EntityProfileManager.ReadFp(config, section, "border_width_scale", EntityProfileManager.ToFp(cfg.BorderWidthScale)));
             cfg.CornerRadius = (float)(double)config.GetValue(section, "corner_radius", cfg.CornerRadius);
-            cfg.BgOpacity = (float)(double)config.GetValue(section, "bg_opacity", cfg.BgOpacity);
+            cfg.BgOpacity = EntityProfileManager.FromFp(EntityProfileManager.ReadFp(config, section, "bg_opacity", EntityProfileManager.ToFp(cfg.BgOpacity)));
             cfg.FontSize = (int)(double)config.GetValue(section, "font_size", cfg.FontSize);
 
             float bcR = (float)(double)config.GetValue(section, "border_color_r", cfg.BorderColor.R);
@@ -159,9 +159,9 @@ namespace ClinetCSharp
                 cfg.LabelYOffsets[i] = (float)(double)config.GetValue(section, $"label_y_offset_{i}", 0);
             }
 
-            cfg.HpBarLengthScale = (float)(double)config.GetValue(section, "hp_bar_length_scale", cfg.HpBarLengthScale);
-            cfg.HpBarHeightScale = (float)(double)config.GetValue(section, "hp_bar_height_scale", cfg.HpBarHeightScale);
-            cfg.HpBarFillPercent = (float)(double)config.GetValue(section, "hp_bar_fill_percent", cfg.HpBarFillPercent);
+            cfg.HpBarLengthScale = EntityProfileManager.FromFp(EntityProfileManager.ReadFp(config, section, "hp_bar_length_scale", EntityProfileManager.ToFp(cfg.HpBarLengthScale)));
+            cfg.HpBarHeightScale = EntityProfileManager.FromFp(EntityProfileManager.ReadFp(config, section, "hp_bar_height_scale", EntityProfileManager.ToFp(cfg.HpBarHeightScale)));
+            cfg.HpBarFillPercent = EntityProfileManager.FromFp(EntityProfileManager.ReadFp(config, section, "hp_bar_fill_percent", EntityProfileManager.ToFp(cfg.HpBarFillPercent)));
             cfg.HpBarVisible = (bool)config.GetValue(section, "hp_bar_visible", cfg.HpBarVisible);
             cfg.HpBarCenterX = (bool)config.GetValue(section, "hp_bar_center_x", RoleControlCenterXResolver.ResolveInitialCenterX(null, cfg.HpBarOffsetX));
             cfg.HpBarOffsetX = (float)(double)config.GetValue(section, "hp_bar_offset_x", cfg.HpBarOffsetX);
@@ -171,9 +171,9 @@ namespace ClinetCSharp
             float hpB = (float)(double)config.GetValue(section, "hp_bar_color_b", cfg.HpBarColor.B);
             cfg.HpBarColor = new Color(hpR, hpG, hpB);
 
-            cfg.MpBarLengthScale = (float)(double)config.GetValue(section, "mp_bar_length_scale", cfg.MpBarLengthScale);
-            cfg.MpBarHeightScale = (float)(double)config.GetValue(section, "mp_bar_height_scale", cfg.MpBarHeightScale);
-            cfg.MpBarFillPercent = (float)(double)config.GetValue(section, "mp_bar_fill_percent", cfg.MpBarFillPercent);
+            cfg.MpBarLengthScale = EntityProfileManager.FromFp(EntityProfileManager.ReadFp(config, section, "mp_bar_length_scale", EntityProfileManager.ToFp(cfg.MpBarLengthScale)));
+            cfg.MpBarHeightScale = EntityProfileManager.FromFp(EntityProfileManager.ReadFp(config, section, "mp_bar_height_scale", EntityProfileManager.ToFp(cfg.MpBarHeightScale)));
+            cfg.MpBarFillPercent = EntityProfileManager.FromFp(EntityProfileManager.ReadFp(config, section, "mp_bar_fill_percent", EntityProfileManager.ToFp(cfg.MpBarFillPercent)));
             cfg.MpBarVisible = (bool)config.GetValue(section, "mp_bar_visible", cfg.MpBarVisible);
             cfg.MpBarCenterX = (bool)config.GetValue(section, "mp_bar_center_x", RoleControlCenterXResolver.ResolveInitialCenterX(null, cfg.MpBarOffsetX));
             cfg.MpBarOffsetX = (float)(double)config.GetValue(section, "mp_bar_offset_x", cfg.MpBarOffsetX);

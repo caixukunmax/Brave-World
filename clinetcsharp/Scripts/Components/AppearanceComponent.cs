@@ -101,10 +101,10 @@ namespace ClinetCSharp
         {
             return new AppearanceData
             {
-                VisualSizeScale = (float)_sizeScaleSlider.Value,
-                BorderWidthScale = (float)_borderWidthScaleSlider.Value,
+                VisualSizeScale = EntityProfileManager.FromFp(EntityProfileManager.ToFpD(_sizeScaleSlider.Value)),
+                BorderWidthScale = EntityProfileManager.FromFp(EntityProfileManager.ToFpD(_borderWidthScaleSlider.Value)),
                 CornerRadius = (float)_cornerRadiusSlider.Value,
-                BgOpacity = (float)_bgOpacitySlider.Value,
+                BgOpacity = EntityProfileManager.FromFp(EntityProfileManager.ToFpD(_bgOpacitySlider.Value)),
                 FontSize = (int)_fontSizeSlider.Value,
                 BorderColor = _borderColorPicker.Color,
                 BgColor = _bgColorPicker.Color,

@@ -1,4 +1,5 @@
 using Godot;
+using System;
 using System.Collections.Generic;
 
 namespace ClinetCSharp
@@ -8,6 +9,33 @@ namespace ClinetCSharp
     /// </summary>
     public partial class EntityProfileManager
     {
+        #region Fixed-Point Serialization Helpers
+
+        /// <summary>定点整数精度因子：万分之一</summary>
+        private const int FpScale = 10000;
+
+        /// <summary>float → 定点整数（用于写入 cfg）</summary>
+        internal static int ToFp(float v) => Mathf.RoundToInt(v * FpScale);
+
+        /// <summary>double → 定点整数（用于迁移旧 double 值）</summary>
+        internal static int ToFpD(double v) => (int)Math.Round(v * FpScale);
+
+        /// <summary>定点整数 → float（用于从 cfg 读取）</summary>
+        internal static float FromFp(int v) => v / (float)FpScale;
+
+        /// <summary>
+        /// 安全读取定点整数值：兼容旧格式(double)和新格式(int)
+        /// </summary>
+        internal static int ReadFp(ConfigFile config, string section, string key, int defaultFp)
+        {
+            var v = config.GetValue(section, key, defaultFp);
+            if (v.VariantType == Variant.Type.Int) return (int)v;
+            if (v.VariantType == Variant.Type.Float) return ToFpD((double)v);
+            return defaultFp;
+        }
+
+        #endregion
+
         #region Component Data Serialization — Write
 
         private void WriteComponentData(ConfigFile config, string section,
@@ -16,10 +44,10 @@ namespace ClinetCSharp
             switch (data)
             {
                 case AppearanceData app:
-                    config.SetValue(section, "visual_size_scale", (double)app.VisualSizeScale);
-                    config.SetValue(section, "border_width_scale", (double)app.BorderWidthScale);
+                    config.SetValue(section, "visual_size_scale", ToFp(app.VisualSizeScale));
+                    config.SetValue(section, "border_width_scale", ToFp(app.BorderWidthScale));
                     config.SetValue(section, "corner_radius", (double)app.CornerRadius);
-                    config.SetValue(section, "bg_opacity", (double)app.BgOpacity);
+                    config.SetValue(section, "bg_opacity", ToFp(app.BgOpacity));
                     config.SetValue(section, "font_size", app.FontSize);
                     config.SetValue(section, "border_color_r", (double)app.BorderColor.R);
                     config.SetValue(section, "border_color_g", (double)app.BorderColor.G);
@@ -59,9 +87,9 @@ namespace ClinetCSharp
 
                 case BarData bar:
                     config.SetValue(section, "visible", bar.Visible);
-                    config.SetValue(section, "length_scale", (double)bar.LengthScale);
-                    config.SetValue(section, "height_scale", (double)bar.HeightScale);
-                    config.SetValue(section, "fill_percent", (double)bar.FillPercent);
+                    config.SetValue(section, "length_scale", ToFp(bar.LengthScale));
+                    config.SetValue(section, "height_scale", ToFp(bar.HeightScale));
+                    config.SetValue(section, "fill_percent", ToFp(bar.FillPercent));
                     config.SetValue(section, "center_x", bar.CenterX);
                     config.SetValue(section, "offset_x", (double)bar.OffsetX);
                     config.SetValue(section, "offset_y", (double)bar.OffsetY);
@@ -72,9 +100,9 @@ namespace ClinetCSharp
 
                 case CastBarData cast:
                     config.SetValue(section, "visible", cast.Visible);
-                    config.SetValue(section, "length_scale", (double)cast.LengthScale);
-                    config.SetValue(section, "height_scale", (double)cast.HeightScale);
-                    config.SetValue(section, "fill_percent", (double)cast.FillPercent);
+                    config.SetValue(section, "length_scale", ToFp(cast.LengthScale));
+                    config.SetValue(section, "height_scale", ToFp(cast.HeightScale));
+                    config.SetValue(section, "fill_percent", ToFp(cast.FillPercent));
                     config.SetValue(section, "center_x", cast.CenterX);
                     config.SetValue(section, "offset_x", (double)cast.OffsetX);
                     config.SetValue(section, "offset_y", (double)cast.OffsetY);
@@ -131,10 +159,10 @@ namespace ClinetCSharp
                 case "appearance":
                     return new AppearanceData
                     {
-                        VisualSizeScale = (float)(double)config.GetValue(section, "visual_size_scale", 1.0),
-                        BorderWidthScale = (float)(double)config.GetValue(section, "border_width_scale", 3.0 / 111.0),
+                        VisualSizeScale = FromFp(ReadFp(config, section, "visual_size_scale", 10000)),
+                        BorderWidthScale = FromFp(ReadFp(config, section, "border_width_scale", 270)),
                         CornerRadius = (float)(double)config.GetValue(section, "corner_radius", 12.0),
-                        BgOpacity = (float)(double)config.GetValue(section, "bg_opacity", 0.9),
+                        BgOpacity = FromFp(ReadFp(config, section, "bg_opacity", 9000)),
                         FontSize = (int)(double)config.GetValue(section, "font_size", 0),
                         BorderColor = new Color(
                             (float)(double)config.GetValue(section, "border_color_r", 1.0),
@@ -185,12 +213,12 @@ namespace ClinetCSharp
                     return new BarData
                     {
                         Visible = (bool)config.GetValue(section, "visible", true),
-                        LengthScale = (float)(double)config.GetValue(section, "length_scale", 102.0 / 111.0),
-                        HeightScale = (float)(double)config.GetValue(section, "height_scale", 6.0 / 111.0),
-                        FillPercent = (float)(double)config.GetValue(section, "fill_percent", 1.0),
+                        LengthScale = FromFp(ReadFp(config, section, "length_scale", compName == "mpbar" ? 7207 : 9189)),
+                        HeightScale = FromFp(ReadFp(config, section, "height_scale", compName == "mpbar" ? 360 : 541)),
+                        FillPercent = FromFp(ReadFp(config, section, "fill_percent", 10000)),
                         CenterX = (bool)config.GetValue(section, "center_x", true),
                         OffsetX = (float)(double)config.GetValue(section, "offset_x", 0),
-                        OffsetY = (float)(double)config.GetValue(section, "offset_y", -70),
+                        OffsetY = (float)(double)config.GetValue(section, "offset_y", compName == "mpbar" ? -62 : -70),
                         Color = new Color(
                             (float)(double)config.GetValue(section, "color_r", 0.0),
                             (float)(double)config.GetValue(section, "color_g", 0.8),
@@ -201,9 +229,9 @@ namespace ClinetCSharp
                     return new CastBarData
                     {
                         Visible = (bool)config.GetValue(section, "visible", true),
-                        LengthScale = (float)(double)config.GetValue(section, "length_scale", 60.0 / 111.0),
-                        HeightScale = (float)(double)config.GetValue(section, "height_scale", 4.0 / 111.0),
-                        FillPercent = (float)(double)config.GetValue(section, "fill_percent", 0.0),
+                        LengthScale = FromFp(ReadFp(config, section, "length_scale", 5405)),
+                        HeightScale = FromFp(ReadFp(config, section, "height_scale", 360)),
+                        FillPercent = FromFp(ReadFp(config, section, "fill_percent", 0)),
                         CenterX = (bool)config.GetValue(section, "center_x", true),
                         OffsetX = (float)(double)config.GetValue(section, "offset_x", 0),
                         OffsetY = (float)(double)config.GetValue(section, "offset_y", -80),
