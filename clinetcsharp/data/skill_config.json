@@ -8,7 +8,7 @@
     "post_cast_time": 0.1,
     "cooldown": 3,
     "mp_cost": 10,
-    "target_type": "SingleEnemy",
+    "target_type": 1,
     "actions": [
       {
         "action_type": 1,
@@ -28,7 +28,7 @@
     "post_cast_time": 0.1,
     "cooldown": 5,
     "mp_cost": 15,
-    "target_type": "SingleEnemy",
+    "target_type": 1,
     "actions": [
       {
         "action_type": 1,
@@ -54,7 +54,7 @@
     "post_cast_time": 0.1,
     "cooldown": 8,
     "mp_cost": 15,
-    "target_type": "AllEnemiesInRange",
+    "target_type": 2,
     "actions": [
       {
         "action_type": 1,
@@ -74,7 +74,7 @@
     "post_cast_time": 0.1,
     "cooldown": 3,
     "mp_cost": 15,
-    "target_type": "SingleEnemy",
+    "target_type": 1,
     "actions": [
       {
         "action_type": 1,
@@ -94,7 +94,7 @@
     "post_cast_time": 0.1,
     "cooldown": 5,
     "mp_cost": 20,
-    "target_type": "AllEnemiesInRange",
+    "target_type": 2,
     "actions": [
       {
         "action_type": 1,
@@ -120,7 +120,7 @@
     "post_cast_time": 0.1,
     "cooldown": 2,
     "mp_cost": 10,
-    "target_type": "SingleEnemy",
+    "target_type": 1,
     "actions": [
       {
         "action_type": 1,
@@ -140,7 +140,7 @@
     "post_cast_time": 0.1,
     "cooldown": 3,
     "mp_cost": 15,
-    "target_type": "Self",
+    "target_type": 3,
     "actions": [
       {
         "action_type": 1,
@@ -160,7 +160,7 @@
     "post_cast_time": 0.1,
     "cooldown": 8,
     "mp_cost": 30,
-    "target_type": "Self",
+    "target_type": 3,
     "actions": [
       {
         "action_type": 1,
@@ -180,7 +180,7 @@
     "post_cast_time": 0.1,
     "cooldown": 4,
     "mp_cost": 10,
-    "target_type": "SingleEnemy",
+    "target_type": 1,
     "actions": [
       {
         "action_type": 1,
@@ -200,7 +200,7 @@
     "post_cast_time": 0.1,
     "cooldown": 3,
     "mp_cost": 0,
-    "target_type": "SingleEnemy",
+    "target_type": 1,
     "actions": [
       {
         "action_type": 1,
@@ -220,7 +220,7 @@
     "post_cast_time": 0.1,
     "cooldown": 6,
     "mp_cost": 0,
-    "target_type": "AllEnemiesInRange",
+    "target_type": 2,
     "actions": [
       {
         "action_type": 1,
@@ -240,7 +240,7 @@
     "post_cast_time": 0.1,
     "cooldown": 2,
     "mp_cost": 0,
-    "target_type": "SingleEnemy",
+    "target_type": 1,
     "actions": [
       {
         "action_type": 1,
@@ -266,7 +266,7 @@
     "post_cast_time": 0.1,
     "cooldown": 10,
     "mp_cost": 20,
-    "target_type": "AllAlliesInRange",
+    "target_type": 4,
     "actions": [
       {
         "action_type": 4,
@@ -286,7 +286,7 @@
     "post_cast_time": 0.1,
     "cooldown": 15,
     "mp_cost": 10,
-    "target_type": "Self",
+    "target_type": 3,
     "actions": [
       {
         "action_type": 4,
@@ -306,7 +306,7 @@
     "post_cast_time": 0.1,
     "cooldown": 8,
     "mp_cost": 25,
-    "target_type": "AllEnemiesInRange",
+    "target_type": 2,
     "actions": [
       {
         "action_type": 4,
@@ -326,7 +326,7 @@
     "post_cast_time": 0.1,
     "cooldown": 10,
     "mp_cost": 20,
-    "target_type": "SingleEnemy",
+    "target_type": 1,
     "actions": [
       {
         "action_type": 1,
@@ -352,7 +352,7 @@
     "post_cast_time": 0.1,
     "cooldown": 15,
     "mp_cost": 15,
-    "target_type": "Self",
+    "target_type": 3,
     "actions": [
       {
         "action_type": 5,
@@ -372,7 +372,7 @@
     "post_cast_time": 0.1,
     "cooldown": 10,
     "mp_cost": 20,
-    "target_type": "AllAlliesInRange",
+    "target_type": 4,
     "actions": [
       {
         "action_type": 4,
@@ -392,7 +392,7 @@
     "post_cast_time": 0.1,
     "cooldown": 5,
     "mp_cost": 0,
-    "target_type": "SingleEnemy",
+    "target_type": 1,
     "actions": [
       {
         "action_type": 1,
@@ -418,7 +418,7 @@
     "post_cast_time": 0.1,
     "cooldown": 8,
     "mp_cost": 0,
-    "target_type": "AllEnemiesInRange",
+    "target_type": 2,
     "actions": [
       {
         "action_type": 1,
@@ -444,7 +444,7 @@
     "post_cast_time": 0.1,
     "cooldown": 8,
     "mp_cost": 5,
-    "target_type": "SingleEnemy",
+    "target_type": 1,
     "actions": [
       {
         "action_type": 1,
@@ -470,7 +470,7 @@
     "post_cast_time": 0.1,
     "cooldown": 8,
     "mp_cost": 20,
-    "target_type": "SingleEnemy",
+    "target_type": 1,
     "actions": [
       {
         "action_type": 1,
@@ -496,7 +496,7 @@
     "post_cast_time": 0.1,
     "cooldown": 8,
     "mp_cost": 10,
-    "target_type": "Self",
+    "target_type": 3,
     "actions": [
       {
         "action_type": 6,
@@ -516,7 +516,7 @@
     "post_cast_time": 0.1,
     "cooldown": 15,
     "mp_cost": 0,
-    "target_type": "Self",
+    "target_type": 3,
     "actions": [
       {
         "action_type": 4,

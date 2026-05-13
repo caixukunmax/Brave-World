@@ -2,7 +2,7 @@
   {
     "id": 1,
     "name": "中毒",
-    "buff_type": "Debuff",
+    "buff_type": 2,
     "tags": [
       "dot",
       "poison"
@@ -27,7 +27,7 @@
   {
     "id": 2,
     "name": "冰冻",
-    "buff_type": "Debuff",
+    "buff_type": 2,
     "tags": [
       "stun",
       "freeze"
@@ -44,7 +44,7 @@
   {
     "id": 3,
     "name": "战吼",
-    "buff_type": "Buff",
+    "buff_type": 1,
     "tags": [
       "stat_boost"
     ],
@@ -66,7 +66,7 @@
   {
     "id": 4,
     "name": "护盾",
-    "buff_type": "Buff",
+    "buff_type": 1,
     "tags": [
       "shield"
     ],
@@ -82,7 +82,7 @@
   {
     "id": 5,
     "name": "石肤",
-    "buff_type": "Buff",
+    "buff_type": 1,
     "tags": [
       "stat_boost"
     ],
@@ -104,7 +104,7 @@
   {
     "id": 6,
     "name": "减速",
-    "buff_type": "Debuff",
+    "buff_type": 2,
     "tags": [
       "slow"
     ],
@@ -126,7 +126,7 @@
   {
     "id": 7,
     "name": "灼烧",
-    "buff_type": "Debuff",
+    "buff_type": 2,
     "tags": [
       "dot",
       "burn"
@@ -151,7 +151,7 @@
   {
     "id": 8,
     "name": "祝福",
-    "buff_type": "Buff",
+    "buff_type": 1,
     "tags": [
       "stat_boost"
     ],
@@ -178,7 +178,7 @@
   {
     "id": 9,
     "name": "破甲",
-    "buff_type": "Debuff",
+    "buff_type": 2,
     "tags": [
       "stat_reduce"
     ],
@@ -200,7 +200,7 @@
   {
     "id": 10,
     "name": "眩晕",
-    "buff_type": "Debuff",
+    "buff_type": 2,
     "tags": [
       "stun"
     ],
@@ -216,7 +216,7 @@
   {
     "id": 11,
     "name": "狂暴",
-    "buff_type": "Buff",
+    "buff_type": 1,
     "tags": [
       "stat_boost",
       "rage"

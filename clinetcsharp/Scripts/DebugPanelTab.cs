@@ -89,6 +89,43 @@ namespace ClinetCSharp
         /// <summary>Export config data for JSON output (optional, returns null by default)</summary>
         public virtual Godot.Collections.Dictionary ExportConfigData() => null;
 
+        #region Auto Save
+        private bool _saveScheduled = false;
+
+        /// <summary>Debounce save by 1 second to avoid disk thrashing during slider drags</summary>
+        protected void ScheduleSave()
+        {
+            if (_saveScheduled) return;
+            _saveScheduled = true;
+            var tree = Owner?.GetTree();
+            if (tree == null) { _saveScheduled = false; return; }
+            var timer = tree.CreateTimer(1.0);
+            timer.Timeout += () => { _saveScheduled = false; Owner?.SaveConfigFromTab(); };
+        }
+        #endregion
+
+        #region Shared Helpers - common layout
+        protected Label AddTabTitle(Container parent, string text, int fontSize = 13, HorizontalAlignment alignment = HorizontalAlignment.Center)
+        {
+            var title = new Label
+            {
+                Name = "_lbl",
+                Text = text,
+                HorizontalAlignment = alignment,
+            };
+            title.AddThemeFontSizeOverride("font_size", fontSize);
+            parent.AddChild(title);
+            return title;
+        }
+
+        protected HSeparator AddSectionSeparator(Container parent)
+        {
+            var separator = new HSeparator();
+            parent.AddChild(separator);
+            return separator;
+        }
+        #endregion
+
         #region Shared Helpers — slider row creation
         protected (HSlider slider, Label valueLabel) CreateSliderRow(
             Container parent, string label, float min, float max, float def, float step = -1f)
@@ -101,9 +138,12 @@ namespace ClinetCSharp
 
             var slider = new HSlider
             {
-                MinValue = min, MaxValue = max, Value = def,
+                MinValue = min,
+                MaxValue = max,
+                Value = def,
                 SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
-                CustomMinimumSize = new Vector2(0, 20), Step = actualStep,
+                CustomMinimumSize = new Vector2(0, 20),
+                Step = actualStep,
                 FocusMode = Control.FocusModeEnum.Click,
                 Scrollable = false
             };
@@ -128,7 +168,9 @@ namespace ClinetCSharp
 
             var slider = new HSlider
             {
-                MinValue = min, MaxValue = max, Value = def,
+                MinValue = min,
+                MaxValue = max,
+                Value = def,
                 SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
                 CustomMinimumSize = new Vector2(0, 20),
                 Step = step ?? (max <= 1 ? 0.05f : 1f),
@@ -165,7 +207,9 @@ namespace ClinetCSharp
 
             var slider = new HSlider
             {
-                MinValue = min, MaxValue = max, Value = def,
+                MinValue = min,
+                MaxValue = max,
+                Value = def,
                 SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
                 CustomMinimumSize = new Vector2(0, 20),
                 Step = step ?? DebugPanelLengthScalePolicy.StepF,
@@ -224,7 +268,10 @@ namespace ClinetCSharp
         {
             var spin = new SpinBox
             {
-                MinValue = minV, MaxValue = maxV, Step = step, Value = value,
+                MinValue = minV,
+                MaxValue = maxV,
+                Step = step,
+                Value = value,
                 CustomMinimumSize = new Vector2(width, 0)
             };
             return spin;

@@ -61,11 +61,7 @@ namespace ClinetCSharp
                     break;
 
                 case LabelGroupData labels:
-                    config.SetValue(section, "font_name", labels.FontName);
                     config.SetValue(section, "default_font_size", labels.DefaultFontSize);
-                    config.SetValue(section, "default_color_r", (double)labels.DefaultColor.R);
-                    config.SetValue(section, "default_color_g", (double)labels.DefaultColor.G);
-                    config.SetValue(section, "default_color_b", (double)labels.DefaultColor.B);
                     config.SetValue(section, "bold", labels.Bold);
                     config.SetValue(section, "italic", labels.Italic);
                     config.SetValue(section, "shadow", labels.Shadow);
@@ -75,10 +71,8 @@ namespace ClinetCSharp
                         config.SetValue(section, $"{prefix}_visible", labels.Visible[i]);
                         config.SetValue(section, $"{prefix}_name", labels.Names[i] ?? "");
                         config.SetValue(section, $"{prefix}_content", labels.ContentPreview[i] ?? "");
+                        config.SetValue(section, $"{prefix}_use_global_font_size", labels.UseGlobalFontSize[i]);
                         config.SetValue(section, $"{prefix}_font_size", labels.FontSizes[i]);
-                        config.SetValue(section, $"{prefix}_color_r", (double)labels.ColorPreview[i].R);
-                        config.SetValue(section, $"{prefix}_color_g", (double)labels.ColorPreview[i].G);
-                        config.SetValue(section, $"{prefix}_color_b", (double)labels.ColorPreview[i].B);
                         config.SetValue(section, $"{prefix}_x_offset", (double)labels.XOffset[i]);
                         config.SetValue(section, $"{prefix}_center_x", labels.CenterX[i]);
                         config.SetValue(section, $"{prefix}_y_offset", (double)labels.YOffset[i]);
@@ -181,12 +175,7 @@ namespace ClinetCSharp
                 case "labels":
                     var labels = new LabelGroupData
                     {
-                        FontName = (string)config.GetValue(section, "font_name", ""),
                         DefaultFontSize = (int)(double)config.GetValue(section, "default_font_size", 0),
-                        DefaultColor = new Color(
-                            (float)(double)config.GetValue(section, "default_color_r", 0.0),
-                            (float)(double)config.GetValue(section, "default_color_g", 0.0),
-                            (float)(double)config.GetValue(section, "default_color_b", 0.0)),
                         Bold = (bool)config.GetValue(section, "bold", false),
                         Italic = (bool)config.GetValue(section, "italic", false),
                         Shadow = (bool)config.GetValue(section, "shadow", false),
@@ -198,10 +187,7 @@ namespace ClinetCSharp
                         labels.Names[i] = (string)config.GetValue(section, $"{prefix}_name", "");
                         labels.ContentPreview[i] = (string)config.GetValue(section, $"{prefix}_content", "");
                         labels.FontSizes[i] = (int)(double)config.GetValue(section, $"{prefix}_font_size", 0);
-                        labels.ColorPreview[i] = new Color(
-                            (float)(double)config.GetValue(section, $"{prefix}_color_r", 0.0),
-                            (float)(double)config.GetValue(section, $"{prefix}_color_g", 0.0),
-                            (float)(double)config.GetValue(section, $"{prefix}_color_b", 0.0));
+                        labels.UseGlobalFontSize[i] = (bool)config.GetValue(section, $"{prefix}_use_global_font_size", labels.FontSizes[i] <= 0);
                         labels.XOffset[i] = (float)(double)config.GetValue(section, $"{prefix}_x_offset", 0);
                         labels.CenterX[i] = (bool)config.GetValue(section, $"{prefix}_center_x", true);
                         labels.YOffset[i] = (float)(double)config.GetValue(section, $"{prefix}_y_offset", 0);

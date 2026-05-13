@@ -1,4 +1,4 @@
-﻿@echo off
+@echo off
 chcp 65001 >nul
 rem Build all generated assets and start the game server.
 rem Actual logic lives in scripts\build.ps1.

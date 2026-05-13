@@ -102,7 +102,7 @@ M.ChestUpdateNotify = {
     decode = function(data) return pb.decode("game.ChestUpdateNotify", data) end,
 }
 
--- Fields: from_x(int32) -- 起点 X from_y(int32) -- 起点 Y to_x(int32) -- 终点 X to_y(int32) -- 终点 Y map_name(string) -- 地图名
+-- Fields: from_x(int32) -- 起点 X from_y(int32) -- 起点 Y to_x(int32) -- 终点 X，或连续移动时的方向 X to_y(int32) -- 终点 Y，或连续移动时的方向 Y map_name(string) -- 地图名 is_continuous(bool) -- 是否为连续移动（向量驱动）
 M.MoveRequest = {
     encode = function(data) return pb.encode("game.MoveRequest", data) end,
     decode = function(data) return pb.decode("game.MoveRequest", data) end,
@@ -250,6 +250,18 @@ M.MonsterMoveNotify = {
 M.MonsterStateBatchNotify = {
     encode = function(data) return pb.encode("game.MonsterStateBatchNotify", data) end,
     decode = function(data) return pb.decode("game.MonsterStateBatchNotify", data) end,
+}
+
+-- Fields: instance_id(uint32) -- 怪物实例ID killer_id(uint64) -- 击杀者实体ID（玩家account_id或怪物instance_id） monster_id(uint32) -- 怪物类型ID
+M.MonsterDeathNotify = {
+    encode = function(data) return pb.encode("game.MonsterDeathNotify", data) end,
+    decode = function(data) return pb.decode("game.MonsterDeathNotify", data) end,
+}
+
+-- Fields: instance_id(uint32) -- 怪物实例ID monster_id(uint32) -- 怪物类型ID x(int32) -- 复活位置 X y(int32) -- 复活位置 Y name(string) -- 怪物名称 level(uint32) -- 等级
+M.MonsterRespawnNotify = {
+    encode = function(data) return pb.encode("game.MonsterRespawnNotify", data) end,
+    decode = function(data) return pb.decode("game.MonsterRespawnNotify", data) end,
 }
 
 -- Fields: npc_instance_id(uint64) npc_name(string) npc_type(int32) -- NPC类型：1=转职大师 x(int32) y(int32)

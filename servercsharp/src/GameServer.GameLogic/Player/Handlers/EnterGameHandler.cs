@@ -47,13 +47,18 @@ public class EnterGameHandler : IMessageHandler
         await _session.Roles.Update(roleId, u => u.Set(r => r.LastLoginTime, now));
         _session.SetOnline(claims.AccountId, role);
 
-        var (hp, mp, agility, patk, matk, pdef, mdef, mpRegen) = _tables.GetPlayerBaseAttrs();
-        role.Hp = hp; role.MaxHp = hp;
-        role.Mp = mp; role.MaxMp = mp;
+        // 按当前等级重新计算完整属性（修复老玩家/等级成长）
+        var (hp, mp, agility, patk, matk, pdef, mdef, mpRegen) = _tables.GetPlayerAttrsByLevel(role.Level);
+        role.MaxHp = hp;
+        role.MaxMp = mp;
         role.Agility = agility;
         role.Patk = patk; role.Matk = matk;
         role.Pdef = pdef; role.Mdef = mdef;
         role.MpRegen = mpRegen;
+        // 如果当前血量/蓝量超过上限则截断，否则保留（支持残血下线）
+        if (role.Hp > role.MaxHp) role.Hp = role.MaxHp;
+        if (role.Mp > role.MaxMp) role.Mp = role.MaxMp;
+        if (role.Hp <= 0) role.Hp = 1; // 至少留1点血，避免登录即死
 
         // 补初始化 JobSkills（老角色可能没有这个字段）
         if (role.JobSkills.Count == 0 && !string.IsNullOrEmpty(role.Job))
@@ -146,6 +151,8 @@ public class EnterGameHandler : IMessageHandler
                     NpcInstanceId = (ulong)n.InstanceId,
                     NpcName = n.Name,
                     NpcType = n.NpcType,
+                    X = n.X,
+                    Y = n.Y,
                 });
             }
         }

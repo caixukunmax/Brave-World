@@ -57,15 +57,15 @@ namespace ClinetCSharp
 
         static ComponentRegistry()
         {
-            Register("appearance",    () => new AppearanceComponent(),    "外观");
-            Register("labels",        () => new LabelGroupComponent(),    "标签");
-            Register("healthbar",     () => new BarGroupComponent("healthbar", "血条"), "血条");
-            Register("mpbar",         () => new BarGroupComponent("mpbar", "MP条"), "MP条");
-            Register("castbar",       () => new CastBarComponent(),       "施法条");
-            Register("actionbar",     () => new ActionBarComponent(),     "动作栏");
-            Register("levelbadge",    () => new LevelBadgeComponent(),    "等级徽章");
-            Register("monster_ai",    () => new MonsterAiComponent(),     "怪物AI");
-            Register("npc_interact",  () => new NpcInteractComponent(),   "交互面板");
+            Register("appearance", () => new AppearanceComponent(), "外观");
+            Register("labels", () => new LabelGroupComponent(), "标签");
+            Register("healthbar", () => new BarGroupComponent("healthbar", "血条"), "血条");
+            Register("mpbar", () => new BarGroupComponent("mpbar", "MP条"), "MP条");
+            Register("castbar", () => new CastBarComponent(), "施法条");
+            Register("actionbar", () => new ActionBarComponent(), "动作栏");
+            Register("levelbadge", () => new LevelBadgeComponent(), "等级徽章");
+            Register("monster_ai", () => new MonsterAiComponent(), "怪物AI");
+            Register("npc_interact", () => new NpcInteractComponent(), "交互面板");
         }
     }
 }

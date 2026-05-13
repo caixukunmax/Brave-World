@@ -11,7 +11,7 @@ namespace ClinetCSharp
         public override async void _Ready()
         {
             GD.Print("[ScreenshotTool] _Ready() called - ScreenshotTool initializing...");
-            
+
             var dir = DirAccess.Open("res://");
             if (dir != null && !dir.DirExists("screenshots"))
             {
@@ -41,7 +41,7 @@ namespace ClinetCSharp
             // {
             //     GD.Print("[ScreenshotTool] _Process running, frames: " + Engine.GetProcessFrames());
             // }
-            
+
             // 备选：通过 Input.IsKeyPressed 检测 F12（用于 _Input 被拦截的情况）
             if (Input.IsKeyPressed(ScreenshotKey) && !Input.IsKeyPressed(Key.Shift) && !Input.IsKeyPressed(Key.Ctrl) && !Input.IsKeyPressed(Key.Alt))
             {
@@ -64,21 +64,21 @@ namespace ClinetCSharp
         private async void TakeScreenshot()
         {
             GD.Print("[ScreenshotTool] Taking screenshot...");
-            
+
             // 截图前隐藏调试面板
             var debugPanel = GetTree().GetFirstNodeInGroup("debug_panel");
             var debugButtonCanvas = GetNodeOrNull("/root/Main/DebugButtonCanvas");
-            
+
             bool wasDebugPanelVisible = false;
             bool wasDebugButtonVisible = false;
-            
+
             if (debugPanel != null)
             {
                 wasDebugPanelVisible = debugPanel is Control ctrl && ctrl.Visible;
                 if (debugPanel is Control ctrlHide) ctrlHide.Visible = false;
                 GD.Print("[ScreenshotTool] DebugPanel hidden for screenshot");
             }
-            
+
             if (debugButtonCanvas != null)
             {
                 wasDebugButtonVisible = debugButtonCanvas is CanvasLayer btnCanvas && btnCanvas.Visible;
@@ -113,7 +113,7 @@ namespace ClinetCSharp
 
             // 保存调试面板配置
             SaveDebugPanelData(folderPath);
-            
+
             // 保存日志
             SaveLogs(folderPath);
 
@@ -181,7 +181,7 @@ namespace ClinetCSharp
                 {
                     string content = file.GetAsText();
                     file.Close();
-                    
+
                     string destPath = folderPath + "/debug_panel_config.cfg";
                     var destFile = FileAccess.Open(destPath, FileAccess.ModeFlags.Write);
                     if (destFile != null)
@@ -202,7 +202,7 @@ namespace ClinetCSharp
             try
             {
                 string logContent = "";
-                
+
                 if (_logCollector != null)
                 {
                     // 使用 LogCollector 获取日志
@@ -245,7 +245,7 @@ namespace ClinetCSharp
                 {
                     string content = file.GetAsText();
                     file.Close();
-                    
+
                     // 只返回最后 100 行
                     var lines = content.Split('\n');
                     int startIdx = System.Math.Max(0, lines.Length - 100);

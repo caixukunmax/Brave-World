@@ -21,6 +21,7 @@ namespace ClinetCSharp
         // 测试直通流程状态
         private enum TestFlowState { None, Login, SelectServer, EnterGame, CreateRole }
         private TestFlowState _testFlowState = TestFlowState.None;
+        private bool _pendingTestDirect; // 重连成功后自动触发 Test Direct
 
         public override void _Ready()
         {
@@ -72,6 +73,13 @@ namespace ClinetCSharp
             GD.Print("[LoginScene] Connected to server");
             _statusLabel.Text = "已连接到服务器";
             _loginButton.Disabled = false;
+
+            // 如果重连前点了 Test Direct，连上后自动继续
+            if (_pendingTestDirect)
+            {
+                _pendingTestDirect = false;
+                OnTestDirectPressed();
+            }
         }
 
         private void OnConnectionError(string error)
@@ -195,9 +203,17 @@ namespace ClinetCSharp
 
         private void OnTestDirectPressed()
         {
-            if (_network == null || !_network.IsServerConnected())
+            if (_network == null)
             {
-                _statusLabel.Text = "未连接服务器";
+                _statusLabel.Text = "网络管理器未初始化";
+                return;
+            }
+
+            if (!_network.IsServerConnected())
+            {
+                _statusLabel.Text = "正在连接服务器...";
+                _pendingTestDirect = true;
+                _network.ConnectToServer();
                 return;
             }
 

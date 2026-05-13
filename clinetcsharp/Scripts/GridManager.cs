@@ -10,6 +10,19 @@ namespace ClinetCSharp
     [GlobalClass]
     public partial class GridManager : Node2D
     {
+        public enum GridLineWidthMode
+        {
+            FixedWorld = 0,
+            FixedScreen = 1,
+            AdaptiveCalibration = 2,
+        }
+
+        public enum GridSizeMode
+        {
+            Manual = 0,
+            ResponsiveVisibleCount = 1,
+        }
+
         [Export] public int GridSize { get; set; } = 64;
         [Export] public int MapWidth { get; set; } = 50;
         [Export] public int MapHeight { get; set; } = 50;
@@ -83,8 +96,8 @@ namespace ClinetCSharp
 
         public override void _Process(double _delta)
         {
-            // 自适应校准模式下，检测相机 zoom 变化并重新绘制
-            if (AdaptiveCalibrationEnabled)
+            // 网格世界线宽始终依赖相机 zoom，因此任意 zoom 变化都需要重绘。
+            if (AutoLineWidth || AdaptiveCalibrationEnabled || _previewLineWidth > 0.0f)
             {
                 var currentZoom = GetCameraZoom();
                 if (Mathf.Abs(currentZoom - _lastCameraZoom) > 0.001f)
@@ -148,114 +161,83 @@ namespace ClinetCSharp
 
         private void DrawGrid()
         {
-            // 获取相机 zoom
             var cameraZoom = GetCameraZoom();
-
-            // 防止 zoom 过小导致线宽计算异常
             cameraZoom = Mathf.Max(cameraZoom, 0.01f);
+            var (lineWidthWorld, lineColor) = ComputeGridLineRenderStyle(cameraZoom);
 
-            // 计算屏幕线宽（优先级：预览值 > 自适应校准 > 手动模式）
-            float screenLineWidth;
-            if (_previewLineWidth > 0)
-            {
-                // 预览模式：使用预览值（滑块拖动中）
-                screenLineWidth = _previewLineWidth;
-            }
-            else if (AdaptiveCalibrationEnabled)
-            {
-                // 自适应校准模式：根据相机zoom实时计算
-                screenLineWidth = GetAdaptiveLineWidth(cameraZoom);
-                // 限制在最小/最大范围内
-                screenLineWidth = Mathf.Clamp(screenLineWidth, MinScreenLineWidth, MaxScreenLineWidth);
-            }
-            else
-            {
-                // 手动模式：使用设置的线宽，但根据 zoom 自动调整以确保可见
-                // 关键公式：屏幕线宽 = 基础线宽，但要保证最小值
-                screenLineWidth = Mathf.Max(LineWidthScale, MinScreenLineWidth);
-            }
-
-            // 确保屏幕线宽不会太小（防止在远处看不见）
-            screenLineWidth = Mathf.Max(screenLineWidth, MinScreenLineWidth);
-
-            // 确保最小 0.5px，防止 round 后变成 0
-            screenLineWidth = Mathf.Max(screenLineWidth, 0.5f);
-
-            // 转换到世界坐标：世界线宽 = 屏幕线宽 / zoom
-            // 例如：屏幕要显示 1.5px 线宽，当 zoom=0.4 时，世界线宽 = 1.5 / 0.4 = 3.75
-            var lineWidthWorld = screenLineWidth / cameraZoom;
-
-            // 限制世界线宽在合理范围（防止极端值）
-            // 最小 0.01（允许细线），最大不超过格子大小的 30%（防止太粗）
-            lineWidthWorld = Mathf.Clamp(lineWidthWorld, 0.01f, GridSize * 0.3f);
-
-            // 绘制所有格子的边框
             for (int y = 0; y < MapHeight; y++)
             {
                 for (int x = 0; x < MapWidth; x++)
                 {
                     var cell = GridData[y][x];
                     if (cell.Exists)
-                        DrawCellBorderNormal(x, y, lineWidthWorld);
+                        DrawCellBorderNormal(x, y, lineWidthWorld, lineColor);
                     else
                     {
-                        // 被移除的格子
                         if (ShowRemovedCells)
                         {
                             var pos = new Vector2(x * GridSize, y * GridSize);
                             var rect = new Rect2(pos, new Vector2(GridSize, GridSize));
                             DrawRect(rect, RemovedCellColor, true);
                         }
-                        DrawCellBorderRemoved(x, y, lineWidthWorld);
                     }
                 }
             }
         }
 
-        private void DrawCellBorderNormal(int x, int y, float lineWidth)
+        private (float lineWidthWorld, Color lineColor) ComputeGridLineRenderStyle(float cameraZoom)
         {
-            // 绘制存在的格子的完整边框（使用填充矩形，避免 draw_rect 边框的闪烁问题）
-            var pos = new Vector2(x * GridSize, y * GridSize);
-            var size = new Vector2(GridSize, GridSize);
+            float targetScreenLineWidth = GetTargetScreenLineWidth(cameraZoom);
+            targetScreenLineWidth = Mathf.Clamp(targetScreenLineWidth, MinScreenLineWidth, MaxScreenLineWidth);
 
-            // 使用填充矩形绘制四条边，抗锯齿效果更好
-            // 上边
-            DrawRect(new Rect2(pos, new Vector2(size.X, lineWidth)), LineColor, true);
-            // 下边
-            DrawRect(new Rect2(pos + new Vector2(0, size.Y - lineWidth), new Vector2(size.X, lineWidth)), LineColor, true);
-            // 左边
-            DrawRect(new Rect2(pos, new Vector2(lineWidth, size.Y)), LineColor, true);
-            // 右边
-            DrawRect(new Rect2(pos + new Vector2(size.X - lineWidth, 0), new Vector2(lineWidth, size.Y)), LineColor, true);
+            float alphaScale = 1.0f;
+            float drawScreenLineWidth = targetScreenLineWidth;
+
+            // 小于 1px 时改用 1px 几何线 + alpha 模拟细线，稳定性比真实亚像素矩形更好。
+            if (targetScreenLineWidth < 1.0f)
+            {
+                drawScreenLineWidth = 1.0f;
+                alphaScale = Mathf.Clamp(targetScreenLineWidth, 0.35f, 1.0f);
+            }
+
+            float lineWidthWorld = drawScreenLineWidth / cameraZoom;
+            lineWidthWorld = Mathf.Clamp(lineWidthWorld, 0.01f, GridSize * 0.3f);
+
+            var lineColor = LineColor;
+            lineColor.A *= alphaScale;
+            return (lineWidthWorld, lineColor);
         }
 
-        private void DrawCellBorderRemoved(int x, int y, float lineWidth)
+        private float GetTargetScreenLineWidth(float cameraZoom)
         {
-            // 绘制被移除格子的智能边框
-            // 只在与存在的格子相邻的方向显示边（作为存在的格子的边界）
-            // 使用填充矩形避免闪烁
+            if (_previewLineWidth > 0.0f)
+                return _previewLineWidth;
+
+            if (AdaptiveCalibrationEnabled)
+                return GetAdaptiveLineWidth(cameraZoom);
+
+            if (AutoLineWidth)
+                return Mathf.Max(LineWidthScale, MinScreenLineWidth);
+
+            return Mathf.Max(LineWidth, MinScreenLineWidth);
+        }
+
+        private void DrawCellBorderNormal(int x, int y, float lineWidth, Color lineColor)
+        {
             var pos = new Vector2(x * GridSize, y * GridSize);
             var size = new Vector2(GridSize, GridSize);
 
-            // 检查4个方向的邻居是否存在
-            bool hasLeft = x > 0 && GridData[y][x - 1].Exists;
-            bool hasRight = x < MapWidth - 1 && GridData[y][x + 1].Exists;
-            bool hasTop = y > 0 && GridData[y - 1][x].Exists;
-            bool hasBottom = y < MapHeight - 1 && GridData[y + 1][x].Exists;
+            // 唯一边界绘制：共享边只绘制一次，避免双倍叠加导致的“有些线更粗”。
+            DrawRect(new Rect2(pos, new Vector2(size.X, lineWidth)), lineColor, true);
+            DrawRect(new Rect2(pos, new Vector2(lineWidth, size.Y)), lineColor, true);
 
-            // 只绘制与存在的格子相邻的边（使用填充矩形）
-            // 上边
-            if (hasTop)
-                DrawRect(new Rect2(pos, new Vector2(size.X, lineWidth)), LineColor, true);
-            // 下边
-            if (hasBottom)
-                DrawRect(new Rect2(pos + new Vector2(0, size.Y - lineWidth), new Vector2(size.X, lineWidth)), LineColor, true);
-            // 左边
-            if (hasLeft)
-                DrawRect(new Rect2(pos, new Vector2(lineWidth, size.Y)), LineColor, true);
-            // 右边
-            if (hasRight)
-                DrawRect(new Rect2(pos + new Vector2(size.X - lineWidth, 0), new Vector2(lineWidth, size.Y)), LineColor, true);
+            bool drawRight = x == MapWidth - 1 || !GridData[y][x + 1].Exists;
+            bool drawBottom = y == MapHeight - 1 || !GridData[y + 1][x].Exists;
+
+            if (drawRight)
+                DrawRect(new Rect2(pos + new Vector2(size.X - lineWidth, 0), new Vector2(lineWidth, size.Y)), lineColor, true);
+            if (drawBottom)
+                DrawRect(new Rect2(pos + new Vector2(0, size.Y - lineWidth), new Vector2(size.X, lineWidth)), lineColor, true);
         }
 
         private float GetCameraZoom()
@@ -480,6 +462,12 @@ namespace ClinetCSharp
             QueueRedraw();
         }
 
+        public void SetFixedWorldLineWidth(float width)
+        {
+            LineWidth = Mathf.Clamp(width, 0.01f, 20.0f);
+            QueueRedraw();
+        }
+
         public float GetLineWidthScale() => LineWidthScale;
 
         public void SetAutoLineWidth(bool enabled)
@@ -511,6 +499,45 @@ namespace ClinetCSharp
             QueueRedraw();
         }
 
+        public GridLineWidthMode GetGridLineWidthMode()
+        {
+            if (AdaptiveCalibrationEnabled)
+                return GridLineWidthMode.AdaptiveCalibration;
+            if (AutoLineWidth)
+                return GridLineWidthMode.FixedScreen;
+            return GridLineWidthMode.FixedWorld;
+        }
+
+        public void SetGridLineWidthMode(GridLineWidthMode mode)
+        {
+            switch (mode)
+            {
+                case GridLineWidthMode.FixedWorld:
+                    SetAdaptiveCalibrationEnabled(false);
+                    SetAutoLineWidth(false);
+                    break;
+                case GridLineWidthMode.FixedScreen:
+                    SetAdaptiveCalibrationEnabled(false);
+                    SetAutoLineWidth(true);
+                    break;
+                case GridLineWidthMode.AdaptiveCalibration:
+                    SetAutoLineWidth(false);
+                    SetAdaptiveCalibrationEnabled(true);
+                    break;
+            }
+            QueueRedraw();
+        }
+
+        public GridSizeMode GetGridSizeMode()
+        {
+            return ResponsiveMode ? GridSizeMode.ResponsiveVisibleCount : GridSizeMode.Manual;
+        }
+
+        public void SetGridSizeMode(GridSizeMode mode)
+        {
+            SetResponsiveMode(mode == GridSizeMode.ResponsiveVisibleCount);
+        }
+
         public void SetPreviewLineWidth(float width)
         {
             _previewLineWidth = width;
@@ -537,19 +564,14 @@ namespace ClinetCSharp
         private float GetAdaptiveLineWidth(float zoom)
         {
             const float EPSILON = 0.001f;
-
-            // 防止 zoom 过小
             zoom = Mathf.Max(zoom, 0.01f);
 
-            // 防除零：如果两个zoom值相同，退化为简单反比缩放
             if (Mathf.Abs(RefZoomB - RefZoomA) < EPSILON)
             {
-                var avgZoom = (RefZoomA + RefZoomB) / 2.0f;
                 var avgWidth = (RefWidthA + RefWidthB) / 2.0f;
-                return avgWidth * avgZoom / zoom;
+                return avgWidth;
             }
 
-            // 动态排序：确定哪个是低zoom、哪个是高zoom
             float lowZoom, lowWidth, highZoom, highWidth;
 
             if (RefZoomA < RefZoomB)
@@ -567,14 +589,11 @@ namespace ClinetCSharp
                 highWidth = RefWidthA;
             }
 
-            // 范围外：反比外推（确保视野拉远时线宽增加）
-            if (zoom < lowZoom)
-                return lowWidth * lowZoom / zoom;
-            else if (zoom > highZoom)
-                return highWidth * highZoom / zoom;
-
-            // 范围内：线性插值
-            var t = (zoom - lowZoom) / (highZoom - lowZoom);
+            float logLow = Mathf.Log(Mathf.Max(lowZoom, 0.01f));
+            float logHigh = Mathf.Log(Mathf.Max(highZoom, 0.01f));
+            float logZoom = Mathf.Log(zoom);
+            float t = Mathf.InverseLerp(logLow, logHigh, logZoom);
+            t = t * t * (3.0f - 2.0f * t);
             return Mathf.Lerp(lowWidth, highWidth, t);
         }
 

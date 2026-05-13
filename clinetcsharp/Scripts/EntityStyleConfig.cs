@@ -57,11 +57,17 @@ namespace ClinetCSharp
         public float InteractMenuOffsetBX = -60f;
         public float InteractMenuOffsetBY = -20f;
 
-        public int ComputeVisualSize(int gridSize) =>
-            Mathf.Clamp((int)(gridSize * VisualSizeScale), 10, gridSize);
+        public int ComputeVisualOuterSize(int gridSize) =>
+            Mathf.Clamp(Mathf.RoundToInt(gridSize * VisualSizeScale), 10, gridSize);
 
-        public float ComputeBorderWidth(int gridSize) =>
-            Mathf.Clamp(gridSize * BorderWidthScale, 1.0f, 20.0f);
+        public int ComputeBorderWidth(int gridSize)
+        {
+            int outer = ComputeVisualOuterSize(gridSize);
+            return Mathf.Clamp(Mathf.RoundToInt(gridSize * BorderWidthScale), 1, Mathf.Max(1, outer / 2));
+        }
+
+        public int ComputeVisualSize(int gridSize) =>
+            Mathf.Max(2, ComputeVisualOuterSize(gridSize) - ComputeBorderWidth(gridSize) * 2);
 
         public EntityStyleConfig Clone()
         {

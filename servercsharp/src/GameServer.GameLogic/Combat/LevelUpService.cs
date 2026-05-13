@@ -114,6 +114,15 @@ public class LevelUpService
             {
                 OldLevel = oldLevel,
                 NewLevel = role.Level,
+                MaxHp = role.MaxHp,
+                MaxMp = role.MaxMp,
+                Hp = role.Hp,
+                Mp = role.Mp,
+                Patk = role.Patk,
+                Matk = role.Matk,
+                Pdef = role.Pdef,
+                Mdef = role.Mdef,
+                Agility = role.Agility,
             };
             _network.SendToAccount(accountId, role.ServerId,
                 (int)PProtocol.MessageId.GameLevelUpNotify, notify.ToByteArray());
@@ -130,9 +139,31 @@ public class LevelUpService
         int expReward = _tables.GetMonsterExp(monsterId);
         if (expReward <= 0) return;
 
-        _logger.LogInformation("[LevelUp] monster {MonsterId} killed by {AttackerId}, exp={Exp}",
-            monsterId, attackerId, expReward);
+        // 等级差经验惩罚
+        var monster = _tables.Monsters.GetValueOrDefault(monsterId);
+        int monsterLevel = monster?.Level ?? 1;
 
-        AddExp(attackerId, expReward);
+        if (!_session.TryGetPlayer(attackerId, out var role))
+            return;
+
+        int playerLevel = role.Level;
+        int levelDiff = playerLevel - monsterLevel;
+        double multiplier = levelDiff switch
+        {
+            >= 5 => 0.10,
+            >= 3 => 0.30,
+            >= 1 => 0.60,
+            >= -2 => 1.00,
+            >= -4 => 1.20,
+            _ => 1.50,
+        };
+
+        int finalExp = (int)(expReward * multiplier);
+        if (finalExp <= 0) finalExp = 1;
+
+        _logger.LogInformation("[LevelUp] monster {MonsterId}(Lv{MLv}) killed by {AttackerId}(Lv{PLv}), base={Base}, mult={Mult:P0}, final={Final}",
+            monsterId, monsterLevel, attackerId, playerLevel, expReward, multiplier, finalExp);
+
+        AddExp(attackerId, finalExp);
     }
 }

@@ -26,6 +26,7 @@ obj/
 # Godot generated
 clinetcsharp/.godot/
 clinetcsharp/TempGenerated/
+*.uid
 
 # Build logs
 clinetcsharp/build_*.log
@@ -41,3 +42,7 @@ protocols/gen/
 
 # Server logs
 servercsharp/logs/
+
+# Temporary scripts
+/*.py
+maptab_*

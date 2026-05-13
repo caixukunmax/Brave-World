@@ -146,6 +146,28 @@ public class LubanTableLoader
     }
 
     /// <summary>
+    /// 获取指定等级的玩家完整属性（基础 + 等级成长）
+    /// 返回 (hp, mp, agility, patk, matk, pdef, mdef, mpRegen)
+    /// </summary>
+    public (int hp, int mp, int agility, int patk, int matk, int pdef, int mdef, int mpRegen) GetPlayerAttrsByLevel(int level)
+    {
+        var (hp, mp, agility, patk, matk, pdef, mdef, mpRegen) = GetPlayerBaseAttrs();
+        for (int lv = 2; lv <= level; lv++)
+        {
+            var cfg = GetLevelUp(lv);
+            if (cfg == null) continue;
+            hp += cfg.Hp;
+            mp += cfg.Mp;
+            patk += cfg.Patk;
+            matk += cfg.Matk;
+            pdef += cfg.Pdef;
+            mdef += cfg.Mdef;
+            agility += cfg.Agility;
+        }
+        return (hp, mp, agility, patk, matk, pdef, mdef, mpRegen);
+    }
+
+    /// <summary>
     /// 从 Monster 模板的 attrs[] 解析战斗属性。
     /// EMonsterAttr: HP=1, ATK=2, DEF=3
     /// 当 attrs 只有 HP/ATK/DEF 时，ATK 映射为 Patk，DEF 映射为 Pdef，

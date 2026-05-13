@@ -41,11 +41,18 @@ public class MoveStartHandler : IMessageHandler
         if (_session.CombatService?.IsCasting(claims.AccountId) == true)
             return MoveRsp(PCommon.ErrorCode.Forbidden, "casting", fromX, fromY);
 
-        // 获取玩家移动速度
+        // 获取玩家移动速度（钳制在下限之上，防止过高移速导致闪现感）
         int durationMs = GameConstants.BaseMoveSpeedMs;
         if (_session.TryGetPlayer(claims.AccountId, out var player))
         {
             durationMs = player.MoveSpeedMs > 0 ? player.MoveSpeedMs : GameConstants.BaseMoveSpeedMs;
+            // move_speed 属性值范围 120~600，值越大越快
+            // 映射到实际移动时间：120→600ms（最慢），600→120ms（最快）
+            durationMs = GameConstants.MinMoveSpeedMs + GameConstants.MaxMoveSpeedMs - durationMs;
+            if (durationMs < GameConstants.MinMoveSpeedMs)
+                durationMs = GameConstants.MinMoveSpeedMs;
+            if (durationMs > GameConstants.MaxMoveSpeedMs)
+                durationMs = GameConstants.MaxMoveSpeedMs;
         }
 
         // 预占目标格

@@ -181,6 +181,7 @@ namespace ClinetCSharp
             private VBoxContainer _vbox;
             private Label _cdLabel;
             private PanelContainer _iconBox;
+            private SkillIconView _iconView;
             private Label _nameLabel;
             private ColorRect _cdMask;
             private PanelContainer _highlight;
@@ -199,8 +200,10 @@ namespace ClinetCSharp
                 AddThemeStyleboxOverride("panel", new StyleBoxFlat
                 {
                     BgColor = new Color(0, 0, 0, 0),
-                    BorderWidthBottom = 0, BorderWidthLeft = 0,
-                    BorderWidthRight = 0, BorderWidthTop = 0,
+                    BorderWidthBottom = 0,
+                    BorderWidthLeft = 0,
+                    BorderWidthRight = 0,
+                    BorderWidthTop = 0,
                 });
 
                 BuildChildren();
@@ -212,8 +215,14 @@ namespace ClinetCSharp
                 _vbox = new VBoxContainer
                 {
                     Name = "VBox",
-                    AnchorLeft = 0, AnchorTop = 0, AnchorRight = 1, AnchorBottom = 1,
-                    OffsetLeft = 2, OffsetTop = 2, OffsetRight = -2, OffsetBottom = -2,
+                    AnchorLeft = 0,
+                    AnchorTop = 0,
+                    AnchorRight = 1,
+                    AnchorBottom = 1,
+                    OffsetLeft = 2,
+                    OffsetTop = 2,
+                    OffsetRight = -2,
+                    OffsetBottom = -2,
                     MouseFilter = MouseFilterEnum.Ignore,
                 };
                 _vbox.AddThemeConstantOverride("separation", 0);
@@ -244,6 +253,21 @@ namespace ClinetCSharp
                 _iconBox.AddThemeStyleboxOverride("panel", UiStyles.CreateSlotStyle());
                 _vbox.AddChild(_iconBox);
 
+                _iconView = new SkillIconView
+                {
+                    Name = "IconView",
+                    AnchorLeft = 0,
+                    AnchorTop = 0,
+                    AnchorRight = 1,
+                    AnchorBottom = 1,
+                    OffsetLeft = 4,
+                    OffsetTop = 4,
+                    OffsetRight = -4,
+                    OffsetBottom = -4,
+                    MouseFilter = MouseFilterEnum.Ignore,
+                };
+                _iconBox.AddChild(_iconView);
+
                 // CD 遮罩 — 覆盖图标框，从下往上填充
                 _cdMask = new ColorRect
                 {
@@ -251,7 +275,10 @@ namespace ClinetCSharp
                     Color = new Color(0, 0, 0, 0.55f),
                     Visible = false,
                     MouseFilter = MouseFilterEnum.Ignore,
-                    AnchorLeft = 0, AnchorRight = 1, AnchorBottom = 1, AnchorTop = 0,
+                    AnchorLeft = 0,
+                    AnchorRight = 1,
+                    AnchorBottom = 1,
+                    AnchorTop = 0,
                 };
                 _iconBox.AddChild(_cdMask);
 
@@ -274,7 +301,10 @@ namespace ClinetCSharp
                     Name = "Highlight",
                     Visible = false,
                     MouseFilter = MouseFilterEnum.Ignore,
-                    AnchorLeft = 0, AnchorTop = 0, AnchorRight = 1, AnchorBottom = 1,
+                    AnchorLeft = 0,
+                    AnchorTop = 0,
+                    AnchorRight = 1,
+                    AnchorBottom = 1,
                 };
                 _highlight.AddThemeStyleboxOverride("panel", UiStyles.CreateHighlightStyle());
                 AddChild(_highlight);
@@ -298,12 +328,14 @@ namespace ClinetCSharp
                     _nameLabel.Text = SkillDataUtil.GetName(skillId);
                     _nameLabel.AddThemeColorOverride("font_color", new Color(0.8f, 0.8f, 0.8f));
                     Modulate = Colors.White;
+                    _iconView.SetSkill(skillId);
                 }
                 else
                 {
                     _nameLabel.Text = "空";
                     _nameLabel.AddThemeColorOverride("font_color", new Color(0.4f, 0.4f, 0.4f));
                     Modulate = new Color(1, 1, 1, 0.5f);
+                    _iconView.SetSkill(0);
                 }
                 ClearCd();
             }
@@ -330,6 +362,8 @@ namespace ClinetCSharp
             public void SyncIconSize(int iconSize)
             {
                 _iconBox.CustomMinimumSize = new Vector2(iconSize, iconSize);
+                if (_iconView != null)
+                    _iconView.CustomMinimumSize = new Vector2(Mathf.Max(8, iconSize - 8), Mathf.Max(8, iconSize - 8));
             }
 
             public void SyncNameFontSize(int fontSize)

@@ -51,8 +51,9 @@ namespace ClinetCSharp
         /// <summary>处理地图同步（进地图时批量创建掉落物）</summary>
         public void OnMapInfoSyncDrops(List<DropItemInfo> drops)
         {
-            // 清除旧掉落物
-            foreach (var id in _drops.Keys)
+            // 清除旧掉落物（先复制 Keys 再遍历，避免遍历字典时修改字典抛异常）
+            var oldIds = new List<long>(_drops.Keys);
+            foreach (var id in oldIds)
             {
                 RemoveDropItem(id);
             }

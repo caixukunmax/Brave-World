@@ -1,5 +1,6 @@
 using GameServer.Common;
 using GameServer.Common.Buffs;
+using GameServer.Common.Config;
 using GameServer.Common.Models;
 using GameServer.Common.Net;
 using GameServer.Database.Models;
@@ -20,12 +21,14 @@ public class GmCommandHandler : IMessageHandler
     private readonly PlayerSessionManager _session;
     private readonly INetworkSender _network;
     private readonly LubanTableLoader _tables;
+    private readonly MapDataProvider _mapData;
 
-    public GmCommandHandler(PlayerSessionManager session, INetworkSender network, LubanTableLoader tables)
+    public GmCommandHandler(PlayerSessionManager session, INetworkSender network, LubanTableLoader tables, MapDataProvider mapData)
     {
         _session = session;
         _network = network;
         _tables = tables;
+        _mapData = mapData;
     }
 
     public async Task<byte[]?> HandleAsync(MessageContext ctx, byte[] data)
@@ -100,6 +103,19 @@ public class GmCommandHandler : IMessageHandler
             var attrKey = RoleAttrs.NameToKey(attrName);
             if (attrKey == null)
                 return new PGame.GmCommandResponse { Code = PCommon.ErrorCode.InvalidRequest, Message = $"unknown attr: {attrName}. valid: hp,max_hp,mp,max_mp,agility,patk,matk,pdef,mdef,mp_regen,move_speed" }.ToByteArray();
+
+            // 移速范围校验
+            if (attrName == "move_speed")
+            {
+                if (attrValue < GameConstants.MinMoveSpeedMs)
+                    return new PGame.GmCommandResponse { Code = PCommon.ErrorCode.InvalidRequest, Message = $"move_speed must be >= {GameConstants.MinMoveSpeedMs}ms" }.ToByteArray();
+                if (attrValue > GameConstants.MaxMoveSpeedMs)
+                    return new PGame.GmCommandResponse { Code = PCommon.ErrorCode.InvalidRequest, Message = $"move_speed must be <= {GameConstants.MaxMoveSpeedMs}ms" }.ToByteArray();
+            }
+
+            // 通用非负校验（HP/MP 类允许 0，Max 类至少 1）
+            if (attrValue < 0 && attrName is not "hp" and not "mp")
+                return new PGame.GmCommandResponse { Code = PCommon.ErrorCode.InvalidRequest, Message = $"{attrName} must be >= 0" }.ToByteArray();
 
             // 更新 Role 内存对象
             ApplyAttrToRole(player, attrName, attrValue);
@@ -193,6 +209,102 @@ public class GmCommandHandler : IMessageHandler
                 });
             _network.SendToAccount(claims.AccountId, claims.ServerId, (int)PProtocol.MessageId.GameBuffUpdateNotify, addNotify.ToByteArray());
             return new PGame.GmCommandResponse { Code = PCommon.ErrorCode.Success, Message = $"added buff {buffId}" }.ToByteArray();
+        }
+
+        if (cmd == "reset")
+        {
+            // 1. 等级经验重置
+            player.Level = 1;
+            player.Exp = 0;
+
+            // 2. 属性重置为 Lv1 初始值
+            var (hp, mp, agility, patk, matk, pdef, mdef, mpRegen) = _tables.GetPlayerAttrsByLevel(1);
+            player.MaxHp = hp; player.Hp = hp;
+            player.MaxMp = mp; player.Mp = mp;
+            player.Agility = agility;
+            player.Patk = patk; player.Matk = matk;
+            player.Pdef = pdef; player.Mdef = mdef;
+            player.MpRegen = mpRegen;
+
+            // 3. 技能重置为职业默认
+            var job = string.IsNullOrEmpty(player.Job) ? "战士" : player.Job;
+            var defaultSkills = _tables.GetJobDefaultSkills(job);
+            player.LearnedSkills = new List<int>(defaultSkills.learned);
+            player.EquippedSkills = new List<int>(defaultSkills.equipped);
+            if (player.JobSkills.ContainsKey(job))
+            {
+                player.JobSkills[job] = new JobSkillData
+                {
+                    LearnedSkills = new List<int>(defaultSkills.learned),
+                    EquippedSkills = new List<int>(defaultSkills.equipped),
+                };
+            }
+
+            // 4. 传送到出生点
+            var currentMap = player.CurrentMap;
+            var (spawnX, spawnY) = _mapData.GetSpawnPoint(currentMap);
+            var walkable = _mapData.FindNearestWalkable(currentMap, spawnX, spawnY);
+            if (walkable != null) { spawnX = walkable.Value.x; spawnY = walkable.Value.y; }
+            player.GridX = spawnX;
+            player.GridY = spawnY;
+
+            // 5. 清空地图上的 Buff
+            var mapPlayer = _session.MapService.GetPlayerOnMap(currentMap, claims.AccountId);
+            if (mapPlayer != null)
+            {
+                mapPlayer.Buffs.ClearAll();
+                mapPlayer.Level = 1;
+                mapPlayer.Hp = hp; mapPlayer.MaxHp = hp;
+                mapPlayer.Mp = mp; mapPlayer.MaxMp = mp;
+                mapPlayer.Agility = agility;
+                mapPlayer.Patk = patk; mapPlayer.Matk = matk;
+                mapPlayer.Pdef = pdef; mapPlayer.Mdef = mdef;
+                mapPlayer.MpRegen = mpRegen;
+            }
+
+            // 6. 持久化到 MongoDB
+            await _session.Roles.Update(player.RoleId, u => u
+                .Set(r => r.Level, 1)
+                .Set(r => r.Exp, 0)
+                .Set(r => r.Hp, hp)
+                .Set(r => r.MaxHp, hp)
+                .Set(r => r.Mp, mp)
+                .Set(r => r.MaxMp, mp)
+                .Set(r => r.Agility, agility)
+                .Set(r => r.Patk, patk)
+                .Set(r => r.Matk, matk)
+                .Set(r => r.Pdef, pdef)
+                .Set(r => r.Mdef, mdef)
+                .Set(r => r.MpRegen, mpRegen)
+                .Set(r => r.LearnedSkills, player.LearnedSkills)
+                .Set(r => r.EquippedSkills, player.EquippedSkills)
+                .Set(r => r.JobSkills, player.JobSkills)
+                .Set(r => r.GridX, spawnX)
+                .Set(r => r.GridY, spawnY)
+            );
+
+            // 7. 推送属性同步
+            var now = (int)DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            var roleInfo = PlayerProtoMapper.BuildRoleInfo(player, now);
+            _network.SendToAccount(claims.AccountId, claims.ServerId, (int)PProtocol.MessageId.GameRoleAttrNotify, roleInfo.ToByteArray());
+
+            // 8. 推送 Buff 清空通知
+            if (mapPlayer != null)
+            {
+                var buffNotify = new PGame.BuffUpdateNotify { EntityId = (ulong)claims.AccountId };
+                _network.SendToAccount(claims.AccountId, claims.ServerId, (int)PProtocol.MessageId.GameBuffUpdateNotify, buffNotify.ToByteArray());
+            }
+
+            // 9. 广播玩家移动（传送回出生点）
+            _session.MapService.PlayerMove(claims.AccountId, currentMap, spawnX, spawnY);
+
+            return new PGame.GmCommandResponse
+            {
+                Code = PCommon.ErrorCode.Success,
+                Message = $"RESET: level=1, exp=0, pos=({spawnX},{spawnY}), skills reset",
+                LearnedSkills = { player.LearnedSkills.Select(s => (uint)s).ToArray() },
+                EquippedSkills = { player.EquippedSkills.Select(s => (uint)s).ToArray() },
+            }.ToByteArray();
         }
 
         if (cmd == "removebuff")

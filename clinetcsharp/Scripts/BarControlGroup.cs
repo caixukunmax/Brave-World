@@ -97,26 +97,47 @@ namespace ClinetCSharp
 
         public static BarControlGroupDefaults HealthBar(int gridSize) => new BarControlGroupDefaults
         {
-            Visible = true, Length = 80, LengthScale = 80.0 / 111.0,
-            Height = 6, HeightScale = 6.0 / 111.0, Fill = 100,
-            OffsetX = 0, OffsetY = -70, CenterX = true,
-            Color = new Color(0, 0.8f, 0, 1), GridSize = gridSize
+            Visible = true,
+            Length = 80,
+            LengthScale = 80.0 / 111.0,
+            Height = 6,
+            HeightScale = 6.0 / 111.0,
+            Fill = 100,
+            OffsetX = 0,
+            OffsetY = -70,
+            CenterX = true,
+            Color = new Color(0, 0.8f, 0, 1),
+            GridSize = gridSize
         };
 
         public static BarControlGroupDefaults MpBar(int gridSize) => new BarControlGroupDefaults
         {
-            Visible = true, Length = 80, LengthScale = 80.0 / 111.0,
-            Height = 4, HeightScale = 4.0 / 111.0, Fill = 100,
-            OffsetX = 0, OffsetY = -62, CenterX = true,
-            Color = new Color(0.2f, 0.4f, 1.0f, 1), GridSize = gridSize
+            Visible = true,
+            Length = 80,
+            LengthScale = 80.0 / 111.0,
+            Height = 4,
+            HeightScale = 4.0 / 111.0,
+            Fill = 100,
+            OffsetX = 0,
+            OffsetY = -62,
+            CenterX = true,
+            Color = new Color(0.2f, 0.4f, 1.0f, 1),
+            GridSize = gridSize
         };
 
         public static BarControlGroupDefaults CastBar(int gridSize) => new BarControlGroupDefaults
         {
-            Visible = true, Length = 60, LengthScale = 60.0 / 111.0,
-            Height = 4, HeightScale = 4.0 / 111.0, Fill = 60,
-            OffsetX = 0, OffsetY = -80, CenterX = true,
-            Color = new Color(0.3f, 0.5f, 1, 1), GridSize = gridSize
+            Visible = true,
+            Length = 60,
+            LengthScale = 60.0 / 111.0,
+            Height = 4,
+            HeightScale = 4.0 / 111.0,
+            Fill = 60,
+            OffsetX = 0,
+            OffsetY = -80,
+            CenterX = true,
+            Color = new Color(0.3f, 0.5f, 1, 1),
+            GridSize = gridSize
         };
     }
 }

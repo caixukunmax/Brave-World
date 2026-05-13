@@ -82,6 +82,7 @@ namespace ClinetCSharp
             AddRenderComponent(new RenderComponents.AppearanceComponent());
             AddRenderComponent(new RenderComponents.HealthBarComponent());
             AddRenderComponent(new RenderComponents.MpBarComponent());
+            AddRenderComponent(new RenderComponents.DebugOverlayComponent());
             // 不再使用 LabelComponent — 改用 RichTextLabel 控件
         }
     }

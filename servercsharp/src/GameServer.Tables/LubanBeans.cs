@@ -2,6 +2,35 @@ using System.Text.Json.Serialization;
 
 namespace GameServer.Tables;
 
+public enum ERespawnType
+{
+    SpawnPoint = 0,
+    DeathPoint = 1,
+    RandomNearSpawn = 2,
+}
+
+public enum ESkillTargetType
+{
+    SingleEnemy = 1,
+    AllEnemiesInRange = 2,
+    Self = 3,
+    AllAlliesInRange = 4,
+}
+
+public enum CombatBehaviorType
+{
+    Auto = 0,
+    Melee = 1,
+    Ranged = 2,
+    Caster = 3,
+}
+
+public enum EBuffType
+{
+    Buff = 1,
+    Debuff = 2,
+}
+
 // ---- Monster ----
 
 public class MonsterRow
@@ -34,6 +63,8 @@ public class MapMonsterRow
     [JsonPropertyName("respawn_time")] public int RespawnTime { get; set; }
     [JsonPropertyName("is_active")] public bool IsActive { get; set; } = true;
     [JsonPropertyName("ai_id")] public int AiId { get; set; }
+    [JsonPropertyName("respawn_type")] public ERespawnType RespawnType { get; set; }
+    [JsonPropertyName("respawn_range")] public int RespawnRange { get; set; }
 }
 
 // ---- Ai ----
@@ -47,7 +78,7 @@ public class AiRow
     [JsonPropertyName("chase_interval_ms")] public int ChaseIntervalMs { get; set; }
     [JsonPropertyName("max_chase_distance")] public int MaxChaseDistance { get; set; }
     [JsonPropertyName("patrol_range")] public int PatrolRange { get; set; }
-    [JsonPropertyName("param_1")] public int Param1 { get; set; }
+    [JsonPropertyName("param_1")] public CombatBehaviorType Param1 { get; set; }
     [JsonPropertyName("param_2")] public int Param2 { get; set; }
     [JsonPropertyName("param_3")] public double Param3 { get; set; }
 }
@@ -109,7 +140,7 @@ public class SkillConfigRow
     [JsonPropertyName("post_cast_time")] public double PostCastTime { get; set; }
     [JsonPropertyName("cooldown")] public double Cooldown { get; set; }
     [JsonPropertyName("mp_cost")] public int MpCost { get; set; }
-    [JsonPropertyName("target_type")] public string TargetType { get; set; } = "SingleEnemy";
+    [JsonPropertyName("target_type")] public ESkillTargetType TargetType { get; set; } = ESkillTargetType.SingleEnemy;
     [JsonPropertyName("actions")] public List<CombatActionBeanRow> Actions { get; set; } = new();
     [JsonPropertyName("job")] public int Job { get; set; }
 }
@@ -162,7 +193,7 @@ public class BuffConfigRow
 {
     [JsonPropertyName("id")] public int Id { get; set; }
     [JsonPropertyName("name")] public string Name { get; set; } = "";
-    [JsonPropertyName("buff_type")] public string BuffType { get; set; } = "Buff";
+    [JsonPropertyName("buff_type")] public EBuffType BuffType { get; set; } = EBuffType.Buff;
     [JsonPropertyName("tags")] public List<string> Tags { get; set; } = new();
     [JsonPropertyName("duration")] public double Duration { get; set; }
     [JsonPropertyName("max_stacks")] public int MaxStacks { get; set; } = 1;

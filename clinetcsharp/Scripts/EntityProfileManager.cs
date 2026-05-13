@@ -30,6 +30,7 @@ namespace ClinetCSharp
 
             EnsureDefaultProfiles();
             LoadConfig();
+            NormalizeBuiltInProfiles();
             // 延迟绑定 ProfileId，等场景中的实体都 Ready 后再执行
             CallDeferred(nameof(AssignDefaultProfileIds));
         }
@@ -80,6 +81,45 @@ namespace ClinetCSharp
         public bool DeleteProfile(int id)
         {
             return _profiles.Remove(id);
+        }
+
+        #endregion
+
+        #region Built-in Profile Normalization
+
+        private void NormalizeBuiltInProfiles()
+        {
+            foreach (var profile in _profiles.Values)
+            {
+                if (profile.EntityType == "monster")
+                {
+                    var labels = profile.GetData<LabelGroupData>("labels");
+                    if (labels != null)
+                        EntityProfile.ConfigureMonsterLabelBindings(labels);
+                    continue;
+                }
+
+                if (profile.EntityType == "player")
+                {
+                    var appearance = profile.GetData<AppearanceData>("appearance");
+                    if (appearance != null && IsLegacyPlayerBackgroundDefault(appearance))
+                        appearance.BgOpacity = 0.35f;
+                }
+            }
+        }
+
+        private static bool IsLegacyPlayerBackgroundDefault(AppearanceData appearance)
+        {
+            if (appearance == null)
+                return false;
+
+            bool opacityLooksLegacyDefault = Mathf.Abs(appearance.BgOpacity - 0.1f) < 0.001f;
+            bool colorLooksUntouchedDefault =
+                Mathf.Abs(appearance.BgColor.R - 1.0f) < 0.001f &&
+                Mathf.Abs(appearance.BgColor.G - 1.0f) < 0.001f &&
+                Mathf.Abs(appearance.BgColor.B - 1.0f) < 0.001f;
+
+            return opacityLooksLegacyDefault && colorLooksUntouchedDefault;
         }
 
         #endregion
@@ -169,6 +209,10 @@ namespace ClinetCSharp
             if (entity is Player p)
             {
                 p.LevelBadgeVisible = false;
+                p.FontSizeOverride = 0;
+                p.SetFontBold(false);
+                p.SetFontItalic(false);
+                p.SetFontShadow(false);
             }
         }
 
@@ -214,7 +258,7 @@ namespace ClinetCSharp
                     if (!string.IsNullOrEmpty(labels.ContentPreview[i]))
                         entity.SetRichLabelText(i, labels.ContentPreview[i]);
                     entity.SetLabelVisible(i, labels.Visible[i]);
-                    entity.LabelFontSizes[i] = labels.FontSizes[i];
+                    entity.LabelFontSizes[i] = labels.UseGlobalFontSize[i] ? 0 : labels.FontSizes[i];
                     entity.LabelXOffsets[i] = labels.XOffset[i];
                     entity.LabelCenterX[i] = labels.CenterX[i];
                     entity.LabelYOffsets[i] = labels.YOffset[i];
@@ -228,13 +272,15 @@ namespace ClinetCSharp
                         float newX = labels.CenterX[i] ? 0 : labels.XOffset[i];
                         var newOffset = new Vector2(newX, labels.YOffset[i]);
                         p.SetLabelOffset(i, newOffset);
-                        p.SetLabelFontSize(i, labels.FontSizes[i]);
+                        p.SetLabelFontSize(i, labels.UseGlobalFontSize[i] ? 0 : labels.FontSizes[i]);
                         if (!string.IsNullOrEmpty(labels.ContentPreview[i]))
                             p.SetLabelText(i, labels.ContentPreview[i]);
                     }
                     // 全局字号
-                    if (labels.DefaultFontSize > 0)
-                        p.FontSizeOverride = labels.DefaultFontSize;
+                    p.FontSizeOverride = labels.DefaultFontSize;
+                    p.SetFontBold(labels.Bold);
+                    p.SetFontItalic(labels.Italic);
+                    p.SetFontShadow(labels.Shadow);
                     p.UpdateLabelFontSize();
                 }
 
@@ -289,6 +335,7 @@ namespace ClinetCSharp
             var actionBar = profile.GetData<ActionBarData>("actionbar");
             if (actionBar != null && !profile.IsComponentDisabled("actionbar"))
             {
+                entity.ActionBarForceShow = actionBar.ForceShow;
                 entity.ActionBarTextYOffset = actionBar.TextYOffset;
                 entity.ActionBarProgressHeight = actionBar.ProgressHeight;
             }

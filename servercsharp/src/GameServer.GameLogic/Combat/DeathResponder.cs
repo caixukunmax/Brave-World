@@ -65,8 +65,8 @@ public class DeathResponder
         var walkable = _mapData.FindNearestWalkable(currentMap, spawnX, spawnY);
         if (walkable != null) { spawnX = walkable.Value.x; spawnY = walkable.Value.y; }
 
-        // 4. 恢复满血
-        var (hp, mp, agility, patk, matk, pdef, mdef, _) = _tables.GetPlayerBaseAttrs();
+        // 4. 恢复满血（按当前等级计算属性）
+        var (hp, mp, agility, patk, matk, pdef, mdef, _) = _tables.GetPlayerAttrsByLevel(role.Level);
 
         // 5. 更新 Role 模型
         role.GridX = spawnX;

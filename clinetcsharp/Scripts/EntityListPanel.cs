@@ -112,13 +112,17 @@ namespace ClinetCSharp
 
             // 怪物
             _contentBox.AddChild(MakeHeader("怪物"));
-            if (_network != null && _network.Monsters.Count > 0)
+            var monsterMgr = GetTree()?.GetFirstNodeInGroup("monster_manager") as MonsterManager;
+            if (monsterMgr != null && monsterMgr.GetMonsters().Count > 0)
             {
-                foreach (var m in _network.Monsters)
+                foreach (var m in monsterMgr.GetMonsters())
                 {
+                    string posText = m.PendingGridPos.HasValue
+                        ? $"({m.GridX},{m.GridY}) -> ({m.PendingGridPos.Value.X},{m.PendingGridPos.Value.Y})"
+                        : $"({m.GridX},{m.GridY})";
                     var monsterLabel = new Label
                     {
-                        Text = $"  {m.Name} (Lv.{m.Level}) ({m.X},{m.Y})",
+                        Text = $"  {m.MonsterName} (Lv.{m.Level}) {posText}",
                     };
                     monsterLabel.AddThemeColorOverride("font_color", new Color(1, 0.5f, 0.5f));
                     _contentBox.AddChild(monsterLabel);

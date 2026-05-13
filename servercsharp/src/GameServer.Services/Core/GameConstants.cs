@@ -30,7 +30,9 @@ public static class GameConstants
     public const int BaseMatk = 10;
     public const int BasePdef = 5;
     public const int BaseMdef = 5;
-    public const int BaseMoveSpeedMs = 150;
+    public const int BaseMoveSpeedMs = 540;
+    public const int MinMoveSpeedMs = 120;
+    public const int MaxMoveSpeedMs = 600;
 
     // ---- ATB 战斗 ----
     public const double BaseAtbRate = 10;

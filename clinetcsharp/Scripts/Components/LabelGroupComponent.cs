@@ -6,260 +6,409 @@ namespace ClinetCSharp
 {
     public class LabelGroupComponent : IEntityTabComponent
     {
-        private const int N = 4;
+        private const int N = LabelGroupData.LabelCount;
+
         public string ComponentName => "labels";
         public string DisplayName => "标签";
         public Type DataType => typeof(LabelGroupData);
 
         private Action _onChanged;
 
-        private OptionButton _fontOption;
-        private Button _loadFontBtn;
         private HSlider _fontSizeSlider;
         private Label _fontSizeValue;
-        private CheckButton _boldCheck, _italicCheck, _shadowCheck;
-        private ColorPickerButton _defaultColorPicker;
+        private CheckButton _boldCheck;
+        private CheckButton _italicCheck;
+        private CheckButton _shadowCheck;
 
-        private CollapsibleContainer[] _collapsibles = new CollapsibleContainer[N];
-        private CheckButton[] _vis = new CheckButton[N];
-        private LineEdit[] _names = new LineEdit[N];
-        private LineEdit[] _texts = new LineEdit[N];
-        private HSlider[] _fss = new HSlider[N];
-        private Label[] _fsv = new Label[N];
-        private Button[] _cols = new Button[N];
-        private HSlider[] _oxs = new HSlider[N];
-        private Label[] _oxv = new Label[N];
-        private CheckButton[] _cxs = new CheckButton[N];
-        private HSlider[] _oys = new HSlider[N];
-        private Label[] _oyv = new Label[N];
-        private Button[] _resets = new Button[N];
+        private readonly CollapsibleContainer[] _collapsibles = new CollapsibleContainer[N];
+        private readonly CheckButton[] _vis = new CheckButton[N];
+        private readonly LineEdit[] _names = new LineEdit[N];
+        private readonly LineEdit[] _texts = new LineEdit[N];
+        private readonly CheckButton[] _useGlobalFontChecks = new CheckButton[N];
+        private readonly HSlider[] _fontSizeSliders = new HSlider[N];
+        private readonly Label[] _fontSizeValues = new Label[N];
+        private readonly HSlider[] _offsetXSliders = new HSlider[N];
+        private readonly Label[] _offsetXValues = new Label[N];
+        private readonly CheckButton[] _centerXChecks = new CheckButton[N];
+        private readonly HSlider[] _offsetYSliders = new HSlider[N];
+        private readonly Label[] _offsetYValues = new Label[N];
+        private readonly Button[] _resetButtons = new Button[N];
         private HashSet<string> _locked = new();
 
-        static readonly Color[] Palette = { Colors.Black, Colors.Red, Colors.Blue, Colors.Green, Colors.Yellow, Colors.Cyan, Colors.Magenta, Colors.White };
-
-        /// <summary>获取标签默认名称</summary>
         private static string DefaultLabelName(int i) => $"标签{i + 1}";
-
-        /// <summary>获取标签显示名称(如果用户设了名称就用用户的,否则用默认)</summary>
-        private string LabelDisplayName(int i) => string.IsNullOrEmpty(_names[i]?.Text) ? DefaultLabelName(i) : _names[i].Text;
 
         public void BuildUI(VBoxContainer parent)
         {
-            var fr = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
-            fr.AddChild(new Label { Text = "字体:", CustomMinimumSize = new Vector2(40, 0) });
-            _fontOption = new OptionButton { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
-            fr.AddChild(_fontOption);
-            _loadFontBtn = new Button { Text = "加载", CustomMinimumSize = new Vector2(60, 26) };
-            fr.AddChild(_loadFontBtn);
-            parent.AddChild(fr);
+            (_fontSizeSlider, _fontSizeValue) = CreateSliderRow(parent, "默认字号", 0, 48, 0, 1);
 
-            (_fontSizeSlider, _fontSizeValue) = SR(parent, "默认字号", 0, 48, 0, 1);
-
-            var cr = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
-            cr.AddChild(new Label { Text = "默认颜色:", CustomMinimumSize = new Vector2(70, 0) });
-            _defaultColorPicker = new ColorPickerButton { CustomMinimumSize = new Vector2(60, 26) };
-            cr.AddChild(_defaultColorPicker);
-            parent.AddChild(cr);
-
-            var sr = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
-            _boldCheck = new CheckButton { Text = "加粗", SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+            var styleRow = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+            _boldCheck = new CheckButton { Text = "粗体", SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
             _italicCheck = new CheckButton { Text = "斜体", SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
             _shadowCheck = new CheckButton { Text = "阴影", SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
-            sr.AddChild(_boldCheck); sr.AddChild(_italicCheck); sr.AddChild(_shadowCheck);
-            parent.AddChild(sr);
+            styleRow.AddChild(_boldCheck);
+            styleRow.AddChild(_italicCheck);
+            styleRow.AddChild(_shadowCheck);
+            parent.AddChild(styleRow);
             parent.AddChild(new HSeparator());
 
-            for (int i = 0; i < N; i++) BuildRow(parent, i);
+            for (int i = 0; i < N; i++)
+                BuildLabelRow(parent, i);
         }
 
-        void BuildRow(VBoxContainer c, int i)
+        private void BuildLabelRow(VBoxContainer parent, int index)
         {
-            // 每个标签用 CollapsibleContainer 包裹
-            var collapsible = new CollapsibleContainer(DefaultLabelName(i), collapsed: true);
-            _collapsibles[i] = collapsible;
+            var collapsible = new CollapsibleContainer(DefaultLabelName(index), collapsed: true);
+            _collapsibles[index] = collapsible;
 
-            // 标题行：名称(左半) + 内容(右半) + 可见性 + 颜色 + 重置
             var header = collapsible.HeaderRow;
-            _names[i] = new LineEdit { CustomMinimumSize = new Vector2(40, 0), SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, PlaceholderText = "名称" }; // ratio 1
-            header.AddChild(_names[i]);
-            _texts[i] = new LineEdit { CustomMinimumSize = new Vector2(40, 0), SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, PlaceholderText = "内容" }; // ratio 1
-            header.AddChild(_texts[i]);
-            _vis[i] = new CheckButton { ButtonPressed = true, TooltipText = "可见" }; 
-            header.AddChild(_vis[i]);
-            _cols[i] = new Button { Text = "色", CustomMinimumSize = new Vector2(30, 24) }; 
-            _cols[i].Modulate = Colors.Black; 
-            header.AddChild(_cols[i]);
-            _resets[i] = new Button { Text = "重置", CustomMinimumSize = new Vector2(40, 24) }; 
-            header.AddChild(_resets[i]);
+            _names[index] = new LineEdit
+            {
+                SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+                PlaceholderText = "标签名称"
+            };
+            header.AddChild(_names[index]);
 
-            // 内容区（折叠后隐藏的详细设置）
+            _texts[index] = new LineEdit
+            {
+                SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+                PlaceholderText = "标签内容"
+            };
+            header.AddChild(_texts[index]);
+
+            _vis[index] = new CheckButton
+            {
+                ButtonPressed = true,
+                TooltipText = "是否可见"
+            };
+            header.AddChild(_vis[index]);
+
+            _resetButtons[index] = new Button
+            {
+                Text = "重置",
+                CustomMinimumSize = new Vector2(48, 24)
+            };
+            header.AddChild(_resetButtons[index]);
+
             var content = collapsible.Content;
 
-            (_fss[i], _fsv[i]) = SR(content, "字号", 0, 48, 0, 1, 35);
-
-            var oxr = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
-            oxr.AddChild(new Label { Text = "X偏移", CustomMinimumSize = new Vector2(45, 0) });
-            _cxs[i] = new CheckButton { Text = "居中", ButtonPressed = true };
-            oxr.AddChild(_cxs[i]);
-            _oxs[i] = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = -150, MaxValue = 150, Step = 1, Value = 0, Scrollable = false, FocusMode = Control.FocusModeEnum.Click };
-            oxr.AddChild(_oxs[i]);
-            _oxv[i] = new Label { Text = "0", CustomMinimumSize = new Vector2(30, 0), HorizontalAlignment = HorizontalAlignment.Right };
-            oxr.AddChild(_oxv[i]);
-            content.AddChild(oxr);
-
-            var oyr = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
-            oyr.AddChild(new Label { Text = "Y偏移", CustomMinimumSize = new Vector2(45, 0) });
-            _oys[i] = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = -150, MaxValue = 150, Step = 1, Value = 0, Scrollable = false, FocusMode = Control.FocusModeEnum.Click };
-            oyr.AddChild(_oys[i]);
-            _oyv[i] = new Label { Text = "0", CustomMinimumSize = new Vector2(30, 0), HorizontalAlignment = HorizontalAlignment.Right };
-            oyr.AddChild(_oyv[i]);
-            content.AddChild(oyr);
-
-            _cxs[i].Toggled += (centered) =>
+            _useGlobalFontChecks[index] = new CheckButton
             {
-                _oxs[i].Editable = !centered;
-                _oxs[i].Modulate = centered ? new Color(0.5f, 0.5f, 0.5f, 1) : new Color(1, 1, 1, 1);
-                if (centered) { _oxs[i].SetBlockSignals(true); _oxs[i].Value = 0; _oxs[i].SetBlockSignals(false); _oxv[i].Text = "0"; }
+                Text = "使用全局字号",
+                ButtonPressed = true,
+                SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
             };
+            content.AddChild(_useGlobalFontChecks[index]);
 
-            // 名称输入框只是注释，不影响标题
+            (_fontSizeSliders[index], _fontSizeValues[index]) = CreateSliderRow(content, "局部字号", 0, 48, 0, 1, 72);
 
-            c.AddChild(collapsible);
+            var offsetXRow = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+            offsetXRow.AddChild(new Label { Text = "X偏移", CustomMinimumSize = new Vector2(52, 0) });
+            _centerXChecks[index] = new CheckButton { Text = "居中", ButtonPressed = true };
+            offsetXRow.AddChild(_centerXChecks[index]);
+            _offsetXSliders[index] = CreateSlider(-150, 150, 0, 1);
+            offsetXRow.AddChild(_offsetXSliders[index]);
+            _offsetXValues[index] = CreateValueLabel("0");
+            offsetXRow.AddChild(_offsetXValues[index]);
+            content.AddChild(offsetXRow);
+            SliderValueInput.Attach(_offsetXSliders[index], _offsetXValues[index], v => ((int)v).ToString());
+
+            var offsetYRow = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+            offsetYRow.AddChild(new Label { Text = "Y偏移", CustomMinimumSize = new Vector2(52, 0) });
+            _offsetYSliders[index] = CreateSlider(-150, 150, 0, 1);
+            offsetYRow.AddChild(_offsetYSliders[index]);
+            _offsetYValues[index] = CreateValueLabel("0");
+            offsetYRow.AddChild(_offsetYValues[index]);
+            content.AddChild(offsetYRow);
+            SliderValueInput.Attach(_offsetYSliders[index], _offsetYValues[index], v => ((int)v).ToString());
+
+            _centerXChecks[index].Toggled += centered => ApplyCenterXState(index, centered);
+            _useGlobalFontChecks[index].Toggled += useGlobal => ApplyGlobalFontState(index, useGlobal);
+
+            parent.AddChild(collapsible);
         }
-
-        /// <summary>LabelDisplayName 不再用于标题，标题固定为"标签N"</summary>
-        private static string FixedTitle(int i) => DefaultLabelName(i);
 
         public void SyncFromData(IComponentData data)
         {
-            if (data is not LabelGroupData d) return;
-            SS(_fontSizeSlider, d.DefaultFontSize, _fontSizeValue, d.DefaultFontSize.ToString());
-            _defaultColorPicker.Color = d.DefaultColor;
-            SC(_boldCheck, d.Bold); SC(_italicCheck, d.Italic); SC(_shadowCheck, d.Shadow);
+            if (data is not LabelGroupData labels)
+                return;
+
+            SetSliderSilent(_fontSizeSlider, labels.DefaultFontSize, _fontSizeValue, labels.DefaultFontSize.ToString());
+            SetCheckSilent(_boldCheck, labels.Bold);
+            SetCheckSilent(_italicCheck, labels.Italic);
+            SetCheckSilent(_shadowCheck, labels.Shadow);
+
             for (int i = 0; i < N; i++)
             {
-                SC(_vis[i], d.Visible[i]);
-                _names[i].Text = d.Names[i] ?? "";
-                _texts[i].Text = d.ContentPreview[i] ?? "";
-                SS(_fss[i], d.FontSizes[i], _fsv[i], d.FontSizes[i].ToString());
-                _cols[i].Modulate = d.ColorPreview[i];
-                SS(_oxs[i], d.XOffset[i], _oxv[i], ((int)d.XOffset[i]).ToString());
-                SC(_cxs[i], d.CenterX[i]); _oxs[i].Editable = !d.CenterX[i];
-                _oxs[i].Modulate = d.CenterX[i] ? new Color(0.5f, 0.5f, 0.5f, 1) : new Color(1, 1, 1, 1);
-                SS(_oys[i], d.YOffset[i], _oyv[i], ((int)d.YOffset[i]).ToString());
+                SetCheckSilent(_vis[i], labels.Visible[i]);
+                _names[i].Text = labels.Names[i] ?? "";
+                _texts[i].Text = labels.ContentPreview[i] ?? "";
+                SetCheckSilent(_useGlobalFontChecks[i], labels.UseGlobalFontSize[i]);
+                SetSliderSilent(_fontSizeSliders[i], labels.FontSizes[i], _fontSizeValues[i], labels.FontSizes[i].ToString());
+                SetSliderSilent(_offsetXSliders[i], labels.XOffset[i], _offsetXValues[i], ((int)labels.XOffset[i]).ToString());
+                SetCheckSilent(_centerXChecks[i], labels.CenterX[i]);
+                SetSliderSilent(_offsetYSliders[i], labels.YOffset[i], _offsetYValues[i], ((int)labels.YOffset[i]).ToString());
+
+                ApplyCenterXState(i, labels.CenterX[i]);
+                ApplyGlobalFontState(i, labels.UseGlobalFontSize[i]);
             }
-            _locked = new HashSet<string>(d.LockedProperties); ApplyLocks();
+
+            _locked = new HashSet<string>(labels.LockedProperties);
+            ApplyLocks();
         }
 
         public IComponentData SyncToData()
         {
-            var d = new LabelGroupData
+            var labels = new LabelGroupData
             {
-                DefaultFontSize = (int)_fontSizeSlider.Value, DefaultColor = _defaultColorPicker.Color,
-                Bold = _boldCheck.ButtonPressed, Italic = _italicCheck.ButtonPressed, Shadow = _shadowCheck.ButtonPressed,
+                DefaultFontSize = (int)_fontSizeSlider.Value,
+                Bold = _boldCheck.ButtonPressed,
+                Italic = _italicCheck.ButtonPressed,
+                Shadow = _shadowCheck.ButtonPressed,
                 LockedProperties = new HashSet<string>(_locked),
             };
+
             for (int i = 0; i < N; i++)
             {
-                d.Visible[i] = _vis[i].ButtonPressed; d.Names[i] = _names[i].Text; d.ContentPreview[i] = _texts[i].Text;
-                d.FontSizes[i] = (int)_fss[i].Value; d.ColorPreview[i] = _cols[i].Modulate;
-                d.XOffset[i] = (float)_oxs[i].Value; d.CenterX[i] = _cxs[i].ButtonPressed;
-                d.YOffset[i] = (float)_oys[i].Value;
+                labels.Visible[i] = _vis[i].ButtonPressed;
+                labels.Names[i] = _names[i].Text;
+                labels.ContentPreview[i] = _texts[i].Text;
+                labels.UseGlobalFontSize[i] = _useGlobalFontChecks[i].ButtonPressed;
+                labels.FontSizes[i] = (int)_fontSizeSliders[i].Value;
+                labels.XOffset[i] = (float)_offsetXSliders[i].Value;
+                labels.CenterX[i] = _centerXChecks[i].ButtonPressed;
+                labels.YOffset[i] = (float)_offsetYSliders[i].Value;
             }
-            return d;
+
+            return labels;
         }
 
         public void ConnectSignals(Action onChanged)
         {
             _onChanged = onChanged;
-            _fontSizeSlider.ValueChanged += D; _defaultColorPicker.ColorChanged += C;
-            _boldCheck.Toggled += B; _italicCheck.Toggled += B; _shadowCheck.Toggled += B;
+
+            _fontSizeSlider.ValueChanged += OnValueChanged;
+            _boldCheck.Toggled += OnToggleChanged;
+            _italicCheck.Toggled += OnToggleChanged;
+            _shadowCheck.Toggled += OnToggleChanged;
+
             for (int i = 0; i < N; i++)
             {
-                int idx = i;
-                _vis[i].Toggled += B; _names[i].TextChanged += S; _texts[i].TextChanged += S;
-                _fss[i].ValueChanged += D; _cols[i].Pressed += () => ColorPressed(idx);
-                _oxs[i].ValueChanged += D; _cxs[i].Toggled += B; _oys[i].ValueChanged += D;
-                _resets[i].Pressed += () => ResetPressed(idx);
+                _vis[i].Toggled += OnToggleChanged;
+                _names[i].TextChanged += OnTextChanged;
+                _texts[i].TextChanged += OnTextChanged;
+                _useGlobalFontChecks[i].Toggled += OnToggleChanged;
+                _fontSizeSliders[i].ValueChanged += OnValueChanged;
+                _offsetXSliders[i].ValueChanged += OnValueChanged;
+                _centerXChecks[i].Toggled += OnToggleChanged;
+                _offsetYSliders[i].ValueChanged += OnValueChanged;
+
+                int capturedIndex = i;
+                _resetButtons[i].Pressed += () => ResetLabel(capturedIndex);
             }
         }
 
         public void DisconnectSignals()
         {
-            _fontSizeSlider.ValueChanged -= D; _defaultColorPicker.ColorChanged -= C;
-            _boldCheck.Toggled -= B; _italicCheck.Toggled -= B; _shadowCheck.Toggled -= B;
+            _fontSizeSlider.ValueChanged -= OnValueChanged;
+            _boldCheck.Toggled -= OnToggleChanged;
+            _italicCheck.Toggled -= OnToggleChanged;
+            _shadowCheck.Toggled -= OnToggleChanged;
+
             for (int i = 0; i < N; i++)
             {
-                _vis[i].Toggled -= B; _names[i].TextChanged -= S; _texts[i].TextChanged -= S;
-                _fss[i].ValueChanged -= D; _oxs[i].ValueChanged -= D; _cxs[i].Toggled -= B; _oys[i].ValueChanged -= D;
+                _vis[i].Toggled -= OnToggleChanged;
+                _names[i].TextChanged -= OnTextChanged;
+                _texts[i].TextChanged -= OnTextChanged;
+                _useGlobalFontChecks[i].Toggled -= OnToggleChanged;
+                _fontSizeSliders[i].ValueChanged -= OnValueChanged;
+                _offsetXSliders[i].ValueChanged -= OnValueChanged;
+                _centerXChecks[i].Toggled -= OnToggleChanged;
+                _offsetYSliders[i].ValueChanged -= OnValueChanged;
             }
         }
 
-        public void SyncFromEntity(EntityBase e)
+        public void SyncFromEntity(EntityBase entity)
         {
-            if (e == null) return;
+            if (entity == null)
+                return;
+
             for (int i = 0; i < N; i++)
             {
-                SC(_vis[i], e.GetLabelVisible(i)); _texts[i].Text = e.LabelTexts[i] ?? "";
-                SS(_fss[i], e.LabelFontSizes[i], _fsv[i], e.LabelFontSizes[i].ToString());
-                SS(_oxs[i], e.LabelXOffsets[i], _oxv[i], ((int)e.LabelXOffsets[i]).ToString());
-                SC(_cxs[i], e.LabelCenterX[i]); _oxs[i].Editable = !e.LabelCenterX[i];
-                _oxs[i].Modulate = e.LabelCenterX[i] ? new Color(0.5f, 0.5f, 0.5f, 1) : new Color(1, 1, 1, 1);
-                SS(_oys[i], e.LabelYOffsets[i], _oyv[i], ((int)e.LabelYOffsets[i]).ToString());
+                SetCheckSilent(_vis[i], entity.GetLabelVisible(i));
+                _texts[i].Text = entity.LabelTexts[i] ?? "";
+
+                bool useGlobalFont = entity.LabelFontSizes[i] <= 0;
+                SetCheckSilent(_useGlobalFontChecks[i], useGlobalFont);
+                int labelFontSize = useGlobalFont ? entity.FontSize : entity.LabelFontSizes[i];
+                SetSliderSilent(_fontSizeSliders[i], labelFontSize, _fontSizeValues[i], labelFontSize.ToString());
+
+                SetSliderSilent(_offsetXSliders[i], entity.LabelXOffsets[i], _offsetXValues[i], ((int)entity.LabelXOffsets[i]).ToString());
+                SetCheckSilent(_centerXChecks[i], entity.LabelCenterX[i]);
+                SetSliderSilent(_offsetYSliders[i], entity.LabelYOffsets[i], _offsetYValues[i], ((int)entity.LabelYOffsets[i]).ToString());
+
+                ApplyCenterXState(i, entity.LabelCenterX[i]);
+                ApplyGlobalFontState(i, useGlobalFont);
             }
-            if (e is Player p) { SC(_boldCheck, p.FontBold); SC(_italicCheck, p.FontItalic); SC(_shadowCheck, p.FontShadow); }
-            SS(_fontSizeSlider, e.FontSize, _fontSizeValue, e.FontSize.ToString());
+
+            if (entity is Player player)
+            {
+                SetCheckSilent(_boldCheck, player.FontBold);
+                SetCheckSilent(_italicCheck, player.FontItalic);
+                SetCheckSilent(_shadowCheck, player.FontShadow);
+                SetSliderSilent(_fontSizeSlider, player.FontSizeOverride, _fontSizeValue, player.FontSizeOverride.ToString());
+            }
+            else
+            {
+                SetSliderSilent(_fontSizeSlider, entity.FontSize, _fontSizeValue, entity.FontSize.ToString());
+            }
         }
 
-        public void SetPropertyLocked(string p, bool l) { if (l) _locked.Add(p); else _locked.Remove(p); ApplyLocks(); }
-        void ApplyLocks()
+        public void SetPropertyLocked(string propertyName, bool locked)
+        {
+            if (locked)
+                _locked.Add(propertyName);
+            else
+                _locked.Remove(propertyName);
+            ApplyLocks();
+        }
+
+        public void SetCollapsed(bool collapsed)
+        {
+            // Managed by DebugPanelEntityTab
+        }
+
+        public void Dispose()
+        {
+            DisconnectSignals();
+        }
+
+        private void ApplyLocks()
         {
             for (int i = 0; i < N; i++)
             {
-                bool cl = _locked.Contains($"content_{i}"), cll = _locked.Contains($"color_{i}");
-                if (_texts[i] != null) { _texts[i].Editable = !cl; _texts[i].Modulate = cl ? new Color(0.5f, 0.5f, 0.5f, 1) : Colors.White; }
-                if (_cols[i] != null) { _cols[i].Disabled = cll; if (cll) _cols[i].Modulate = new Color(0.5f, 0.5f, 0.5f, 1); }
+                bool contentLocked = _locked.Contains($"content_{i}");
+                _texts[i].Editable = !contentLocked;
+                _texts[i].Modulate = contentLocked ? new Color(0.5f, 0.5f, 0.5f, 1) : Colors.White;
             }
         }
 
-        public void SetCollapsed(bool c) { /* CollapsibleContainer managed by DebugPanelEntityTab */ }
-        public void Dispose() { DisconnectSignals(); }
-
-        void D(double _) => _onChanged?.Invoke();
-        void B(bool _) => _onChanged?.Invoke();
-        void C(Color _) => _onChanged?.Invoke();
-        void S(string _) => _onChanged?.Invoke();
-
-        void ColorPressed(int i)
+        private void ApplyCenterXState(int index, bool centered)
         {
-            var cur = _cols[i].Modulate; int next = 0;
-            for (int j = 0; j < Palette.Length; j++) if (cur.IsEqualApprox(Palette[j])) { next = (j + 1) % Palette.Length; break; }
-            _cols[i].Modulate = Palette[next]; _onChanged?.Invoke();
+            _offsetXSliders[index].Editable = !centered;
+            _offsetXSliders[index].Modulate = centered ? new Color(0.5f, 0.5f, 0.5f, 1) : Colors.White;
+            if (centered)
+            {
+                _offsetXSliders[index].SetBlockSignals(true);
+                _offsetXSliders[index].Value = 0;
+                _offsetXSliders[index].SetBlockSignals(false);
+                _offsetXValues[index].Text = "0";
+            }
         }
 
-        void ResetPressed(int i)
+        private void ApplyGlobalFontState(int index, bool useGlobal)
         {
-            _texts[i].Text = ""; _fss[i].Value = 0; _fsv[i].Text = "0";
-            _oxs[i].Value = 0; _oxv[i].Text = "0"; _oys[i].Value = 0; _oyv[i].Text = "0";
+            _fontSizeSliders[index].Editable = !useGlobal;
+            _fontSizeSliders[index].Modulate = useGlobal ? new Color(0.5f, 0.5f, 0.5f, 1) : Colors.White;
+            _fontSizeValues[index].Modulate = useGlobal ? new Color(0.5f, 0.5f, 0.5f, 1) : Colors.White;
+        }
+
+        private void ResetLabel(int index)
+        {
+            _texts[index].Text = "";
+            SetCheckSilent(_useGlobalFontChecks[index], true);
+            SetSliderSilent(_fontSizeSliders[index], 0, _fontSizeValues[index], "0");
+            SetSliderSilent(_offsetXSliders[index], 0, _offsetXValues[index], "0");
+            SetCheckSilent(_centerXChecks[index], true);
+            SetSliderSilent(_offsetYSliders[index], 0, _offsetYValues[index], "0");
+            ApplyCenterXState(index, true);
+            ApplyGlobalFontState(index, true);
             _onChanged?.Invoke();
         }
 
-        static (HSlider, Label) SR(Container p, string lbl, double min, double max, double def, double step, int lw = 80)
+        private void OnValueChanged(double _)
         {
-            var row = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
-            row.AddChild(new Label { Text = lbl + ":", CustomMinimumSize = new Vector2(lw, 0) });
-            var s = new HSlider { MinValue = min, MaxValue = max, Value = def, Step = step, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, CustomMinimumSize = new Vector2(0, 20), FocusMode = Control.FocusModeEnum.Click, Scrollable = false };
-            row.AddChild(s);
-            Func<double, string> fmt = step < 1 ? (v => v.ToString(DebugPanelLengthScalePolicy.FormatStr)) : (v => ((int)v).ToString());
-            var v = new Label { Text = fmt(def), CustomMinimumSize = new Vector2(36, 0) };
-            row.AddChild(v);
-            s.ValueChanged += (val) => v.Text = fmt(val);
-            p.AddChild(row);
-            SliderValueInput.Attach(s, v, fmt);
-            return (s, v);
+            _onChanged?.Invoke();
         }
 
-        static void SS(HSlider s, double v, Label l, string t) { s?.SetBlockSignals(true); if (s != null) s.Value = v; s?.SetBlockSignals(false); if (l != null) l.Text = t; }
-        static void SC(CheckButton c, bool v) { c?.SetBlockSignals(true); if (c != null) c.ButtonPressed = v; c?.SetBlockSignals(false); }
+        private void OnToggleChanged(bool _)
+        {
+            _onChanged?.Invoke();
+        }
+
+        private void OnTextChanged(string _)
+        {
+            _onChanged?.Invoke();
+        }
+
+        private static (HSlider slider, Label valueLabel) CreateSliderRow(
+            Container parent,
+            string label,
+            double min,
+            double max,
+            double value,
+            double step,
+            int labelWidth = 80)
+        {
+            var row = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+            row.AddChild(new Label { Text = label + ":", CustomMinimumSize = new Vector2(labelWidth, 0) });
+
+            var slider = CreateSlider(min, max, value, step);
+            row.AddChild(slider);
+
+            Func<double, string> formatter = step < 1
+                ? v => v.ToString(DebugPanelLengthScalePolicy.FormatStr)
+                : v => ((int)v).ToString();
+
+            var valueLabel = CreateValueLabel(formatter(value));
+            row.AddChild(valueLabel);
+            slider.ValueChanged += current => valueLabel.Text = formatter(current);
+
+            parent.AddChild(row);
+            SliderValueInput.Attach(slider, valueLabel, formatter);
+            return (slider, valueLabel);
+        }
+
+        private static HSlider CreateSlider(double min, double max, double value, double step)
+        {
+            return new HSlider
+            {
+                MinValue = min,
+                MaxValue = max,
+                Value = value,
+                Step = step,
+                SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+                CustomMinimumSize = new Vector2(0, 20),
+                FocusMode = Control.FocusModeEnum.Click,
+                Scrollable = false,
+            };
+        }
+
+        private static Label CreateValueLabel(string text)
+        {
+            return new Label
+            {
+                Text = text,
+                CustomMinimumSize = new Vector2(36, 0),
+                HorizontalAlignment = HorizontalAlignment.Right,
+            };
+        }
+
+        private static void SetSliderSilent(HSlider slider, double value, Label valueLabel, string text)
+        {
+            slider?.SetBlockSignals(true);
+            if (slider != null)
+                slider.Value = value;
+            slider?.SetBlockSignals(false);
+            if (valueLabel != null)
+                valueLabel.Text = text;
+        }
+
+        private static void SetCheckSilent(CheckButton checkButton, bool value)
+        {
+            checkButton?.SetBlockSignals(true);
+            if (checkButton != null)
+                checkButton.ButtonPressed = value;
+            checkButton?.SetBlockSignals(false);
+        }
     }
 }

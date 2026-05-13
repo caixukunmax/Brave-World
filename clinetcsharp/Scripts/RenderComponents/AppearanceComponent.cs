@@ -17,9 +17,7 @@ namespace ClinetCSharp.RenderComponents
 
         public void Draw()
         {
-            var drawSize = _entity.VisualSize;
-            if (drawSize < 10) drawSize = 10;
-            EntityDrawUtils.DrawBody(_entity, drawSize, _entity.BgColor, _entity.BgOpacity,
+            EntityDrawUtils.DrawBody(_entity, _entity.VisualOuterSize, _entity.VisualSize, _entity.BgColor, _entity.BgOpacity,
                 _entity.BorderColor, _entity.BorderWidth, _entity.CornerRadius);
         }
     }
