@@ -42,12 +42,12 @@ class Program
             {
                 var config = context.Configuration;
 
-                // Infrastructure
-                services.AddSingleton<EventBus>();
-                services.AddSingleton<MessageRouter>();
+                // Token — 优先从环境变量读取，其次配置，最后回退（仅开发）
+                var tokenSecret = Environment.GetEnvironmentVariable("TSLUA2_TOKEN_SECRET")
+                    ?? config["Game:TokenSecret"]
+                    ?? "tslua2_game_secret_2024";
                 services.AddSingleton<TokenGenerator>(
-                    new TokenGenerator(config["Game:TokenSecret"] ?? "tslua2_game_secret_2024"));
-                services.AddSingleton<MapDataProvider>();
+                    new TokenGenerator(tokenSecret));
 
                 // Database
                 var mongoHost = config["MongoDB:Host"] ?? "127.0.0.1";

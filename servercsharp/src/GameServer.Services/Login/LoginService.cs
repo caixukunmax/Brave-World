@@ -5,6 +5,7 @@ using GameServer.Database.Models;
 using GameServer.Database.Repositories;
 using Google.Protobuf;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Configuration;
 using PCommon = global::Common;
 using PLogin = global::Login;
 using PProtocol = global::Protocol;
@@ -13,7 +14,7 @@ using PServer = global::Server;
 namespace GameServer.Services.Login;
 
 /// <summary>
-/// 登录服务 — 移植自 login/service.lua
+/// 登录服务 — 安全升级版
 /// </summary>
 public class LoginService
 {
@@ -23,6 +24,7 @@ public class LoginService
     private readonly ServerRepository _servers;
     private readonly TokenGenerator _tokenGen;
     private readonly EventBus _eventBus;
+    private readonly bool _allowAutoRegister;
 
     public LoginService(
         ILogger<LoginService> logger,
@@ -30,7 +32,8 @@ public class LoginService
         RoleRepository roles,
         ServerRepository servers,
         TokenGenerator tokenGen,
-        EventBus eventBus)
+        EventBus eventBus,
+        IConfiguration config)
     {
         _logger = logger;
         _accounts = accounts;
@@ -38,6 +41,7 @@ public class LoginService
         _servers = servers;
         _tokenGen = tokenGen;
         _eventBus = eventBus;
+        _allowAutoRegister = config.GetValue<bool>("Game:AllowAutoRegister", false);
     }
 
     public void RegisterRoutes(MessageRouter router, Gateway.GatewayService gateway)
@@ -64,14 +68,29 @@ public class LoginService
 
         if (account == null)
         {
+            if (!_allowAutoRegister)
+            {
+                _logger.LogWarning("Login failed: {Username} — account not found (auto-register disabled)", req.Username);
+                return MakeError(PCommon.ErrorCode.AccountNotFound);
+            }
+
             var hashed = PasswordHasher.Hash(req.Password);
             account = await _accounts.Create(req.Username, hashed);
             _logger.LogInformation("Auto-registered: {Username} id={AccountId}", req.Username, account.AccountId);
         }
         else
         {
-            if (!PasswordHasher.Verify(req.Password, account.Password))
+            bool shouldMigrate;
+            if (!PasswordHasher.Verify(req.Password, account.Password, out shouldMigrate))
                 return MakeError(PCommon.ErrorCode.PasswordError);
+
+            // 旧 MD5 密码自动迁移到 bcrypt
+            if (shouldMigrate)
+            {
+                var newHash = PasswordHasher.Hash(req.Password);
+                await _accounts.UpdatePassword(account.AccountId, newHash);
+                _logger.LogInformation("Password migrated to bcrypt: {Username} id={AccountId}", req.Username, account.AccountId);
+            }
 
             if (account.Status == 1)
                 return MakeError(PCommon.ErrorCode.AccountBanned);

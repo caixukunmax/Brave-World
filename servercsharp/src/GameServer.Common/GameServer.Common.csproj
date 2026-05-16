@@ -3,4 +3,7 @@
     <ProjectReference Include="..\GameServer.Proto\GameServer.Proto.csproj" />
     <ProjectReference Include="..\GameServer.Tables\GameServer.Tables.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="BCrypt.Net-Next" />
+  </ItemGroup>
 </Project>

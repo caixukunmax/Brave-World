@@ -4,17 +4,17 @@ using System.Text;
 namespace GameServer.Common.Security;
 
 /// <summary>
-/// Token 生成与验证 — 移植自 common.lua token_generate/token_validate
-/// AccountToken: base64(account_id:username:timestamp|MD5(secret+payload)), TTL 300s
-/// GatewayToken: base64(account_id:server_id:timestamp|MD5(secret+payload)), TTL 604800s
+/// Token 生成与验证 — 安全升级版
+/// AccountToken: base64(account_id:username:timestamp|HMAC-SHA256(secret,payload)), TTL 300s
+/// GatewayToken: base64(account_id:server_id:timestamp|HMAC-SHA256(secret,payload)), TTL 7200s (2h)
 /// </summary>
 public class TokenGenerator
 {
-    private readonly string _secret;
+    private readonly byte[] _secretKey;
 
     public TokenGenerator(string secret)
     {
-        _secret = secret;
+        _secretKey = Encoding.UTF8.GetBytes(secret);
     }
 
     // ---- Account Token ----
@@ -23,7 +23,7 @@ public class TokenGenerator
     {
         var ts = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
         var payload = $"{accountId}:{username}:{ts}";
-        var sig = Md5Hex(_secret + payload);
+        var sig = HmacSha256Hex(payload);
         return Convert.ToBase64String(Encoding.UTF8.GetBytes(payload + "|" + sig));
     }
 
@@ -40,7 +40,7 @@ public class TokenGenerator
         var payload = decoded[..pipeIdx];
         var sig = decoded[(pipeIdx + 1)..];
 
-        if (Md5Hex(_secret + payload) != sig) return null;
+        if (HmacSha256Hex(payload) != sig) return null;
 
         var parts = payload.Split(':');
         if (parts.Length != 3) return null;
@@ -58,7 +58,7 @@ public class TokenGenerator
     {
         var ts = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
         var payload = $"{accountId}:{serverId}:{ts}";
-        var sig = Md5Hex(_secret + payload);
+        var sig = HmacSha256Hex(payload);
         return Convert.ToBase64String(Encoding.UTF8.GetBytes(payload + "|" + sig));
     }
 
@@ -75,7 +75,7 @@ public class TokenGenerator
         var payload = decoded[..pipeIdx];
         var sig = decoded[(pipeIdx + 1)..];
 
-        if (Md5Hex(_secret + payload) != sig) return null;
+        if (HmacSha256Hex(payload) != sig) return null;
 
         var parts = payload.Split(':');
         if (parts.Length != 3) return null;
@@ -83,14 +83,16 @@ public class TokenGenerator
         if (!int.TryParse(parts[1], out var sid)) return null;
         if (!long.TryParse(parts[2], out var ts)) return null;
 
-        if (DateTimeOffset.UtcNow.ToUnixTimeSeconds() - ts > 604800) return null;
+        // TTL: 2 hours (was 7 days / 604800s)
+        if (DateTimeOffset.UtcNow.ToUnixTimeSeconds() - ts > 7200) return null;
 
         return new GatewayTokenClaims { AccountId = aid, ServerId = sid };
     }
 
-    private static string Md5Hex(string input)
+    private string HmacSha256Hex(string payload)
     {
-        var hash = MD5.HashData(Encoding.UTF8.GetBytes(input));
+        using var hmac = new HMACSHA256(_secretKey);
+        var hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(payload));
         return Convert.ToHexString(hash).ToLower();
     }
 }

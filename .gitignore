@@ -43,6 +43,11 @@ protocols/gen/
 # Server logs
 servercsharp/logs/
 
+# Secrets - NEVER commit real config
+appsettings.json
+appsettings.*.json
+!appsettings.Example.json
+
 # Temporary scripts
 /*.py
 maptab_*
