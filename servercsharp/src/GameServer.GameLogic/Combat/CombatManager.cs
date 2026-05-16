@@ -358,11 +358,11 @@ public class CombatManager
         }, mapsSafe);
 
         // 叙事触发：击杀
-        // 找到击杀者
-        var deadCtx = _relations.Contexts.GetValueOrDefault(entityId);
-        if (deadCtx != null)
+        // 复用上面获取的 ctx（OnEntityRemoved 后 Contexts 已被清理，重新获取永远为 null）
+        // fix: 原代码用 deadCtx 重新 GetValueOrDefault，但 OnEntityRemoved 已删除，永远 null
+        if (ctx != null)
         {
-            foreach (var relId in deadCtx.RelationIds)
+            foreach (var relId in ctx.RelationIds)
             {
                 var rel = _relations.Relations.GetValueOrDefault(relId);
                 if (rel == null || !rel.IsActive) continue;

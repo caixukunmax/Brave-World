@@ -77,6 +77,8 @@ namespace ClinetCSharp
 
         private void StartMoveCheckpointTimer()
         {
+            _checkTimer?.QueueFree();
+            _checkTimer = null;
             var checkDelay = _moveDurationMs * _moveCheckRatio / 100.0f / 1000.0f;
             _checkTimer = new Godot.Timer();
             _checkTimer.WaitTime = checkDelay;
