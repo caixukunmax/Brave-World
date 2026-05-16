@@ -47,7 +47,7 @@ namespace ClinetCSharp
             {
                 foreach (var tile in notify.Tiles)
                 {
-                    var cell = gridMgr.GetCell((int)tile.X, (int)tile.Y);
+                    var cell = gridMgr.GetCell(new Vector2I((int)tile.X, (int)tile.Y));
                     if (cell != null && cell.TerrainType != tile.TerrainType)
                     {
                         cell.TerrainType = (int)tile.TerrainType;

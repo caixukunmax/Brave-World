@@ -312,7 +312,7 @@ namespace ClinetCSharp
         {
             if (!ShowTerrainLabels) return;
 
-            _terrainLabelFont ??= Theme.DefaultFont;
+            _terrainLabelFont ??= ThemeDB.FallbackFont;
             if (_terrainLabelFont == null) return;
 
             var cameraZoom = GetCameraZoom();
@@ -337,12 +337,12 @@ namespace ClinetCSharp
                     var fontSize = Mathf.Min(_terrainLabelFontSize, (int)(GridSize * 0.4f));
 
                     // 描边
-                    DrawString(_terrainLabelFont, pos + new Vector2(-1, 0), name, fontSize, textColor: outlineColor);
-                    DrawString(_terrainLabelFont, pos + new Vector2(1, 0), name, fontSize, textColor: outlineColor);
-                    DrawString(_terrainLabelFont, pos + new Vector2(0, -1), name, fontSize, textColor: outlineColor);
-                    DrawString(_terrainLabelFont, pos + new Vector2(0, 1), name, fontSize, textColor: outlineColor);
+                    DrawString(_terrainLabelFont, pos + new Vector2(-1, 0), name, HorizontalAlignment.Left, -1, fontSize, outlineColor);
+                    DrawString(_terrainLabelFont, pos + new Vector2(1, 0), name, HorizontalAlignment.Left, -1, fontSize, outlineColor);
+                    DrawString(_terrainLabelFont, pos + new Vector2(0, -1), name, HorizontalAlignment.Left, -1, fontSize, outlineColor);
+                    DrawString(_terrainLabelFont, pos + new Vector2(0, 1), name, HorizontalAlignment.Left, -1, fontSize, outlineColor);
                     // 正文
-                    DrawString(_terrainLabelFont, pos, name, fontSize, textColor: textColor);
+                    DrawString(_terrainLabelFont, pos, name, HorizontalAlignment.Left, -1, fontSize, textColor);
                 }
             }
         }

@@ -77,6 +77,9 @@ class Program
                 // Core infrastructure
                 services.AddSingleton<AuthMiddleware>();
                 services.AddSingleton<MessageHandlerRegistry>();
+                services.AddSingleton<MessageRouter>();
+                services.AddSingleton<EventBus>();
+                services.AddSingleton<MapDataProvider>();
                 services.AddSingleton<WorldState>();
                 services.AddSingleton<CollisionDetector>();
 
