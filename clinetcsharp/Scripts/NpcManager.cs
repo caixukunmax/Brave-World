@@ -118,6 +118,9 @@ namespace ClinetCSharp
             if (_network != null)
             {
                 _network.NpcInteractNotify -= OnNpcInteractNotify;
+                _network.NpcCombatResponse -= OnNpcCombatResponse;
+                _network.CombatStateNotify -= OnCombatStateNotify;
+                _network.CombatEndNotify -= OnCombatEndNotify;
             }
             Instance = null;
         }

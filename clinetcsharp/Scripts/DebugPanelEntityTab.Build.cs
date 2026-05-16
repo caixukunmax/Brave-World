@@ -159,7 +159,7 @@ namespace ClinetCSharp
 
             _deleteComponentDialog = new ConfirmationDialog { Title = "确认删除组件" };
             _deleteComponentDialog.Confirmed += OnDeleteComponentConfirmed;
-            _deleteComponentDialog.Canceled += () => _pendingDeleteComponentName = null;
+            _deleteComponentDialog.Canceled += OnDeleteComponentCanceled;
             Owner.AddChild(_deleteComponentDialog);
 
             _manageComponentsDialog = new AcceptDialog { Title = "管理组件" };

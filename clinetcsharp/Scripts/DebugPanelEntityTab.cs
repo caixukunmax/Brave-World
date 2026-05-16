@@ -49,8 +49,25 @@ namespace ClinetCSharp
         public override void DisconnectSignals()
         {
             EntityBase.EntityClicked -= OnEntityClicked;
+            if (_profileOption != null) _profileOption.ItemSelected -= OnProfileOptionSelected;
+            if (_profileNameEdit != null) _profileNameEdit.TextChanged -= OnProfileNameChanged;
+            if (_addProfileBtn != null) _addProfileBtn.Pressed -= OnAddProfilePressed;
+            if (_deleteProfileBtn != null) _deleteProfileBtn.Pressed -= OnDeleteProfilePressed;
+            if (_manageComponentsBtn != null) _manageComponentsBtn.Pressed -= OnManageComponentsPressed;
+            if (_newProfileDialog != null) _newProfileDialog.Confirmed -= OnNewProfileConfirmed;
+            if (_deleteProfileDialog != null) _deleteProfileDialog.Confirmed -= OnDeleteProfileConfirmed;
+            if (_deleteComponentDialog != null)
+            {
+                _deleteComponentDialog.Confirmed -= OnDeleteComponentConfirmed;
+                _deleteComponentDialog.Canceled -= OnDeleteComponentCanceled;
+            }
             foreach (var component in _activeComponents.Values)
                 component.DisconnectSignals();
+        }
+
+        private void OnDeleteComponentCanceled()
+        {
+            _pendingDeleteComponentName = null;
         }
     }
 }

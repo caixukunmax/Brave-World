@@ -86,7 +86,11 @@ namespace ClinetCSharp
             {
                 UpdateResponsiveGridSize();
                 // 监听窗口大小变化
-                GetTree().Root.SizeChanged += OnViewportResized;
+                if (!_isViewportResizedConnected)
+                {
+                    GetTree().Root.SizeChanged += OnViewportResized;
+                    _isViewportResizedConnected = true;
+                }
             }
 
             // 初始化 zoom 跟踪

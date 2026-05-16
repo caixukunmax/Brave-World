@@ -39,6 +39,15 @@ namespace ClinetCSharp
 
         public override void DisconnectSignals()
         {
+            if (_deathEffectOption != null) _deathEffectOption.ItemSelected -= OnDeathEffectModeChanged;
+            if (_deathFadeDurationSlider != null) _deathFadeDurationSlider.ValueChanged -= OnDeathFadeDurationChanged;
+            if (_deathGrayDelaySlider != null) _deathGrayDelaySlider.ValueChanged -= OnDeathGrayDelayChanged;
+            if (_moveCheckRatioSlider != null) _moveCheckRatioSlider.ValueChanged -= OnMoveCheckRatioChanged;
+            if (_moveDualStartSlider != null) _moveDualStartSlider.ValueChanged -= OnMoveDualStartChanged;
+            if (_moveDualEndSlider != null) _moveDualEndSlider.ValueChanged -= OnMoveDualEndChanged;
+            if (_bounceDurationSlider != null) _bounceDurationSlider.ValueChanged -= OnBounceDurationChanged;
+            if (_bounceOvershootRatioSlider != null) _bounceOvershootRatioSlider.ValueChanged -= OnBounceOvershootRatioChanged;
+            if (_bounceOvershootThresholdSlider != null) _bounceOvershootThresholdSlider.ValueChanged -= OnBounceOvershootThresholdChanged;
         }
 
         public (int checkRatio, int dualStart, int dualEnd) GetMoveSystemValues()
