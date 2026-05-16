@@ -22,6 +22,22 @@ namespace ClinetCSharp
         public int TerrainType { get; set; } = 0;       // 地形类型: 0=普通, 1=水, 2=草地, 3=沙地, 4=岩石...
         public int Height { get; set; } = 0;            // 高度层级 (0-9, 用于高低差系统)
 
+        // 运行时绑定的 Luban 配置 (从 terrain_config.json 加载)
+        public TerrainConfig? TerrainConfig { get; private set; }
+
+        /// <summary>
+        /// 刷新绑定的地形配置 (从 Luban 表读取)
+        /// </summary>
+        public void RefreshTerrainConfig()
+        {
+            TerrainConfig = TerrainConfigUtil.Get(TerrainType);
+            if (TerrainConfig != null)
+            {
+                // 以配置表为准覆盖 Walkable (服务端权威)
+                Walkable = TerrainConfig.Walkable;
+            }
+        }
+
         // 扩展数据
         public string CustomData { get; set; } = "";    // 自定义数据字符串 (可用于标记特殊属性)
 
@@ -77,6 +93,8 @@ namespace ClinetCSharp
                 Height = (int)dict["height"];
             if (dict.ContainsKey("custom"))
                 CustomData = (string)dict["custom"];
+
+            RefreshTerrainConfig();
         }
 
         /// <summary>
@@ -121,24 +139,32 @@ namespace ClinetCSharp
                 Height = values[4].AsInt32();
             if (values.Count >= 6)
                 CustomData = values[5].AsString();
+
+            RefreshTerrainConfig();
         }
 
         /// <summary>
-        /// 获取地形类型名称 (用于显示)
+        /// 获取地形类型名称 (从 Luban 配置读取，优先于硬编码)
         /// </summary>
         public string GetTerrainName()
         {
-            return TerrainType switch
-            {
-                0 => "普通",
-                1 => "水域",
-                2 => "草地",
-                3 => "沙地",
-                4 => "岩石",
-                5 => "雪地",
-                6 => "沼泽",
-                _ => "未知"
-            };
+            return TerrainConfig?.Name ?? "未知";
+        }
+
+        /// <summary>
+        /// 获取地形颜色 (从 Luban 配置读取)
+        /// </summary>
+        public Color GetTerrainColor()
+        {
+            if (TerrainConfig == null)
+                return Colors.Transparent;
+
+            return new Color(
+                TerrainConfig.ColorR / 255f,
+                TerrainConfig.ColorG / 255f,
+                TerrainConfig.ColorB / 255f,
+                TerrainConfig.ColorA
+            );
         }
 
         /// <summary>
@@ -152,11 +178,12 @@ namespace ClinetCSharp
             other.TerrainType = TerrainType;
             other.Height = Height;
             other.CustomData = CustomData;
+            other.TerrainConfig = TerrainConfig;
         }
 
         public override string ToString()
         {
-            return $"GridCell({Pos.X},{Pos.Y}) exists={Exists} walkable={Walkable} visible={Visible} terrain={TerrainType}";
+            return $"GridCell({Pos.X},{Pos.Y}) exists={Exists} walkable={Walkable} visible={Visible} terrain={TerrainType} name={GetTerrainName()}";
         }
     }
 }

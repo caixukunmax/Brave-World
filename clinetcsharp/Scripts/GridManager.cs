@@ -60,6 +60,7 @@ namespace ClinetCSharp
         public bool IsEditMode { get; set; } = false;
         public bool ShowWalkableOverlay { get; set; } = false;
         public bool ShowGridCoords { get; set; } = false;  // 显示格子坐标
+        public bool ShowTerrainLabels { get; set; } = false;  // 显示地形名称标签
 
         // 被移除格子的显示设置
         [Export] public Color RemovedCellColor { get; set; } = new Color(0.3f, 0.3f, 0.3f, 0.5f);  // 默认半透明灰色
@@ -155,6 +156,8 @@ namespace ClinetCSharp
             DrawGrid();
             if (IsEditMode && ShowWalkableOverlay)
                 DrawWalkableOverlay();
+            if (IsEditMode && ShowTerrainLabels)
+                DrawTerrainLabels();
             if (ShowGridCoords)
                 DrawGridCoords();
         }
@@ -289,14 +292,59 @@ namespace ClinetCSharp
 
         private Color GetTerrainColor(int terrainType)
         {
-            return terrainType switch
+            var config = TerrainConfigUtil.Get(terrainType);
+            if (config == null) return Colors.Transparent;
+
+            return new Color(
+                config.ColorR / 255f,
+                config.ColorG / 255f,
+                config.ColorB / 255f,
+                config.ColorA
+            );
+        }
+
+        // ============ 地形标签显示 ============
+
+        private Font? _terrainLabelFont;
+        private int _terrainLabelFontSize = 14;
+
+        private void DrawTerrainLabels()
+        {
+            if (!ShowTerrainLabels) return;
+
+            _terrainLabelFont ??= Theme.DefaultFont;
+            if (_terrainLabelFont == null) return;
+
+            var cameraZoom = GetCameraZoom();
+            // 只在 zoom 足够近时显示标签，避免密集
+            if (cameraZoom < 0.5f) return;
+
+            for (int y = 0; y < MapHeight; y++)
             {
-                1 => new Color(0.2f, 0.4f, 0.8f, 0.2f),  // 水
-                2 => new Color(0.2f, 0.8f, 0.2f, 0.2f),  // 草地
-                3 => new Color(0.9f, 0.8f, 0.4f, 0.2f),  // 沙地
-                4 => new Color(0.5f, 0.5f, 0.5f, 0.3f),  // 岩石
-                _ => Colors.Transparent
-            };
+                for (int x = 0; x < MapWidth; x++)
+                {
+                    var cell = GridData[y][x];
+                    if (!cell.Exists || cell.TerrainType == 0)
+                        continue; // 跳过不存在和普通地形
+
+                    var pos = new Vector2(x * GridSize + 2, y * GridSize + _terrainLabelFontSize + 2);
+                    var name = cell.GetTerrainName();
+                    if (string.IsNullOrEmpty(name)) continue;
+
+                    // 黑色描边文字，确保任何背景色都可见
+                    var outlineColor = Colors.Black;
+                    var textColor = Colors.White;
+                    var fontSize = Mathf.Min(_terrainLabelFontSize, (int)(GridSize * 0.4f));
+
+                    // 描边
+                    DrawString(_terrainLabelFont, pos + new Vector2(-1, 0), name, fontSize, textColor: outlineColor);
+                    DrawString(_terrainLabelFont, pos + new Vector2(1, 0), name, fontSize, textColor: outlineColor);
+                    DrawString(_terrainLabelFont, pos + new Vector2(0, -1), name, fontSize, textColor: outlineColor);
+                    DrawString(_terrainLabelFont, pos + new Vector2(0, 1), name, fontSize, textColor: outlineColor);
+                    // 正文
+                    DrawString(_terrainLabelFont, pos, name, fontSize, textColor: textColor);
+                }
+            }
         }
 
         // ============ 坐标转换 ============

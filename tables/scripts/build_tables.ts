@@ -241,6 +241,15 @@ function main(): void {
     success('Item config → clinetcsharp/data/item_config.json');
   }
 
+  // 将地形配置 JSON 复制到客户端 data 目录
+  const TERRAIN_JSON_SRC = path.join(JSON_DATA_DIR, 'common_tbterrainconfig.json');
+  const TERRAIN_JSON_DST = path.join(CLIENT_DATA_DIR, 'terrain_config.json');
+  if (fs.existsSync(TERRAIN_JSON_SRC)) {
+    fs.mkdirSync(CLIENT_DATA_DIR, { recursive: true });
+    fs.copyFileSync(TERRAIN_JSON_SRC, TERRAIN_JSON_DST);
+    success('Terrain config → clinetcsharp/data/terrain_config.json');
+  }
+
   // 将生成的 JSON 同步到服务端 bin 目录（运行时读取位置）
   const BIN_DATA_DIR = path.resolve(ROOT_DIR, 'servercsharp/src/GameServer/bin/Debug/net8.0/data/tables');
   if (fs.existsSync(BIN_DATA_DIR)) {

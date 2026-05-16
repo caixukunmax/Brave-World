@@ -8,6 +8,7 @@ namespace ClinetCSharp
         public override void _Ready()
         {
             SkillDataUtil.Load();
+            TerrainConfigUtil.Load();
             GD.Print("[NetworkManager] _ready() initializing...");
             _tcp = new StreamPeerTcp();
             GD.Print("[NetworkManager] Initialized");

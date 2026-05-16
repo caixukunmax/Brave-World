@@ -56,4 +56,30 @@
 
 	<table name="TbGlobalConfig" value="GlobalConfig" mode="one" input="common/全局常量配置表.xlsx"/>
 
+	<!-- 地形配置 -->
+	<bean name="TerrainConfig">
+		<var name="id" type="int" comment="地形类型ID"/>
+		<var name="name" type="string" comment="显示名称"/>
+		<var name="description" type="string" comment="描述"/>
+		<var name="walkable" type="bool" comment="是否可行走"/>
+		<var name="move_speed_ratio" type="float" comment="移动速度倍率"/>
+		<var name="can_swim" type="bool" comment="是否可游泳"/>
+		<var name="patk_modifier" type="float" comment="物理攻击修正"/>
+		<var name="matk_modifier" type="float" comment="魔法攻击修正"/>
+		<var name="pdef_modifier" type="float" comment="物理防御修正"/>
+		<var name="mdef_modifier" type="float" comment="魔法防御修正"/>
+		<var name="hp_regen_per_sec" type="int" comment="每秒HP恢复"/>
+		<var name="mp_regen_per_sec" type="int" comment="每秒MP恢复"/>
+		<var name="fire_damage_bonus" type="int" comment="火系伤害加成"/>
+		<var name="ice_damage_bonus" type="int" comment="冰系伤害加成"/>
+		<var name="poison_damage_bonus" type="int" comment="毒系伤害加成"/>
+		<var name="color_r" type="int" comment="叠加色R(0-255)"/>
+		<var name="color_g" type="int" comment="叠加色G"/>
+		<var name="color_b" type="int" comment="叠加色B"/>
+		<var name="color_a" type="float" comment="叠加透明度(0-1)"/>
+		<var name="particle_effect" type="string" comment="粒子效果路径"/>
+	</bean>
+
+	<table name="TbTerrainConfig" value="TerrainConfig" mode="map" input="common/TbTerrainConfig.xlsx"/>
+
 </module>

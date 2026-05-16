@@ -618,6 +618,7 @@ namespace ClinetCSharp
                         cell.Walkable = PaintWalkable;
                         cell.Visible = PaintVisible;
                         cell.TerrainType = PaintTerrain;
+                        cell.RefreshTerrainConfig();
                     }
                 }
             }
