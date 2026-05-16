@@ -23,12 +23,18 @@ namespace ClinetCSharp
 
         private void HandleUseItemResponse(ByteString data)
         {
-            UseItemResponse?.Invoke(Game.UseItemResponse.Parser.ParseFrom(data));
+            var rsp = Game.UseItemResponse.Parser.ParseFrom(data);
+            if (rsp.Code == Common.ErrorCode.Success)
+                CachedItems = new List<Game.ItemInfo>(rsp.Items);
+            UseItemResponse?.Invoke(rsp);
         }
 
         private void HandleDropItemResponse(ByteString data)
         {
-            DropItemResponse?.Invoke(Game.DropItemResponse.Parser.ParseFrom(data));
+            var rsp = Game.DropItemResponse.Parser.ParseFrom(data);
+            if (rsp.Code == Common.ErrorCode.Success)
+                CachedItems = new List<Game.ItemInfo>(rsp.Items);
+            DropItemResponse?.Invoke(rsp);
         }
 
         private void HandleGmResponse(ByteString data)
@@ -44,12 +50,18 @@ namespace ClinetCSharp
 
         private void HandleEquipSkillResponse(ByteString data)
         {
-            EquipSkillResponse?.Invoke(Game.EquipSkillResponse.Parser.ParseFrom(data));
+            var rsp = Game.EquipSkillResponse.Parser.ParseFrom(data);
+            if (rsp.Code == Common.ErrorCode.Success)
+                CachedEquippedSkills = new List<uint>(rsp.EquippedSkills);
+            EquipSkillResponse?.Invoke(rsp);
         }
 
         private void HandleUnequipSkillResponse(ByteString data)
         {
-            UnequipSkillResponse?.Invoke(Game.UnequipSkillResponse.Parser.ParseFrom(data));
+            var rsp = Game.UnequipSkillResponse.Parser.ParseFrom(data);
+            if (rsp.Code == Common.ErrorCode.Success)
+                CachedEquippedSkills = new List<uint>(rsp.EquippedSkills);
+            UnequipSkillResponse?.Invoke(rsp);
         }
 
         private void HandleSetPreferredSkillResponse(ByteString data)
