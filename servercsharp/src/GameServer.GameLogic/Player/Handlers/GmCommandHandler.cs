@@ -102,7 +102,7 @@ public class GmCommandHandler : IMessageHandler
 
             var attrKey = RoleAttrs.NameToKey(attrName);
             if (attrKey == null)
-                return new PGame.GmCommandResponse { Code = PCommon.ErrorCode.InvalidRequest, Message = $"unknown attr: {attrName}. valid: hp,max_hp,mp,max_mp,agility,patk,matk,pdef,mdef,mp_regen,move_speed" }.ToByteArray();
+                return new PGame.GmCommandResponse { Code = PCommon.ErrorCode.InvalidRequest, Message = $"unknown attr: {attrName}. valid: hp,max_hp,mp,max_mp,patk,matk,pdef,mdef,mp_regen,move_speed" }.ToByteArray();
 
             // 移速范围校验
             if (attrName == "move_speed")
@@ -218,10 +218,9 @@ public class GmCommandHandler : IMessageHandler
             player.Exp = 0;
 
             // 2. 属性重置为 Lv1 初始值
-            var (hp, mp, agility, patk, matk, pdef, mdef, mpRegen) = _tables.GetPlayerAttrsByLevel(1);
+            var (hp, mp, patk, matk, pdef, mdef, mpRegen) = _tables.GetPlayerAttrsByLevel(1);
             player.MaxHp = hp; player.Hp = hp;
             player.MaxMp = mp; player.Mp = mp;
-            player.Agility = agility;
             player.Patk = patk; player.Matk = matk;
             player.Pdef = pdef; player.Mdef = mdef;
             player.MpRegen = mpRegen;
@@ -256,7 +255,6 @@ public class GmCommandHandler : IMessageHandler
                 mapPlayer.Level = 1;
                 mapPlayer.Hp = hp; mapPlayer.MaxHp = hp;
                 mapPlayer.Mp = mp; mapPlayer.MaxMp = mp;
-                mapPlayer.Agility = agility;
                 mapPlayer.Patk = patk; mapPlayer.Matk = matk;
                 mapPlayer.Pdef = pdef; mapPlayer.Mdef = mdef;
                 mapPlayer.MpRegen = mpRegen;
@@ -270,7 +268,6 @@ public class GmCommandHandler : IMessageHandler
                 .Set(r => r.MaxHp, hp)
                 .Set(r => r.Mp, mp)
                 .Set(r => r.MaxMp, mp)
-                .Set(r => r.Agility, agility)
                 .Set(r => r.Patk, patk)
                 .Set(r => r.Matk, matk)
                 .Set(r => r.Pdef, pdef)
@@ -342,7 +339,6 @@ public class GmCommandHandler : IMessageHandler
             case "max_hp": role.MaxHp = value; break;
             case "mp": role.Mp = value; break;
             case "max_mp": role.MaxMp = value; break;
-            case "agility": role.Agility = value; break;
             case "patk": role.Patk = value; break;
             case "matk": role.Matk = value; break;
             case "pdef": role.Pdef = value; break;
@@ -360,7 +356,7 @@ public class GmCommandHandler : IMessageHandler
             "max_hp" => u.Set(r => r.MaxHp, value),
             "mp" => u.Set(r => r.Mp, value),
             "max_mp" => u.Set(r => r.MaxMp, value),
-            "agility" => u.Set(r => r.Agility, value),
+
             "patk" => u.Set(r => r.Patk, value),
             "matk" => u.Set(r => r.Matk, value),
             "pdef" => u.Set(r => r.Pdef, value),
@@ -379,7 +375,6 @@ public class GmCommandHandler : IMessageHandler
             case "max_hp": player.MaxHp = value; break;
             case "mp": player.Mp = value; break;
             case "max_mp": player.MaxMp = value; break;
-            case "agility": player.Agility = value; break;
             case "patk": player.Patk = value; break;
             case "matk": player.Matk = value; break;
             case "pdef": player.Pdef = value; break;

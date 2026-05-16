@@ -383,7 +383,10 @@ namespace ClinetCSharp
                     m.CastProgress = unit.CastProgress;
                     m.AtbValue = unit.Atb;
                     if (unit.MaxHp > 0)
-                        m.HealthBarFillPercent = (float)unit.Hp / unit.MaxHp;
+                    {
+                        if (m.SyncHp((int)unit.Hp, (int)unit.MaxHp))
+                            m.PlayHitEffect();
+                    }
                     if (unit.MaxMp > 0)
                         m.MpBarFillPercent = (float)unit.Mp / unit.MaxMp;
                     if (!m.IsMoving)

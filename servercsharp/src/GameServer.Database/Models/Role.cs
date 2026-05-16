@@ -37,7 +37,6 @@ public class Role
     [BsonElement("max_hp")]          public int    MaxHp         { get; set; }
     [BsonElement("mp")]              public int    Mp            { get; set; }
     [BsonElement("max_mp")]          public int    MaxMp         { get; set; }
-    [BsonElement("agility")]         public int    Agility       { get; set; }
     [BsonElement("patk")]            public int    Patk          { get; set; }
     [BsonElement("matk")]            public int    Matk          { get; set; }
     [BsonElement("pdef")]            public int    Pdef          { get; set; }

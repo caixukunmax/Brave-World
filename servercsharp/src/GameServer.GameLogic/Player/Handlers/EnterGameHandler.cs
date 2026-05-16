@@ -48,10 +48,9 @@ public class EnterGameHandler : IMessageHandler
         _session.SetOnline(claims.AccountId, role);
 
         // 按当前等级重新计算完整属性（修复老玩家/等级成长）
-        var (hp, mp, agility, patk, matk, pdef, mdef, mpRegen) = _tables.GetPlayerAttrsByLevel(role.Level);
+        var (hp, mp, patk, matk, pdef, mdef, mpRegen) = _tables.GetPlayerAttrsByLevel(role.Level);
         role.MaxHp = hp;
         role.MaxMp = mp;
-        role.Agility = agility;
         role.Patk = patk; role.Matk = matk;
         role.Pdef = pdef; role.Mdef = mdef;
         role.MpRegen = mpRegen;
@@ -95,7 +94,7 @@ public class EnterGameHandler : IMessageHandler
             Level = role.Level,
             CurrentMap = mapName,
             Hp = hp, MaxHp = hp, Mp = mp, MaxMp = mp,
-            Agility = agility, Patk = patk, Matk = matk, Pdef = pdef, Mdef = mdef,
+            Patk = patk, Matk = matk, Pdef = pdef, Mdef = mdef,
             MpRegen = mpRegen,
             Job = role.Job,
             MoveSpeedMs = role.MoveSpeedMs > 0 ? role.MoveSpeedMs : GameConstants.BaseMoveSpeedMs,

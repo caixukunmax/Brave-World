@@ -39,30 +39,6 @@ public static class CombatTrace
             combatId, attackerId, attackerName, targetId, targetName, skillId);
     }
 
-    // ---- ATB 充能 ----
-
-    public static void AtbTick(ILogger logger, long combatId, long entityId, string name,
-        double atbValue, double delta, double agilityCoef, double atbBoost)
-    {
-        logger.LogDebug(
-            "[CombatTrace] event=atb_tick | combat={Combat} | entity={Eid}({Name}) | atb={Atb:F1} | delta={Delta:F3} | agi_coef={AgiCoef:F3} | boost={Boost:F3}",
-            combatId, entityId, name, atbValue, delta, agilityCoef, atbBoost);
-    }
-
-    public static void AtbFull(ILogger logger, long combatId, long entityId, string name, int skillId)
-    {
-        logger.LogInformation(
-            "[CombatTrace] event=atb_full | combat={Combat} | entity={Eid}({Name}) | skill={Skill}",
-            combatId, entityId, name, skillId);
-    }
-
-    public static void AtbFullNoSkill(ILogger logger, long combatId, long entityId, string name)
-    {
-        logger.LogInformation(
-            "[CombatTrace] event=atb_full_no_skill | combat={Combat} | entity={Eid}({Name}) | reason=all_on_cd",
-            combatId, entityId, name);
-    }
-
     // ---- 技能释放 6 阶段 ----
 
     public static void SkillPreCheck(ILogger logger, long combatId, long casterId, string casterName, int skillId, bool ok, string? err)
@@ -222,11 +198,11 @@ public static class CombatTrace
     // ---- 属性快照 ----
 
     public static void AttrSnapshot(ILogger logger, long combatId, long entityId, string entityName,
-        int patk, int matk, int pdef, int mdef, int agility,
-        int buffPatk, int buffMatk, int buffPdef, int buffMdef, int buffAgi)
+        int patk, int matk, int pdef, int mdef,
+        int buffPatk, int buffMatk, int buffPdef, int buffMdef)
     {
         logger.LogInformation(
-            "[CombatTrace] event=attr_snapshot | combat={Combat} | entity={Eid}({Name}) | patk={Patk}+{BPatk} | matk={Matk}+{BMatk} | pdef={Pdef}+{BPdef} | mdef={Mdef}+{BMdef} | agi={Agi}+{BAgi}",
-            combatId, entityId, entityName, patk, buffPatk, matk, buffMatk, pdef, buffPdef, mdef, buffMdef, agility, buffAgi);
+            "[CombatTrace] event=attr_snapshot | combat={Combat} | entity={Eid}({Name}) | patk={Patk}+{BPatk} | matk={Matk}+{BMatk} | pdef={Pdef}+{BPdef} | mdef={Mdef}+{BMdef}",
+            combatId, entityId, entityName, patk, buffPatk, matk, buffMatk, pdef, buffPdef, mdef, buffMdef);
     }
 }

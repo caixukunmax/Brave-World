@@ -400,7 +400,7 @@ public class CombatManager
         }
     }
 
-    // ---- ATB Tick ----
+    // ---- CD 驱动战斗 ----
 
     /// <summary>同步玩家 PreferredSkillId 到 CombatContext（每帧检查）</summary>
     private void SyncPreferredSkills(Dictionary<string, MapState> maps)
@@ -419,14 +419,17 @@ public class CombatManager
         }
     }
 
-    public void TickATB(double dt, Dictionary<string, MapState> maps)
+    /// <summary>怪物 CD 驱动自动施法 — 纯 CD 制下怪物按冷却自动释放技能</summary>
+    private void TickMonsterSkills(double dt, Dictionary<string, MapState> maps)
     {
-        // 快照遍历：ResumeCast→ApplyDamage→OnDeath 可能删除其他实体的 context
+        long now = Environment.TickCount64;
         foreach (var (entityId, ctx) in _relations.Contexts.ToList())
         {
-            if (ctx.State == "COMBAT" && ctx.SubState != "CASTING")
+            if (ctx.State != "COMBAT") continue;
+
+            if (ctx.SubState != "CASTING")
             {
-                if (ctx.SubState == "POST_CAST" && ctx.PostCastEndTime.HasValue && Environment.TickCount64 < ctx.PostCastEndTime)
+                if (ctx.SubState == "POST_CAST" && ctx.PostCastEndTime.HasValue && now < ctx.PostCastEndTime)
                 { /* 后摇中 */ }
                 else if (ctx.SubState == "POST_CAST")
                 {
@@ -434,55 +437,23 @@ public class CombatManager
                     ctx.PostCastEndTime = null;
                 }
 
-                // ATB boost 自动衰减（非施法状态）
-                if (ctx.AtbBoost > 0)
+                // 只处理怪物自动施法（玩家由手动 CastRequest 驱动）
+                if (entityId >= CombatConstants.MonsterIdThreshold)
                 {
-                    ctx.AtbBoost = Math.Max(0, ctx.AtbBoost - GameConstants.AtbBoostDecayRate * dt);
-                    if (ctx.AtbBoost <= 0) ctx.AtbBoostStacks = 0;
-                }
-
-                double agilityCoef = GetAgilityCoefficient(entityId, maps);
-                double delta = GameConstants.BaseAtbRate * agilityCoef * (1 + ctx.AtbBoost) * dt;
-                ctx.AtbValue = Math.Min(100, ctx.AtbValue + delta);
-
-                if (ctx.AtbValue >= CombatConstants.AtbMax)
-                {
-                    if (ctx.SubState == "POST_CAST" && ctx.PostCastEndTime.HasValue && Environment.TickCount64 < ctx.PostCastEndTime)
+                    int skillId = SelectSkill(ctx);
+                    if (skillId > 0)
                     {
-                        ctx.AtbValue = CombatConstants.AtbMax;
-                    }
-                    else
-                    {
-                        int skillId = SelectSkill(ctx);
-                        if (skillId == 0)
-                        {
-                            ctx.AtbValue = CombatConstants.AtbMax; // 所有技能冷却中，待机
-                            CombatTrace.AtbFullNoSkill(_logger, _entityCombatId.GetValueOrDefault(entityId), entityId, SkillPipeline.GetEntityName(entityId, maps));
-                        }
-                        else
-                        {
-                            CombatTrace.AtbFull(_logger, _entityCombatId.GetValueOrDefault(entityId), entityId, SkillPipeline.GetEntityName(entityId, maps), skillId);
-                            // 保持 ATB=100，进入蓄力（蓄力完成后才重置）
-                            RequestCast(entityId, skillId, maps);
-                        }
+                        RequestCast(entityId, skillId, maps);
                     }
                 }
             }
-            else if (ctx.State == "COMBAT" && ctx.SubState == "CASTING")
+            else if (ctx.SubState == "CASTING")
             {
                 int? pendingSkillId = ctx.CastSkillId;
                 var result = _pipeline.ResumeCast(entityId, maps);
-                if (result == "SUCCESS" || result == "MISS")
-                {
-                    // 蓄力完成（命中或未命中），重置 ATB
-                    ctx.AtbValue = 0;
-                    ctx.AtbBoost = 0;
-                    ctx.AtbBoostStacks = 0;
-                }
                 if (result == "SUCCESS")
                 {
-                    // 蓄力完成命中 — 广播技能日志（即时技能在 RequestCast 中已广播）
-                    long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+                    long nowSec = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
                     string actorName = SkillPipeline.GetEntityName(entityId, maps);
                     string sName = pendingSkillId.HasValue ? SkillPipeline.GetSkillNameStatic(pendingSkillId.Value) ?? "未知技能" : "未知技能";
                     BroadcastCombatLog(new List<CombatLogEntry>
@@ -490,7 +461,7 @@ public class CombatManager
                         new()
                         {
                             LogType = PGame.CombatLogType.CombatLogSkill,
-                            Timestamp = (ulong)now,
+                            Timestamp = (ulong)nowSec,
                             ActorName = actorName, SkillName = sName,
                             Extra = CombatLogFormatter.Format(1, actorName, null, sName, 0, null),
                             ActorId = entityId,
@@ -500,10 +471,7 @@ public class CombatManager
                 }
                 if (result == "MISS")
                 {
-                    ctx.AtbBoost = Math.Min(ctx.AtbBoost + GameConstants.AtbBoostPerMiss, GameConstants.AtbBoostMax);
-                    ctx.AtbBoostStacks = Math.Min(ctx.AtbBoostStacks + 1, GameConstants.AtbBoostStacksMax);
-
-                    long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+                    long nowSec = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
                     string actorName = SkillPipeline.GetEntityName(entityId, maps);
                     string sName = pendingSkillId.HasValue ? SkillPipeline.GetSkillNameStatic(pendingSkillId.Value) ?? "未知技能" : "未知技能";
                     BroadcastCombatLog(new List<CombatLogEntry>
@@ -511,7 +479,7 @@ public class CombatManager
                         new()
                         {
                             LogType = PGame.CombatLogType.CombatLogDodge,
-                            Timestamp = (ulong)now,
+                            Timestamp = (ulong)nowSec,
                             ActorName = actorName, SkillName = sName,
                             Extra = CombatLogFormatter.Format(5, actorName, null, sName, 0, null),
                             ActorId = entityId,
@@ -528,12 +496,6 @@ public class CombatManager
     private void RequestCast(long entityId, int skillId, Dictionary<string, MapState> maps)
     {
         var result = _pipeline.Cast(skillId, entityId, maps);
-        if (result == "SUCCESS" || result == "MISS")
-        {
-            // 即时技能（CastTime=0）直接重置 ATB
-            var ctx = _relations.Contexts.GetValueOrDefault(entityId);
-            if (ctx != null) { ctx.AtbValue = 0; ctx.AtbBoost = 0; ctx.AtbBoostStacks = 0; }
-        }
         if (result == "SUCCESS")
         {
             long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
@@ -570,23 +532,33 @@ public class CombatManager
                     MapName = SkillPipeline.GetEntityMapName(entityId, maps) ?? "",
                 }
             }, maps);
+        }
+    }
 
-            var ctx = _relations.Contexts.GetValueOrDefault(entityId);
-            if (ctx != null)
-            {
-                ctx.AtbBoost = Math.Min(ctx.AtbBoost + GameConstants.AtbBoostPerMiss, GameConstants.AtbBoostMax);
-                ctx.AtbBoostStacks = Math.Min(ctx.AtbBoostStacks + 1, GameConstants.AtbBoostStacksMax);
-            }
-        }
-        else if (result == "FAILURE")
-        {
-            var ctx = _relations.Contexts.GetValueOrDefault(entityId);
-            if (ctx != null)
-            {
-                ctx.AtbBoost = 0.15;
-                ctx.AtbBoostStacks = 1;
-            }
-        }
+    /// <summary>处理玩家手动施法请求 — 纯 CD 即时制，不再需要 ATB</summary>
+    public PGame.CastResponse HandleCastRequest(long playerId, int skillId, long? targetId, Dictionary<string, MapState> maps)
+    {
+        var ctx = _relations.Contexts.GetValueOrDefault(playerId);
+        if (ctx == null || ctx.State != "COMBAT")
+            return new PGame.CastResponse { Success = false, Error = "not_in_combat" };
+
+        if (ctx.SubState == "CASTING")
+            return new PGame.CastResponse { Success = false, Error = "already_casting" };
+
+        if (ctx.SubState == "POST_CAST" && Environment.TickCount64 < (ctx.PostCastEndTime ?? 0))
+            return new PGame.CastResponse { Success = false, Error = "post_cast" };
+
+        if (!ctx.SkillPool.Contains(skillId))
+            return new PGame.CastResponse { Success = false, Error = "invalid_skill" };
+
+        var result = _pipeline.Cast(skillId, playerId, maps);
+
+        if (result == "SUCCESS" || result == "PENDING")
+            return new PGame.CastResponse { Success = true };
+        if (result == "MISS")
+            return new PGame.CastResponse { Success = true }; // 打空也算释放成功，只是没命中
+
+        return new PGame.CastResponse { Success = false, Error = "cast_failed" };
     }
 
     // ---- 怪物回血 ----
@@ -819,7 +791,7 @@ public class CombatManager
         // 同步玩家 PreferredSkillId 到 CombatContext
         SyncPreferredSkills(maps);
 
-        TickATB(dt, maps);
+        TickMonsterSkills(dt, maps);
         TickMonsterRegen(dt, monsterRegistry);
         TickPlayerHpRegen(dt, maps);
         TickPlayerMpRegen(dt, maps);
@@ -908,30 +880,6 @@ public class CombatManager
         }, maps);
     }
 
-    private double GetAgilityCoefficient(long entityId, Dictionary<string, MapState> maps)
-    {
-        foreach (var map in maps.Values)
-        {
-            if (map.Players.TryGetValue(entityId, out var p))
-            {
-                int agility = p.Agility > 0 ? p.Agility : 100;
-                // 加上 buff 属性修正（减速 debuff 等）
-                agility += p.Buffs.GetAttrModifier("agility");
-                return 1.0 + (agility - 100) * 0.01;
-            }
-            if (map.Monsters.TryGetValue(entityId, out var m))
-            {
-                int agility = m.Agility > 0 ? m.Agility : 100;
-                // 怪物的 buff 在 CombatContext 里
-                var ctx = _relations.Contexts.GetValueOrDefault(entityId);
-                if (ctx != null)
-                    agility += ctx.Buffs.GetAttrModifier("agility");
-                return 1.0 + (agility - 100) * 0.01;
-            }
-        }
-        return 1.0;
-    }
-
     private static int SelectSkill(CombatContext ctx)
     {
         long now = Environment.TickCount64;
@@ -941,7 +889,7 @@ public class CombatManager
             ctx.SkillPool.Contains(ctx.PreferredSkillId) &&
             (!ctx.SkillCooldowns.TryGetValue(ctx.PreferredSkillId, out var preferredCdEnd) || now >= preferredCdEnd))
         {
-            return ctx.PreferredSkillId;  // CombatTrace 在调用方 AtbFull 里记录
+            return ctx.PreferredSkillId;
         }
 
         // 常规顺序选择
@@ -1034,7 +982,7 @@ public class CombatManager
                 var unitSet = new HashSet<long> { accountId };
                 var units = new List<(long, string, double, bool, int, int, int, int, string, float, List<(uint, float, float)>)>
                 {
-                    (accountId, p.RoleName ?? $"player_{accountId}", ctx.AtbValue, true, p.Hp, p.MaxHp, p.Mp, p.MaxMp, cs, cp, playerCds)
+                    (accountId, p.RoleName ?? $"player_{accountId}", 0d, true, p.Hp, p.MaxHp, p.Mp, p.MaxMp, cs, cp, playerCds)
                 };
 
                 foreach (var relationId in ctx.RelationIds)
@@ -1056,7 +1004,7 @@ public class CombatManager
                     var otherCds = BuildCdEntries(otherCtx, nowMs);
 
                     units.Add((otherId, SkillPipeline.GetEntityName(otherId, maps),
-                        otherCtx?.AtbValue ?? 0, otherId < 1000000, otherHp, otherMaxHp, otherMp, otherMaxMp, ocs, ocp, otherCds));
+                        0d, otherId < 1000000, otherHp, otherMaxHp, otherMp, otherMaxMp, ocs, ocp, otherCds));
                 }
 
                 if (units.Count > 0) playerStates[accountId] = units;

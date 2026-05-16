@@ -44,7 +44,8 @@ namespace ClinetCSharp
 
                 if (unit.MaxHp > 0)
                 {
-                    HealthBarFillPercent = (float)unit.Hp / unit.MaxHp;
+                    if (SyncHp((int)unit.Hp, (int)unit.MaxHp))
+                        PlayHitEffect();
                     CombatAttrs[1] = unit.Hp;
                     CombatAttrs[2] = unit.MaxHp;
                 }

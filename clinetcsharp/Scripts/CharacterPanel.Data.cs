@@ -31,7 +31,6 @@ namespace ClinetCSharp
             new(2, "MaxHP", "max_hp", 1, 99999),
             new(3, "MP", "mp", 0, 99999),
             new(4, "MaxMP", "max_mp", 1, 99999),
-            new(5, "敏捷", "agility", 0, 99999),
             new(6, "物攻", "patk", 0, 99999),
             new(7, "魔攻", "matk", 0, 99999),
             new(8, "物防", "pdef", 0, 99999),

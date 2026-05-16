@@ -121,6 +121,9 @@ namespace ClinetCSharp
                     case MessageId.GameSetPreferredSkillRsp:
                         HandleSetPreferredSkillResponse(data);
                         break;
+                    case MessageId.GameCastRsp:
+                        HandleCastResponse(data);
+                        break;
                     case MessageId.GameChangeJobRsp:
                         HandleChangeJobResponse(data);
                         break;

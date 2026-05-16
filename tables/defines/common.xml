@@ -25,7 +25,6 @@
 		<var name="MAX_HP" alias="最大生命" value="2"/>
 		<var name="MP" alias="魔法值" value="3"/>
 		<var name="MAX_MP" alias="最大魔法" value="4"/>
-		<var name="AGILITY" alias="敏捷" value="5"/>
 		<var name="PATK" alias="物攻" value="6"/>
 		<var name="MATK" alias="魔攻" value="7"/>
 		<var name="PDEF" alias="物防" value="8"/>

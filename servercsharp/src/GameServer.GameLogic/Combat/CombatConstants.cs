@@ -8,9 +8,6 @@ public static class CombatConstants
     /// <summary>怪物 InstanceId 起始值（>= 此值为怪物）</summary>
     public const long MonsterIdThreshold = 1_000_000;
 
-    /// <summary>ATB 满值（行动条充满时可以行动）</summary>
-    public const int AtbMax = 100;
-
     /// <summary>默认 NPC 战斗属性</summary>
     public static class DefaultNpcCombat
     {
@@ -22,6 +19,5 @@ public static class CombatConstants
         public const int Matk = 10;
         public const int Pdef = 15;
         public const int Mdef = 10;
-        public const int Agility = 120;
     }
 }

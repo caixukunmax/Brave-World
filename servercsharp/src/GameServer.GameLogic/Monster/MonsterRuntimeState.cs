@@ -37,7 +37,6 @@ public class MonsterRuntimeState
     public int Matk { get; set; } = 10;
     public int Pdef { get; set; } = 5;
     public int Mdef { get; set; } = 5;
-    public int Agility { get; set; } = 100;
 
     // ---- 移动系统（与玩家共用预占机制）----
     public int MoveSpeedMs { get; set; } = 800;   // 默认 800ms/格

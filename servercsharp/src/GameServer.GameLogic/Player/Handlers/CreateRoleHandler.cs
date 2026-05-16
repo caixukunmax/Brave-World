@@ -57,7 +57,7 @@ public class CreateRoleHandler : IMessageHandler
             : (GameConstants.DefaultSpawnX, GameConstants.DefaultSpawnY);
 
         // 按 Lv1 初始化属性
-        var (baseHp, baseMp, baseAgi, basePatk, baseMatk, basePdef, baseMdef, baseMpRegen) = _tables.GetPlayerAttrsByLevel(1);
+        var (baseHp, baseMp, basePatk, baseMatk, basePdef, baseMdef, baseMpRegen) = _tables.GetPlayerAttrsByLevel(1);
 
         var roleData = new Role
         {
@@ -79,7 +79,6 @@ public class CreateRoleHandler : IMessageHandler
             MoveSpeedMs = GameConstants.BaseMoveSpeedMs,
             Hp = baseHp, MaxHp = baseHp,
             Mp = baseMp, MaxMp = baseMp,
-            Agility = baseAgi,
             Patk = basePatk, Matk = baseMatk,
             Pdef = basePdef, Mdef = baseMdef,
             MpRegen = baseMpRegen,

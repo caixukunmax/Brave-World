@@ -1,5 +1,59 @@
-{
-  "1001": { "id": 1001, "name": "恢复药水", "desc": "恢复少量生命值", "max_pile": 99, "quality": 0 },
-  "1002": { "id": 1002, "name": "铁矿石", "desc": "基础锻造材料", "max_pile": 999, "quality": 0 },
-  "2001": { "id": 2001, "name": "金币袋", "desc": "打开获得金币", "max_pile": 9999, "quality": 0 }
-}
+[
+  {
+    "id": 1001,
+    "name": "仙贝",
+    "major_type": 4,
+    "minor_type": 403,
+    "max_pile_num": 99,
+    "quality": 0,
+    "icon": "",
+    "icon_backgroud": "",
+    "icon_mask": "",
+    "desc": "恢复少量生命值",
+    "show_order": 1,
+    "effect_type": "heal",
+    "effect_value": 50,
+    "price": 10,
+    "can_sell": true,
+    "obtain_methods": "",
+    "release_date": ""
+  },
+  {
+    "id": 1002,
+    "name": "精魔石",
+    "major_type": 11,
+    "minor_type": 1101,
+    "max_pile_num": 99,
+    "quality": 1,
+    "icon": "",
+    "icon_backgroud": "",
+    "icon_mask": "",
+    "desc": "用于装备强化",
+    "show_order": 2,
+    "effect_type": "",
+    "effect_value": 0,
+    "price": 50,
+    "can_sell": true,
+    "obtain_methods": "",
+    "release_date": ""
+  },
+  {
+    "id": 2001,
+    "name": "金币袋",
+    "major_type": 1,
+    "minor_type": 102,
+    "max_pile_num": 99,
+    "quality": 2,
+    "icon": "",
+    "icon_backgroud": "",
+    "icon_mask": "",
+    "desc": "装有金币的袋子",
+    "show_order": 3,
+    "effect_type": "add_gold",
+    "effect_value": 100,
+    "price": 0,
+    "can_sell": false,
+    "obtain_methods": "",
+    "release_date": ""
+  }
+]

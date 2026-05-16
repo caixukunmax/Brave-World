@@ -112,6 +112,22 @@ namespace ClinetCSharp
 
         private void BeginPredictedMove(Vector2I targetGridPos)
         {
+            // === 视觉预加载：旧 tween 还在运行时，先完成它再启动新 tween ===
+            // 否则两个 Tween 同时竞争 "position" 属性 → 每帧抖动
+            if (_currentTween != null && GodotObject.IsInstanceValid(_currentTween) && _currentTween.IsRunning())
+            {
+                var oldTarget = _lastMoveTargetPos;
+
+                _currentTween.Kill();
+                _currentTween = null;
+
+                if (_collisionMove)
+                    _collisionMove = false;
+
+                SendMoveCompleteRequest(oldTarget);
+                CheckAdjacentNpc();
+            }
+
             _moveFromPos = _gridPos;
             _moveTargetPos = targetGridPos;
             _collisionMove = false;

@@ -158,16 +158,17 @@ namespace ClinetCSharp
 
         internal void OnSlotClicked(int slotIndex)
         {
-            _selectedSlot = _selectedSlot == slotIndex ? -1 : slotIndex;
-            for (int i = 0; i < MaxSlots; i++)
-                _slots[i].SetSelected(i == _selectedSlot);
+            var slot = _slots[slotIndex];
+            if (slot.SkillId <= 0) return;
 
-            // 发送优先技能请求
+            // 本地 CD 检查 — 减少无效请求
+            if (slot.IsOnCooldown) return;
+
+            // 发送施法请求（纯 CD 即时制，不再需要 ATB）
             if (_network != null)
             {
-                uint preferredSkillId = _selectedSlot >= 0 ? _slots[_selectedSlot].SkillId : 0;
-                var req = new Game.SetPreferredSkillRequest { SkillId = preferredSkillId };
-                _network.SendPacket(Protocol.MessageId.GameSetPreferredSkillReq, req);
+                var req = new Game.CastRequest { SkillId = slot.SkillId };
+                _network.SendPacket(Protocol.MessageId.GameCastReq, req);
             }
         }
 
@@ -353,6 +354,8 @@ namespace ClinetCSharp
                 _cdMask.Visible = false;
                 _cdLabel.Text = "";
             }
+
+            public bool IsOnCooldown => _cdMask.Visible;
 
             public void SetSelected(bool selected)
             {

@@ -66,7 +66,6 @@ public class NpcCombatHandler : IMessageHandler
             npc.Matk = CombatConstants.DefaultNpcCombat.Matk;
             npc.Pdef = CombatConstants.DefaultNpcCombat.Pdef;
             npc.Mdef = CombatConstants.DefaultNpcCombat.Mdef;
-            npc.Agility = CombatConstants.DefaultNpcCombat.Agility;
         }
         else
         {

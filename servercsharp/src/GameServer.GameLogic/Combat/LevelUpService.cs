@@ -72,7 +72,6 @@ public class LevelUpService
             role.Matk += nextLevelCfg.Matk;
             role.Pdef += nextLevelCfg.Pdef;
             role.Mdef += nextLevelCfg.Mdef;
-            role.Agility += nextLevelCfg.Agility;
 
             // 升级后满血满蓝
             role.Hp = role.MaxHp;
@@ -97,7 +96,6 @@ public class LevelUpService
                 mapPlayer.Matk = role.Matk;
                 mapPlayer.Pdef = role.Pdef;
                 mapPlayer.Mdef = role.Mdef;
-                mapPlayer.Agility = role.Agility;
             }
         }
 
@@ -122,7 +120,6 @@ public class LevelUpService
                 Matk = role.Matk,
                 Pdef = role.Pdef,
                 Mdef = role.Mdef,
-                Agility = role.Agility,
             };
             _network.SendToAccount(accountId, role.ServerId,
                 (int)PProtocol.MessageId.GameLevelUpNotify, notify.ToByteArray());

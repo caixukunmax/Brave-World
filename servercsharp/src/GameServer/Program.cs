@@ -295,7 +295,6 @@ public class GameServerHostedService : IHostedService
                              .Set(r => r.MaxHp, role.MaxHp)
                              .Set(r => r.Mp, role.Mp)
                              .Set(r => r.MaxMp, role.MaxMp)
-                             .Set(r => r.Agility, role.Agility)
                              .Set(r => r.Patk, role.Patk)
                              .Set(r => r.Matk, role.Matk)
                              .Set(r => r.Pdef, role.Pdef)

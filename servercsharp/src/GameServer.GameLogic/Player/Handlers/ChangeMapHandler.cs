@@ -56,7 +56,7 @@ public class ChangeMapHandler : IMessageHandler
         if (walkable != null) { spawnX = walkable.Value.x; spawnY = walkable.Value.y; }
 
         // 按当前等级计算属性，避免切图后属性被重置为 Lv1
-        var (hp, mp, agility, patk, matk, pdef, mdef, _) = _tables.GetPlayerAttrsByLevel(role.Level);
+        var (hp, mp, patk, matk, pdef, mdef, _) = _tables.GetPlayerAttrsByLevel(role.Level);
 
         // 更新角色数据
         role.CurrentMap = targetMap;
@@ -77,7 +77,7 @@ public class ChangeMapHandler : IMessageHandler
             Level = role.Level,
             CurrentMap = targetMap,
             Hp = enterHp, MaxHp = hp, Mp = enterMp, MaxMp = mp,
-            Agility = agility, Patk = patk, Matk = matk, Pdef = pdef, Mdef = mdef,
+            Patk = patk, Matk = matk, Pdef = pdef, Mdef = mdef,
             MpRegen = role.MpRegen,
         });
 

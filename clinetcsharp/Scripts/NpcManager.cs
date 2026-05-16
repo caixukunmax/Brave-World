@@ -456,7 +456,11 @@ namespace ClinetCSharp
                 {
                     npc.SetHealthBarVisible(true);
                     npc.SetMpBarVisible(true);
-                    npc.SetHealthBarFillPercent(unit.MaxHp > 0 ? (float)unit.Hp / unit.MaxHp : 0f);
+                    if (unit.MaxHp > 0)
+                    {
+                        if (npc.SyncHp((int)unit.Hp, (int)unit.MaxHp))
+                            npc.PlayHitEffect();
+                    }
                     npc.SetMpBarFillPercent(unit.MaxMp > 0 ? (float)unit.Mp / unit.MaxMp : 0f);
                 }
             }

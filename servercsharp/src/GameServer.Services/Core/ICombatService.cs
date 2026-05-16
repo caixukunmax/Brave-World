@@ -10,4 +10,7 @@ public interface ICombatService
     void OnCollision(long entityA, long entityB, Dictionary<string, MapState> maps);
     void Tick(double dt, Dictionary<string, MapState> maps, IMonsterRegistry? monsterRegistry);
     bool IsCasting(long entityId);
+
+    /// <summary>玩家手动施法请求 — 纯 CD 即时制</summary>
+    byte[]? HandleCastRequest(long playerId, int skillId, long? targetId, Dictionary<string, MapState> maps);
 }

@@ -351,9 +351,14 @@ namespace ClinetCSharp
                 Position = Position.Lerp(Target.Position, t);
             }
 
-            // 像素对齐
-            if (Target != null && Position.DistanceSquaredTo(Target.Position) < 1.0f)
-                Position = Position.Round();
+            // 像素对齐：只在玩家不移动且相机几乎完全追上时才做
+            // 连续移动中 Round() 会导致相机粘滞在整数坐标，产生 1 像素跳跃抖动
+            if (Target != null && Position.DistanceSquaredTo(Target.Position) < 0.01f)
+            {
+                var player = Target as Player;
+                if (player == null || !player.IsMoving)
+                    Position = Position.Round();
+            }
         }
 
         // 切换调试输出

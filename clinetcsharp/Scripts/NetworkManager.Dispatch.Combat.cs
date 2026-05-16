@@ -28,7 +28,46 @@ namespace ClinetCSharp
 
         private void HandleCombatLogNotify(ByteString data)
         {
-            CombatLogNotify?.Invoke(Game.CombatLogNotify.Parser.ParseFrom(data));
+            var notify = Game.CombatLogNotify.Parser.ParseFrom(data);
+            CombatLogNotify?.Invoke(notify);
+
+            // 攻击者抖动效果
+            foreach (var entry in notify.Entries)
+            {
+                if (entry.LogType == Game.CombatLogType.CombatLogDamage)
+                {
+                    var attacker = FindEntityByName(entry.ActorName);
+                    if (attacker != null)
+                    {
+                        var target = FindEntityByName(entry.TargetName);
+                        if (target != null)
+                            attacker.PlayAttackShake(target.GridPos);
+                        else
+                            attacker.PlayAttackShake();
+                    }
+                }
+            }
+        }
+
+        private EntityBase? FindEntityByName(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return null;
+
+            var player = GetTree()?.GetFirstNodeInGroup("player") as Player;
+            if (player != null && player.CharacterName == name)
+                return player;
+
+            var mm = GetTree()?.GetFirstNodeInGroup("monster_manager") as MonsterManager;
+            if (mm != null)
+            {
+                foreach (var m in mm.GetMonsters())
+                {
+                    if (m.MonsterName == name)
+                        return m;
+                }
+            }
+
+            return null;
         }
 
         private void HandleCombatStateNotify(ByteString data)
@@ -59,6 +98,16 @@ namespace ClinetCSharp
         private void HandleLevelUpNotify(ByteString data)
         {
             LevelUpNotify?.Invoke(Game.LevelUpNotify.Parser.ParseFrom(data));
+        }
+
+        private void HandleCastResponse(ByteString data)
+        {
+            var rsp = Game.CastResponse.Parser.ParseFrom(data);
+            CastResponse?.Invoke(rsp);
+            if (!rsp.Success)
+            {
+                GD.PrintErr($"[Cast] Failed: {rsp.Error}");
+            }
         }
     }
 }

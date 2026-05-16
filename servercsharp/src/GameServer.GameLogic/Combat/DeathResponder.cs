@@ -66,7 +66,7 @@ public class DeathResponder
         if (walkable != null) { spawnX = walkable.Value.x; spawnY = walkable.Value.y; }
 
         // 4. 恢复满血（按当前等级计算属性）
-        var (hp, mp, agility, patk, matk, pdef, mdef, _) = _tables.GetPlayerAttrsByLevel(role.Level);
+        var (hp, mp, patk, matk, pdef, mdef, _) = _tables.GetPlayerAttrsByLevel(role.Level);
 
         // 5. 更新 Role 模型
         role.GridX = spawnX;
@@ -84,7 +84,7 @@ public class DeathResponder
             Level = role.Level,
             CurrentMap = currentMap,
             Hp = hp, MaxHp = hp, Mp = mp, MaxMp = mp,
-            Agility = agility, Patk = patk, Matk = matk, Pdef = pdef, Mdef = mdef,
+            Patk = patk, Matk = matk, Pdef = pdef, Mdef = mdef,
             MpRegen = role.MpRegen,
         });
 

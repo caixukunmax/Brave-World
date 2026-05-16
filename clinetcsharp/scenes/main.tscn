@@ -18,7 +18,6 @@
 [ext_resource type="PackedScene" path="res://scenes/character_panel.tscn" id="16_charpanel"]
 [ext_resource type="PackedScene" path="res://scenes/entity_list_panel.tscn" id="17_entity"]
 [ext_resource type="PackedScene" path="res://scenes/inventory_ui_panel.tscn" id="18_invui"]
-[ext_resource type="PackedScene" path="res://scenes/combat_atb_panel.tscn" id="19_atb"]
 [ext_resource type="PackedScene" path="res://scenes/skill_panel.tscn" id="20_skill"]
 [ext_resource type="PackedScene" path="res://scenes/skill_bar.tscn" id="21_skillbar"]
 [ext_resource type="Script" path="res://Scripts/FunctionButtonBar.cs" id="22_fnbar"]
@@ -106,7 +105,3 @@ layer = 60
 
 [node name="BuffBar" parent="SkillBarCanvas" instance=ExtResource("23_buffbar")]
 
-[node name="CombatATBCanvas" type="CanvasLayer" parent="."]
-layer = 50
-
-[node name="CombatATBPanel" parent="CombatATBCanvas" instance=ExtResource("19_atb")]

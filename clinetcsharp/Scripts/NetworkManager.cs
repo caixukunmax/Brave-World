@@ -37,6 +37,7 @@ namespace ClinetCSharp
         public event Action<Game.OpenChestResponse> OpenChestResponse;
         public event Action<Game.CombatLogNotify> CombatLogNotify;
         public event Action<Game.CombatStateNotify> CombatStateNotify;
+        public event Action<Game.CastResponse> CastResponse;
         public event Action<Game.BuffUpdateNotify> BuffUpdateNotify;
         public event Action<Game.CombatStartNotify> CombatStartNotify;
         public event Action<Game.CombatEndNotify> CombatEndNotify;

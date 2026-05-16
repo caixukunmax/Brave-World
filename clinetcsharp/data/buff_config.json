@@ -115,14 +115,11 @@
     "effects": [],
     "attr_modifiers": [
       {
-        "attr": "agility",
-        "value": -30,
-        "is_pct": false
       }
     ],
     "shield_base": 0,
     "clear_on_disengage": true
-  },
+  }
   {
     "id": 7,
     "name": "灼烧",

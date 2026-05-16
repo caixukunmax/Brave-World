@@ -36,7 +36,6 @@ public class CombatRelationManager
         if (state == "IDLE")
         {
             ctx.SubState = "NONE";
-            ctx.AtbValue = 0;
             ctx.CastSkillId = null;
             ctx.CastEndTime = null;
             ctx.PostCastEndTime = null;

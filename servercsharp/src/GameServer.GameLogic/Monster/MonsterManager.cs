@@ -74,7 +74,7 @@ public class MonsterManager : IMonsterRegistry
             {
                 _monsters[instanceId] = m;
                 _mapService.MonsterEnter(instanceId, m.MonsterId, mapName, m.Name, m.X, m.Y, m.Hp, m.MaxHp, m.Level,
-                    m.Patk, m.Matk, m.Pdef, m.Mdef, m.Agility);
+                    m.Patk, m.Matk, m.Pdef, m.Mdef);
                 _logger.LogInformation("[Monster] init: id={InstanceId} map={Map} pos=({X},{Y}) ai={Ai}", instanceId, mapName, m.X, m.Y, m.AiType);
             }
             nextId += mapMonsters.Count;
@@ -104,7 +104,6 @@ public class MonsterManager : IMonsterRegistry
         public int Matk { get; set; }
         public int Pdef { get; set; }
         public int Mdef { get; set; }
-        public int Agility { get; set; }
         public int MoveSpeedMs { get; set; }
         public string AiType { get; set; } = "patrol";
         public AiConfig AiConfig { get; set; } = new();
@@ -324,7 +323,6 @@ public class MonsterManager : IMonsterRegistry
                     Matk = m.Matk,
                     Pdef = m.Pdef,
                     Mdef = m.Mdef,
-                    Agility = m.Agility,
                     MoveSpeedMs = m.MoveSpeedMs,
                     AiType = m.AiType,
                     AiConfig = m.AiConfig,
@@ -411,7 +409,7 @@ public class MonsterManager : IMonsterRegistry
             var aiRow = _tables.GetAi(spawn.AiId);
             var aiType = aiRow?.AiType ?? "patrol";
             var (combatBehavior, combatRange) = CombatBehaviorTypeResolver.Resolve(aiRow, monsterTemplate, _tables);
-            var (hp, maxHp, patk, matk, pdef, mdef, agility) = _tables.ResolveMonsterAttrs(spawn.MonsterId);
+            var (hp, maxHp, patk, matk, pdef, mdef) = _tables.ResolveMonsterAttrs(spawn.MonsterId);
 
             var id = startId + i;
             var aiCfg = aiRow != null ? new AiConfig
@@ -435,7 +433,7 @@ public class MonsterManager : IMonsterRegistry
                 X = spawn.X, Y = spawn.Y, SpawnX = spawn.X, SpawnY = spawn.Y,
                 AiType = aiType, AiConfig = aiCfg,
                 Hp = hp, MaxHp = maxHp, Level = monsterTemplate.Level,
-                Patk = patk, Matk = matk, Pdef = pdef, Mdef = mdef, Agility = agility,
+                Patk = patk, Matk = matk, Pdef = pdef, Mdef = mdef,
                 MoveSpeedMs = moveSpeedMs,
                 RespawnTimeSec = spawn.RespawnTime,
                 RespawnType = spawn.RespawnType,
@@ -583,7 +581,7 @@ public class MonsterManager : IMonsterRegistry
             X = rx, Y = ry, SpawnX = entry.SpawnX, SpawnY = entry.SpawnY,
             AiType = entry.AiType, AiConfig = entry.AiConfig,
             Hp = entry.MaxHp, MaxHp = entry.MaxHp, Level = entry.Level,
-            Patk = entry.Patk, Matk = entry.Matk, Pdef = entry.Pdef, Mdef = entry.Mdef, Agility = entry.Agility,
+            Patk = entry.Patk, Matk = entry.Matk, Pdef = entry.Pdef, Mdef = entry.Mdef,
             MoveSpeedMs = entry.MoveSpeedMs,
             RespawnTimeSec = entry.RespawnTimeSec,
             RespawnType = entry.RespawnType,
@@ -593,7 +591,7 @@ public class MonsterManager : IMonsterRegistry
 
         _monsters[entry.InstanceId] = m;
         _mapService.MonsterEnter(entry.InstanceId, entry.MonsterId, entry.MapName, entry.Name, rx, ry, m.Hp, m.MaxHp, m.Level,
-            m.Patk, m.Matk, m.Pdef, m.Mdef, m.Agility);
+            m.Patk, m.Matk, m.Pdef, m.Mdef);
 
         _logger.LogInformation("[Monster] respawned: id={Id} map={Map} pos=({X},{Y}) type={Type}", entry.InstanceId, entry.MapName, rx, ry, entry.RespawnType);
 
