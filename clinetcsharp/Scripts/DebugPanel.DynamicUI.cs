@@ -80,6 +80,8 @@ namespace ClinetCSharp
             mainContainer.AddChild(row1);
             mainContainer.AddChild(row2);
             _content.AddChild(mainContainer);
+            if (_scrollContainer != null)
+                _content.MoveChild(mainContainer, _scrollContainer.GetIndex());
 
             RefreshPresetList();
         }

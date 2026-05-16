@@ -193,7 +193,7 @@ public class BuffContainer
         _buffs.RemoveAll(b =>
         {
             var cfg = _tables.GetBuff(b.BuffId);
-            return cfg != null && cfg.BuffType == "Debuff";
+            return cfg != null && cfg.BuffType == EBuffType.Debuff;
         });
         return count - _buffs.Count;
     }

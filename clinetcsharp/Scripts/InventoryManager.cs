@@ -82,20 +82,21 @@ namespace ClinetCSharp
                 return;
             }
 
-            var data = json.Data.AsGodotDictionary();
-            foreach (var key in data.Keys)
+            // Luban 格式：数组 [{ id, name, major_type, minor_type, max_pile_num, quality, icon, icon_backgroud, icon_mask, desc, show_order, effect_type, effect_value, price, can_sell, obtain_methods, release_date }, ...]
+            var array = json.Data.AsGodotArray();
+            foreach (var entry in array)
             {
-                var id = (uint)key.AsInt32();
-                var entry = data[key].AsGodotDictionary();
+                var dict = entry.AsGodotDictionary();
+                var id = (uint)dict["id"].AsInt32();
                 _itemConfig[id] = new ItemConfig
                 {
-                    Name = entry.ContainsKey("name") ? entry["name"].AsString() : "",
-                    Desc = entry.ContainsKey("desc") ? entry["desc"].AsString() : "",
-                    MaxPile = entry.ContainsKey("max_pile") ? entry["max_pile"].AsInt32() : 99,
-                    Quality = entry.ContainsKey("quality") ? entry["quality"].AsInt32() : 0,
+                    Name = dict.ContainsKey("name") ? dict["name"].AsString() : "",
+                    Desc = dict.ContainsKey("desc") ? dict["desc"].AsString() : "",
+                    MaxPile = dict.ContainsKey("max_pile_num") ? dict["max_pile_num"].AsInt32() : 99,
+                    Quality = dict.ContainsKey("quality") ? dict["quality"].AsInt32() : 0,
                 };
             }
-            GD.Print($"[InventoryManager] Loaded {_itemConfig.Count} item configs");
+            GD.Print($"[InventoryManager] Loaded {_itemConfig.Count} item configs from Luban table");
         }
 
         public void UpdateItems(List<ItemSlot> newItems)

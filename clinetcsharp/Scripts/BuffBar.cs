@@ -194,8 +194,10 @@ namespace ClinetCSharp
                 _iconRect = new ColorRect
                 {
                     Name = "IconRect",
-                    AnchorLeft = 0.1f, AnchorTop = 0.1f,
-                    AnchorRight = 0.9f, AnchorBottom = 0.9f,
+                    AnchorLeft = 0.1f,
+                    AnchorTop = 0.1f,
+                    AnchorRight = 0.9f,
+                    AnchorBottom = 0.9f,
                     MouseFilter = MouseFilterEnum.Ignore,
                 };
                 AddChild(_iconRect);
@@ -204,8 +206,10 @@ namespace ClinetCSharp
                 _timeLabel = new Label
                 {
                     Name = "TimeLabel",
-                    AnchorLeft = 0, AnchorBottom = 1,
-                    AnchorRight = 1, AnchorTop = 1,
+                    AnchorLeft = 0,
+                    AnchorBottom = 1,
+                    AnchorRight = 1,
+                    AnchorTop = 1,
                     OffsetTop = -14,
                     HorizontalAlignment = HorizontalAlignment.Right,
                     VerticalAlignment = VerticalAlignment.Bottom,
@@ -219,9 +223,12 @@ namespace ClinetCSharp
                 _stackLabel = new Label
                 {
                     Name = "StackLabel",
-                    AnchorLeft = 0, AnchorTop = 0,
-                    AnchorRight = 0.5f, AnchorBottom = 0.4f,
-                    OffsetLeft = 2, OffsetTop = 1,
+                    AnchorLeft = 0,
+                    AnchorTop = 0,
+                    AnchorRight = 0.5f,
+                    AnchorBottom = 0.4f,
+                    OffsetLeft = 2,
+                    OffsetTop = 1,
                     HorizontalAlignment = HorizontalAlignment.Left,
                     VerticalAlignment = VerticalAlignment.Top,
                     MouseFilter = MouseFilterEnum.Ignore,

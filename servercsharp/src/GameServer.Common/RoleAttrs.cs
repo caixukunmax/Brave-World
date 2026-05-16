@@ -7,13 +7,13 @@ namespace GameServer.Common;
 public static class RoleAttrs
 {
     public const int Hp = 1, MaxHp = 2, Mp = 3, MaxMp = 4;
-    public const int Agility = 5, PAtk = 6, MAtk = 7, PDef = 8, MDef = 9;
+    public const int PAtk = 6, MAtk = 7, PDef = 8, MDef = 9;
     public const int MoveSpeed = 10, MpRegen = 11;
 
     public static readonly (int key, string name)[] All =
     {
         (Hp, "hp"), (MaxHp, "max_hp"), (Mp, "mp"), (MaxMp, "max_mp"),
-        (Agility, "agility"), (PAtk, "patk"), (MAtk, "matk"), (PDef, "pdef"), (MDef, "mdef"),
+        (PAtk, "patk"), (MAtk, "matk"), (PDef, "pdef"), (MDef, "mdef"),
         (MoveSpeed, "move_speed"), (MpRegen, "mp_regen"),
     };
 

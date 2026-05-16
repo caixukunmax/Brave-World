@@ -21,6 +21,7 @@ public class PlayerStateView
 {
     public long AccountId { get; set; }
     public long RoleId { get; set; }
+    public string RoleName { get; set; } = "";
     public int GridX { get; set; }
     public int GridY { get; set; }
 }

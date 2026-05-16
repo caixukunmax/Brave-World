@@ -20,10 +20,10 @@ namespace ClinetCSharp
                 var profile = EntityProfile.CreatePlayerDefault(1);
                 var app = profile.GetData<AppearanceData>("appearance");
 
-                app.VisualSizeScale = (float)(double)config.GetValue("player", "visual_size_scale", 1.0);
-                app.BorderWidthScale = (float)(double)config.GetValue("player", "border_width_scale", 3.0 / 111.0);
+                app.VisualSizeScale = FromFp(ReadFp(config, "player", "visual_size_scale", 10000));
+                app.BorderWidthScale = FromFp(ReadFp(config, "player", "border_width_scale", 270));
                 app.CornerRadius = (float)(double)config.GetValue("player", "corner_radius", 12.0);
-                app.BgOpacity = (float)(double)config.GetValue("player", "bg_opacity", 0.1);
+                app.BgOpacity = FromFp(ReadFp(config, "player", "bg_opacity", 3500));
                 app.FontSize = (int)(double)config.GetValue("player", "font_size", 0);
 
                 float bcR = (float)(double)config.GetValue("player", "border_color_r", 1.0);
@@ -56,14 +56,9 @@ namespace ClinetCSharp
                             labels.Names[i] = (string)config.GetValue("labels", $"{prefix}_name", "");
                             labels.ContentPreview[i] = (string)config.GetValue("labels", $"{prefix}_text", "");
                             labels.FontSizes[i] = (int)(double)config.GetValue("labels", $"{prefix}_font_size", 0);
+                            labels.UseGlobalFontSize[i] = labels.FontSizes[i] <= 0;
                             labels.XOffset[i] = (float)(double)config.GetValue("labels", $"{prefix}_offset_x", 0);
                             labels.YOffset[i] = (float)(double)config.GetValue("labels", $"{prefix}_offset_y", 0);
-
-                            float lr = (float)(double)config.GetValue("labels", $"{prefix}_color_r", 0.0);
-                            float lg = (float)(double)config.GetValue("labels", $"{prefix}_color_g", 0.0);
-                            float lb = (float)(double)config.GetValue("labels", $"{prefix}_color_b", 0.0);
-                            float la = (float)(double)config.GetValue("labels", $"{prefix}_color_a", 1.0);
-                            labels.ColorPreview[i] = new Color(lr, lg, lb, la);
                         }
                         profile.SetData("labels", labels);
                     }

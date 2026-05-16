@@ -73,6 +73,7 @@ namespace ClinetCSharp
             for (int i = 0; i < 4; i++)
             {
                 labelData.ContentPreview[i] = cfg.LabelTexts[i] ?? "";
+                labelData.UseGlobalFontSize[i] = cfg.LabelFontSizes[i] <= 0;
                 labelData.FontSizes[i] = cfg.LabelFontSizes[i];
                 labelData.XOffset[i] = cfg.LabelXOffsets[i];
                 labelData.CenterX[i] = cfg.LabelCenterX[i];
@@ -136,10 +137,10 @@ namespace ClinetCSharp
                 VisualSizeScale = 1.0f,
                 BorderWidthScale = 3.0f / 111.0f,
                 CornerRadius = 12.0f,
-                BgOpacity = 0.1f,
+                BgOpacity = 0.35f,
                 FontSize = 0,
                 BorderColor = Colors.White,
-                BgColor = new Color(1, 1, 1, 0.1f),
+                BgColor = Colors.White,
                 TextColor = Colors.Black,
             });
 
@@ -177,7 +178,9 @@ namespace ClinetCSharp
                 TextColor = new Color(1, 0.95f, 0.95f),
             });
 
-            profile.SetData("labels", new LabelGroupData());
+            var labelData = new LabelGroupData();
+            ConfigureMonsterLabelBindings(labelData);
+            profile.SetData("labels", labelData);
 
             profile.SetData("healthbar", BarData.CreateHealthBarDefault());
             profile.SetData("mpbar", BarData.CreateMpBarDefault());
@@ -185,6 +188,30 @@ namespace ClinetCSharp
             profile.SetData("monster_ai", new MonsterAiData());
 
             return profile;
+        }
+
+        public static void ConfigureMonsterLabelBindings(LabelGroupData labels)
+        {
+            if (labels == null)
+                return;
+
+            labels.Names[0] = "名字";
+            labels.Names[1] = "品质";
+            labels.Names[2] = "状态";
+            labels.Names[3] = string.IsNullOrWhiteSpace(labels.Names[3]) ? "预留" : labels.Names[3];
+
+            labels.Visible[0] = true;
+            labels.Visible[1] = true;
+            labels.Visible[2] = true;
+            labels.Visible[3] = false;
+
+            labels.ContentPreview[0] = "";
+            labels.ContentPreview[1] = "";
+            labels.ContentPreview[2] = "";
+
+            labels.LockContent(0);
+            labels.LockContent(1);
+            labels.LockContent(2);
         }
 
         /// <summary>创建默认 NPC Profile</summary>

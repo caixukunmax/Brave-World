@@ -25,7 +25,7 @@ namespace ClinetCSharp
             _content = GetNodeOrNull<RichTextLabel>("VBoxContainer/Content");
 
             // 获取 NetworkManager 并订阅战斗日志
-            _network = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
+            _network = UiServices.GetNetworkManager(this);
             if (_network != null)
                 _network.CombatLogNotify += OnCombatLogNotify;
         }

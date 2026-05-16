@@ -31,6 +31,10 @@ window/size/viewport_height=720
 
 project/assembly_name="clinetcsharp"
 
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/openclaw/plugin.cfg")
+
 [input]
 
 move_up={

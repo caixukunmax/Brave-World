@@ -95,8 +95,12 @@ namespace ClinetCSharp
             _offsetXSlider = new HSlider
             {
                 SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
-                MinValue = -150, MaxValue = 150, Step = 1, Value = _defaults.OffsetX,
-                Scrollable = false, Editable = !_defaults.CenterX,
+                MinValue = -150,
+                MaxValue = 150,
+                Step = 1,
+                Value = _defaults.OffsetX,
+                Scrollable = false,
+                Editable = !_defaults.CenterX,
                 FocusMode = Control.FocusModeEnum.Click
             };
             if (_defaults.CenterX) _offsetXSlider.Modulate = new Color(0.5f, 0.5f, 0.5f, 1);
@@ -118,8 +122,12 @@ namespace ClinetCSharp
             var slider = new HSlider
             {
                 SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
-                MinValue = min, MaxValue = max, Step = step, Value = def,
-                Scrollable = false, FocusMode = Control.FocusModeEnum.Click
+                MinValue = min,
+                MaxValue = max,
+                Step = step,
+                Value = def,
+                Scrollable = false,
+                FocusMode = Control.FocusModeEnum.Click
             };
             row.AddChild(slider);
             var valLbl = new Label
@@ -156,20 +164,13 @@ namespace ClinetCSharp
             _visibleCheck.Toggled += OnVisibleToggled;
             _colorBtn.Pressed += OnColorPressed;
             _lengthSlider.ValueChanged += OnLengthChanged;
-            _lengthSlider.DragEnded += _ => _owner.Owner.PushCurrentStateToHistory();
             _lengthScaleSlider.ValueChanged += OnLengthScaleChanged;
-            _lengthScaleSlider.DragEnded += _ => _owner.Owner.PushCurrentStateToHistory();
             _heightSlider.ValueChanged += OnHeightChanged;
-            _heightSlider.DragEnded += _ => _owner.Owner.PushCurrentStateToHistory();
             _heightScaleSlider.ValueChanged += OnHeightScaleChanged;
-            _heightScaleSlider.DragEnded += _ => _owner.Owner.PushCurrentStateToHistory();
             _fillSlider.ValueChanged += OnFillChanged;
-            _fillSlider.DragEnded += _ => _owner.Owner.PushCurrentStateToHistory();
             _offsetXSlider.ValueChanged += OnOffsetXChanged;
-            _offsetXSlider.DragEnded += _ => _owner.Owner.PushCurrentStateToHistory();
             _offsetXCenterCheck.Toggled += OnOffsetXCenterToggled;
             _offsetYSlider.ValueChanged += OnOffsetYChanged;
-            _offsetYSlider.DragEnded += _ => _owner.Owner.PushCurrentStateToHistory();
         }
 
         public void DisconnectSignals()
@@ -191,7 +192,6 @@ namespace ClinetCSharp
         private void OnVisibleToggled(bool enabled)
         {
             _adapter.SetVisible(enabled);
-            _owner.Owner.PushCurrentStateToHistory();
         }
 
         private void OnColorPressed()
@@ -205,7 +205,6 @@ namespace ClinetCSharp
             int nextIdx = (idx + 1) % _colorPalette.Length;
             _adapter.SetColor(_colorPalette[nextIdx]);
             _colorBtn.Modulate = _colorPalette[nextIdx];
-            _owner.Owner.PushCurrentStateToHistory();
         }
 
         private void OnLengthChanged(double value)

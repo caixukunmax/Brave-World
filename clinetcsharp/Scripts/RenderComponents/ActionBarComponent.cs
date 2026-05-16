@@ -17,8 +17,17 @@ namespace ClinetCSharp.RenderComponents
 
         public void Draw()
         {
+            string skillName = _entity.CastingSkill;
+            float castProgress = _entity.CastProgress;
+
+            if (_entity.ActionBarForceShow && string.IsNullOrWhiteSpace(skillName))
+            {
+                skillName = "动作栏预览";
+                castProgress = 0.6f;
+            }
+
             EntityDrawUtils.DrawActionBar(_entity, _entity.VisualSize,
-                _entity.CastingSkill, _entity.CastProgress,
+                skillName, castProgress,
                 _entity.ActionBarTextYOffset, _entity.ActionBarProgressHeight);
         }
     }

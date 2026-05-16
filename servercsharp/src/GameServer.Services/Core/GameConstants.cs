@@ -30,14 +30,9 @@ public static class GameConstants
     public const int BaseMatk = 10;
     public const int BasePdef = 5;
     public const int BaseMdef = 5;
-    public const int BaseMoveSpeedMs = 150;
-
-    // ---- ATB 战斗 ----
-    public const double BaseAtbRate = 10;
-    public const double AtbBoostPerMiss = 0.25;
-    public const double AtbBoostMax = 0.50;
-    public const int AtbBoostStacksMax = 2;
-    public const double AtbBoostDecayRate = 0.05; // boost 每秒衰减 0.05
+    public const int BaseMoveSpeedMs = 540;
+    public const int MinMoveSpeedMs = 120;
+    public const int MaxMoveSpeedMs = 600;
 
     // ---- 脱战 ----
     // 距离A：跑出X格后，Y秒内无伤害，再等Z秒脱战

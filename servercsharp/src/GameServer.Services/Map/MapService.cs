@@ -53,7 +53,6 @@ public class MapService
             MaxHp = snapshot.MaxHp,
             Mp = snapshot.Mp,
             MaxMp = snapshot.MaxMp,
-            Agility = snapshot.Agility,
             Patk = snapshot.Patk,
             Matk = snapshot.Matk,
             Pdef = snapshot.Pdef,
@@ -81,7 +80,7 @@ public class MapService
     // ---- 怪物 ----
 
     public void MonsterEnter(long instanceId, int monsterId, string mapName, string name, int x, int y,
-        int hp, int maxHp, int level, int patk, int matk, int pdef, int mdef, int agility)
+        int hp, int maxHp, int level, int patk, int matk, int pdef, int mdef)
     {
         _worldState.MonsterEnter(mapName, new MapMonsterState
         {
@@ -97,7 +96,6 @@ public class MapService
             Matk = matk,
             Pdef = pdef,
             Mdef = mdef,
-            Agility = agility,
         });
     }
 
@@ -167,7 +165,7 @@ public class MapService
                 {
                     AccountId = p.AccountId, RoleId = p.RoleId, RoleName = p.RoleName,
                     ServerId = p.ServerId, GridX = p.GridX, GridY = p.GridY, Level = p.Level,
-                    Hp = p.Hp, MaxHp = p.MaxHp, Mp = p.Mp, MaxMp = p.MaxMp, Agility = p.Agility,
+                    Hp = p.Hp, MaxHp = p.MaxHp, Mp = p.Mp, MaxMp = p.MaxMp,
                     Patk = p.Patk, Matk = p.Matk, Pdef = p.Pdef, Mdef = p.Mdef,
                     Job = p.Job,
                     CombatPositions = combatPos,
@@ -188,7 +186,7 @@ public class MapService
                 {
                     InstanceId = m.InstanceId, MonsterId = m.MonsterId, Name = m.Name,
                     X = m.X, Y = m.Y, Hp = m.Hp, MaxHp = m.MaxHp, Level = m.Level,
-                    Patk = m.Patk, Matk = m.Matk, Pdef = m.Pdef, Mdef = m.Mdef, Agility = m.Agility,
+                    Patk = m.Patk, Matk = m.Matk, Pdef = m.Pdef, Mdef = m.Mdef,
                     CombatPositions = combatPos,
                 };
             }

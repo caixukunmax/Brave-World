@@ -113,6 +113,7 @@ namespace ClinetCSharp
     {
         public int MonsterId { get; set; }
         public string Name { get; set; } = "";
+        public string Quality { get; set; } = "";
         public string MapName { get; set; } = "";
         public int X { get; set; }
         public int Y { get; set; }

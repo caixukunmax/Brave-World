@@ -1,4 +1,5 @@
 using System.Reflection;
+using Google.Protobuf;
 using GameServer.Common.Config;
 using GameServer.Common.Events;
 using GameServer.Services.Core;
@@ -204,6 +205,9 @@ internal class CombatServiceAdapter : ICombatService
         => _inner.Tick(dt, maps, monsterRegistry);
 
     public bool IsCasting(long entityId) => _inner.IsCasting(entityId);
+
+    public byte[]? HandleCastRequest(long playerId, int skillId, long? targetId, Dictionary<string, MapState> maps)
+        => _inner.HandleCastRequest(playerId, skillId, targetId, maps).ToByteArray();
 }
 
 /// <summary>

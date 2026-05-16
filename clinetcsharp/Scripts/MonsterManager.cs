@@ -1,4 +1,4 @@
-﻿using Godot;
+using Godot;
 using System.Collections.Generic;
 using System.Linq;
 using Protocol;
@@ -13,9 +13,15 @@ namespace ClinetCSharp
     {
         private List<Monster> _monsters = new();
         private HashSet<Vector2I> _monsterPositions = new();
+        private HashSet<Vector2I> _monsterReservedPositions = new();
         private int _gridSize = 111;
         private NetworkManager _network;
         private readonly Dictionary<ulong, Game.CombatStateNotify.Types.CombatUnit> _combatUnits = new();
+
+        // 怪物死亡效果配置（供调试面板调节）
+        public int DeathEffectMode { get; set; } = 1; // 0=直接删除, 1=淡出, 2=变灰停留后淡出
+        public float DeathFadeDuration { get; set; } = 0.5f;
+        public float DeathGrayDelay { get; set; } = 3.0f;
 
         // 多配置样式系统：Key = 配置ID（MonsterId）
         // [Obsolete] 已被 EntityProfileManager 接管。保留仅用于旧代码兼容和迁移。
@@ -68,6 +74,8 @@ namespace ClinetCSharp
                 {
                     _network.CombatStateNotify += OnCombatStateNotify;
                     _network.MonsterMoveCancelNotify += OnMonsterMoveCancel;
+                    _network.MonsterDeathNotify += OnMonsterDeathNotify;
+                    _network.MonsterRespawnNotify += OnMonsterRespawnNotify;
                 }
             }
 
@@ -83,6 +91,8 @@ namespace ClinetCSharp
             {
                 _network.CombatStateNotify -= OnCombatStateNotify;
                 _network.MonsterMoveCancelNotify -= OnMonsterMoveCancel;
+                _network.MonsterDeathNotify -= OnMonsterDeathNotify;
+                _network.MonsterRespawnNotify -= OnMonsterRespawnNotify;
             }
         }
 
@@ -129,10 +139,10 @@ namespace ClinetCSharp
 
         public static void LoadStyleConfigFromSection(ConfigFile config, string section, EntityStyleConfig cfg)
         {
-            cfg.VisualSizeScale = (float)(double)config.GetValue(section, "visual_size_scale", cfg.VisualSizeScale);
-            cfg.BorderWidthScale = (float)(double)config.GetValue(section, "border_width_scale", cfg.BorderWidthScale);
+            cfg.VisualSizeScale = EntityProfileManager.FromFp(EntityProfileManager.ReadFp(config, section, "visual_size_scale", EntityProfileManager.ToFp(cfg.VisualSizeScale)));
+            cfg.BorderWidthScale = EntityProfileManager.FromFp(EntityProfileManager.ReadFp(config, section, "border_width_scale", EntityProfileManager.ToFp(cfg.BorderWidthScale)));
             cfg.CornerRadius = (float)(double)config.GetValue(section, "corner_radius", cfg.CornerRadius);
-            cfg.BgOpacity = (float)(double)config.GetValue(section, "bg_opacity", cfg.BgOpacity);
+            cfg.BgOpacity = EntityProfileManager.FromFp(EntityProfileManager.ReadFp(config, section, "bg_opacity", EntityProfileManager.ToFp(cfg.BgOpacity)));
             cfg.FontSize = (int)(double)config.GetValue(section, "font_size", cfg.FontSize);
 
             float bcR = (float)(double)config.GetValue(section, "border_color_r", cfg.BorderColor.R);
@@ -159,9 +169,9 @@ namespace ClinetCSharp
                 cfg.LabelYOffsets[i] = (float)(double)config.GetValue(section, $"label_y_offset_{i}", 0);
             }
 
-            cfg.HpBarLengthScale = (float)(double)config.GetValue(section, "hp_bar_length_scale", cfg.HpBarLengthScale);
-            cfg.HpBarHeightScale = (float)(double)config.GetValue(section, "hp_bar_height_scale", cfg.HpBarHeightScale);
-            cfg.HpBarFillPercent = (float)(double)config.GetValue(section, "hp_bar_fill_percent", cfg.HpBarFillPercent);
+            cfg.HpBarLengthScale = EntityProfileManager.FromFp(EntityProfileManager.ReadFp(config, section, "hp_bar_length_scale", EntityProfileManager.ToFp(cfg.HpBarLengthScale)));
+            cfg.HpBarHeightScale = EntityProfileManager.FromFp(EntityProfileManager.ReadFp(config, section, "hp_bar_height_scale", EntityProfileManager.ToFp(cfg.HpBarHeightScale)));
+            cfg.HpBarFillPercent = EntityProfileManager.FromFp(EntityProfileManager.ReadFp(config, section, "hp_bar_fill_percent", EntityProfileManager.ToFp(cfg.HpBarFillPercent)));
             cfg.HpBarVisible = (bool)config.GetValue(section, "hp_bar_visible", cfg.HpBarVisible);
             cfg.HpBarCenterX = (bool)config.GetValue(section, "hp_bar_center_x", RoleControlCenterXResolver.ResolveInitialCenterX(null, cfg.HpBarOffsetX));
             cfg.HpBarOffsetX = (float)(double)config.GetValue(section, "hp_bar_offset_x", cfg.HpBarOffsetX);
@@ -171,9 +181,9 @@ namespace ClinetCSharp
             float hpB = (float)(double)config.GetValue(section, "hp_bar_color_b", cfg.HpBarColor.B);
             cfg.HpBarColor = new Color(hpR, hpG, hpB);
 
-            cfg.MpBarLengthScale = (float)(double)config.GetValue(section, "mp_bar_length_scale", cfg.MpBarLengthScale);
-            cfg.MpBarHeightScale = (float)(double)config.GetValue(section, "mp_bar_height_scale", cfg.MpBarHeightScale);
-            cfg.MpBarFillPercent = (float)(double)config.GetValue(section, "mp_bar_fill_percent", cfg.MpBarFillPercent);
+            cfg.MpBarLengthScale = EntityProfileManager.FromFp(EntityProfileManager.ReadFp(config, section, "mp_bar_length_scale", EntityProfileManager.ToFp(cfg.MpBarLengthScale)));
+            cfg.MpBarHeightScale = EntityProfileManager.FromFp(EntityProfileManager.ReadFp(config, section, "mp_bar_height_scale", EntityProfileManager.ToFp(cfg.MpBarHeightScale)));
+            cfg.MpBarFillPercent = EntityProfileManager.FromFp(EntityProfileManager.ReadFp(config, section, "mp_bar_fill_percent", EntityProfileManager.ToFp(cfg.MpBarFillPercent)));
             cfg.MpBarVisible = (bool)config.GetValue(section, "mp_bar_visible", cfg.MpBarVisible);
             cfg.MpBarCenterX = (bool)config.GetValue(section, "mp_bar_center_x", RoleControlCenterXResolver.ResolveInitialCenterX(null, cfg.MpBarOffsetX));
             cfg.MpBarOffsetX = (float)(double)config.GetValue(section, "mp_bar_offset_x", cfg.MpBarOffsetX);
@@ -203,6 +213,7 @@ namespace ClinetCSharp
                 m.QueueFree();
             _monsters.Clear();
             _monsterPositions.Clear();
+            _monsterReservedPositions.Clear();
 
             _gridSize = gridSize;
             if (monsterData == null) return;
@@ -212,12 +223,17 @@ namespace ClinetCSharp
                 // 从本地配置查 ui_config_id，默认1
                 int mid = (int)m.MonsterId;
                 int uiConfigId = 1;
+                string quality = "普通";
                 var mcm = GetNodeOrNull<MonsterConfigManager>("/root/MonsterConfigManager");
                 if (mcm != null)
                 {
                     var def = mcm.Config.Monsters.Find(d => d.MonsterId == mid);
                     if (def != null)
+                    {
                         uiConfigId = def.UiConfigId;
+                        if (!string.IsNullOrWhiteSpace(def.Quality))
+                            quality = def.Quality;
+                    }
                 }
 
                 var monster = new Monster();
@@ -230,8 +246,10 @@ namespace ClinetCSharp
                     m.Level,
                     gridSize,
                     m.Attrs,
-                    uiConfigId
+                    uiConfigId,
+                    quality
                 );
+                monster.MoveVisualCompleted += OnMonsterMoveVisualCompleted;
                 ApplyDefaultStyle(monster);
                 monster.ProfileId = 2;
                 AddChild(monster);
@@ -302,11 +320,13 @@ namespace ClinetCSharp
 
         public Monster GetMonsterAt(Vector2I gridPos)
         {
-            if (!_monsterPositions.Contains(gridPos))
+            if (!_monsterPositions.Contains(gridPos) && !_monsterReservedPositions.Contains(gridPos))
                 return null;
             foreach (var m in _monsters)
             {
                 if (m.GridX == gridPos.X && m.GridY == gridPos.Y)
+                    return m;
+                if (m.PendingGridPos.HasValue && m.PendingGridPos.Value == gridPos)
                     return m;
             }
             return null;
@@ -316,8 +336,8 @@ namespace ClinetCSharp
         {
             var m = _monsters.Find(x => x.InstanceId == instanceId);
             if (m == null) return;
-            _monsterPositions.Remove(from);
-            _monsterPositions.Add(to);
+            _monsterPositions.Add(from);
+            _monsterReservedPositions.Add(to);
             m.CurrentState = state;
             float durationSec = durationMs > 0 ? durationMs / 1000.0f : 0.15f;
             m.MoveTo(to, durationSec);
@@ -325,7 +345,7 @@ namespace ClinetCSharp
 
         public bool IsBlockedByMonster(Vector2I gridPos)
         {
-            return _monsterPositions.Contains(gridPos);
+            return _monsterPositions.Contains(gridPos) || _monsterReservedPositions.Contains(gridPos);
         }
 
         private void OnCombatStateNotify(Game.CombatStateNotify notify)
@@ -338,6 +358,10 @@ namespace ClinetCSharp
                     m.CastProgress = 0;
                     m.HealthBarFillPercent = 1.0f;
                     m.MpBarFillPercent = 1.0f;
+                    m.AtbValue = 0f;
+                    if (!m.IsMoving && IsCombatState(m.CurrentState))
+                        m.CurrentState = "idle";
+                    m.RefreshDataBoundLabels();
                     m.QueueRedraw();
                 }
                 return;
@@ -357,20 +381,90 @@ namespace ClinetCSharp
                 {
                     m.CastingSkill = unit.CastingSkill;
                     m.CastProgress = unit.CastProgress;
+                    m.AtbValue = unit.Atb;
                     if (unit.MaxHp > 0)
-                        m.HealthBarFillPercent = (float)unit.Hp / unit.MaxHp;
+                    {
+                        if (m.SyncHp((int)unit.Hp, (int)unit.MaxHp))
+                            m.PlayHitEffect();
+                    }
                     if (unit.MaxMp > 0)
                         m.MpBarFillPercent = (float)unit.Mp / unit.MaxMp;
+                    if (!m.IsMoving)
+                        m.CurrentState = ResolveCombatDisplayState(m, unit);
                 }
                 else
                 {
                     m.CastingSkill = "";
                     m.CastProgress = 0;
+                    m.AtbValue = 0f;
                     m.HealthBarFillPercent = 1.0f;
                     m.MpBarFillPercent = 1.0f;
+                    if (!m.IsMoving && IsCombatState(m.CurrentState))
+                        m.CurrentState = "idle";
                 }
+                m.RefreshDataBoundLabels();
                 m.QueueRedraw();
             }
+        }
+
+        private void OnMonsterDeathNotify(Game.MonsterDeathNotify notify)
+        {
+            var m = _monsters.Find(x => x.InstanceId == notify.InstanceId);
+            if (m == null) return;
+
+            _monsterPositions.Remove(new Vector2I(m.GridX, m.GridY));
+            if (m.PendingGridPos.HasValue)
+                _monsterReservedPositions.Remove(m.PendingGridPos.Value);
+            _monsters.Remove(m);
+
+            m.PlayDeathAnimation(DeathEffectMode, DeathFadeDuration, DeathGrayDelay, () =>
+            {
+                m.QueueFree();
+            });
+        }
+
+        private void OnMonsterRespawnNotify(Game.MonsterRespawnNotify notify)
+        {
+            // 如果已存在同 instanceId 的怪物（异常情况），先移除
+            var existing = _monsters.Find(x => x.InstanceId == notify.InstanceId);
+            if (existing != null)
+            {
+                _monsterPositions.Remove(new Vector2I(existing.GridX, existing.GridY));
+                _monsters.Remove(existing);
+                existing.QueueFree();
+            }
+
+            // 从本地配置查 ui_config_id 和品质
+            int mid = (int)notify.MonsterId;
+            int uiConfigId = 1;
+            string quality = "普通";
+            var mcm = GetNodeOrNull<MonsterConfigManager>("/root/MonsterConfigManager");
+            if (mcm != null)
+            {
+                var def = mcm.Config.Monsters.Find(d => d.MonsterId == mid);
+                if (def != null)
+                {
+                    uiConfigId = def.UiConfigId;
+                    if (!string.IsNullOrWhiteSpace(def.Quality))
+                        quality = def.Quality;
+                }
+            }
+
+            var monster = new Monster();
+            monster.Setup(notify.InstanceId, notify.MonsterId, notify.X, notify.Y, notify.Name, notify.Level, _gridSize, uiConfigId);
+            monster.MonsterQuality = quality;
+            monster.RefreshDataBoundLabels();
+            monster.MoveVisualCompleted += OnMonsterMoveVisualCompleted;
+            ApplyDefaultStyle(monster);
+            monster.ProfileId = 2;
+            AddChild(monster);
+            var pm = EntityProfileManager.Instance;
+            if (pm != null) pm.ApplyProfile(monster, 2);
+            else GD.PrintErr("[MonsterManager] EntityProfileManager.Instance is null, cannot apply profile");
+            _monsters.Add(monster);
+            _monsterPositions.Add(new Vector2I(notify.X, notify.Y));
+
+            GD.Print($"[MonsterManager] Respawned monster {monster.InstanceId}({monster.MonsterName}) at ({monster.GridX},{monster.GridY})");
         }
 
         public void OnMonsterMoveCancel(Game.MonsterMoveCancelNotify notify)
@@ -379,7 +473,8 @@ namespace ClinetCSharp
             if (m == null) return;
 
             var rollbackPos = new Vector2I(notify.RollbackX, notify.RollbackY);
-            _monsterPositions.Remove(new Vector2I(m.GridX, m.GridY));
+            if (m.PendingGridPos.HasValue)
+                _monsterReservedPositions.Remove(m.PendingGridPos.Value);
             _monsterPositions.Add(rollbackPos);
 
             // Keep the rollback smooth while the monster is already moving.
@@ -389,6 +484,39 @@ namespace ClinetCSharp
                 m.RollbackTo(rollbackPos);
 
             GD.Print($"[MonsterManager] Monster {m.InstanceId}({m.MonsterName}) move cancelled, rolled back to ({rollbackPos.X},{rollbackPos.Y})");
+        }
+
+        private void OnMonsterMoveVisualCompleted(Monster monster, Vector2I fromGridPos, Vector2I targetGridPos)
+        {
+            if (monster == null)
+                return;
+
+            _monsterPositions.Remove(fromGridPos);
+            _monsterPositions.Add(targetGridPos);
+            _monsterReservedPositions.Remove(targetGridPos);
+        }
+
+        private static bool IsCombatState(string state)
+        {
+            return !string.IsNullOrWhiteSpace(state) &&
+                   state.StartsWith("combat", System.StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string ResolveCombatDisplayState(Monster monster, Game.CombatStateNotify.Types.CombatUnit unit)
+        {
+            bool isCasting = !string.IsNullOrWhiteSpace(unit.CastingSkill) || unit.CastProgress > 0f;
+            string current = monster.CurrentState ?? "";
+
+            if (isCasting)
+                return "combat_cast_hold";
+
+            if (current.StartsWith("combat_ranged", System.StringComparison.OrdinalIgnoreCase))
+                return "combat_ranged_hold";
+
+            if (current.StartsWith("combat_cast", System.StringComparison.OrdinalIgnoreCase))
+                return "combat_cast_hold";
+
+            return "combat_hold";
         }
     }
 }

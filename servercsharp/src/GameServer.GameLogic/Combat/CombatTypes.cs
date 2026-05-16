@@ -21,9 +21,6 @@ public class CombatContext
     public long EntityId { get; set; }
     public string State { get; set; } = "IDLE";
     public string SubState { get; set; } = "NONE";
-    public double AtbValue { get; set; }
-    public double AtbBoost { get; set; }
-    public int AtbBoostStacks { get; set; }
     public int? CastSkillId { get; set; }
     public long? CastEndTime { get; set; }
     public long? PostCastEndTime { get; set; }

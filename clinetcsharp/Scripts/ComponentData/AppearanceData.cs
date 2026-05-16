@@ -14,7 +14,7 @@ namespace ClinetCSharp
         public int FontSize = 0; // 0 = 自动
 
         public Color BorderColor = Colors.White;
-        public Color BgColor = new Color(1, 1, 1, 0.1f);
+        public Color BgColor = Colors.White;
         public Color TextColor = Colors.Black;
 
         public IComponentData Clone()

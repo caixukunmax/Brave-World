@@ -1,7 +1,7 @@
-using GameServer.Services.Map.Combat;
 using GameServer.Common.Config;
 using GameServer.Services.Core;
 using GameServer.Services.Map;
+using GameServer.Services.Map.Combat;
 using GameServer.Services.Monster.AI;
 using GameServer.Services.World;
 using GameServer.Tables;
@@ -24,11 +24,13 @@ public class MonsterManager : IMonsterRegistry
     private readonly Core.INetworkSender _network;
     private readonly LubanTableLoader _tables;
     private readonly Dictionary<string, IBehaviorHandler> _handlers;
+    private readonly Dictionary<CombatBehaviorType, ICombatBehaviorHandler> _combatBehaviors;
 
     /// <summary>怪物死亡回调：(monsterInstanceId, attackerId, monsterId) => void</summary>
     public Action<long, long, int>? OnMonsterDeath { get; set; }
 
     private Dictionary<long, MonsterRuntimeState> _monsters = new();
+    private readonly List<RespawnEntry> _respawnEntries = new();
 
     public MonsterManager(
         ILogger<MonsterManager> logger,
@@ -42,6 +44,12 @@ public class MonsterManager : IMonsterRegistry
         _mapService = mapService;
         _network = network;
         _tables = tables;
+        _combatBehaviors = new Dictionary<CombatBehaviorType, ICombatBehaviorHandler>
+        {
+            [CombatBehaviorType.Melee] = new CombatChaseBehavior(mapData),
+            [CombatBehaviorType.Ranged] = new RangedCombatBehavior(mapData),
+            [CombatBehaviorType.Caster] = new CasterCombatBehavior(mapData),
+        };
 
         _handlers = new Dictionary<string, IBehaviorHandler>
         {
@@ -66,13 +74,39 @@ public class MonsterManager : IMonsterRegistry
             {
                 _monsters[instanceId] = m;
                 _mapService.MonsterEnter(instanceId, m.MonsterId, mapName, m.Name, m.X, m.Y, m.Hp, m.MaxHp, m.Level,
-                    m.Patk, m.Matk, m.Pdef, m.Mdef, m.Agility);
+                    m.Patk, m.Matk, m.Pdef, m.Mdef);
                 _logger.LogInformation("[Monster] init: id={InstanceId} map={Map} pos=({X},{Y}) ai={Ai}", instanceId, mapName, m.X, m.Y, m.AiType);
             }
             nextId += mapMonsters.Count;
         }
 
         _logger.LogInformation("[Monster] total={Count} across {Maps} maps", _monsters.Count, _mapData.GetAllMaps().Count);
+    }
+
+    /// <summary>复活队列条目</summary>
+    private class RespawnEntry
+    {
+        public long InstanceId { get; set; }
+        public int MonsterId { get; set; }
+        public string MapName { get; set; } = "";
+        public int SpawnX { get; set; }
+        public int SpawnY { get; set; }
+        public int DeathX { get; set; }
+        public int DeathY { get; set; }
+        public int RespawnTimeSec { get; set; }
+        public long DeathTimeMs { get; set; }
+        public ERespawnType RespawnType { get; set; }
+        public int RespawnRange { get; set; }
+        public string Name { get; set; } = "";
+        public int Level { get; set; }
+        public int MaxHp { get; set; }
+        public int Patk { get; set; }
+        public int Matk { get; set; }
+        public int Pdef { get; set; }
+        public int Mdef { get; set; }
+        public int MoveSpeedMs { get; set; }
+        public string AiType { get; set; } = "patrol";
+        public AiConfig AiConfig { get; set; } = new();
     }
 
     public void Tick()
@@ -90,6 +124,8 @@ public class MonsterManager : IMonsterRegistry
 
                 foreach (var (instanceId, m) in group)
                 {
+                    UpdateTerritoryNarration(m, players);
+
                     // ---- 1. 处理正在移动的怪物 ----
                     if (m.IsMoving)
                     {
@@ -145,10 +181,9 @@ public class MonsterManager : IMonsterRegistry
                     }
 
                     // ---- 2. AI 决策 ----
-                    var handler = _handlers.GetValueOrDefault(m.AiType);
-                    if (handler == null) continue;
-
-                    var next = handler.Run(m, mapName, players, _mapService.World);
+                    var next = m.Mode == MonsterAiMode.Combat
+                        ? RunCombatBehavior(m, mapName, players)
+                        : RunOverworldBehavior(m, mapName, players);
                     if (next == null) continue;
 
                     var (nx, ny) = next.Value;
@@ -227,6 +262,9 @@ public class MonsterManager : IMonsterRegistry
                     _mapService.BroadcastToMap(mapName, (int)PProtocol.MessageId.GameMonsterMoveCancelNotify, cancelNotify.ToByteArray());
                 }
             }
+
+            // ---- 复活检查 ----
+            ProcessRespawns();
         }
         catch (Exception ex)
         {
@@ -241,11 +279,56 @@ public class MonsterManager : IMonsterRegistry
         if (!_monsters.TryGetValue(instanceId, out var m)) return;
         m.Hp -= damage;
         m.InCombat = true;
+        m.TargetId = attackerId;
+        m.State = "combat";
         _logger.LogInformation("[Monster] damaged: id={Id} dmg={Dmg} hp={Hp}", instanceId, damage, m.Hp);
         if (m.Hp <= 0)
         {
             m.Hp = 0;
-            _logger.LogInformation("[Monster] died: id={Id}", instanceId);
+            _logger.LogInformation("[Monster] died: id={Id} respawn={RespawnSec}s type={Type}", instanceId, m.RespawnTimeSec, m.RespawnType);
+
+            // 从世界状态移除怪物
+            _mapService.World.MonsterLeave(instanceId, m.MapName);
+            _monsters.Remove(instanceId);
+
+            // 广播死亡通知给地图上的所有玩家
+            var notify = new PGame.MonsterDeathNotify
+            {
+                InstanceId = (uint)instanceId,
+                KillerId = (ulong)attackerId,
+                MonsterId = (uint)m.MonsterId,
+            };
+            _mapService.BroadcastToMap(m.MapName, (int)PProtocol.MessageId.GameMonsterDeathNotify, notify.ToByteArray());
+
+            // 加入复活队列
+            if (m.RespawnTimeSec > 0)
+            {
+                _respawnEntries.Add(new RespawnEntry
+                {
+                    InstanceId = instanceId,
+                    MonsterId = m.MonsterId,
+                    MapName = m.MapName,
+                    SpawnX = m.SpawnX,
+                    SpawnY = m.SpawnY,
+                    DeathX = m.X,
+                    DeathY = m.Y,
+                    RespawnTimeSec = m.RespawnTimeSec,
+                    DeathTimeMs = Environment.TickCount64,
+                    RespawnType = m.RespawnType,
+                    RespawnRange = m.RespawnRange,
+                    Name = m.Name,
+                    Level = m.Level,
+                    MaxHp = m.MaxHp,
+                    Patk = m.Patk,
+                    Matk = m.Matk,
+                    Pdef = m.Pdef,
+                    Mdef = m.Mdef,
+                    MoveSpeedMs = m.MoveSpeedMs,
+                    AiType = m.AiType,
+                    AiConfig = m.AiConfig,
+                });
+            }
+
             OnMonsterDeath?.Invoke(instanceId, attackerId, m.MonsterId);
         }
     }
@@ -260,6 +343,10 @@ public class MonsterManager : IMonsterRegistry
     {
         if (!_monsters.TryGetValue(instanceId, out var m)) return;
         m.InCombat = false;
+        m.TargetId = null;
+        m.NarratedTargetId = null;
+        m.State = "return";
+        m.LastMoveTime = 0;
         _logger.LogInformation("[Monster] disengaged: id={Id}", instanceId);
     }
 
@@ -321,7 +408,8 @@ public class MonsterManager : IMonsterRegistry
 
             var aiRow = _tables.GetAi(spawn.AiId);
             var aiType = aiRow?.AiType ?? "patrol";
-            var (hp, maxHp, patk, matk, pdef, mdef, agility) = _tables.ResolveMonsterAttrs(spawn.MonsterId);
+            var (combatBehavior, combatRange) = CombatBehaviorTypeResolver.Resolve(aiRow, monsterTemplate, _tables);
+            var (hp, maxHp, patk, matk, pdef, mdef) = _tables.ResolveMonsterAttrs(spawn.MonsterId);
 
             var id = startId + i;
             var aiCfg = aiRow != null ? new AiConfig
@@ -332,6 +420,8 @@ public class MonsterManager : IMonsterRegistry
                 MaxChaseDistance = aiRow.MaxChaseDistance,
                 MoveIntervalMs = aiRow.MoveIntervalMs,
                 ChaseIntervalMs = aiRow.ChaseIntervalMs,
+                CombatBehavior = combatBehavior,
+                CombatRange = combatRange,
             } : new AiConfig { AiType = aiType };
 
             monsters[id] = new MonsterRuntimeState
@@ -343,8 +433,11 @@ public class MonsterManager : IMonsterRegistry
                 X = spawn.X, Y = spawn.Y, SpawnX = spawn.X, SpawnY = spawn.Y,
                 AiType = aiType, AiConfig = aiCfg,
                 Hp = hp, MaxHp = maxHp, Level = monsterTemplate.Level,
-                Patk = patk, Matk = matk, Pdef = pdef, Mdef = mdef, Agility = agility,
+                Patk = patk, Matk = matk, Pdef = pdef, Mdef = mdef,
                 MoveSpeedMs = moveSpeedMs,
+                RespawnTimeSec = spawn.RespawnTime,
+                RespawnType = spawn.RespawnType,
+                RespawnRange = spawn.RespawnRange,
             };
         }
         return monsters;
@@ -355,7 +448,198 @@ public class MonsterManager : IMonsterRegistry
         var mapPlayers = _mapService.GetPlayersOnMap(mapName);
         var result = new Dictionary<long, PlayerStateView>();
         foreach (var (accountId, p) in mapPlayers)
-            result[accountId] = new PlayerStateView { AccountId = p.AccountId, RoleId = p.RoleId, GridX = p.GridX, GridY = p.GridY };
+            result[accountId] = new PlayerStateView
+            {
+                AccountId = p.AccountId,
+                RoleId = p.RoleId,
+                RoleName = p.RoleName ?? $"player_{accountId}",
+                GridX = p.GridX,
+                GridY = p.GridY,
+            };
         return result;
+    }
+
+    private (int x, int y)? RunOverworldBehavior(MonsterRuntimeState m, string mapName, Dictionary<long, PlayerStateView> players)
+    {
+        var handler = _handlers.GetValueOrDefault(m.AiType);
+        if (handler == null) return null;
+        return handler.Run(m, mapName, players, _mapService.World);
+    }
+
+    private (int x, int y)? RunCombatBehavior(MonsterRuntimeState m, string mapName, Dictionary<long, PlayerStateView> players)
+    {
+        var behaviorType = m.AiConfig.CombatBehavior == CombatBehaviorType.Auto
+            ? CombatBehaviorType.Melee
+            : m.AiConfig.CombatBehavior;
+        var handler = _combatBehaviors.GetValueOrDefault(behaviorType) ?? _combatBehaviors[CombatBehaviorType.Melee];
+        return handler.Run(m, mapName, players, _mapService.World);
+    }
+
+    private void UpdateTerritoryNarration(MonsterRuntimeState monster, Dictionary<long, PlayerStateView> players)
+    {
+        int patrolRange = monster.AiConfig.PatrolRange ?? 0;
+        if (patrolRange <= 0)
+        {
+            monster.TerritoryPlayers.Clear();
+            return;
+        }
+
+        var currentlyInside = new HashSet<long>();
+        foreach (var player in players.Values)
+        {
+            if (!IsInsidePatrolTerritory(monster, player, patrolRange))
+                continue;
+
+            currentlyInside.Add(player.AccountId);
+            if (monster.TerritoryPlayers.Contains(player.AccountId))
+                continue;
+
+            BroadcastMonsterNarration(
+                monster.MapName,
+                monster.InstanceId,
+                player.RoleName,
+                monster.Name,
+                $"{player.RoleName}闯入了{monster.Name}的领地");
+        }
+
+        foreach (var playerId in monster.TerritoryPlayers)
+        {
+            if (currentlyInside.Contains(playerId))
+                continue;
+
+            var player = _mapService.GetPlayerOnMap(monster.MapName, playerId);
+            string playerName = player?.RoleName ?? $"player_{playerId}";
+            BroadcastMonsterNarration(
+                monster.MapName,
+                monster.InstanceId,
+                monster.Name,
+                playerName,
+                $"{playerName}逃走了,{monster.Name}找不到目标");
+        }
+
+        monster.TerritoryPlayers = currentlyInside;
+    }
+
+    private void BroadcastMonsterNarration(string mapName, long actorId, string actorName, string targetName, string text)
+    {
+        if (string.IsNullOrWhiteSpace(mapName) || string.IsNullOrWhiteSpace(text))
+            return;
+
+        var notify = new PGame.CombatLogNotify();
+        notify.Entries.Add(new PGame.CombatLogEntry
+        {
+            LogType = PGame.CombatLogType.CombatLogBuff,
+            Timestamp = (ulong)DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+            ActorName = actorName,
+            TargetName = targetName,
+            Extra = text,
+            Value = 0,
+        });
+        _mapService.BroadcastToMap(mapName, (int)PProtocol.MessageId.GameCombatLogNotify, notify.ToByteArray());
+    }
+
+    private static bool IsInsidePatrolTerritory(MonsterRuntimeState monster, PlayerStateView player, int patrolRange)
+    {
+        return Math.Abs(player.GridX - monster.SpawnX) <= patrolRange &&
+               Math.Abs(player.GridY - monster.SpawnY) <= patrolRange;
+    }
+
+    // ---- 复活系统 ----
+
+    private void ProcessRespawns()
+    {
+        long now = Environment.TickCount64;
+        for (int i = _respawnEntries.Count - 1; i >= 0; i--)
+        {
+            var entry = _respawnEntries[i];
+            if (now - entry.DeathTimeMs >= entry.RespawnTimeSec * 1000)
+            {
+                _respawnEntries.RemoveAt(i);
+                DoRespawn(entry);
+            }
+        }
+    }
+
+    private void DoRespawn(RespawnEntry entry)
+    {
+        var (rx, ry) = ResolveRespawnPosition(entry);
+
+        // 检查目标格是否可行走，不可行走则 fallback 到出生点
+        if (!_mapData.IsWalkable(entry.MapName, rx, ry))
+        {
+            _logger.LogWarning("[Monster] respawn target ({RX},{RY}) not walkable, fallback to spawn ({SX},{SY})", rx, ry, entry.SpawnX, entry.SpawnY);
+            rx = entry.SpawnX;
+            ry = entry.SpawnY;
+        }
+
+        var m = new MonsterRuntimeState
+        {
+            InstanceId = entry.InstanceId,
+            MonsterId = entry.MonsterId,
+            Name = entry.Name,
+            MapName = entry.MapName,
+            X = rx, Y = ry, SpawnX = entry.SpawnX, SpawnY = entry.SpawnY,
+            AiType = entry.AiType, AiConfig = entry.AiConfig,
+            Hp = entry.MaxHp, MaxHp = entry.MaxHp, Level = entry.Level,
+            Patk = entry.Patk, Matk = entry.Matk, Pdef = entry.Pdef, Mdef = entry.Mdef,
+            MoveSpeedMs = entry.MoveSpeedMs,
+            RespawnTimeSec = entry.RespawnTimeSec,
+            RespawnType = entry.RespawnType,
+            RespawnRange = entry.RespawnRange,
+            State = "idle",
+        };
+
+        _monsters[entry.InstanceId] = m;
+        _mapService.MonsterEnter(entry.InstanceId, entry.MonsterId, entry.MapName, entry.Name, rx, ry, m.Hp, m.MaxHp, m.Level,
+            m.Patk, m.Matk, m.Pdef, m.Mdef);
+
+        _logger.LogInformation("[Monster] respawned: id={Id} map={Map} pos=({X},{Y}) type={Type}", entry.InstanceId, entry.MapName, rx, ry, entry.RespawnType);
+
+        // 广播复活通知
+        var notify = new PGame.MonsterRespawnNotify
+        {
+            InstanceId = (uint)entry.InstanceId,
+            MonsterId = (uint)entry.MonsterId,
+            X = rx,
+            Y = ry,
+            Name = entry.Name,
+            Level = (uint)entry.Level,
+        };
+        _mapService.BroadcastToMap(entry.MapName, (int)PProtocol.MessageId.GameMonsterRespawnNotify, notify.ToByteArray());
+    }
+
+    private (int x, int y) ResolveRespawnPosition(RespawnEntry entry)
+    {
+        switch (entry.RespawnType)
+        {
+            case ERespawnType.DeathPoint: // 原地复活
+                return (entry.DeathX, entry.DeathY);
+
+            case ERespawnType.RandomNearSpawn: // 出生点附近随机
+                int range = entry.RespawnRange;
+                if (range <= 0) return (entry.SpawnX, entry.SpawnY);
+
+                var candidates = new List<(int, int)>();
+                for (int dx = -range; dx <= range; dx++)
+                {
+                    for (int dy = -range; dy <= range; dy++)
+                    {
+                        int tx = entry.SpawnX + dx;
+                        int ty = entry.SpawnY + dy;
+                        if (_mapData.IsWalkable(entry.MapName, tx, ty))
+                            candidates.Add((tx, ty));
+                    }
+                }
+
+                if (candidates.Count > 0)
+                {
+                    var rnd = new Random();
+                    return candidates[rnd.Next(candidates.Count)];
+                }
+                return (entry.SpawnX, entry.SpawnY);
+
+            default: // SpawnPoint = 出生点
+                return (entry.SpawnX, entry.SpawnY);
+        }
     }
 }

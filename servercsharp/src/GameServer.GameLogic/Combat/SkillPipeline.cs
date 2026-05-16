@@ -75,10 +75,10 @@ public class SkillPipeline
         var casterPositions = FindEntityCombatPositions(casterId, maps);
         if (casterPositions.Count == 0) return null;
 
-        if (cfg.TargetType == "Self")
+        if (cfg.TargetType == ESkillTargetType.Self)
             return [casterId];
 
-        if (cfg.TargetType == "SingleEnemy")
+        if (cfg.TargetType == ESkillTargetType.SingleEnemy)
         {
             var candidates = new List<(long id, int dist)>();
             foreach (var relationId in ctx.RelationIds)
@@ -98,7 +98,7 @@ public class SkillPipeline
             return candidates.Count > 0 ? [candidates[0].id] : null;
         }
 
-        if (cfg.TargetType == "AllEnemiesInRange")
+        if (cfg.TargetType == ESkillTargetType.AllEnemiesInRange)
         {
             var targets = new List<long>();
             foreach (var relationId in ctx.RelationIds)
@@ -116,7 +116,7 @@ public class SkillPipeline
             return targets.Count > 0 ? targets : null;
         }
 
-        if (cfg.TargetType == "AllAlliesInRange")
+        if (cfg.TargetType == ESkillTargetType.AllAlliesInRange)
         {
             var allies = new List<long>();
             bool casterIsPlayer = casterId < 1000000;
@@ -199,11 +199,11 @@ public class SkillPipeline
         }
 
         // Self 目标类型：自身距离为 0，总是合法
-        if (cfg.TargetType == "Self" && targets.Contains(casterId))
+        if (cfg.TargetType == ESkillTargetType.Self && targets.Contains(casterId))
             return true;
 
         // AllAlliesInRange: 将合法友方写回 targets 列表
-        if (cfg.TargetType == "AllAlliesInRange" && validTargets.Count > 0)
+        if (cfg.TargetType == ESkillTargetType.AllAlliesInRange && validTargets.Count > 0)
         {
             targets.Clear();
             targets.AddRange(validTargets);
@@ -323,7 +323,7 @@ public class SkillPipeline
         var targets = SelectTargets(skillId, casterId, ctx, maps);
         if (targets == null || targets.Count == 0) return "FAILURE";
         var cfg = GetSkillConfig(skillId);
-        CombatTrace.SkillSelectTargets(_logger, combatId, casterId, SkillPipeline.GetEntityName(casterId, maps!), skillId, cfg?.TargetType ?? "", targets);
+        CombatTrace.SkillSelectTargets(_logger, combatId, casterId, SkillPipeline.GetEntityName(casterId, maps!), skillId, cfg?.TargetType.ToString() ?? "", targets);
 
         // 阶段 3: Cast Start
         double castTime = cfg?.CastTime ?? 0;

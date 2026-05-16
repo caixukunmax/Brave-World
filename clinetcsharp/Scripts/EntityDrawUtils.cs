@@ -8,24 +8,45 @@ namespace ClinetCSharp
     public static class EntityDrawUtils
     {
         /// <summary>绘制角色方块（圆角矩形）</summary>
-        public static void DrawBody(Node2D node, int drawSize, Color bgColor, float bgOpacity,
+        public static void DrawBody(Node2D node, int outerSize, int innerSize, Color bgColor, float bgOpacity,
             Color borderColor, float borderWidth, float cornerRadius)
         {
-            float halfDraw = drawSize / 2.0f;
-            var rect = new Rect2(new Vector2(-halfDraw, -halfDraw), new Vector2(drawSize, drawSize));
-            var actualBg = new Color(bgColor.R, bgColor.G, bgColor.B, bgOpacity);
+            float halfOuter = outerSize / 2.0f;
+            var outerRect = new Rect2(new Vector2(-halfOuter, -halfOuter), new Vector2(outerSize, outerSize));
+            float clampedOpacity = Mathf.Clamp(bgOpacity, 0.0f, 1.0f);
+            // The inner fill should represent the final visible color instead of
+            // blending with the border underlay, otherwise low-opacity black gets
+            // tinted by a colored border and looks maroon instead of black.
+            var actualBg = new Color(
+                bgColor.R * clampedOpacity,
+                bgColor.G * clampedOpacity,
+                bgColor.B * clampedOpacity,
+                1.0f);
+            int snappedBorder = Mathf.Max(0, Mathf.RoundToInt(borderWidth));
+            int snappedCorner = Mathf.Max(0, Mathf.RoundToInt(cornerRadius));
 
-            if (cornerRadius > 0)
+            if (snappedCorner > 0)
             {
-                float maxR = halfDraw - borderWidth;
-                float r = Mathf.Min(cornerRadius, Mathf.Max(maxR, 0));
-                node.DrawRoundedRect(rect, actualBg, true, r);
-                node.DrawRoundedRect(rect, borderColor, false, r, borderWidth);
+                float outerRadius = Mathf.Min(snappedCorner, outerSize / 2.0f);
+                node.DrawRoundedRect(outerRect, borderColor, true, outerRadius);
+
+                if (innerSize > 0)
+                {
+                    float halfInner = innerSize / 2.0f;
+                    var innerRect = new Rect2(new Vector2(-halfInner, -halfInner), new Vector2(innerSize, innerSize));
+                    float innerRadius = Mathf.Max(0.0f, outerRadius - snappedBorder);
+                    node.DrawRoundedRect(innerRect, actualBg, true, innerRadius);
+                }
             }
             else
             {
-                node.DrawRect(rect, actualBg, true);
-                node.DrawRect(rect, borderColor, false, borderWidth);
+                node.DrawRect(outerRect, borderColor, true);
+                if (innerSize > 0)
+                {
+                    float halfInner = innerSize / 2.0f;
+                    var innerRect = new Rect2(new Vector2(-halfInner, -halfInner), new Vector2(innerSize, innerSize));
+                    node.DrawRect(innerRect, actualBg, true);
+                }
             }
         }
 

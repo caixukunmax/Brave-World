@@ -41,7 +41,6 @@ public static class PlayerProtoMapper
         info.Attrs.Add(new PGame.AttrItem { Key = RoleAttrs.MaxHp, Value = role.MaxHp });
         info.Attrs.Add(new PGame.AttrItem { Key = RoleAttrs.Mp, Value = role.Mp });
         info.Attrs.Add(new PGame.AttrItem { Key = RoleAttrs.MaxMp, Value = role.MaxMp });
-        info.Attrs.Add(new PGame.AttrItem { Key = RoleAttrs.Agility, Value = role.Agility });
         info.Attrs.Add(new PGame.AttrItem { Key = RoleAttrs.PAtk, Value = role.Patk });
         info.Attrs.Add(new PGame.AttrItem { Key = RoleAttrs.MAtk, Value = role.Matk });
         info.Attrs.Add(new PGame.AttrItem { Key = RoleAttrs.PDef, Value = role.Pdef });

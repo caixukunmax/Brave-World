@@ -231,13 +231,15 @@ message ChestUpdateNotify {
 
 /**
  * 移动请求（客户端预测：先移动后确认）
+ * is_continuous=true 时表示开始/维持连续移动，to_x/to_y 为方向向量(-1/0/1)
  */
 message MoveRequest {
   int32 from_x = 1;             // 起点 X
   int32 from_y = 2;             // 起点 Y
-  int32 to_x = 3;               // 终点 X
-  int32 to_y = 4;               // 终点 Y
+  int32 to_x = 3;               // 终点 X，或连续移动时的方向 X
+  int32 to_y = 4;               // 终点 Y，或连续移动时的方向 Y
   string map_name = 5;          // 地图名
+  bool is_continuous = 6;       // 是否为连续移动（向量驱动）
 }
 
 /**
@@ -513,6 +515,27 @@ message MonsterStateBatchNotify {
 }
 
 /**
+ * 怪物死亡通知（服务器主动广播）
+ */
+message MonsterDeathNotify {
+  uint32 instance_id = 1;        // 怪物实例ID
+  uint64 killer_id   = 2;        // 击杀者实体ID（玩家account_id或怪物instance_id）
+  uint32 monster_id  = 3;        // 怪物类型ID
+}
+
+/**
+ * 怪物复活通知（服务器主动广播）
+ */
+message MonsterRespawnNotify {
+  uint32 instance_id = 1;        // 怪物实例ID
+  uint32 monster_id  = 2;        // 怪物类型ID
+  int32 x = 3;                   // 复活位置 X
+  int32 y = 4;                   // 复活位置 Y
+  string name = 5;               // 怪物名称
+  uint32 level = 6;              // 等级
+}
+
+/**
  * ==================== NPC 系统 ====================
  */
 
@@ -614,6 +637,19 @@ message SetPreferredSkillResponse {
 }
 
 /**
+ * 技能施法请求 — 玩家主动释放技能（纯 CD 制，不再需要 ATB）
+ */
+message CastRequest {
+  uint32 skill_id = 1;       // 请求释放的技能 ID
+  uint64 target_id = 2;      // 目标实体 ID（可选，0 = 自动选择）
+}
+
+message CastResponse {
+  bool   success = 1;
+  string error = 2;          // 失败原因：cooldown / out_of_range / not_in_combat / no_mp / invalid_skill / already_casting / post_cast
+}
+
+/**
  * 升级通知
  */
 message LevelUpNotify {
@@ -627,7 +663,6 @@ message LevelUpNotify {
   int32  matk        = 8;
   int32  pdef        = 9;
   int32  mdef        = 10;
-  int32  agility     = 11;
 }
 
 /**

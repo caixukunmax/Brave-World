@@ -13,11 +13,13 @@ public class CollisionDetector
 {
     private readonly EventBus _eventBus;
     private readonly ILogger<CollisionDetector> _logger;
+    private readonly WorldState _worldState;
 
-    public CollisionDetector(EventBus eventBus, ILogger<CollisionDetector> logger)
+    public CollisionDetector(EventBus eventBus, ILogger<CollisionDetector> logger, WorldState worldState)
     {
         _eventBus = eventBus;
         _logger = logger;
+        _worldState = worldState;
     }
 
     /// <summary>
@@ -32,20 +34,30 @@ public class CollisionDetector
 
         if (isPlayer)
         {
-            // 检查怪物碰撞
+            // 检查怪物碰撞 — 使用双格战斗位置
             foreach (var (instanceId, m) in map.Monsters)
             {
                 if (instanceId == entityId) continue;
-                int dist = Math.Abs(m.X - x) + Math.Abs(m.Y - y);
-                if (dist <= 1)
+
+                var combatPositions = _worldState.GetCombatPositions(instanceId)
+                    .Where(cp => cp.mapName == mapName)
+                    .ToList();
+                if (combatPositions.Count == 0)
+                    combatPositions = new List<(string, int, int)> { (mapName, m.X, m.Y) };
+
+                bool collides = combatPositions.Any(cp =>
+                    Math.Abs(cp.x - x) + Math.Abs(cp.y - y) <= 1);
+
+                if (collides)
                 {
-                    _logger.LogWarning("[Collision] player={PlayerId} at ({PX},{PY}) collides monster={MonsterId} at ({MX},{MY})",
-                        entityId, x, y, instanceId, m.X, m.Y);
+                    _logger.LogWarning("[Collision] player={PlayerId} at ({PX},{PY}) collides monster={MonsterId} combatPositions={Positions}",
+                        entityId, x, y, instanceId,
+                        string.Join(";", combatPositions.Select(cp => $"({cp.x},{cp.y})")));
                     _eventBus.Emit("CollisionDetected", (entityA: entityId, entityB: instanceId, mapName));
                 }
             }
 
-            // 检查NPC碰撞（不触发战斗，触发NPC交互）
+            // 检查NPC碰撞（NPC不参与双格，用权威坐标）
             foreach (var (npcId, npc) in map.Npcs)
             {
                 int dist = Math.Abs(npc.X - x) + Math.Abs(npc.Y - y);
@@ -59,14 +71,25 @@ public class CollisionDetector
         }
         else
         {
+            // 怪物检查玩家 — 使用双格战斗位置
             foreach (var (accountId, p) in map.Players)
             {
                 if (accountId == entityId) continue;
-                int dist = Math.Abs(p.GridX - x) + Math.Abs(p.GridY - y);
-                if (dist <= 1)
+
+                var combatPositions = _worldState.GetCombatPositions(accountId)
+                    .Where(cp => cp.mapName == mapName)
+                    .ToList();
+                if (combatPositions.Count == 0)
+                    combatPositions = new List<(string, int, int)> { (mapName, p.GridX, p.GridY) };
+
+                bool collides = combatPositions.Any(cp =>
+                    Math.Abs(cp.x - x) + Math.Abs(cp.y - y) <= 1);
+
+                if (collides)
                 {
-                    _logger.LogWarning("[Collision] monster={MonsterId} at ({MX},{MY}) collides player={PlayerId} at ({PX},{PY})",
-                        entityId, x, y, accountId, p.GridX, p.GridY);
+                    _logger.LogWarning("[Collision] monster={MonsterId} at ({MX},{MY}) collides player={PlayerId} combatPositions={Positions}",
+                        entityId, x, y, accountId,
+                        string.Join(";", combatPositions.Select(cp => $"({cp.x},{cp.y})")));
                     _eventBus.Emit("CollisionDetected", (entityA: entityId, entityB: accountId, mapName));
                 }
             }

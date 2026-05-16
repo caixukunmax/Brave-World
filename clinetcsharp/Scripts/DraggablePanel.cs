@@ -340,10 +340,10 @@ namespace ClinetCSharp
             if (inner.HasPoint(mouse))
                 return ResizeEdge.None;
 
-            bool onLeft   = mouse.X < rect.Position.X + ResizeEdgeZone;
-            bool onRight  = mouse.X > rect.End.X   - ResizeEdgeZone;
-            bool onTop    = mouse.Y < rect.Position.Y + ResizeEdgeZone;
-            bool onBottom = mouse.Y > rect.End.Y   - ResizeEdgeZone;
+            bool onLeft = mouse.X < rect.Position.X + ResizeEdgeZone;
+            bool onRight = mouse.X > rect.End.X - ResizeEdgeZone;
+            bool onTop = mouse.Y < rect.Position.Y + ResizeEdgeZone;
+            bool onBottom = mouse.Y > rect.End.Y - ResizeEdgeZone;
 
             if (onTop && onLeft) return ResizeEdge.TopLeft;
             if (onTop && onRight) return ResizeEdge.TopRight;

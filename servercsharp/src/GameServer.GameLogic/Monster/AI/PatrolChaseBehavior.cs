@@ -21,10 +21,16 @@ public class PatrolChaseBehavior : IBehaviorHandler
         int maxChase = cfg.MaxChaseDistance ?? 8;
         int spawnDist = Pathfind.Manhattan(m.X, m.Y, m.SpawnX, m.SpawnY);
 
-        // 构造动态障碍回调（排除自身位置）
+        // 2. 追击
+        var target = FindNearestPlayer(m, players);
+        int? targetX = target?.GridX;
+        int? targetY = target?.GridY;
+
+        // 构造动态障碍回调（排除自身位置与追击目标格，否则 BFS 永远到不了玩家所在格）
         Func<int, int, bool> isBlocked = (x, y) =>
         {
             if (x == m.X && y == m.Y) return false;
+            if (targetX == x && targetY == y) return false;
             return world?.IsOccupied(mapName, x, y) ?? false;
         };
 
@@ -36,22 +42,26 @@ public class PatrolChaseBehavior : IBehaviorHandler
             return null;
         }
 
-        // 2. 追击
-        var target = FindNearestPlayer(m, players);
         if (target != null)
         {
+            m.TargetId = target.AccountId;
             int targetDist = Pathfind.Manhattan(m.X, m.Y, target.GridX, target.GridY);
+            // 已经贴身，停止移动，避免反复尝试进入玩家格导致弹回
+            if (targetDist <= 1)
+            {
+                m.State = "idle";
+                return null;
+            }
             if (m.LastMoveTime == 0 || (now - m.LastMoveTime) >= (cfg.ChaseIntervalMs ?? 500))
             {
-                if (targetDist > 0)
-                {
-                    var next = Pathfind.BfsNextStep(m.X, m.Y, target.GridX, target.GridY, mapName, _mapData, isBlocked);
-                    if (next != null) { m.State = "chase"; m.TargetId = target.AccountId; m.LastMoveTime = now; return next; }
-                }
+                var next = Pathfind.BfsNextStep(m.X, m.Y, target.GridX, target.GridY, mapName, _mapData, isBlocked);
+                if (next != null) { m.State = "chase"; m.LastMoveTime = now; return next; }
             }
             m.State = "idle";
             return null;
         }
+
+        m.TargetId = null;
 
         // 3. 返回/idle 切换
         if (m.State == "chase" || m.State == "return")

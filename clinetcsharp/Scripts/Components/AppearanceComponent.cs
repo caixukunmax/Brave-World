@@ -101,10 +101,10 @@ namespace ClinetCSharp
         {
             return new AppearanceData
             {
-                VisualSizeScale = (float)_sizeScaleSlider.Value,
-                BorderWidthScale = (float)_borderWidthScaleSlider.Value,
+                VisualSizeScale = EntityProfileManager.FromFp(EntityProfileManager.ToFpD(_sizeScaleSlider.Value)),
+                BorderWidthScale = EntityProfileManager.FromFp(EntityProfileManager.ToFpD(_borderWidthScaleSlider.Value)),
                 CornerRadius = (float)_cornerRadiusSlider.Value,
-                BgOpacity = (float)_bgOpacitySlider.Value,
+                BgOpacity = EntityProfileManager.FromFp(EntityProfileManager.ToFpD(_bgOpacitySlider.Value)),
                 FontSize = (int)_fontSizeSlider.Value,
                 BorderColor = _borderColorPicker.Color,
                 BgColor = _bgColorPicker.Color,
@@ -116,17 +116,13 @@ namespace ClinetCSharp
         {
             _onChanged = onChanged;
 
-            // Size linkage: size slider drag → compute scale
+            // Size linkage: immediate, including manual LineEdit apply
             _sizeSlider.ValueChanged += OnSizeChanged;
-            _sizeSlider.DragEnded += OnSizeDragEnded;
             _sizeScaleSlider.ValueChanged += OnSizeScaleChanged;
-            _sizeScaleSlider.DragEnded += OnSizeScaleDragEnded;
 
-            // BorderWidth linkage
+            // BorderWidth linkage: immediate, including manual LineEdit apply
             _borderWidthSlider.ValueChanged += OnBorderWidthChanged;
-            _borderWidthSlider.DragEnded += OnBorderWidthDragEnded;
             _borderWidthScaleSlider.ValueChanged += OnBorderWidthScaleChanged;
-            _borderWidthScaleSlider.DragEnded += OnBorderWidthScaleDragEnded;
 
             // Simple sliders
             _cornerRadiusSlider.ValueChanged += OnSimpleChanged;
@@ -142,13 +138,9 @@ namespace ClinetCSharp
         public void DisconnectSignals()
         {
             _sizeSlider.ValueChanged -= OnSizeChanged;
-            _sizeSlider.DragEnded -= OnSizeDragEnded;
             _sizeScaleSlider.ValueChanged -= OnSizeScaleChanged;
-            _sizeScaleSlider.DragEnded -= OnSizeScaleDragEnded;
             _borderWidthSlider.ValueChanged -= OnBorderWidthChanged;
-            _borderWidthSlider.DragEnded -= OnBorderWidthDragEnded;
             _borderWidthScaleSlider.ValueChanged -= OnBorderWidthScaleChanged;
-            _borderWidthScaleSlider.DragEnded -= OnBorderWidthScaleDragEnded;
             _cornerRadiusSlider.ValueChanged -= OnSimpleChanged;
             _bgOpacitySlider.ValueChanged -= OnSimpleChanged;
             _fontSizeSlider.ValueChanged -= OnSimpleChanged;
@@ -194,14 +186,9 @@ namespace ClinetCSharp
         private void OnSizeChanged(double value)
         {
             _sizeValue.Text = ((int)value).ToString();
-        }
-
-        private void OnSizeDragEnded(bool valueChanged)
-        {
-            if (!valueChanged) return;
             if (_gridSize > 0)
             {
-                float scale = (float)(_sizeSlider.Value / _gridSize);
+                double scale = Math.Clamp(_sizeSlider.Value / _gridSize, _sizeScaleSlider.MinValue, _sizeScaleSlider.MaxValue);
                 _sizeScaleSlider.SetBlockSignals(true);
                 _sizeScaleSlider.Value = scale;
                 _sizeScaleSlider.SetBlockSignals(false);
@@ -213,14 +200,9 @@ namespace ClinetCSharp
         private void OnSizeScaleChanged(double value)
         {
             _sizeScaleValue.Text = value.ToString(DebugPanelLengthScalePolicy.FormatStr);
-        }
-
-        private void OnSizeScaleDragEnded(bool valueChanged)
-        {
-            if (!valueChanged) return;
             if (_gridSize > 0)
             {
-                float newSize = Mathf.Clamp((float)_sizeScaleSlider.Value * _gridSize, 32, 256);
+                double newSize = Math.Clamp(_sizeScaleSlider.Value * _gridSize, _sizeSlider.MinValue, _sizeSlider.MaxValue);
                 _sizeSlider.SetBlockSignals(true);
                 _sizeSlider.Value = newSize;
                 _sizeSlider.SetBlockSignals(false);
@@ -234,14 +216,9 @@ namespace ClinetCSharp
         private void OnBorderWidthChanged(double value)
         {
             _borderWidthValue.Text = ((int)value).ToString();
-        }
-
-        private void OnBorderWidthDragEnded(bool valueChanged)
-        {
-            if (!valueChanged) return;
             if (_gridSize > 0)
             {
-                float scale = (float)(_borderWidthSlider.Value / _gridSize);
+                double scale = Math.Clamp(_borderWidthSlider.Value / _gridSize, _borderWidthScaleSlider.MinValue, _borderWidthScaleSlider.MaxValue);
                 _borderWidthScaleSlider.SetBlockSignals(true);
                 _borderWidthScaleSlider.Value = scale;
                 _borderWidthScaleSlider.SetBlockSignals(false);
@@ -253,14 +230,9 @@ namespace ClinetCSharp
         private void OnBorderWidthScaleChanged(double value)
         {
             _borderWidthScaleValue.Text = value.ToString(DebugPanelLengthScalePolicy.FormatStr);
-        }
-
-        private void OnBorderWidthScaleDragEnded(bool valueChanged)
-        {
-            if (!valueChanged) return;
             if (_gridSize > 0)
             {
-                float newWidth = Mathf.Clamp((float)_borderWidthScaleSlider.Value * _gridSize, 1.0f, 20.0f);
+                double newWidth = Math.Clamp(_borderWidthScaleSlider.Value * _gridSize, _borderWidthSlider.MinValue, _borderWidthSlider.MaxValue);
                 _borderWidthSlider.SetBlockSignals(true);
                 _borderWidthSlider.Value = newWidth;
                 _borderWidthSlider.SetBlockSignals(false);
@@ -280,9 +252,12 @@ namespace ClinetCSharp
 
             var slider = new HSlider
             {
-                MinValue = min, MaxValue = max, Value = def,
+                MinValue = min,
+                MaxValue = max,
+                Value = def,
                 SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
-                CustomMinimumSize = new Vector2(0, 20), Step = actualStep,
+                CustomMinimumSize = new Vector2(0, 20),
+                Step = actualStep,
                 FocusMode = Control.FocusModeEnum.Click,
                 Scrollable = false
             };

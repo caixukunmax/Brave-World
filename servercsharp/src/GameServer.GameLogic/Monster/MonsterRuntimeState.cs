@@ -1,4 +1,12 @@
+using GameServer.Tables;
+
 namespace GameServer.Services.Monster;
+
+public enum MonsterAiMode
+{
+    Overworld = 0,
+    Combat = 1,
+}
 
 /// <summary>
 /// 怪物完整运行时状态 — 统一 MonsterState + AiConfig
@@ -18,6 +26,8 @@ public class MonsterRuntimeState
     public AiConfig AiConfig { get; set; } = new();
     public string State { get; set; } = "idle";
     public long? TargetId { get; set; }
+    public long? NarratedTargetId { get; set; }
+    public HashSet<long> TerritoryPlayers { get; set; } = new();
     public long LastMoveTime { get; set; }
     public int Hp { get; set; } = 100;
     public int MaxHp { get; set; } = 100;
@@ -27,7 +37,6 @@ public class MonsterRuntimeState
     public int Matk { get; set; } = 10;
     public int Pdef { get; set; } = 5;
     public int Mdef { get; set; } = 5;
-    public int Agility { get; set; } = 100;
 
     // ---- 移动系统（与玩家共用预占机制）----
     public int MoveSpeedMs { get; set; } = 800;   // 默认 800ms/格
@@ -39,6 +48,12 @@ public class MonsterRuntimeState
 
     /// <summary>是否处于战斗中 — 战斗中的怪物不做 AI 决策和碰撞检测</summary>
     public bool InCombat { get; set; }
+    public MonsterAiMode Mode => InCombat ? MonsterAiMode.Combat : MonsterAiMode.Overworld;
+
+    // ---- 复活系统 ----
+    public int RespawnTimeSec { get; set; }
+    public ERespawnType RespawnType { get; set; }
+    public int RespawnRange { get; set; }
 }
 
 public class AiConfig
@@ -49,4 +64,6 @@ public class AiConfig
     public int? MaxChaseDistance { get; set; }
     public long? MoveIntervalMs { get; set; }
     public long? ChaseIntervalMs { get; set; }
+    public CombatBehaviorType CombatBehavior { get; set; } = CombatBehaviorType.Auto;
+    public int? CombatRange { get; set; }
 }

@@ -28,7 +28,7 @@ public class DealDamageAction : ICombatAction
 
         foreach (var targetId in targets)
         {
-            var (damage, dtype) = CalcDamage(casterId, targetId, damageType, coefficient, context.Maps);
+            var (damage, dtype) = CalcDamage(casterId, targetId, damageType, coefficient, context.Maps, context.CombatManager);
 
             var combatId = context.CombatManager?.GetCombatId(casterId) ?? 0;
             var cmLogger = context.CombatManager?.Logger;
@@ -60,14 +60,14 @@ public class DealDamageAction : ICombatAction
     }
 
     private static (int damage, string damageType) CalcDamage(long casterId, long targetId,
-        string damageType, double coefficient, Dictionary<string, MapState>? maps)
+        string damageType, double coefficient, Dictionary<string, MapState>? maps, CombatManager? combatManager = null)
     {
         int baseDamage = 10;
         int targetDef = 0;
 
         // 获取施法者的 buff 属性修正
-        int casterBuffAtk = GetBuffAttrModifier(casterId, damageType == "physical" ? "patk" : "matk", maps);
-        int targetBuffDef = GetBuffAttrModifier(targetId, damageType == "physical" ? "pdef" : "mdef", maps);
+        int casterBuffAtk = GetBuffAttrModifier(casterId, damageType == "physical" ? "patk" : "matk", maps, combatManager);
+        int targetBuffDef = GetBuffAttrModifier(targetId, damageType == "physical" ? "pdef" : "mdef", maps, combatManager);
 
         if (damageType == "physical")
         {
@@ -91,7 +91,7 @@ public class DealDamageAction : ICombatAction
     }
 
     /// <summary>获取实体的 buff 属性修正值</summary>
-    private static int GetBuffAttrModifier(long entityId, string attrName, Dictionary<string, MapState>? maps)
+    private static int GetBuffAttrModifier(long entityId, string attrName, Dictionary<string, MapState>? maps, CombatManager? combatManager = null)
     {
         if (maps == null) return 0;
         foreach (var map in maps.Values)
@@ -100,8 +100,13 @@ public class DealDamageAction : ICombatAction
                 return p.Buffs.GetAttrModifier(attrName);
             if (map.Monsters.TryGetValue(entityId, out var m))
             {
-                // 怪物的 buff 在 CombatContext 里，需要从 CombatManager 获取
-                // 暂时返回 0，后续补
+                // 怪物的 buff 在 CombatContext 里，从 CombatManager 获取
+                if (combatManager != null)
+                {
+                    var ctx = combatManager.RelationsMgr.Contexts.GetValueOrDefault(entityId);
+                    if (ctx != null)
+                        return ctx.Buffs.GetAttrModifier(attrName);
+                }
                 return 0;
             }
         }
@@ -118,7 +123,6 @@ public class DealDamageAction : ICombatAction
                 return attrName switch
                 {
                     "role_name" or "name" => null,
-                    "agility" => p.Agility,
                     "patk" => p.Patk,
                     "matk" => p.Matk,
                     "pdef" => p.Pdef,
@@ -137,7 +141,6 @@ public class DealDamageAction : ICombatAction
                     "matk" => m.Matk,
                     "pdef" => m.Pdef,
                     "mdef" => m.Mdef,
-                    "agility" => m.Agility,
                     _ => null,
                 };
             }

@@ -86,10 +86,9 @@ namespace ClinetCSharp
 
         public void SyncFromEntity(EntityBase entity)
         {
-            if (entity is not Player p) return;
-            SetCheckSilent(_forceShowCheck, p.ActionBarForceShow);
-            SetSliderSilent(_textYOffsetSlider, p.ActionBarTextYOffset, _textYOffsetValue, ((int)p.ActionBarTextYOffset).ToString());
-            SetSliderSilent(_progressHeightSlider, p.ActionBarProgressHeight, _progressHeightValue, ((int)p.ActionBarProgressHeight).ToString());
+            SetCheckSilent(_forceShowCheck, entity.ActionBarForceShow);
+            SetSliderSilent(_textYOffsetSlider, entity.ActionBarTextYOffset, _textYOffsetValue, ((int)entity.ActionBarTextYOffset).ToString());
+            SetSliderSilent(_progressHeightSlider, entity.ActionBarProgressHeight, _progressHeightValue, ((int)entity.ActionBarProgressHeight).ToString());
         }
 
         public void SetPropertyLocked(string propertyName, bool locked) { /* No lockable properties */ }

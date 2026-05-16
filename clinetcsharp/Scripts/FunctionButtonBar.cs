@@ -52,10 +52,14 @@ namespace ClinetCSharp
             {
                 BgColor = new Color(0.05f, 0.05f, 0.05f, 0.65f),
                 BorderColor = new Color(0.35f, 0.35f, 0.35f, 0.8f),
-                BorderWidthBottom = 1, BorderWidthLeft = 1,
-                BorderWidthRight = 1, BorderWidthTop = 1,
-                CornerRadiusTopLeft = 3, CornerRadiusTopRight = 3,
-                CornerRadiusBottomLeft = 3, CornerRadiusBottomRight = 3,
+                BorderWidthBottom = 1,
+                BorderWidthLeft = 1,
+                BorderWidthRight = 1,
+                BorderWidthTop = 1,
+                CornerRadiusTopLeft = 3,
+                CornerRadiusTopRight = 3,
+                CornerRadiusBottomLeft = 3,
+                CornerRadiusBottomRight = 3,
             });
 
             var btn = new Button

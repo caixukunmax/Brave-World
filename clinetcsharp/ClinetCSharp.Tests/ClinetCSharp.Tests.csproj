@@ -29,5 +29,8 @@
     <Compile Include="..\Scripts\DebugPanelLengthScalePolicy.cs"
              Link="DebugPanelLengthScalePolicy.cs"
              Condition="Exists('..\Scripts\DebugPanelLengthScalePolicy.cs')" />
+    <Compile Include="..\Scripts\PlayerRoleInfoPositionSyncPolicy.cs"
+             Link="PlayerRoleInfoPositionSyncPolicy.cs"
+             Condition="Exists('..\Scripts\PlayerRoleInfoPositionSyncPolicy.cs')" />
   </ItemGroup>
 </Project>

@@ -232,6 +232,15 @@ function main(): void {
     success('Buff config → clinetcsharp/data/buff_config.json');
   }
 
+  // 将道具配置 JSON 复制到客户端 data 目录
+  const ITEM_JSON_SRC = path.join(JSON_DATA_DIR, 'item_tbitem.json');
+  const ITEM_JSON_DST = path.join(CLIENT_DATA_DIR, 'item_config.json');
+  if (fs.existsSync(ITEM_JSON_SRC)) {
+    fs.mkdirSync(CLIENT_DATA_DIR, { recursive: true });
+    fs.copyFileSync(ITEM_JSON_SRC, ITEM_JSON_DST);
+    success('Item config → clinetcsharp/data/item_config.json');
+  }
+
   // 将生成的 JSON 同步到服务端 bin 目录（运行时读取位置）
   const BIN_DATA_DIR = path.resolve(ROOT_DIR, 'servercsharp/src/GameServer/bin/Debug/net8.0/data/tables');
   if (fs.existsSync(BIN_DATA_DIR)) {

@@ -38,9 +38,15 @@ tslua2/
 │   ├── assets/         #   美术资源
 │   └── tools/          #   开发工具
 ├── docs/               # 项目文档
+│   ├── architecture.md #   架构总览（本文档）
 │   ├── design/         #   系统设计文档
-│   ├── tech/           #   技术文档
-│   └── learn/          #   学习笔记
+│   │   ├── debug-panel/ #   调试面板设计子目录
+│   │   ├── plans/      #   实施计划归档
+│   │   └── _archive/   #   已过时设计文档
+│   ├── tech/           #   技术文档与规范
+│   ├── daily/          #   开发日报（按月分组）
+│   ├── reports/        #   分析报告
+│   └── reference/      #   外部资料与参考
 ├── scripts/            # 仓库级构建脚本
 │   └── build.ps1       #   统一构建入口
 ├── .editorconfig       # 代码风格统一
@@ -180,7 +186,21 @@ GameServer (入口)
 
 ## 相关文档
 
+### 技术规范
 - [日志规范与排障手册](tech/logging-and-troubleshooting.md)
-- [文档生成与维护提示词](tech/文档生成与维护提示词.md)
 - [登录流程协议](tech/登录流程协议.md)
 - [服务注册与消息路由](tech/服务注册与消息路由.md)
+- [项目优化建议](tech/项目优化建议-2026-04-28.md)
+
+### 设计文档
+- [战斗系统设计](design/combat/战斗系统设计.md)
+- [移动系统设计](design/movement/移动系统设计.md)
+- [实体系统组件化重构](design/entity/实体系统组件化重构.md)
+- [未开发功能清单](design/pending-features.md)
+
+### 文档索引
+- [设计文档目录](design/)
+- [技术文档目录](tech/)
+- [开发日报](daily/)
+- [分析报告](reports/)
+- [参考资料](reference/)

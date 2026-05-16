@@ -56,6 +56,9 @@ public class CreateRoleHandler : IMessageHandler
             ? (firstMap.spawn_x, firstMap.spawn_y)
             : (GameConstants.DefaultSpawnX, GameConstants.DefaultSpawnY);
 
+        // 按 Lv1 初始化属性
+        var (baseHp, baseMp, basePatk, baseMatk, basePdef, baseMdef, baseMpRegen) = _tables.GetPlayerAttrsByLevel(1);
+
         var roleData = new Role
         {
             RoleId = roleId,
@@ -74,6 +77,11 @@ public class CreateRoleHandler : IMessageHandler
             GridX = spawnX,
             GridY = spawnY,
             MoveSpeedMs = GameConstants.BaseMoveSpeedMs,
+            Hp = baseHp, MaxHp = baseHp,
+            Mp = baseMp, MaxMp = baseMp,
+            Patk = basePatk, Matk = baseMatk,
+            Pdef = basePdef, Mdef = baseMdef,
+            MpRegen = baseMpRegen,
             LearnedSkills = _tables.GetJobDefaultSkills("战士").learned,
             EquippedSkills = _tables.GetJobDefaultSkills("战士").equipped,
         };
@@ -125,6 +133,8 @@ public class CreateRoleHandler : IMessageHandler
                     NpcInstanceId = (ulong)n.InstanceId,
                     NpcName = n.Name,
                     NpcType = n.NpcType,
+                    X = n.X,
+                    Y = n.Y,
                 });
             }
         }

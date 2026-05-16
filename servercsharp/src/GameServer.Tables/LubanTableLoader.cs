@@ -23,6 +23,7 @@ public class LubanTableLoader
     public Dictionary<int, CombatNarrationRow> CombatNarrations { get; private set; } = new();
     public Dictionary<int, LevelUpRow> LevelUps { get; private set; } = new();
     public Dictionary<int, DropGroupRow> DropGroups { get; private set; } = new();
+    public Dictionary<int, ItemRow> Items { get; private set; } = new();
 
     // 反向索引: mapName → mapId
     private Dictionary<string, int> _mapNameToId = new();
@@ -58,6 +59,7 @@ public class LubanTableLoader
         CombatNarrations = LoadTable<CombatNarrationRow>(dataDir, "common_tbcombatnarration.json", opts);
         LevelUps = LoadTable<LevelUpRow>(dataDir, "common_tblevelup.json", opts);
         DropGroups = LoadTable<DropGroupRow>(dataDir, "common_tbdropgroup.json", opts);
+        Items = LoadTable<ItemRow>(dataDir, "item_tbitem.json", opts);
 
         // 建立地图名→ID 反向索引
         _mapNameToId = MapConfigs.Values.ToDictionary(m => m.MapName, m => m.Id);
@@ -91,9 +93,7 @@ public class LubanTableLoader
     {
         var job = GetJobByName(jobName);
         if (job == null) return (new List<int>(), new List<int>());
-        var learned = ParseIntList(job.DefaultLearnedSkills);
-        var equipped = ParseIntList(job.DefaultEquippedSkills);
-        return (learned, equipped);
+        return (job.DefaultLearnedSkills, job.DefaultEquippedSkills);
     }
 
     /// <summary>获取指定职业的所有技能ID</summary>
@@ -118,6 +118,9 @@ public class LubanTableLoader
     /// <summary>获取掉落组配置</summary>
     public DropGroupRow? GetDropGroup(int id) => DropGroups.GetValueOrDefault(id);
 
+    /// <summary>获取道具配置</summary>
+    public ItemRow? GetItem(int id) => Items.GetValueOrDefault(id);
+
     /// <summary>获取最大等级</summary>
     public int GetMaxLevel() => LevelUps.Count > 0 ? LevelUps.Keys.Max() : 1;
 
@@ -136,28 +139,49 @@ public class LubanTableLoader
 
     /// <summary>
     /// 获取玩家基础属性（从 TbPlayerAttr 表读取，默认 id=1）
-    /// 返回 (hp, mp, agility, patk, matk, pdef, mdef, mpRegen)
+    /// 返回 (hp, mp, patk, matk, pdef, mdef, mpRegen)
     /// </summary>
-    public (int hp, int mp, int agility, int patk, int matk, int pdef, int mdef, int mpRegen) GetPlayerBaseAttrs(int id = 1)
+    public (int hp, int mp, int patk, int matk, int pdef, int mdef, int mpRegen) GetPlayerBaseAttrs(int id = 1)
     {
         var row = PlayerAttrs.GetValueOrDefault(id);
-        if (row == null) return (100, 50, 100, 10, 10, 5, 5, 2);
-        return (row.Hp, row.Mp, row.Agility, row.Patk, row.Matk, row.Pdef, row.Mdef, row.MpRegen);
+        if (row == null) return (100, 50, 10, 10, 5, 5, 2);
+        return (row.Hp, row.Mp, row.Patk, row.Matk, row.Pdef, row.Mdef, row.MpRegen);
+    }
+
+    /// <summary>
+    /// 获取指定等级的玩家完整属性（基础 + 等级成长）
+    /// 返回 (hp, mp, patk, matk, pdef, mdef, mpRegen)
+    /// </summary>
+    public (int hp, int mp, int patk, int matk, int pdef, int mdef, int mpRegen) GetPlayerAttrsByLevel(int level)
+    {
+        var (hp, mp, patk, matk, pdef, mdef, mpRegen) = GetPlayerBaseAttrs();
+        for (int lv = 2; lv <= level; lv++)
+        {
+            var cfg = GetLevelUp(lv);
+            if (cfg == null) continue;
+            hp += cfg.Hp;
+            mp += cfg.Mp;
+            patk += cfg.Patk;
+            matk += cfg.Matk;
+            pdef += cfg.Pdef;
+            mdef += cfg.Mdef;
+        }
+        return (hp, mp, patk, matk, pdef, mdef, mpRegen);
     }
 
     /// <summary>
     /// 从 Monster 模板的 attrs[] 解析战斗属性。
     /// EMonsterAttr: HP=1, ATK=2, DEF=3
     /// 当 attrs 只有 HP/ATK/DEF 时，ATK 映射为 Patk，DEF 映射为 Pdef，
-    /// Matk 默认 = Patk/2，Mdef 默认 = Pdef/2，Agility 默认 100
+    /// Matk 默认 = Patk/2，Mdef 默认 = Pdef/2
     /// </summary>
-    public (int hp, int maxHp, int patk, int matk, int pdef, int mdef, int agility) ResolveMonsterAttrs(int monsterId)
+    public (int hp, int maxHp, int patk, int matk, int pdef, int mdef) ResolveMonsterAttrs(int monsterId)
     {
         var monster = Monsters.GetValueOrDefault(monsterId);
-        if (monster == null) return (100, 100, 10, 5, 5, 3, 100);
+        if (monster == null) return (100, 100, 10, 5, 5, 3);
 
         var attrs = monster.Attrs;
-        if (attrs.Count == 0) return (100, 100, 10, 5, 5, 3, 100);
+        if (attrs.Count == 0) return (100, 100, 10, 5, 5, 3);
 
         var map = attrs.ToDictionary(a => a.AttrKey, a => a.AttrValue);
 
@@ -170,17 +194,15 @@ public class LubanTableLoader
         int pdef = def;
         int matk = Math.Max(1, atk / 2);
         int mdef = Math.Max(1, def / 2);
-        int agility = 100;
 
         // 如果将来 xlsx 扩展了更多属性键（使用 EAttr 枚举值），优先使用
-        // EAttr: AGILITY=5, PATK=6, MATK=7, PDEF=8, MDEF=9
-        if (map.TryGetValue(5, out var agi)) agility = agi;
-        if (map.TryGetValue(6, out var pa)) patk = pa;
-        if (map.TryGetValue(7, out var ma)) matk = ma;
-        if (map.TryGetValue(8, out var pd)) pdef = pd;
-        if (map.TryGetValue(9, out var md)) mdef = md;
+        // EAttr: PATK=5, MATK=6, PDEF=7, MDEF=8
+        if (map.TryGetValue(5, out var pa)) patk = pa;
+        if (map.TryGetValue(6, out var ma)) matk = ma;
+        if (map.TryGetValue(7, out var pd)) pdef = pd;
+        if (map.TryGetValue(8, out var md)) mdef = md;
 
-        return (hp, hp, patk, matk, pdef, mdef, agility);
+        return (hp, hp, patk, matk, pdef, mdef);
     }
 
     // ---- 内部 ----

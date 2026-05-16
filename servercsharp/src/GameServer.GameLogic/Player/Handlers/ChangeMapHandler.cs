@@ -55,14 +55,17 @@ public class ChangeMapHandler : IMessageHandler
         var walkable = _mapData.FindNearestWalkable(targetMap, spawnX, spawnY);
         if (walkable != null) { spawnX = walkable.Value.x; spawnY = walkable.Value.y; }
 
-        var (hp, mp, agility, patk, matk, pdef, mdef, _) = _tables.GetPlayerBaseAttrs();
+        // 按当前等级计算属性，避免切图后属性被重置为 Lv1
+        var (hp, mp, patk, matk, pdef, mdef, _) = _tables.GetPlayerAttrsByLevel(role.Level);
 
         // 更新角色数据
         role.CurrentMap = targetMap;
         role.GridX = spawnX;
         role.GridY = spawnY;
 
-        // 进入新地图
+        // 进入新地图（保留当前血量比例，不满血切图不会直接满血）
+        int enterHp = role.Hp > 0 ? Math.Min(role.Hp, hp) : hp;
+        int enterMp = role.Mp > 0 ? Math.Min(role.Mp, mp) : mp;
         _session.MapService.PlayerEnter(new PlayerSnapshot
         {
             AccountId = claims.AccountId,
@@ -73,12 +76,12 @@ public class ChangeMapHandler : IMessageHandler
             GridY = spawnY,
             Level = role.Level,
             CurrentMap = targetMap,
-            Hp = hp, MaxHp = hp, Mp = mp, MaxMp = mp,
-            Agility = agility, Patk = patk, Matk = matk, Pdef = pdef, Mdef = mdef,
+            Hp = enterHp, MaxHp = hp, Mp = enterMp, MaxMp = mp,
+            Patk = patk, Matk = matk, Pdef = pdef, Mdef = mdef,
             MpRegen = role.MpRegen,
         });
 
-        // 推送新地图信息（怪物 + 宝箱）
+        // 推送新地图信息（怪物 + 宝箱 + NPC）
         var notify = new PGame.MapInfoSyncNotify { MapName = targetMap };
 
         var monsters = _monsterAi.GetMonstersOnMap(targetMap);
@@ -97,6 +100,24 @@ public class ChangeMapHandler : IMessageHandler
             info.Attrs.Add(new PGame.MonsterAttr { AttrKey = 2, AttrValue = m.Patk });
             info.Attrs.Add(new PGame.MonsterAttr { AttrKey = 3, AttrValue = m.Pdef });
             notify.Monsters.Add(info);
+        }
+
+        // 添加 NPC 列表
+        var npcMgr = _session.NpcManager;
+        if (npcMgr != null)
+        {
+            var npcs = npcMgr.GetNpcsOnMap(targetMap);
+            foreach (var n in npcs)
+            {
+                notify.Npcs.Add(new PGame.NpcInfo
+                {
+                    NpcInstanceId = (ulong)n.InstanceId,
+                    NpcName = n.Name,
+                    NpcType = n.NpcType,
+                    X = n.X,
+                    Y = n.Y,
+                });
+            }
         }
 
         _network.SendToAccount(claims.AccountId, claims.ServerId,

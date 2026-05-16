@@ -15,6 +15,7 @@ namespace ClinetCSharp
 
         private Action _onChanged;
         private int _gridSize = 111;
+        private float _lengthBaseSize = 111f;
 
         private CheckButton _visibleCheck;
         private Button _colorBtn;
@@ -67,7 +68,7 @@ namespace ClinetCSharp
             SetCheckSilent(_visibleCheck, d.Visible);
             _colorBtn.Modulate = d.Color;
             SetSliderSilent(_lengthScaleSlider, d.LengthScale, _lengthScaleValue, d.LengthScale.ToString(DebugPanelLengthScalePolicy.FormatStr));
-            _lengthValue.Text = ((int)(_gridSize * d.LengthScale)).ToString();
+            _lengthValue.Text = ((int)(_lengthBaseSize * d.LengthScale)).ToString();
             SetSliderSilent(_heightScaleSlider, d.HeightScale, _heightScaleValue, d.HeightScale.ToString(DebugPanelLengthScalePolicy.FormatStr));
             _heightValue.Text = ((int)(_gridSize * d.HeightScale)).ToString();
             SetSliderSilent(_fillSlider, d.FillPercent * 100, _fillValue, $"{(int)(d.FillPercent * 100)}%");
@@ -86,9 +87,9 @@ namespace ClinetCSharp
             {
                 Visible = _visibleCheck.ButtonPressed,
                 Color = _colorBtn.Modulate,
-                LengthScale = (float)_lengthScaleSlider.Value,
-                HeightScale = (float)_heightScaleSlider.Value,
-                FillPercent = (float)(_fillSlider.Value / 100.0),
+                LengthScale = EntityProfileManager.FromFp(EntityProfileManager.ToFpD(_lengthScaleSlider.Value)),
+                HeightScale = EntityProfileManager.FromFp(EntityProfileManager.ToFpD(_heightScaleSlider.Value)),
+                FillPercent = EntityProfileManager.FromFp(EntityProfileManager.ToFpD(_fillSlider.Value / 100.0)),
                 CenterX = _offsetXCenterCheck.ButtonPressed,
                 OffsetX = _offsetXCenterCheck.ButtonPressed ? 0 : (float)_offsetXSlider.Value,
                 OffsetY = (float)_offsetYSlider.Value,
@@ -125,10 +126,11 @@ namespace ClinetCSharp
         {
             if (entity == null) return;
             _gridSize = entity.GridSize;
+            _lengthBaseSize = entity.VisualOuterSize;
             SetCheckSilent(_visibleCheck, entity.CastBarVisible);
             _colorBtn.Modulate = entity.CastBarColor;
             SetSliderSilent(_lengthScaleSlider, entity.CastBarLengthScale, _lengthScaleValue, entity.CastBarLengthScale.ToString(DebugPanelLengthScalePolicy.FormatStr));
-            _lengthValue.Text = ((int)(_gridSize * entity.CastBarLengthScale)).ToString();
+            _lengthValue.Text = ((int)entity.CastBarLength).ToString();
             SetSliderSilent(_heightScaleSlider, entity.CastBarHeightScale, _heightScaleValue, entity.CastBarHeightScale.ToString(DebugPanelLengthScalePolicy.FormatStr));
             _heightValue.Text = ((int)(_gridSize * entity.CastBarHeightScale)).ToString();
             SetSliderSilent(_fillSlider, entity.CastBarFillPercent * 100, _fillValue, $"{(int)(entity.CastBarFillPercent * 100)}%");

@@ -43,7 +43,6 @@ public class CombatEntityState
     public int MaxHp { get => GetAttr((int)RoleAttrs.MaxHp); set => SetAttr((int)RoleAttrs.MaxHp, value); }
     public int Mp  { get => GetAttr((int)RoleAttrs.Mp);  set => SetAttr((int)RoleAttrs.Mp, value); }
     public int MaxMp { get => GetAttr((int)RoleAttrs.MaxMp); set => SetAttr((int)RoleAttrs.MaxMp, value); }
-    public int Agility { get => GetAttr((int)RoleAttrs.Agility); set => SetAttr((int)RoleAttrs.Agility, value); }
     public int Patk { get => GetAttr((int)RoleAttrs.PAtk); set => SetAttr((int)RoleAttrs.PAtk, value); }
     public int Matk { get => GetAttr((int)RoleAttrs.MAtk); set => SetAttr((int)RoleAttrs.MAtk, value); }
     public int Pdef { get => GetAttr((int)RoleAttrs.PDef); set => SetAttr((int)RoleAttrs.PDef, value); }

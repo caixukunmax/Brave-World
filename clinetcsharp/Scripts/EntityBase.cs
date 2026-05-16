@@ -11,6 +11,20 @@ namespace ClinetCSharp
     /// </summary>
     public abstract partial class EntityBase : Node2D
     {
+        // ========== 回弹动画全局配置（可通过 DebugPanel 实时调整）==========
+        public static float BounceBackDuration { get; set; } = 0.06f;
+        public static float BounceBackOvershootRatio { get; set; } = 0.08f;
+        public static float BounceBackOvershootThreshold { get; set; } = 0.40f;
+
+        // ========== 受击特效全局配置（可通过 DebugPanel 实时调整）==========
+        public static float HitEffectDuration { get; set; } = 0.12f;
+        public static float HitShakeAmplitude { get; set; } = 3.0f;
+        public static float HitFlashIntensity { get; set; } = 0.3f;
+
+        // ========== 攻击抖动全局配置（可通过 DebugPanel 实时调整）==========
+        public static float AttackShakeDuration { get; set; } = 0.08f;
+        public static float AttackShakeDistance { get; set; } = 12.0f;
+
         // ========== 渲染组件系统 ==========
         protected readonly List<IRenderComponent> _renderComponents = new();
 
@@ -52,8 +66,13 @@ namespace ClinetCSharp
         public int FontSize { get; set; } = 0; // 0 = 自动
 
         // ========== 外观 — 计算属性（只读） ==========
-        public int VisualSize => Mathf.Clamp((int)(GridSize * VisualSizeScale), 10, GridSize);
-        public float BorderWidth => Mathf.Clamp(GridSize * BorderWidthScale, 1.0f, 20.0f);
+        public int VisualOuterSize => Mathf.Clamp(Mathf.RoundToInt(GridSize * VisualSizeScale), 10, GridSize);
+        public int BorderWidth => Mathf.Clamp(Mathf.RoundToInt(GridSize * BorderWidthScale), 1, Mathf.Max(1, VisualOuterSize / 2));
+        public int VisualSize => Mathf.Max(2, VisualOuterSize - BorderWidth * 2);
+
+        // ========== 血量（绝对值 + 百分比） ==========
+        public int CurrentHp { get; set; } = 0;
+        public int CurrentMaxHp { get; set; } = 0;
 
         // ========== 血条 ==========
         public Vector2 HealthBarOffset { get; set; } = new Vector2(0, -70);
@@ -66,7 +85,7 @@ namespace ClinetCSharp
         public float HealthBarFillPercent { get; set; } = 1.0f;
 
         // ========== 血条 — 计算属性（只读） ==========
-        public float HealthBarLength => Mathf.Clamp(GridSize * HealthBarLengthScale, 10.0f, GridSize * 2.0f);
+        public float HealthBarLength => Mathf.Clamp(VisualOuterSize * HealthBarLengthScale, 10.0f, GridSize * 2.0f);
         public float HealthBarHeight => Mathf.Clamp(GridSize * HealthBarHeightScale, 2.0f, GridSize);
 
         // ========== MP条 ==========
@@ -80,7 +99,7 @@ namespace ClinetCSharp
         public float MpBarFillPercent { get; set; } = 1.0f;
 
         // ========== MP条 — 计算属性（只读） ==========
-        public float MpBarLength => Mathf.Clamp(GridSize * MpBarLengthScale, 10.0f, GridSize * 2.0f);
+        public float MpBarLength => Mathf.Clamp(VisualOuterSize * MpBarLengthScale, 10.0f, GridSize * 2.0f);
         public float MpBarHeight => Mathf.Clamp(GridSize * MpBarHeightScale, 2.0f, GridSize);
 
         // ========== 4 行文字标签 ==========
@@ -93,6 +112,7 @@ namespace ClinetCSharp
         // ========== 全局标签可见性开关 ==========
         /// <summary>全局标签可见性（调试面板控制，影响所有实体的 RichTextLabel）</summary>
         public static bool GlobalLabelsVisible = true;
+        public static bool GlobalDebugOverlayVisible = false;
 
         // ========== RichTextLabel 控件（所有实体共用） ==========
         private const int LabelCount = 4;
@@ -118,12 +138,13 @@ namespace ClinetCSharp
         public Color CastBarBgColor { get; set; } = new Color(0.3f, 0.3f, 0.3f, 0.4f);
         public bool CastBarVisible { get; set; } = true;
         public float CastBarFillPercent { get; set; } = 0.0f;
-        public float CastBarLength => Mathf.Clamp(GridSize * CastBarLengthScale, 10.0f, GridSize * 2.0f);
+        public float CastBarLength => Mathf.Clamp(VisualOuterSize * CastBarLengthScale, 10.0f, GridSize * 2.0f);
         public float CastBarHeight => Mathf.Clamp(GridSize * CastBarHeightScale, 2.0f, GridSize);
 
         // ========== 动作栏（Monster 已在用，Player 也有） ==========
         public string CastingSkill { get; set; } = "";
         public float CastProgress { get; set; } = 0f;
+        public bool ActionBarForceShow { get; set; } = false;
         public float ActionBarTextYOffset { get; set; } = 0f;
         public float ActionBarProgressHeight { get; set; } = 4f;
 
@@ -151,6 +172,17 @@ namespace ClinetCSharp
         public void SetHealthBarColor(Color color) { HealthBarColor = color; QueueRedraw(); }
         public void SetHealthBarBgColor(Color color) { HealthBarBgColor = color; QueueRedraw(); }
         public void SetHealthBarFillPercent(float percent) { HealthBarFillPercent = Mathf.Clamp(percent, 0, 1); QueueRedraw(); }
+
+        /// <summary>同步 HP 绝对值和百分比，返回是否发生了受击（HP 下降）</summary>
+        public bool SyncHp(int hp, int maxHp)
+        {
+            bool wasHit = hp < CurrentHp && CurrentHp > 0;
+            CurrentHp = hp;
+            CurrentMaxHp = maxHp;
+            if (maxHp > 0)
+                HealthBarFillPercent = Mathf.Clamp((float)hp / maxHp, 0, 1);
+            return wasHit;
+        }
         public void SetHealthBarVisible(bool visible) { HealthBarVisible = visible; QueueRedraw(); }
 
         // ========== MP条 setter ==========
@@ -231,8 +263,8 @@ namespace ClinetCSharp
                 // GetGlobalMousePosition 返回世界坐标，ToLocal 转为本地坐标
                 var worldMouse = GetGlobalMousePosition();
                 var localMouse = ToLocal(worldMouse);
-                float half = VisualSize / 2.0f;
-                var rect = new Rect2(new Vector2(-half, -half), new Vector2(VisualSize, VisualSize));
+                float half = VisualOuterSize / 2.0f;
+                var rect = new Rect2(new Vector2(-half, -half), new Vector2(VisualOuterSize, VisualOuterSize));
                 if (rect.HasPoint(localMouse))
                 {
                     EntityClicked?.Invoke(this);
@@ -253,21 +285,23 @@ namespace ClinetCSharp
         protected void DrawLabels()
         {
             var font = ThemeDB.FallbackFont;
-            int baseFs = FontSize > 0 ? FontSize : Mathf.Max((int)(VisualSize / 4.0f * 0.7f), 8);
-            float baseLineHeight = baseFs * 1.1f;
-            float totalHeight = baseLineHeight * 4;
-            float startY = -(totalHeight / 2.0f) + baseLineHeight * 0.5f;
+            int baseFs = EntityLabelLayout.ResolveBaseFontSize(FontSize, VisualSize);
 
             for (int i = 0; i < 4; i++)
             {
                 if (string.IsNullOrEmpty(LabelTexts[i])) continue;
                 int fs = LabelFontSizes[i] > 0 ? LabelFontSizes[i] : baseFs;
-                float posY = startY + i * baseLineHeight + LabelYOffsets[i];
-                float posX = LabelCenterX[i] ? 0 : LabelXOffsets[i];
+                Vector2 lineCenter = EntityLabelLayout.ResolveLineCenter(
+                    i,
+                    FontSize,
+                    VisualSize,
+                    LabelCenterX[i],
+                    LabelXOffsets[i],
+                    LabelYOffsets[i]);
 
                 var textSize = font.GetStringSize(LabelTexts[i], HorizontalAlignment.Left, -1, fs);
-                float drawX = posX - textSize.X / 2f;
-                float baselineY = posY + (font.GetAscent(fs) - font.GetDescent(fs)) * 0.5f;
+                float drawX = lineCenter.X - textSize.X / 2f;
+                float baselineY = lineCenter.Y + (font.GetAscent(fs) - font.GetDescent(fs)) * 0.5f;
                 DrawString(font, new Vector2(drawX, baselineY), LabelTexts[i], HorizontalAlignment.Left, -1, fs, TextColor);
             }
         }
@@ -420,7 +454,7 @@ namespace ClinetCSharp
 
         public virtual bool HitTest(Vector2 worldPos)
         {
-            float half = GridSize / 2.0f;
+            float half = VisualOuterSize / 2.0f;
             var worldCenter = UiUtils.GridToWorld(GridPos, GridSize);
             return Mathf.Abs(worldPos.X - worldCenter.X) < half &&
                    Mathf.Abs(worldPos.Y - worldCenter.Y) < half;
@@ -490,15 +524,87 @@ namespace ClinetCSharp
             QueueRedraw();
         }
 
-        public virtual void PlayBounceBack(Vector2I originPos, float duration = 0.12f)
+        /// <summary>
+        /// 播放受击特效：颜色闪烁 + 原地抖动
+        /// </summary>
+        public virtual void PlayHitEffect()
+        {
+            PlayHitFlash();
+            if (!IsMoving)
+                PlayHitShake();
+        }
+
+        private void PlayHitFlash()
+        {
+            var flashTween = CreateTween();
+            flashTween.TweenProperty(this, "modulate", new Color(1, HitFlashIntensity, HitFlashIntensity), HitEffectDuration * 0.3f);
+            flashTween.TweenProperty(this, "modulate", Colors.White, HitEffectDuration * 0.7f);
+        }
+
+        private void PlayHitShake()
+        {
+            var originalX = Position.X;
+            var shakeTween = CreateTween();
+            shakeTween.SetTrans(Tween.TransitionType.Sine);
+
+            // 快速左右抖动
+            shakeTween.TweenProperty(this, "position:x", originalX + HitShakeAmplitude, 0.02f);
+            shakeTween.TweenProperty(this, "position:x", originalX - HitShakeAmplitude, 0.02f);
+            shakeTween.TweenProperty(this, "position:x", originalX + HitShakeAmplitude * 0.5f, 0.02f);
+            shakeTween.TweenProperty(this, "position:x", originalX - HitShakeAmplitude * 0.5f, 0.02f);
+            shakeTween.TweenProperty(this, "position:x", originalX, 0.02f);
+
+            shakeTween.Finished += () =>
+            {
+                // 确保 X 回到原位，Y 保持当前值（可能已被其他逻辑更新）
+                Position = new Vector2(originalX, Position.Y);
+            };
+        }
+
+        /// <summary>
+        /// 播放攻击抖动：向目标方向快速前冲后回弹
+        /// </summary>
+        public virtual void PlayAttackShake(Vector2I? targetGridPos = null)
+        {
+            if (IsMoving) return;
+
+            var originalPos = Position;
+            Vector2 dir;
+
+            if (targetGridPos.HasValue)
+            {
+                var targetWorld = UiUtils.GridToWorld(targetGridPos.Value, GridSize);
+                dir = (targetWorld - originalPos).Normalized();
+            }
+            else
+            {
+                dir = Vector2.Right; // 默认向右
+            }
+
+            var attackPos = originalPos + dir * AttackShakeDistance;
+
+            var tween = CreateTween();
+            tween.SetTrans(Tween.TransitionType.Quad);
+            tween.SetEase(Tween.EaseType.Out);
+            tween.TweenProperty(this, "position", attackPos, AttackShakeDuration * 0.4f);
+            tween.TweenProperty(this, "position", originalPos, AttackShakeDuration * 0.6f);
+
+            tween.Finished += () =>
+            {
+                Position = originalPos;
+            };
+        }
+
+        public virtual void PlayBounceBack(Vector2I originPos, float duration = -1f)
         {
             _currentTween?.Kill();
             IsMoving = true;
             var originWorld = UiUtils.GridToWorld(originPos, GridSize);
             _currentTween = CreateTween();
-            _currentTween.SetTrans(Tween.TransitionType.Quad);
+            _currentTween.SetTrans(Tween.TransitionType.Cubic);
             _currentTween.SetEase(Tween.EaseType.In);
-            _currentTween.TweenProperty(this, "position", originWorld, duration);
+            float d = duration < 0 ? BounceBackDuration : duration;
+            _currentTween.TweenProperty(this, "position", originWorld, d);
             _currentTween.Finished += () =>
             {
                 IsMoving = false;
