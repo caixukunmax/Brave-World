@@ -84,7 +84,17 @@ public class DealDamageAction : ICombatAction
             targetDef = mdef;
         }
 
-        int damage = (int)Math.Floor(baseDamage * coefficient * (1 - targetDef * 0.01));
+        // 地形防御修正
+        float defModifier = 1.0f;
+        if (combatManager != null && maps != null)
+        {
+            var (tMapName, tPos) = SkillPipeline.FindEntityPosition(targetId, maps);
+            if (tMapName != null && tPos != null)
+                defModifier = combatManager.GetTerrainDefModifier(targetId, tMapName, tPos.Value.x, tPos.Value.y, damageType);
+        }
+        int adjustedDef = (int)(targetDef * defModifier);
+
+        int damage = (int)Math.Floor(baseDamage * coefficient * (1 - adjustedDef * 0.01));
         if (damage < 1) damage = 1;
 
         return (damage, damageType);

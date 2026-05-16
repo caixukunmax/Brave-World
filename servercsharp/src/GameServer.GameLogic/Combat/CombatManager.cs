@@ -46,8 +46,17 @@ public class CombatManager
         return cfg?.HpRegenPerSec ?? 0;
     }
 
+    /// <summary>获取地形 MP 恢复值</summary>
+    private int GetTerrainMpRegen(long entityId, string mapName, int gridX, int gridY)
+    {
+        if (MapData == null || _tables == null) return 0;
+        int terrainId = MapData.GetTerrainType(mapName, gridX, gridY);
+        var cfg = _tables.GetTerrainConfig(terrainId);
+        return cfg?.MpRegenPerSec ?? 0;
+    }
+
     /// <summary>获取地形防御修正系数（1.0=无修正）</summary>
-    private float GetTerrainDefModifier(long entityId, string mapName, int gridX, int gridY, string damageType)
+    internal float GetTerrainDefModifier(long entityId, string mapName, int gridX, int gridY, string damageType)
     {
         if (MapData == null || _tables == null) return 1.0f;
         int terrainId = MapData.GetTerrainType(mapName, gridX, gridY);
@@ -670,7 +679,7 @@ public class CombatManager
     public void TickPlayerMpRegen(double dt, Dictionary<string, MapState> maps)
     {
         var alive = new HashSet<long>();
-        foreach (var map in maps.Values)
+        foreach (var (mapName, map) in maps)
         {
             foreach (var (_, p) in map.Players)
             {
@@ -684,6 +693,17 @@ public class CombatManager
                 // 判断是否在战斗中
                 var ctx = _relations.Contexts.GetValueOrDefault(p.AccountId);
                 bool inCombat = ctx != null && ctx.State == "COMBAT";
+
+                // ---- 地形效果（战斗中/脱战都有）----
+                int terrainMpDelta = GetTerrainMpRegen(p.AccountId, mapName, p.GridX, p.GridY);
+                if (terrainMpDelta != 0)
+                {
+                    int terrainMpChange = (int)(terrainMpDelta * dt);
+                    if (terrainMpChange != 0)
+                    {
+                        p.Mp = Math.Min(p.MaxMp, Math.Max(0, p.Mp + terrainMpChange));
+                    }
+                }
 
                 double regenPerSec;
                 if (p.MpRegen > 0)
