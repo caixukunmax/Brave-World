@@ -126,6 +126,13 @@ public class MapService
     public bool IsWalkable(string mapName, int x, int y) => _worldState.IsWalkable(mapName, x, y);
     public (int x, int y)? FindNearestWalkable(string mapName, int x, int y) => _worldState.FindNearestWalkable(mapName, x, y);
     public bool IsOccupied(string mapName, int x, int y) => _worldState.IsOccupied(mapName, x, y);
+    public int GetTerrainType(string mapName, int x, int y) => _worldState.GetTerrainType(mapName, x, y);
+    public float GetTerrainMoveSpeedRatio(string mapName, int x, int y)
+    {
+        var terrainId = _worldState.GetTerrainType(mapName, x, y);
+        var cfg = _tables.GetTerrainConfig(terrainId);
+        return cfg?.MoveSpeedRatio ?? 1.0f;
+    }
 
     public ConcurrentDictionary<long, MapPlayerState> GetPlayersOnMap(string mapName)
     {

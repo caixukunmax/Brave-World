@@ -104,6 +104,9 @@ public class WorldState : IWorldState
     public (int x, int y)? FindNearestWalkable(string mapName, int x, int y)
         => _mapData.FindNearestWalkable(mapName, x, y);
 
+    public int GetTerrainType(string mapName, int x, int y)
+        => _mapData.GetTerrainType(mapName, x, y);
+
     public bool IsOccupied(string mapName, int x, int y)
     {
         if (!_maps.TryGetValue(mapName, out var map)) return false;

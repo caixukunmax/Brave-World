@@ -23,6 +23,7 @@ public class LubanTableLoader
     public Dictionary<int, CombatNarrationRow> CombatNarrations { get; private set; } = new();
     public Dictionary<int, LevelUpRow> LevelUps { get; private set; } = new();
     public Dictionary<int, DropGroupRow> DropGroups { get; private set; } = new();
+    public Dictionary<int, TerrainConfigRow> TerrainConfigs { get; private set; } = new();
     public Dictionary<int, ItemRow> Items { get; private set; } = new();
 
     // 反向索引: mapName → mapId
@@ -60,6 +61,7 @@ public class LubanTableLoader
         LevelUps = LoadTable<LevelUpRow>(dataDir, "common_tblevelup.json", opts);
         DropGroups = LoadTable<DropGroupRow>(dataDir, "common_tbdropgroup.json", opts);
         Items = LoadTable<ItemRow>(dataDir, "item_tbitem.json", opts);
+        TerrainConfigs = LoadTable<TerrainConfigRow>(dataDir, "common_tbterrainconfig.json", opts);
 
         // 建立地图名→ID 反向索引
         _mapNameToId = MapConfigs.Values.ToDictionary(m => m.MapName, m => m.Id);
@@ -120,6 +122,9 @@ public class LubanTableLoader
 
     /// <summary>获取道具配置</summary>
     public ItemRow? GetItem(int id) => Items.GetValueOrDefault(id);
+
+    /// <summary>获取地形配置</summary>
+    public TerrainConfigRow? GetTerrainConfig(int id) => TerrainConfigs.GetValueOrDefault(id);
 
     /// <summary>获取最大等级</summary>
     public int GetMaxLevel() => LevelUps.Count > 0 ? LevelUps.Keys.Max() : 1;

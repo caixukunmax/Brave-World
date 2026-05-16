@@ -258,3 +258,29 @@ public class ItemRow
     [JsonPropertyName("obtain_methods")] public string ObtainMethods { get; set; } = "";
     [JsonPropertyName("release_date")] public string ReleaseDate { get; set; } = "";
 }
+
+// ---- Terrain ----
+
+public class TerrainConfigRow
+{
+    [JsonPropertyName("id")] public int Id { get; set; }
+    [JsonPropertyName("name")] public string Name { get; set; } = "";
+    [JsonPropertyName("description")] public string Description { get; set; } = "";
+    [JsonPropertyName("walkable")] public bool Walkable { get; set; }
+    [JsonPropertyName("move_speed_ratio")] public float MoveSpeedRatio { get; set; }
+    [JsonPropertyName("can_swim")] public bool CanSwim { get; set; }
+    [JsonPropertyName("patk_modifier")] public float PatkModifier { get; set; }
+    [JsonPropertyName("matk_modifier")] public float MatkModifier { get; set; }
+    [JsonPropertyName("pdef_modifier")] public float PdefModifier { get; set; }
+    [JsonPropertyName("mdef_modifier")] public float MdefModifier { get; set; }
+    [JsonPropertyName("hp_regen_per_sec")] public int HpRegenPerSec { get; set; }
+    [JsonPropertyName("mp_regen_per_sec")] public int MpRegenPerSec { get; set; }
+    [JsonPropertyName("fire_damage_bonus")] public int FireDamageBonus { get; set; }
+    [JsonPropertyName("ice_damage_bonus")] public int IceDamageBonus { get; set; }
+    [JsonPropertyName("poison_damage_bonus")] public int PoisonDamageBonus { get; set; }
+    [JsonPropertyName("color_r")] public int ColorR { get; set; }
+    [JsonPropertyName("color_g")] public int ColorG { get; set; }
+    [JsonPropertyName("color_b")] public int ColorB { get; set; }
+    [JsonPropertyName("color_a")] public float ColorA { get; set; }
+    [JsonPropertyName("particle_effect")] public string ParticleEffect { get; set; } = "";
+}

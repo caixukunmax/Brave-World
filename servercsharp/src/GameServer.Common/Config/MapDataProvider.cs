@@ -48,6 +48,7 @@ public class MapDataProvider
     public void LoadMap(string mapName, int width, int height, string[] cells)
     {
         var walkable = new bool[width, height];
+        var terrainType = new int[width, height];
         for (int y = 0; y < height; y++)
         {
             for (int x = 0; x < width; x++)
@@ -57,10 +58,12 @@ public class MapDataProvider
                 {
                     var parts = cells[idx].Split(';');
                     walkable[x, y] = parts.Length >= 2 && parts[1] == "1";
+                    if (parts.Length >= 4 && int.TryParse(parts[3], out var t))
+                        terrainType[x, y] = t;
                 }
             }
         }
-        _maps[mapName] = new MapData(mapName, width, height, walkable);
+        _maps[mapName] = new MapData(mapName, width, height, walkable, terrainType);
     }
 
     /// <summary>解析 CSV 文件，返回扁平化 cell 数组</summary>
@@ -99,7 +102,17 @@ public class MapDataProvider
     {
         if (!_maps.TryGetValue(mapName, out var map)) return false;
         if (x < 0 || x >= map.Width || y < 0 || y >= map.Height) return false;
-        return map.Walkable[x, y];
+        if (!map.Walkable[x, y]) return false;
+        // 水域(1)和岩浆(7)不可走
+        int terrain = map.TerrainType[x, y];
+        return terrain != 1 && terrain != 7;
+    }
+
+    public int GetTerrainType(string mapName, int x, int y)
+    {
+        if (!_maps.TryGetValue(mapName, out var map)) return 0;
+        if (x < 0 || x >= map.Width || y < 0 || y >= map.Height) return 0;
+        return map.TerrainType[x, y];
     }
 
     public (int x, int y)? FindNearestWalkable(string mapName, int x, int y, int maxRadius = 10)
@@ -137,7 +150,7 @@ public class MapDataProvider
 
     public Dictionary<string, MapRegistryEntry> GetAllRegistryEntries() => _registry;
 
-    public record MapData(string Name, int Width, int Height, bool[,] Walkable);
+    public record MapData(string Name, int Width, int Height, bool[,] Walkable, int[,] TerrainType);
 }
 
 /// <summary>map_registry.json 中的条目</summary>

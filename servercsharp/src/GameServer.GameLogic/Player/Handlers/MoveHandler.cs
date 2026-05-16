@@ -55,6 +55,16 @@ public class MoveStartHandler : IMessageHandler
                 durationMs = GameConstants.MaxMoveSpeedMs;
         }
 
+        // 地形减速：沙地0.7x、雪地0.6x、沼泽0.4x → durationMs 除以系数（变慢）
+        float terrainRatio = _session.MapService.GetTerrainMoveSpeedRatio(mapName, toX, toY);
+        if (terrainRatio > 0 && terrainRatio < 1.0f)
+        {
+            int oldDuration = durationMs;
+            durationMs = (int)(durationMs / terrainRatio);
+            _logger.LogInformation("[Move] terrain slowdown: player={PlayerId} ratio={Ratio} old={Old}ms new={New}ms",
+                claims.AccountId, terrainRatio, oldDuration, durationMs);
+        }
+
         // 预占目标格
         bool reserved = _session.MapService.World.TryReserveMove(
             claims.AccountId, mapName, fromX, fromY, toX, toY,
