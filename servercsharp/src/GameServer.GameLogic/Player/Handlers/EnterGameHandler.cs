@@ -156,8 +156,34 @@ public class EnterGameHandler : IMessageHandler
             }
         }
 
+        // 推送地形数据（只同步非普通地形，减少数据量）
+        var terrainData = _session.MapService.GetMapTerrainData(mapName);
+        if (terrainData != null)
+        {
+            var (width, height, terrainTypes) = terrainData.Value;
+            for (int y = 0; y < height; y++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    int terrain = terrainTypes[x, y];
+                    if (terrain != 0)
+                    {
+                        notify.Tiles.Add(new PGame.TileInfo
+                        {
+                            X = x,
+                            Y = y,
+                            TerrainType = terrain,
+                        });
+                    }
+                }
+            }
+        }
+
         _network.SendToAccount(claims.AccountId, claims.ServerId,
             (int)PProtocol.MessageId.GameMapInfoSyncNotify, notify.ToByteArray());
+
+        _session.Logger.LogInformation("EnterGame: roleId={RoleId} map={Map} tiles={Tiles}",
+            roleId, mapName, notify.Tiles.Count);
 
         return rsp.ToByteArray();
     }

@@ -133,6 +133,27 @@ public class MapService
         var cfg = _tables.GetTerrainConfig(terrainId);
         return cfg?.MoveSpeedRatio ?? 1.0f;
     }
+    public (int width, int height, int[,] terrainTypes)? GetMapTerrainData(string mapName)
+    {
+        // 通过 WorldState 逐格查询地形数据（MapService 未直接持有 MapDataProvider）
+        var allMaps = _worldState.GetAllMaps();
+        if (!allMaps.TryGetValue(mapName, out var mapState)) return null;
+        
+        // 需要知道地图尺寸，通过遍历找到边界
+        // 简化方案：从 WorldState 获取地图尺寸信息
+        // 实际实现：需要 WorldState 或 MapDataProvider 暴露 GetMap 方法
+        // 临时方案：通过 IsWalkable 探测地图边界
+        int width = 0, height = 0;
+        while (_worldState.IsWalkable(mapName, width, 0) || _worldState.GetTerrainType(mapName, width, 0) != 0) width++;
+        while (_worldState.IsWalkable(mapName, 0, height) || _worldState.GetTerrainType(mapName, 0, height) != 0) height++;
+        
+        var terrainTypes = new int[width, height];
+        for (int x = 0; x < width; x++)
+            for (int y = 0; y < height; y++)
+                terrainTypes[x, y] = _worldState.GetTerrainType(mapName, x, y);
+        
+        return (width, height, terrainTypes);
+    }
 
     public ConcurrentDictionary<long, MapPlayerState> GetPlayersOnMap(string mapName)
     {

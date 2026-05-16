@@ -31,7 +31,7 @@ public class GameLogicFactory : IGameLogicFactory
 
     public LubanTableLoader Tables => _tables;
 
-    public ICombatService CreateCombatService(ILogger logger, INetworkSender network)
+    public ICombatService CreateCombatService(ILogger logger, INetworkSender network, MapDataProvider mapData)
     {
         var actionRegistry = new ActionRegistry();
         actionRegistry.Register(new DealDamageAction(
@@ -49,6 +49,7 @@ public class GameLogicFactory : IGameLogicFactory
 
         var combatManager = new CombatManager(
             _loggerFactory.CreateLogger<CombatManager>(), pipeline, actionRegistry, network, Tables);
+        combatManager.MapData = mapData;
 
         return new CombatServiceAdapter(combatManager);
     }

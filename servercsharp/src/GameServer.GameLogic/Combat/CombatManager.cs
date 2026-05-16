@@ -37,6 +37,30 @@ public class CombatManager
     /// <summary>分配下一个战斗 ID</summary>
     private long AllocCombatId() => Interlocked.Increment(ref _nextCombatId);
 
+    /// <summary>获取地形 HP 恢复/伤害值（正=恢复，负=伤害）</summary>
+    private int GetTerrainHpRegen(long entityId, string mapName, int gridX, int gridY)
+    {
+        if (MapData == null || _tables == null) return 0;
+        int terrainId = MapData.GetTerrainType(mapName, gridX, gridY);
+        var cfg = _tables.GetTerrainConfig(terrainId);
+        return cfg?.HpRegenPerSec ?? 0;
+    }
+
+    /// <summary>获取地形防御修正系数（1.0=无修正）</summary>
+    private float GetTerrainDefModifier(long entityId, string mapName, int gridX, int gridY, string damageType)
+    {
+        if (MapData == null || _tables == null) return 1.0f;
+        int terrainId = MapData.GetTerrainType(mapName, gridX, gridY);
+        var cfg = _tables.GetTerrainConfig(terrainId);
+        if (cfg == null) return 1.0f;
+        return damageType switch
+        {
+            "physical" => cfg.PdefModifier,
+            "magical" => cfg.MdefModifier,
+            _ => 1.0f,
+        };
+    }
+
     public CombatRelationManager RelationsMgr => _relations;
 
     /// <summary>日志器（供 Action 输出 CombatTrace）</summary>
@@ -47,6 +71,9 @@ public class CombatManager
 
     /// <summary>怪物注册接口 — 供战斗伤害通知怪物进入战斗状态</summary>
     public IMonsterRegistry? MonsterRegistry { get; set; }
+
+    /// <summary>地图数据提供者 — 用于查询地形</summary>
+    public GameServer.Common.Config.MapDataProvider? MapData { get; set; }
 
     public CombatManager(
         ILogger<CombatManager> logger,
@@ -575,25 +602,38 @@ public class CombatManager
     }
 
     /// <summary>
-    /// 玩家 HP 恢复 Tick（脱战才回，使用浮点累积器）
+    /// 玩家 HP 恢复 Tick（脱战才回 + 地形效果）
     /// 脱战后：MaxHp * PlayerHpRegenPercentPerSec /秒
-    /// 战斗中不回血
+    /// 地形效果（战斗中也有）：草地+1HP/s、神圣地+5HP/s、沼泽-2HP/s、岩浆-5HP/s
     /// </summary>
     public void TickPlayerHpRegen(double dt, Dictionary<string, MapState> maps)
     {
         var alive = new HashSet<long>();
-        foreach (var map in maps.Values)
+        foreach (var (mapName, map) in maps)
         {
             foreach (var (_, p) in map.Players)
             {
                 alive.Add(p.AccountId);
+                
+                // ---- 地形效果（战斗中/脱战都有）----
+                int terrainHpDelta = GetTerrainHpRegen(p.AccountId, mapName, p.GridX, p.GridY);
+                if (terrainHpDelta != 0)
+                {
+                    int terrainHpChange = (int)(terrainHpDelta * dt);
+                    if (terrainHpChange != 0)
+                    {
+                        p.Hp = Math.Min(p.MaxHp, Math.Max(1, p.Hp + terrainHpChange));
+                        // TODO: 推送地形伤害/恢复通知给客户端
+                    }
+                }
+
                 if (p.Hp >= p.MaxHp)
                 {
                     _hpRegenAccum.Remove(p.AccountId);
                     continue;
                 }
 
-                // 战斗中不回血
+                // 战斗中不回血（自然恢复）
                 var ctx = _relations.Contexts.GetValueOrDefault(p.AccountId);
                 if (ctx != null && ctx.State == "COMBAT")
                 {

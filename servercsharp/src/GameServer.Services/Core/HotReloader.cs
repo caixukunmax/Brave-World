@@ -63,7 +63,7 @@ public class HotReloader
         WorldState worldState,
         EventBus eventBus)
     {
-        CombatService = factory.CreateCombatService(logger, network);
+        CombatService = factory.CreateCombatService(logger, network, mapData);
         MonsterService = factory.CreateMonsterAiService(mapData, mapService, network);
         playerSession.CombatService = CombatService;
         factory.RegisterMessageHandlers(handlerRegistry, playerSession, network, mapData, MonsterService, worldState, eventBus);

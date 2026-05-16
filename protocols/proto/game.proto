@@ -670,14 +670,28 @@ message LevelUpNotify {
  */
 
 /**
+ * ==================== 地形系统 ====================
+ */
+
+/**
+ * 地图格子信息（进入地图时同步地形数据）
+ */
+message TileInfo {
+  int32 x = 1;                // 格子 X
+  int32 y = 2;                // 格子 Y
+  int32 terrain_type = 3;     // 地形类型 (0=普通, 1=水域...)
+}
+
+/**
  * 地图信息同步通知（进入/切换地图时推送）
  */
 message MapInfoSyncNotify {
   string map_name = 1;                  // 地图名
   repeated ChestInfo chests = 2;        // 地图宝箱列表
-  repeated MonsterInfo monsters = 3;    // 地图怪物列表
-  repeated NpcInfo npcs = 4;            // 地图NPC列表
-  repeated DropItemInfo drops = 5;      // 地图掉落物列表
+  repeated MonsterInfo monsters = 3;  // 地图怪物列表
+  repeated NpcInfo npcs = 4;          // 地图NPC列表
+  repeated DropItemInfo drops = 5;    // 地图掉落物列表
+  repeated TileInfo tiles = 6;          // 地图地形数据（新增）
 }
 
 /**

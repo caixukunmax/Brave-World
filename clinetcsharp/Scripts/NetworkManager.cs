@@ -92,6 +92,7 @@ namespace ClinetCSharp
         public List<Game.MonsterInfo> Monsters { get; set; } = new();
         public List<Game.NpcInfo> Npcs { get; set; } = new();
         public List<Game.DropItemInfo> Drops { get; set; } = new();
+        public List<Game.TileInfo> Tiles { get; set; } = new();
         public List<Game.ItemInfo> CachedItems { get; set; } = new();
         public List<uint> CachedLearnedSkills { get; set; } = new();
         public List<uint> CachedEquippedSkills { get; set; } = new();

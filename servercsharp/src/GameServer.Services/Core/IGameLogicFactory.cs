@@ -14,7 +14,7 @@ namespace GameServer.Services.Core;
 public interface IGameLogicFactory
 {
     /// <summary>创建战斗服务</summary>
-    ICombatService CreateCombatService(ILogger logger, INetworkSender network);
+    ICombatService CreateCombatService(ILogger logger, INetworkSender network, MapDataProvider mapData);
 
     /// <summary>创建怪物 AI 服务</summary>
     IMonsterAiService CreateMonsterAiService(MapDataProvider mapData, MapService mapService, INetworkSender network);

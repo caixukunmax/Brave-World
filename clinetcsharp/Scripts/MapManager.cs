@@ -39,7 +39,25 @@ namespace ClinetCSharp
 
         private void OnMapInfoReceived(Game.MapInfoSyncNotify notify)
         {
-            GD.Print($"[MapManager] MapInfoReceived map={notify.MapName} chests={notify.Chests.Count} monsters={notify.Monsters.Count} npcs={notify.Npcs.Count}");
+            GD.Print($"[MapManager] MapInfoReceived map={notify.MapName} chests={notify.Chests.Count} monsters={notify.Monsters.Count} npcs={notify.Npcs.Count} tiles={notify.Tiles.Count}");
+            
+            // 同步服务端地形数据到本地 GridCell
+            var gridMgr = GetTree()?.GetFirstNodeInGroup("grid_manager") as GridManager;
+            if (gridMgr != null && notify.Tiles.Count > 0)
+            {
+                foreach (var tile in notify.Tiles)
+                {
+                    var cell = gridMgr.GetCell((int)tile.X, (int)tile.Y);
+                    if (cell != null && cell.TerrainType != tile.TerrainType)
+                    {
+                        cell.TerrainType = (int)tile.TerrainType;
+                        cell.RefreshTerrainConfig();
+                    }
+                }
+                GD.Print($"[MapManager] Synced {notify.Tiles.Count} terrain tiles from server");
+                gridMgr.QueueRedraw();
+            }
+            
             SpawnMapEntities();
         }
 

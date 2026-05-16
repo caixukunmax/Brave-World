@@ -15,7 +15,8 @@ namespace ClinetCSharp
             Monsters = new List<Game.MonsterInfo>(notify.Monsters);
             Npcs = new List<Game.NpcInfo>(notify.Npcs);
             Drops = new List<Game.DropItemInfo>(notify.Drops);
-            GD.Print($"[NetworkManager] MapInfoSync map={notify.MapName} chests={Chests.Count} monsters={Monsters.Count} npcs={Npcs.Count} drops={Drops.Count}");
+            Tiles = new List<Game.TileInfo>(notify.Tiles);
+            GD.Print($"[NetworkManager] MapInfoSync map={notify.MapName} chests={Chests.Count} monsters={Monsters.Count} npcs={Npcs.Count} drops={Drops.Count} tiles={Tiles.Count}");
             MapInfoReceived?.Invoke(notify);
         }
 

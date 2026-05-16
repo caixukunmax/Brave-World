@@ -120,6 +120,29 @@ public class ChangeMapHandler : IMessageHandler
             }
         }
 
+        // 推送地形数据（只同步非普通地形）
+        var terrainData = _session.MapService.GetMapTerrainData(targetMap);
+        if (terrainData != null)
+        {
+            var (width, height, terrainTypes) = terrainData.Value;
+            for (int y = 0; y < height; y++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    int terrain = terrainTypes[x, y];
+                    if (terrain != 0)
+                    {
+                        notify.Tiles.Add(new PGame.TileInfo
+                        {
+                            X = x,
+                            Y = y,
+                            TerrainType = terrain,
+                        });
+                    }
+                }
+            }
+        }
+
         _network.SendToAccount(claims.AccountId, claims.ServerId,
             (int)PProtocol.MessageId.GameMapInfoSyncNotify, notify.ToByteArray());
 
