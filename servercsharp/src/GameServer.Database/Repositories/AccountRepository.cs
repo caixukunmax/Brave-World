@@ -47,6 +47,13 @@ public class AccountRepository
         await _col.UpdateOneAsync(filter, update);
     }
 
+    public async Task UpdatePassword(long accountId, string newHashedPassword)
+    {
+        var filter = Builders<Account>.Filter.Eq(a => a.AccountId, accountId);
+        var update = Builders<Account>.Update.Set(a => a.Password, newHashedPassword);
+        await _col.UpdateOneAsync(filter, update);
+    }
+
     public async Task EnsureIndex()
     {
         await _col.Indexes.CreateOneAsync(
