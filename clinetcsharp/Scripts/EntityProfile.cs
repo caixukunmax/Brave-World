@@ -44,6 +44,29 @@ namespace ClinetCSharp
 
         public IEnumerable<string> ComponentNames => _componentData.Keys;
 
+        /// <summary>深拷贝当前 Profile 的所有组件数据和停用状态</summary>
+        public EntityProfile Clone(int newId, string newName = null)
+        {
+            var clone = new EntityProfile
+            {
+                Id = newId,
+                Name = newName ?? Name,
+                EntityType = EntityType,
+            };
+
+            foreach (string compName in _componentData.Keys)
+            {
+                var data = _componentData[compName];
+                if (data != null)
+                    clone.SetData(compName, data.Clone());
+            }
+
+            foreach (string compName in _disabledComponents)
+                clone.SetComponentDisabled(compName, true);
+
+            return clone;
+        }
+
         /// <summary>从旧 EntityStyleConfig 迁移</summary>
         public static EntityProfile FromStyleConfig(int id, EntityStyleConfig cfg,
             string name, string entityType)

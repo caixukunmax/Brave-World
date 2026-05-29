@@ -78,9 +78,24 @@ namespace ClinetCSharp
             return profile;
         }
 
+        public bool IsDefaultProfile(int id) => id >= 1 && id <= 3;
+
         public bool DeleteProfile(int id)
         {
+            if (IsDefaultProfile(id))
+                return false;
             return _profiles.Remove(id);
+        }
+
+        public EntityProfile CreateProfileFromTemplate(int templateId, string newName)
+        {
+            var template = GetProfile(templateId);
+            if (template == null)
+                return null;
+
+            var profile = template.Clone(_nextId++, newName);
+            _profiles[profile.Id] = profile;
+            return profile;
         }
 
         #endregion

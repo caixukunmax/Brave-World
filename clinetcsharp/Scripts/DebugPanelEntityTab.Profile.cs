@@ -23,8 +23,23 @@ namespace ClinetCSharp
         private void OnAddProfilePressed()
         {
             _newProfileNameEdit.Text = "新配置";
-            _newProfileTypeOption.Select(0);
-            _newProfileDialog.PopupCentered(new Vector2I(320, 150));
+
+            // 刷新参考模板列表
+            _newProfileTemplateOption.Clear();
+            var profileManager = EntityProfileManager.Instance;
+            if (profileManager != null)
+            {
+                foreach (var profile in profileManager.GetAllProfiles())
+                {
+                    int index = _newProfileTemplateOption.GetItemCount();
+                    string prefix = profileManager.IsDefaultProfile(profile.Id) ? "[默认] " : "";
+                    _newProfileTemplateOption.AddItem($"{prefix}{profile.Name}");
+                    _newProfileTemplateOption.SetItemMetadata(index, profile.Id);
+                }
+            }
+            _newProfileTemplateOption.Select(0);
+
+            _newProfileDialog.PopupCentered(new Vector2I(360, 180));
             _newProfileNameEdit.GrabFocus();
             _newProfileNameEdit.SelectAll();
         }
@@ -35,35 +50,30 @@ namespace ClinetCSharp
             if (string.IsNullOrEmpty(name))
                 name = "新配置";
 
-            string entityType = _newProfileTypeOption.Selected switch
-            {
-                0 => "player",
-                1 => "monster",
-                2 => "npc",
-                _ => "player",
-            };
-
             var profileManager = EntityProfileManager.Instance;
             if (profileManager == null)
                 return;
 
-            SaveCurrentProfileData();
-            var profile = profileManager.CreateProfile(name, entityType);
-            foreach (var (componentName, _) in ComponentRegistry.GetComponentsForType(entityType))
-            {
-                var component = ComponentRegistry.Create(componentName);
-                if (component == null)
-                    continue;
+            // 获取选中的参考模板ID
+            int selectedIndex = _newProfileTemplateOption.Selected;
+            if (selectedIndex < 0 || selectedIndex >= _newProfileTemplateOption.GetItemCount())
+                return;
 
-                profile.SetData(componentName, component.SyncToData());
-                component.Dispose();
-            }
+            int templateId = (int)_newProfileTemplateOption.GetItemMetadata(selectedIndex);
+
+            SaveCurrentProfileData();
+            var profile = profileManager.CreateProfileFromTemplate(templateId, name);
+            if (profile == null)
+                return;
 
             _currentProfileId = profile.Id;
             RefreshProfileList();
             RefreshComponents();
             SyncProfileNameEdit();
             profileManager.ApplyProfileToAll(_currentProfileId);
+
+            // 立即保存配置，确保新模板持久化
+            profileManager.SaveConfig();
         }
 
         private void OnDeleteProfilePressed()
@@ -71,6 +81,20 @@ namespace ClinetCSharp
             var profileManager = EntityProfileManager.Instance;
             if (profileManager == null)
                 return;
+
+            if (profileManager.IsDefaultProfile(_currentProfileId))
+            {
+                var warning = new AcceptDialog
+                {
+                    Title = "提示",
+                    DialogText = "默认模板（玩家、怪物、NPC）不可删除。",
+                };
+                warning.Confirmed += () => warning.QueueFree();
+                warning.Canceled += () => warning.QueueFree();
+                Owner.AddChild(warning);
+                warning.PopupCentered();
+                return;
+            }
 
             if (profileManager.GetAllProfiles().Count() <= 1)
             {
@@ -90,7 +114,7 @@ namespace ClinetCSharp
             if (profile == null)
                 return;
 
-            _deleteProfileDialog.DialogText = $"确定要删除配置“{profile.Name}” (ID: {profile.Id}) 吗？";
+            _deleteProfileDialog.DialogText = $"确定要删除配置\"{profile.Name}\" (ID: {profile.Id}) 吗？";
             _deleteProfileDialog.PopupCentered();
         }
 
@@ -107,6 +131,9 @@ namespace ClinetCSharp
             SyncProfileNameEdit();
             if (_currentProfileId > 0)
                 profileManager.ApplyProfileToAll(_currentProfileId);
+
+            // 保存配置，确保删除操作持久化
+            profileManager.SaveConfig();
         }
 
         private void OnProfileNameChanged(string newName)
@@ -131,10 +158,28 @@ namespace ClinetCSharp
 
             _profileOption.Clear();
             int selectedIndex = -1;
-            foreach (var profile in profileManager.GetAllProfiles())
+
+            // 先添加默认模板
+            var defaultProfiles = profileManager.GetAllProfiles()
+                .Where(p => profileManager.IsDefaultProfile(p.Id))
+                .OrderBy(p => p.Id);
+            foreach (var profile in defaultProfiles)
             {
                 int index = _profileOption.GetItemCount();
-                _profileOption.AddItem($"{profile.Name} ({profile.Id})");
+                _profileOption.AddItem($"[默认] {profile.Name}");
+                _profileOption.SetItemMetadata(index, profile.Id);
+                if (profile.Id == _currentProfileId)
+                    selectedIndex = index;
+            }
+
+            // 再添加自定义模板
+            var customProfiles = profileManager.GetAllProfiles()
+                .Where(p => !profileManager.IsDefaultProfile(p.Id))
+                .OrderBy(p => p.Id);
+            foreach (var profile in customProfiles)
+            {
+                int index = _profileOption.GetItemCount();
+                _profileOption.AddItem($"{profile.Name} (ID:{profile.Id})");
                 _profileOption.SetItemMetadata(index, profile.Id);
                 if (profile.Id == _currentProfileId)
                     selectedIndex = index;

@@ -74,6 +74,18 @@ namespace ClinetCSharp
         }
 
         /// <summary>
+        /// 检查当前 GUI 焦点是否在文本输入控件上（LineEdit、TextEdit、CodeEdit、SpinBox）。
+        /// 当玩家正在与这些控件交互时，游戏层应屏蔽方向键/字符键输入，避免输入穿透。
+        /// </summary>
+        public static bool IsGuiTextInputFocused(Viewport viewport)
+        {
+            if (viewport == null) return false;
+            var focusOwner = viewport.GuiGetFocusOwner();
+            if (focusOwner == null) return false;
+            return focusOwner is LineEdit or TextEdit or CodeEdit or SpinBox;
+        }
+
+        /// <summary>
         /// Disable keyboard/focus retention for transient drag controls such as sliders and scroll bars.
         /// These controls should react only while the pointer is actively dragging them; after release,
         /// mouse movement must not keep affecting them through retained focus.

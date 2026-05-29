@@ -26,20 +26,37 @@ namespace ClinetCSharp
             var section = CreateSectionCard(parent, "当前配置");
 
             var row = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
-            row.AddChild(new Label { Name = "_lbl", Text = "当前配置", CustomMinimumSize = new Vector2(72, 0) });
+            row.AddThemeConstantOverride("separation", 8);
+            row.AddChild(new Label
+            {
+                Name = "_lbl",
+                Text = "当前配置",
+                CustomMinimumSize = new Vector2(72, 0),
+                SizeFlagsVertical = Control.SizeFlags.ShrinkCenter,
+            });
             _profileOption = new OptionButton
             {
                 SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
-                CustomMinimumSize = new Vector2(120, 0)
+                SizeFlagsVertical = Control.SizeFlags.ShrinkCenter,
+                CustomMinimumSize = new Vector2(120, 28)
             };
             row.AddChild(_profileOption);
             section.AddChild(row);
 
             var nameRow = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
-            nameRow.AddChild(new Label { Name = "_lbl", Text = "配置名称", CustomMinimumSize = new Vector2(72, 0) });
+            nameRow.AddThemeConstantOverride("separation", 8);
+            nameRow.AddChild(new Label
+            {
+                Name = "_lbl",
+                Text = "配置名称",
+                CustomMinimumSize = new Vector2(72, 0),
+                SizeFlagsVertical = Control.SizeFlags.ShrinkCenter,
+            });
             _profileNameEdit = new LineEdit
             {
                 SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+                SizeFlagsVertical = Control.SizeFlags.ShrinkCenter,
+                CustomMinimumSize = new Vector2(0, 28),
                 PlaceholderText = "输入当前配置名称"
             };
             nameRow.AddChild(_profileNameEdit);
@@ -125,30 +142,60 @@ namespace ClinetCSharp
 
         private void BuildDialogs()
         {
-            _newProfileDialog = new AcceptDialog { Title = "新建配置", DialogText = "输入配置名称和类型：" };
-            var dialogVBox = new VBoxContainer();
-            dialogVBox.AddThemeConstantOverride("separation", 8);
+            _newProfileDialog = new AcceptDialog { Title = "新建配置" };
+            var dialogVBox = new VBoxContainer
+            {
+                SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+                SizeFlagsVertical = Control.SizeFlags.ExpandFill,
+            };
+            dialogVBox.AddThemeConstantOverride("separation", 12);
             _newProfileDialog.AddChild(dialogVBox);
 
+            var hintLabel = new Label
+            {
+                Text = "选择参考模板并输入新配置名称：",
+                AutowrapMode = TextServer.AutowrapMode.WordSmart,
+                Modulate = new Color(0.82f, 0.82f, 0.82f),
+            };
+            dialogVBox.AddChild(hintLabel);
+
             var nameRow = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
-            nameRow.AddChild(new Label { Name = "_lbl", Text = "名称", CustomMinimumSize = new Vector2(48, 0) });
+            nameRow.AddThemeConstantOverride("separation", 8);
+            nameRow.AddChild(new Label
+            {
+                Name = "_lbl",
+                Text = "名称",
+                CustomMinimumSize = new Vector2(48, 0),
+                SizeFlagsVertical = Control.SizeFlags.ShrinkCenter,
+            });
             _newProfileNameEdit = new LineEdit
             {
                 SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+                SizeFlagsVertical = Control.SizeFlags.ShrinkCenter,
+                CustomMinimumSize = new Vector2(0, 28),
                 PlaceholderText = "输入新配置名称",
                 Text = "新配置"
             };
             nameRow.AddChild(_newProfileNameEdit);
             dialogVBox.AddChild(nameRow);
 
-            var typeRow = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
-            typeRow.AddChild(new Label { Name = "_lbl", Text = "类型", CustomMinimumSize = new Vector2(48, 0) });
-            _newProfileTypeOption = new OptionButton { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
-            _newProfileTypeOption.AddItem("玩家");
-            _newProfileTypeOption.AddItem("怪物");
-            _newProfileTypeOption.AddItem("NPC");
-            typeRow.AddChild(_newProfileTypeOption);
-            dialogVBox.AddChild(typeRow);
+            var templateRow = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+            templateRow.AddThemeConstantOverride("separation", 8);
+            templateRow.AddChild(new Label
+            {
+                Name = "_lbl",
+                Text = "参考模板",
+                CustomMinimumSize = new Vector2(48, 0),
+                SizeFlagsVertical = Control.SizeFlags.ShrinkCenter,
+            });
+            _newProfileTemplateOption = new OptionButton
+            {
+                SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+                SizeFlagsVertical = Control.SizeFlags.ShrinkCenter,
+                CustomMinimumSize = new Vector2(0, 28),
+            };
+            templateRow.AddChild(_newProfileTemplateOption);
+            dialogVBox.AddChild(templateRow);
 
             _newProfileDialog.Confirmed += OnNewProfileConfirmed;
             Owner.AddChild(_newProfileDialog);

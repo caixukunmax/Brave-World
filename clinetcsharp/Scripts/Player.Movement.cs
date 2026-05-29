@@ -50,6 +50,10 @@ namespace ClinetCSharp
             if (!string.IsNullOrEmpty(CastingSkill))
                 return;
 
+            // GUI 文本输入期间屏蔽移动输入，避免按键穿透到地图（如 LineEdit 输入 w 时角色移动）
+            if (UiUtils.IsGuiTextInputFocused(GetViewport()))
+                return;
+
             TryStartHeldDirectionMove();
         }
 

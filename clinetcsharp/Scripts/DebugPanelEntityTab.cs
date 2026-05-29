@@ -26,7 +26,7 @@ namespace ClinetCSharp
 
         private AcceptDialog _newProfileDialog;
         private LineEdit _newProfileNameEdit;
-        private OptionButton _newProfileTypeOption;
+        private OptionButton _newProfileTemplateOption;
         private ConfirmationDialog _deleteProfileDialog;
         private ConfirmationDialog _deleteComponentDialog;
         private string _pendingDeleteComponentName;
