@@ -99,10 +99,20 @@ namespace ClinetCSharp
             };
             actionRow.AddChild(_deleteProfileBtn);
 
+            _previewBtn = new Button
+            {
+                Text = "效果预览",
+                CustomMinimumSize = new Vector2(80, 28),
+                SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+                TooltipText = "在场景外生成预览实体，实时查看模板效果",
+            };
+            actionRow.AddChild(_previewBtn);
+
             section.AddChild(actionRow);
 
             _addProfileBtn.Pressed += OnAddProfilePressed;
             _deleteProfileBtn.Pressed += OnDeleteProfilePressed;
+            _previewBtn.Pressed += OnPreviewPressed;
         }
 
         private void BuildComponentManagementSection(Container parent)

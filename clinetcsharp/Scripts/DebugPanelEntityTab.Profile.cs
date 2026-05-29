@@ -199,5 +199,68 @@ namespace ClinetCSharp
             _profileNameEdit.Editable = profile != null;
             _isRefreshing = false;
         }
+
+        #region Preview Entity
+
+        private void OnPreviewPressed()
+        {
+            var profileManager = EntityProfileManager.Instance;
+            var profile = profileManager?.GetProfile(_currentProfileId);
+            if (profile == null)
+                return;
+
+            // 销毁旧预览
+            DestroyPreviewEntity();
+
+            // 创建预览实体（放入面板的 SubViewport 中显示）
+            _previewEntity = new EntityPreview();
+
+            // 应用当前模板
+            profileManager.ApplyProfile(_previewEntity, _currentProfileId);
+
+            // 显示/更新面板
+            if (_previewPanel == null)
+            {
+                _previewPanel = new EntityProfilePreviewPanel
+                {
+                    MinWidth = 340,
+                    MinHeight = 320,
+                };
+                _previewPanel.OnClosePreview = DestroyPreviewEntity;
+                Owner.AddChild(_previewPanel);
+            }
+            _previewPanel.SetPreviewEntity(_previewEntity);
+            _previewPanel.UpdateInfo(profile.Name, profile.EntityType, profile.Id);
+            _previewPanel.Visible = true;
+            _previewPanel.GlobalPosition = new Vector2(100, 100);
+        }
+
+        private void DestroyPreviewEntity()
+        {
+            if (_previewPanel != null)
+            {
+                _previewPanel.SetPreviewEntity(null);
+            }
+            _previewEntity = null;
+            if (_previewPanel != null)
+            {
+                _previewPanel.Visible = false;
+            }
+        }
+
+        /// <summary>当模板数据变化时，同步更新预览实体</summary>
+        private void SyncPreviewEntity()
+        {
+            if (_previewEntity == null || !GodotObject.IsInstanceValid(_previewEntity))
+                return;
+
+            var profileManager = EntityProfileManager.Instance;
+            if (profileManager == null)
+                return;
+
+            profileManager.ApplyProfile(_previewEntity, _currentProfileId);
+        }
+
+        #endregion
     }
 }

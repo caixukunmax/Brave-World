@@ -31,6 +31,10 @@ namespace ClinetCSharp
         private ConfirmationDialog _deleteComponentDialog;
         private string _pendingDeleteComponentName;
 
+        private Button _previewBtn;
+        private EntityProfilePreviewPanel _previewPanel;
+        private EntityBase _previewEntity;
+
         private bool _isRefreshing;
         private bool _showAllComponents;
 
@@ -61,8 +65,15 @@ namespace ClinetCSharp
                 _deleteComponentDialog.Confirmed -= OnDeleteComponentConfirmed;
                 _deleteComponentDialog.Canceled -= OnDeleteComponentCanceled;
             }
+            if (_previewBtn != null) _previewBtn.Pressed -= OnPreviewPressed;
             foreach (var component in _activeComponents.Values)
                 component.DisconnectSignals();
+
+            // 清理预览实体
+            if (_previewEntity != null && GodotObject.IsInstanceValid(_previewEntity))
+                _previewEntity.QueueFree();
+            _previewEntity = null;
+            _previewPanel = null;
         }
 
         private void OnDeleteComponentCanceled()

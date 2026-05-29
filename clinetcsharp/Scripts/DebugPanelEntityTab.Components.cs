@@ -312,6 +312,7 @@ namespace ClinetCSharp
                 profile.SetData(kv.Key, kv.Value.SyncToData());
 
             profileManager.ApplyProfileToAll(_currentProfileId);
+            SyncPreviewEntity();
         }
 
         private void SaveCurrentProfileData()
