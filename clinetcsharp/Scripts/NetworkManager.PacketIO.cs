@@ -51,7 +51,17 @@ namespace ClinetCSharp
 
         private void ReadPackets()
         {
-            int available = _tcp.GetAvailableBytes();
+            int available;
+            try
+            {
+                available = _tcp.GetAvailableBytes();
+            }
+            catch (Exception ex)
+            {
+                GD.PushError($"[NetworkManager] GetAvailableBytes failed: {ex.Message}");
+                return;
+            }
+
             if (available > 0)
             {
                 var chunk = _tcp.GetPartialData(available);

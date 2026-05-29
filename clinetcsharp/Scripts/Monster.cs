@@ -34,6 +34,7 @@ namespace ClinetCSharp
         public string MonsterQuality { get; set; } = "普通";
         public uint Level { get; private set; } = 1;
         public Godot.Collections.Array MonsterAttrs { get; private set; } = new();
+        /// <summary>历史遗留字段，纯 CD 制下始终为 0，保留以避免破坏序列化兼容性</summary>
         public float AtbValue { get; set; } = 0f;
 
         public string CurrentState
@@ -119,6 +120,7 @@ namespace ClinetCSharp
             if (_renderComponents.Count > 0)
                 return;
 
+            AddRenderComponent(new RenderComponents.CombatAuraComponent());
             AddRenderComponent(new RenderComponents.AppearanceComponent());
             AddRenderComponent(new RenderComponents.HealthBarComponent());
             AddRenderComponent(new RenderComponents.MpBarComponent());
@@ -259,13 +261,11 @@ namespace ClinetCSharp
             else
                 SetRichLabelText(2, GetStateDisplayText(CurrentState));
 
-            // 标签3：血量百分比 + ATB（仅在战斗中有意义时显示）
-            var parts = new System.Collections.Generic.List<string>();
-            if (HealthBarFillPercent < 1.0f || AtbValue > 0f)
-                parts.Add($"HP {(int)(HealthBarFillPercent * 100)}%");
-            if (AtbValue > 0f)
-                parts.Add($"ATB {(int)AtbValue}");
-            SetRichLabelText(3, string.Join(" | ", parts));
+            // 标签3：血量百分比（仅在战斗中有意义时显示）
+            if (HealthBarFillPercent < 1.0f)
+                SetRichLabelText(3, $"HP {(int)(HealthBarFillPercent * 100)}%");
+            else
+                SetRichLabelText(3, "");
         }
 
         private string BuildDisplayName()

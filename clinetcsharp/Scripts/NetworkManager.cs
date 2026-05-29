@@ -41,6 +41,12 @@ namespace ClinetCSharp
         public event Action<Game.BuffUpdateNotify> BuffUpdateNotify;
         public event Action<Game.CombatStartNotify> CombatStartNotify;
         public event Action<Game.CombatEndNotify> CombatEndNotify;
+        public event Action<Game.CastStartNotify> CastStartNotify;
+        public event Action<Game.CastResultNotify> CastResultNotify;
+        public event Action<Game.CombatEventNotify> CombatEventNotify;
+        public event Action<Game.ProjectileSpawnNotify> ProjectileSpawnNotify;
+        public event Action<Game.ProjectileHitNotify> ProjectileHitNotify;
+        public event Action<Game.DisengageNotify> DisengageNotify;
         public event Action<Game.FullRoleInfo> RoleAttrUpdated;
         public event Action<Game.GmCommandResponse> GmResponse;
         public event Action<Game.UseItemResponse> UseItemResponse;

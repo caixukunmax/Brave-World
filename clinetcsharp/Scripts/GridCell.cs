@@ -23,7 +23,7 @@ namespace ClinetCSharp
         public int Height { get; set; } = 0;            // 高度层级 (0-9, 用于高低差系统)
 
         // 运行时绑定的 Luban 配置 (从 terrain_config.json 加载)
-        public TerrainConfig? TerrainConfig { get; private set; }
+        public TerrainConfig? TerrainConfig { get; set; }
 
         /// <summary>
         /// 刷新绑定的地形配置 (从 Luban 表读取)

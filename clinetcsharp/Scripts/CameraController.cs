@@ -91,6 +91,12 @@ namespace ClinetCSharp
             // 拖拽结束：必须在 _input 处理（即使鼠标在 UI 上也要释放，防止状态卡住）
             if (@event is InputEventMouseButton mb && !mb.Pressed)
             {
+                // 编辑模式下：左键/中键释放时结束拖拽
+                if (IsEditorMode && IsDragging && (mb.ButtonIndex == MouseButton.Left || mb.ButtonIndex == MouseButton.Middle))
+                {
+                    EndDrag();
+                    return;
+                }
                 if (DragButtons.Contains(mb.ButtonIndex) && IsDragging)
                 {
                     EndDrag();
@@ -98,8 +104,8 @@ namespace ClinetCSharp
                 }
             }
 
-            // 滚轮缩放（仅在自由视角模式下）
-            if (FreeLookMode && @event is InputEventMouseButton mouseBtn && mouseBtn.Pressed)
+            // 滚轮缩放（自由视角模式 或 地图编辑模式下始终可用）
+            if ((FreeLookMode || IsEditorMode) && @event is InputEventMouseButton mouseBtn && mouseBtn.Pressed)
             {
                 if (mouseBtn.ButtonIndex == MouseButton.WheelUp)
                 {
@@ -120,7 +126,31 @@ namespace ClinetCSharp
             // 有机会先消费事件，防止相机和面板同时拖拽
             if (@event is InputEventMouseButton mb)
             {
-                if (DragButtons.Contains(mb.ButtonIndex))
+                // 编辑模式下：中键始终拖动视野；左键仅在未按住Ctrl时拖动视野
+                if (IsEditorMode)
+                {
+                    if (mb.ButtonIndex == MouseButton.Middle && mb.Pressed)
+                    {
+                        StartDrag();
+                        return;
+                    }
+                    if (mb.ButtonIndex == MouseButton.Left && mb.Pressed && !mb.CtrlPressed)
+                    {
+                        StartDrag();
+                        return;
+                    }
+                    if (mb.ButtonIndex == MouseButton.Middle && !mb.Pressed && IsDragging)
+                    {
+                        EndDrag();
+                        return;
+                    }
+                    if (mb.ButtonIndex == MouseButton.Left && !mb.Pressed && IsDragging)
+                    {
+                        EndDrag();
+                        return;
+                    }
+                }
+                else if (DragButtons.Contains(mb.ButtonIndex))
                 {
                     if (mb.Pressed)
                         StartDrag();
@@ -151,6 +181,7 @@ namespace ClinetCSharp
             // 因为拖拽开始已移到 _UnhandledInput，只有 GUI 未消费的事件才会到达这里
 
             // 编辑模式下，按住Ctrl时留给地图编辑器框选，不进行拖拽
+            // 已由 _UnhandledInput 中处理，此处保留作为兜底
             if (IsEditorMode && Input.IsKeyPressed(Key.Ctrl))
                 return;
 

@@ -8,7 +8,7 @@ namespace ClinetCSharp
         {
             MinWidth = 250;
             MinHeight = 200;
-            SetToggleKey(Key.F12);
+            SetToggleKey(Key.F11);
             base._Ready();
 
             AddToGroup("debug_panel");
@@ -115,7 +115,7 @@ namespace ClinetCSharp
         {
             if (@event is InputEventKey keyEvent &&
                 keyEvent.Pressed &&
-                keyEvent.Keycode == Key.F12 &&
+                keyEvent.Keycode == Key.F11 &&
                 PanelManager.Instance == null)
             {
                 Toggle();

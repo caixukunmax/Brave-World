@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using GameServer.Services.Core;
 using GameServer.Services.Map.Combat.Actions;
 using GameServer.Services.World;
@@ -22,6 +23,7 @@ public class CombatManager
     private readonly CombatRelationManager _relations;
     private readonly DisengageSystem _disengage;
     private readonly List<long> _pendingDisengages = new();
+    private readonly ConcurrentQueue<(long entityA, long entityB)> _forceDisengagePairs = new();
     private readonly Dictionary<long, int> _lastBuffCount = new(); // 上一帧每个实体的 buff 数量
     private readonly Dictionary<long, int> _lastShieldAmount = new(); // 上一帧每个实体的护盾总量
     private readonly LubanTableLoader? _tables;
@@ -29,6 +31,7 @@ public class CombatManager
     private readonly Dictionary<long, double> _hpRegenAccum = new();
     private readonly Dictionary<long, (int hp, int mp)> _lastSyncedHpMp = new();
     private readonly CombatNarrationEngine? _narration;
+    private readonly ProjectileManager _projectileMgr;
 
     /// <summary>战斗序号 → 战斗ID，用于日志追踪</summary>
     private readonly Dictionary<long, long> _entityCombatId = new();
@@ -72,6 +75,12 @@ public class CombatManager
 
     public CombatRelationManager RelationsMgr => _relations;
 
+    /// <summary>请求强制脱战（如怪物追击超时），由外部系统调用</summary>
+    public void RequestDisengage(long entityA, long entityB)
+    {
+        _forceDisengagePairs.Enqueue((entityA, entityB));
+    }
+
     /// <summary>日志器（供 Action 输出 CombatTrace）</summary>
     public ILogger Logger => _logger;
 
@@ -86,6 +95,7 @@ public class CombatManager
 
     public CombatManager(
         ILogger<CombatManager> logger,
+        ILoggerFactory loggerFactory,
         SkillPipeline pipeline,
         ActionRegistry actionRegistry,
         INetworkSender network,
@@ -100,6 +110,7 @@ public class CombatManager
 
         // 绑定 pipeline 反向引用（Phase 3 后续会移除）
         _pipeline.CombatManager = this;
+        _pipeline.ProjectileManager = _projectileMgr = new ProjectileManager(loggerFactory.CreateLogger<ProjectileManager>());
 
         // 加载战斗日志文本模板
         if (tables != null)
@@ -156,10 +167,15 @@ public class CombatManager
         SetCombatJob(ctxA, entityA, maps);
         SetCombatJob(ctxB, entityB, maps);
 
-        if (ctxA.State == "IDLE" || ctxB.State == "IDLE")
+        // 刷新挑衅期：每次碰撞都刷新双向挑衅期
+        _relations.RefreshTaunt(entityA, entityB);
+
+        // 先手攻击：仅当双方此前均未建立过任何战斗关系，且主动碰撞方(entityA)是玩家时才触发
+        bool aIsPlayer = entityA < CombatConstants.MonsterIdThreshold;
+        bool bothWereIdle = ctxA.RelationIds.Count == 0 && ctxB.RelationIds.Count == 0;
+        if (aIsPlayer && bothWereIdle)
         {
             ExecuteFirstStrike(entityA, entityB, maps);
-            ExecuteFirstStrike(entityB, entityA, maps);
         }
 
         _relations.SetState(entityA, "COMBAT");
@@ -201,11 +217,23 @@ public class CombatManager
         int d = SkillPipeline.MinCombatDistance(attackerPositions, targetPositions);
         if (d > 1) return;
 
-        // 先手攻击：跳过读条阶段，直接执行技能 1（普攻）的 Action 序列
-        // 这样走完整伤害公式 floor(patk * coefficient * (1 - pdef * 0.01))，而非硬编码伤害
         var combatId = _entityCombatId.GetValueOrDefault(attackerId);
         CombatTrace.FirstStrike(_logger, combatId, attackerId, SkillPipeline.GetEntityName(attackerId, maps), targetId, SkillPipeline.GetEntityName(targetId, maps), 1);
-        _pipeline.ExecuteActions(1, attackerId, [targetId], maps);
+
+        // 先手攻击：设置先攻加速属性，首个技能释放时应用提速（不在此处执行伤害）
+        var ctx = _relations.GetOrCreateContext(attackerId);
+        ctx.FirstStrikeHaste = _tables?.GetPlayerFirstStrikeHaste() ?? 30;
+        ctx.HasUsedFirstStrike = false;
+    }
+
+    /// <summary>普攻回退：skill 1 未配置时直接计算伤害</summary>
+    private static (int damage, string damageType) CalcDirectDamage(long casterId, long targetId, Dictionary<string, MapState> maps)
+    {
+        int patk = DealDamageAction.GetEntityAttr(casterId, "patk", maps) ?? 10;
+        int pdef = DealDamageAction.GetEntityAttr(targetId, "pdef", maps) ?? 5;
+        int damage = (int)Math.Floor(patk * 1.0 * (1 - pdef * 0.01));
+        if (damage < 1) damage = 1;
+        return (damage, "physical");
     }
 
     // ---- 伤害 ----
@@ -234,6 +262,7 @@ public class CombatManager
         }, mapsSafe);
 
         _relations.UpdateLastDamageTime(attackerId, targetId);
+        _relations.AddAccumulatedDamage(attackerId, targetId, damage);
 
         // 叙事触发：首次被击中（LastDamageTime=0 说明是第一次受伤）
         foreach (var rel in _relations.Relations.Values)
@@ -273,6 +302,10 @@ public class CombatManager
             _logger.LogInformation("[Combat] shield absorbed: target={Target} absorbed={Absorbed} effective={Effective}", targetId, absorbed, effectiveDamage);
             CombatTrace.BuffShieldAbsorb(_logger, combatId, targetId, targetName, damage, absorbed, targetPlayer?.Buffs.GetShieldAmount() ?? 0);
         }
+
+        // 广播战斗事件（伤害）
+        if (maps != null)
+            BroadcastCombatEventNotify(targetId, -effectiveDamage, 0, maps);
 
         // 扣血 + 死亡处理（通过 CombatEntityState 基类统一）
         if (maps != null)
@@ -317,8 +350,10 @@ public class CombatManager
         string actorName = SkillPipeline.GetEntityName(entityId, mapsSafe);
         string mapName = SkillPipeline.GetEntityMapName(entityId, mapsSafe) ?? "";
 
-        // 收集战斗中的怪物ID，用于后续通知脱战
+        // 收集战斗中的怪物ID，用于后续通知脱战；同时记录击杀者信息（OnEntityRemoved 会清空 RelationIds）
         var ctx = _relations.Contexts.GetValueOrDefault(entityId);
+        long killerId = 0;
+        string killerName = "";
         if (ctx != null)
         {
             foreach (var relationId in ctx.RelationIds)
@@ -327,6 +362,11 @@ public class CombatManager
                 if (rel == null || !rel.IsActive) continue;
                 long otherId = rel.AttackerId == entityId ? rel.TargetId : rel.AttackerId;
                 if (otherId >= CombatConstants.MonsterIdThreshold) _pendingDisengages.Add(otherId);
+                if (killerId == 0)
+                {
+                    killerId = otherId;
+                    killerName = SkillPipeline.GetEntityName(killerId, mapsSafe);
+                }
             }
         }
 
@@ -357,23 +397,13 @@ public class CombatManager
             }
         }, mapsSafe);
 
-        // 叙事触发：击杀
-        // 复用上面获取的 ctx（OnEntityRemoved 后 Contexts 已被清理，重新获取永远为 null）
-        // fix: 原代码用 deadCtx 重新 GetValueOrDefault，但 OnEntityRemoved 已删除，永远 null
-        if (ctx != null)
+        // 叙事触发：击杀（击杀者信息在 OnEntityRemoved 前已收集）
+        if (killerId != 0)
         {
-            foreach (var relId in ctx.RelationIds)
-            {
-                var rel = _relations.Relations.GetValueOrDefault(relId);
-                if (rel == null || !rel.IsActive) continue;
-                long killerId = rel.AttackerId == entityId ? rel.TargetId : rel.AttackerId;
-                string killerName = SkillPipeline.GetEntityName(killerId, mapsSafe);
-                TryNarrate("kill", killerId, entityId, killerName, actorName, 0, mapsSafe);
-                break;
-            }
+            TryNarrate("kill", killerId, entityId, killerName, actorName, 0, mapsSafe);
         }
 
-        // 立即发送空的战斗状态给死亡玩家，清除客户端 ATB 面板
+        // 立即发送空的战斗状态给死亡玩家，清除客户端战斗面板
         if (maps != null)
         {
             foreach (var map in maps.Values)
@@ -413,6 +443,10 @@ public class CombatManager
                 MapName = SkillPipeline.GetEntityMapName(casterId, mapsSafe) ?? "",
             }
         }, mapsSafe);
+
+        // 广播战斗事件（治疗）
+        if (maps != null)
+            BroadcastCombatEventNotify(targetId, healAmount, 0, maps);
 
         // 回血（不超过上限）
         if (maps != null)
@@ -476,7 +510,7 @@ public class CombatManager
                 // 只处理怪物自动施法（玩家由手动 CastRequest 驱动）
                 if (entityId >= CombatConstants.MonsterIdThreshold)
                 {
-                    int skillId = SelectSkill(ctx);
+                    int skillId = SelectSkillWithLog(ctx, entityId, maps);
                     if (skillId > 0)
                     {
                         RequestCast(entityId, skillId, maps);
@@ -569,9 +603,17 @@ public class CombatManager
                 }
             }, maps);
         }
+        else if (result == "FAILURE")
+        {
+            _logger.LogWarning("[Combat] RequestCast FAILURE: entity={EntityId} skill={SkillId}", entityId, skillId);
+        }
+        else if (result == "PENDING")
+        {
+            // 读条中，无需额外日志（SkillStartCast 已在 Cast 中输出）
+        }
     }
 
-    /// <summary>处理玩家手动施法请求 — 纯 CD 即时制，不再需要 ATB</summary>
+    /// <summary>处理玩家手动施法请求 — 纯 CD 即时制</summary>
     public PGame.CastResponse HandleCastRequest(long playerId, int skillId, long? targetId, Dictionary<string, MapState> maps)
     {
         var ctx = _relations.Contexts.GetValueOrDefault(playerId);
@@ -750,6 +792,18 @@ public class CombatManager
         }
 
         var disengaged = _disengage.Tick(dt, _relations, maps);
+
+        // 合并强制脱战请求（如怪物追击超时），统一走后续广播/通知流程
+        while (_forceDisengagePairs.TryDequeue(out var pair))
+        {
+            var (a, b) = pair;
+            if (_relations.HasActiveRelation(a, b))
+            {
+                _relations.RemoveBidirectionalRelation(a, b);
+                disengaged.Add((0, a, b));
+            }
+        }
+
         if (disengaged.Count > 0)
         {
             long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
@@ -803,12 +857,13 @@ public class CombatManager
                 }
             }
 
-            // 向脱战的玩家发送 CombatEndNotify + 空 CombatStateNotify
+            // 向脱战的实体发送 DisengageNotify + 向玩家发送 CombatEndNotify + 空 CombatStateNotify
             var notifiedPlayers = new HashSet<long>();
             foreach (var (_, attackerId, targetId) in disengaged)
             {
                 foreach (var eid in new[] { attackerId, targetId })
                 {
+                    SendDisengageNotify(eid, maps);
                     if (eid < 1000000 && !notifiedPlayers.Contains(eid))
                     {
                         notifiedPlayers.Add(eid);
@@ -836,7 +891,8 @@ public class CombatManager
                                     buffNotify.ToByteArray());
 
                                 p.InCombat = false; // 脱战
-                                SendCombatEndNotify(eid, PGame.CombatEndReason.CombatEndDisengage, maps);
+                                long otherId = attackerId == eid ? targetId : attackerId;
+                                SendCombatEndNotify(eid, otherId, PGame.CombatEndReason.CombatEndDisengage, maps);
                                 _network.SendToAccount(eid, p.ServerId,
                                     (int)PProtocol.MessageId.GameCombatStateNotify,
                                     new PGame.CombatStateNotify().ToByteArray());
@@ -940,30 +996,95 @@ public class CombatManager
         }, maps);
     }
 
-    private static int SelectSkill(CombatContext ctx)
+    private int SelectSkill(CombatContext ctx, Dictionary<string, MapState> maps)
     {
         long now = Environment.TickCount64;
+        long entityId = ctx.EntityId;
+
+        // 辅助：检查技能是否有目标在施法范围内
+        bool IsInRange(int skillId)
+        {
+            var cfg = SkillPipeline.GetSkillConfigStatic(skillId);
+            if (cfg == null) return false;
+            if (cfg.TargetType == ESkillTargetType.Self) return true;
+
+            var casterPositions = SkillPipeline.FindEntityCombatPositions(entityId, maps);
+            if (casterPositions.Count == 0) return false;
+
+            foreach (var relationId in ctx.RelationIds)
+            {
+                var rel = _relations.Relations.GetValueOrDefault(relationId);
+                if (rel == null || !rel.IsActive) continue;
+
+                long targetId = 0;
+                if (cfg.TargetType == ESkillTargetType.SingleEnemy || cfg.TargetType == ESkillTargetType.AllEnemiesInRange)
+                {
+                    targetId = rel.AttackerId == entityId ? rel.TargetId :
+                               rel.TargetId == entityId ? rel.AttackerId : 0;
+                }
+                else if (cfg.TargetType == ESkillTargetType.AllAlliesInRange)
+                {
+                    bool casterIsPlayer = entityId < CombatConstants.MonsterIdThreshold;
+                    long otherId = rel.AttackerId == entityId ? rel.TargetId : rel.AttackerId;
+                    bool otherIsPlayer = otherId < CombatConstants.MonsterIdThreshold;
+                    if (casterIsPlayer == otherIsPlayer)
+                        targetId = otherId;
+                }
+
+                if (targetId == 0) continue;
+                var targetPositions = SkillPipeline.FindEntityCombatPositions(targetId, maps);
+                if (targetPositions.Count == 0) continue;
+                int d = SkillPipeline.MinCombatDistance(casterPositions, targetPositions);
+                if (d <= cfg.CastRange) return true;
+            }
+            return false;
+        }
 
         // 优先释放被选中的技能
         if (ctx.PreferredSkillId > 0 &&
             ctx.SkillPool.Contains(ctx.PreferredSkillId) &&
-            (!ctx.SkillCooldowns.TryGetValue(ctx.PreferredSkillId, out var preferredCdEnd) || now >= preferredCdEnd))
+            (!ctx.SkillCooldowns.TryGetValue(ctx.PreferredSkillId, out var preferredCdEnd) || now >= preferredCdEnd) &&
+            IsInRange(ctx.PreferredSkillId))
         {
             return ctx.PreferredSkillId;
         }
 
-        // 常规顺序选择
+        // 常规顺序选择（CD 就绪 + 目标在范围内）
         foreach (var skillId in ctx.SkillPool)
         {
             if (!ctx.SkillCooldowns.TryGetValue(skillId, out var cdEnd) || now >= cdEnd)
-                return skillId;
+            {
+                if (IsInRange(skillId))
+                    return skillId;
+            }
         }
-        return 0; // 所有技能冷却中，待机等 CD
+        return 0; // 所有技能冷却中或目标不在范围内
+    }
+
+    /// <summary>记录 SelectSkill 决策（供调试）</summary>
+    private int SelectSkillWithLog(CombatContext ctx, long entityId, Dictionary<string, MapState> maps)
+    {
+        int skillId = SelectSkill(ctx, maps);
+        if (skillId == 0)
+        {
+            _logger.LogDebug("[Combat] SelectSkill returned 0: entity={EntityId} skillPool=[{Pool}] cooldowns=[{Cds}]",
+                entityId, string.Join(",", ctx.SkillPool),
+                string.Join(",", ctx.SkillCooldowns.Select(kv => $"{kv.Key}={kv.Value}")));
+        }
+        else
+        {
+            _logger.LogDebug("[Combat] SelectSkill chose: entity={EntityId} skill={SkillId}", entityId, skillId);
+        }
+        return skillId;
     }
 
     private void SetCombatJob(CombatContext ctx, long entityId, Dictionary<string, MapState> maps)
     {
-        if (ctx.Job != "") return;
+        if (ctx.Job != "")
+        {
+            _logger.LogDebug("[Combat] SetCombatJob skipped: entity={EntityId} job already set to '{Job}'", entityId, ctx.Job);
+            return;
+        }
         foreach (var map in maps.Values)
         {
             if (map.Players.TryGetValue(entityId, out var p))
@@ -971,6 +1092,8 @@ public class CombatManager
                 ctx.Job = p.Job ?? "";
                 ctx.SkillPool = new List<int>(p.EquippedSkills.Where(s => s > 0));
                 ctx.PreferredSkillId = p.PreferredSkillId;
+                _logger.LogInformation("[Combat] SetCombatJob player: entity={EntityId} job={Job} skills=[{Skills}] preferred={Preferred}",
+                    entityId, ctx.Job, string.Join(",", ctx.SkillPool), ctx.PreferredSkillId);
                 return;
             }
         }
@@ -984,9 +1107,13 @@ public class CombatManager
                 if (map.Monsters.TryGetValue(entityId, out var m))
                 {
                     var skills = _tables.GetMonsterSkills(m.MonsterId);
+                    _logger.LogInformation("[Combat] SetCombatJob monster lookup: entity={EntityId} monsterId={MonsterId} skills=[{Skills}] count={Count}",
+                        entityId, m.MonsterId, string.Join(",", skills), skills.Count);
                     if (skills.Count > 0)
                     {
                         ctx.SkillPool = skills;
+                        _logger.LogInformation("[Combat] SetCombatJob monster: entity={EntityId} monsterId={MonsterId} skillPool=[{Skills}]",
+                            entityId, m.MonsterId, string.Join(",", ctx.SkillPool));
                         return;
                     }
                 }
@@ -995,6 +1122,7 @@ public class CombatManager
 
         // 兜底：无配置时使用第一个可用技能
         ctx.SkillPool = new List<int>();
+        _logger.LogWarning("[Combat] SetCombatJob fallback: entity={EntityId} job={Job} skillPool is empty", entityId, ctx.Job);
     }
 
     private void SendCombatStartNotify(long entityA, long entityB, Dictionary<string, MapState> maps)
@@ -1015,9 +1143,11 @@ public class CombatManager
         }
     }
 
-    private void SendCombatEndNotify(long playerId, PGame.CombatEndReason reason, Dictionary<string, MapState> maps)
+    private void SendCombatEndNotify(long playerId, long otherEntityId, PGame.CombatEndReason reason, Dictionary<string, MapState> maps)
     {
         var notify = new PGame.CombatEndNotify { Reason = reason };
+        notify.EntityIds.Add((ulong)playerId);
+        notify.EntityIds.Add((ulong)otherEntityId);
         var mapName = SkillPipeline.GetEntityMapName(playerId, maps);
         if (mapName == null) return;
         var p = maps[mapName].Players.GetValueOrDefault(playerId);
@@ -1025,10 +1155,127 @@ public class CombatManager
             _network.SendToAccount(playerId, p.ServerId, (int)PProtocol.MessageId.GameCombatEndNotify, notify.ToByteArray());
     }
 
+    // ---- 新网络消息广播 ----
+
+    public void BroadcastCastStartNotify(long casterId, int skillId, float castTime, long targetId, int targetX, int targetY, Dictionary<string, MapState> maps)
+    {
+        var notify = new PGame.CastStartNotify
+        {
+            CasterId = (ulong)casterId,
+            SkillId = (uint)skillId,
+            CastTime = castTime,
+            TargetId = (ulong)targetId,
+            TargetX = targetX,
+            TargetY = targetY,
+        };
+        string mapName = SkillPipeline.GetEntityMapName(casterId, maps) ?? "";
+        if (maps.TryGetValue(mapName, out var map))
+        {
+            var data = notify.ToByteArray();
+            foreach (var (accountId, p) in map.Players)
+                _network.SendToAccount(accountId, p.ServerId, (int)PProtocol.MessageId.GameCastStartNotify, data);
+        }
+    }
+
+    public void BroadcastCastResultNotify(long casterId, int skillId, List<long> targetIds, bool isMiss, Dictionary<string, MapState> maps)
+    {
+        var notify = new PGame.CastResultNotify
+        {
+            CasterId = (ulong)casterId,
+            SkillId = (uint)skillId,
+            IsMiss = isMiss,
+        };
+        foreach (var t in targetIds) notify.TargetIds.Add((ulong)t);
+
+        string mapName = SkillPipeline.GetEntityMapName(casterId, maps) ?? "";
+        if (maps.TryGetValue(mapName, out var map))
+        {
+            var data = notify.ToByteArray();
+            foreach (var (accountId, p) in map.Players)
+                _network.SendToAccount(accountId, p.ServerId, (int)PProtocol.MessageId.GameCastResultNotify, data);
+        }
+    }
+
+    public void BroadcastProjectileSpawnNotify(long projectileId, long casterId, int skillId,
+        int fromX, int fromY, int toX, int toY, float speed, Dictionary<string, MapState> maps)
+    {
+        var notify = new PGame.ProjectileSpawnNotify
+        {
+            ProjectileId = (ulong)projectileId,
+            SkillId = (uint)skillId,
+            FromX = fromX,
+            FromY = fromY,
+            ToX = toX,
+            ToY = toY,
+            Speed = speed,
+        };
+        // 广播给施法者所在地图上的所有玩家
+        string mapName = SkillPipeline.GetEntityMapName(casterId, maps) ?? "";
+        if (maps.TryGetValue(mapName, out var map))
+        {
+            var data = notify.ToByteArray();
+            foreach (var (accountId, p) in map.Players)
+                _network.SendToAccount(accountId, p.ServerId, (int)PProtocol.MessageId.GameProjectileSpawnNotify, data);
+        }
+    }
+
+    public void BroadcastProjectileHitNotify(long projectileId, long targetId, int skillId, Dictionary<string, MapState> maps)
+    {
+        var notify = new PGame.ProjectileHitNotify
+        {
+            ProjectileId = (ulong)projectileId,
+            TargetId = (ulong)targetId,
+        };
+        string mapName = SkillPipeline.GetEntityMapName(targetId, maps) ?? "";
+        if (maps.TryGetValue(mapName, out var map))
+        {
+            var data = notify.ToByteArray();
+            foreach (var (accountId, p) in map.Players)
+                _network.SendToAccount(accountId, p.ServerId, (int)PProtocol.MessageId.GameProjectileHitNotify, data);
+        }
+    }
+
+    public void BroadcastCombatEventNotify(long targetId, int hpDelta, int mpDelta, Dictionary<string, MapState> maps)
+    {
+        var notify = new PGame.CombatEventNotify
+        {
+            TargetId = (ulong)targetId,
+            HpDelta = hpDelta,
+            MpDelta = mpDelta,
+        };
+        string mapName = SkillPipeline.GetEntityMapName(targetId, maps) ?? "";
+        if (maps.TryGetValue(mapName, out var map))
+        {
+            var data = notify.ToByteArray();
+            foreach (var (accountId, p) in map.Players)
+                _network.SendToAccount(accountId, p.ServerId, (int)PProtocol.MessageId.GameCombatEventNotify, data);
+        }
+    }
+
+    public void SendDisengageNotify(long entityId, Dictionary<string, MapState> maps)
+    {
+        var notify = new PGame.DisengageNotify { EntityId = (ulong)entityId };
+        string mapName = SkillPipeline.GetEntityMapName(entityId, maps) ?? "";
+        if (!maps.TryGetValue(mapName, out var map)) return;
+
+        if (entityId < CombatConstants.MonsterIdThreshold)
+        {
+            var p = map.Players.GetValueOrDefault(entityId);
+            if (p != null)
+                _network.SendToAccount(entityId, p.ServerId, (int)PProtocol.MessageId.GameDisengageNotify, notify.ToByteArray());
+        }
+        else
+        {
+            var data = notify.ToByteArray();
+            foreach (var (accountId, p) in map.Players)
+                _network.SendToAccount(accountId, p.ServerId, (int)PProtocol.MessageId.GameDisengageNotify, data);
+        }
+    }
+
     private void BroadcastCombatState(Dictionary<string, MapState> maps)
     {
         long nowMs = Environment.TickCount64;
-        var playerStates = new Dictionary<long, List<(long id, string name, double atb, bool isPlayer, int hp, int maxHp, int mp, int maxMp, string castingSkill, float castProgress, List<(uint skillId, float remainingCd, float totalCd)> cds)>>();
+        var playerStates = new Dictionary<long, List<(long id, string name, double _, bool isPlayer, int hp, int maxHp, int mp, int maxMp, string castingSkill, float castProgress, List<(uint skillId, float remainingCd, float totalCd)> cds)>>();
 
         foreach (var (mapName, map) in maps)
         {
@@ -1078,11 +1325,11 @@ public class CombatManager
             int serverId = maps[mapName].Players.GetValueOrDefault(accountId)?.ServerId ?? 0;
 
             var notify = new PGame.CombatStateNotify();
-            foreach (var (id, name, atb, isPlayer, hp, maxHp, mp, maxMp, castingSkill, castProgress, cds) in units)
+            foreach (var (id, name, _, isPlayer, hp, maxHp, mp, maxMp, castingSkill, castProgress, cds) in units)
             {
                 var unit = new PGame.CombatStateNotify.Types.CombatUnit
                 {
-                    EntityId = (ulong)id, EntityName = name, Atb = (float)atb,
+                    EntityId = (ulong)id, EntityName = name, Atb = 0f,
                     IsPlayer = isPlayer, Hp = hp, MaxHp = maxHp, Mp = mp, MaxMp = maxMp,
                     CastingSkill = castingSkill, CastProgress = castProgress,
                 };
@@ -1289,6 +1536,15 @@ public class CombatManager
                     break;
                 }
             }
+        }
+
+        // 更新弹道
+        var projectileHits = _projectileMgr.Tick(dt, maps, _relations);
+        foreach (var hit in projectileHits)
+        {
+            var (damage, dtype) = DealDamageAction.CalcDamage(hit.CasterId, hit.TargetId, hit.DamageType, hit.Coefficient, maps, this);
+            ApplyDamage(hit.CasterId, hit.TargetId, damage, dtype, maps);
+            BroadcastProjectileHitNotify(hit.ProjectileId, hit.TargetId, hit.SkillId, maps);
         }
 
         // 应用 DOT 伤害

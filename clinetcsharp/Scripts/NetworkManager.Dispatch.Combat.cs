@@ -109,5 +109,39 @@ namespace ClinetCSharp
                 GD.PrintErr($"[Cast] Failed: {rsp.Error}");
             }
         }
+
+        private void HandleCastStartNotify(ByteString data)
+        {
+            CastStartNotify?.Invoke(Game.CastStartNotify.Parser.ParseFrom(data));
+        }
+
+        private void HandleCastResultNotify(ByteString data)
+        {
+            CastResultNotify?.Invoke(Game.CastResultNotify.Parser.ParseFrom(data));
+        }
+
+        private void HandleCombatEventNotify(ByteString data)
+        {
+            CombatEventNotify?.Invoke(Game.CombatEventNotify.Parser.ParseFrom(data));
+        }
+
+        private void HandleProjectileSpawnNotify(ByteString data)
+        {
+            var notify = Game.ProjectileSpawnNotify.Parser.ParseFrom(data);
+            ProjectileSpawnNotify?.Invoke(notify);
+            GD.Print($"[Projectile] Spawn id={notify.ProjectileId} skill={notify.SkillId} from=({notify.FromX},{notify.FromY}) to=({notify.ToX},{notify.ToY}) speed={notify.Speed}");
+        }
+
+        private void HandleProjectileHitNotify(ByteString data)
+        {
+            var notify = Game.ProjectileHitNotify.Parser.ParseFrom(data);
+            ProjectileHitNotify?.Invoke(notify);
+            GD.Print($"[Projectile] Hit id={notify.ProjectileId} target={notify.TargetId}");
+        }
+
+        private void HandleDisengageNotify(ByteString data)
+        {
+            DisengageNotify?.Invoke(Game.DisengageNotify.Parser.ParseFrom(data));
+        }
     }
 }

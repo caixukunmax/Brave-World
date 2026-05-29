@@ -32,6 +32,11 @@ namespace ClinetCSharp
                 _gridLineBrightnessSlider.ValueChanged += OnGridLineBrightnessChanged;
                 _gridLineBrightnessSlider.DragEnded += OnGridLineBrightnessDragEnded;
             }
+            if (_gridAntiAliasSoftnessSlider != null)
+            {
+                _gridAntiAliasSoftnessSlider.ValueChanged += OnGridAntiAliasSoftnessChanged;
+                _gridAntiAliasSoftnessSlider.DragEnded += OnGridAntiAliasSoftnessDragEnded;
+            }
             if (_gridCoordsCheck != null)
                 _gridCoordsCheck.Toggled += OnGridCoordsToggled;
 
@@ -113,6 +118,11 @@ namespace ClinetCSharp
             {
                 _gridLineBrightnessSlider.ValueChanged -= OnGridLineBrightnessChanged;
                 _gridLineBrightnessSlider.DragEnded -= OnGridLineBrightnessDragEnded;
+            }
+            if (_gridAntiAliasSoftnessSlider != null)
+            {
+                _gridAntiAliasSoftnessSlider.ValueChanged -= OnGridAntiAliasSoftnessChanged;
+                _gridAntiAliasSoftnessSlider.DragEnded -= OnGridAntiAliasSoftnessDragEnded;
             }
             if (_gridCoordsCheck != null)
                 _gridCoordsCheck.Toggled -= OnGridCoordsToggled;

@@ -20,6 +20,8 @@ namespace ClinetCSharp
         private Label _gridLineWidthValue;
         private HSlider _gridLineBrightnessSlider;
         private Label _gridLineBrightnessValue;
+        private HSlider _gridAntiAliasSoftnessSlider;
+        private Label _gridAntiAliasSoftnessValue;
         private CheckButton _gridCoordsCheck;
         #endregion
 
@@ -198,6 +200,20 @@ namespace ClinetCSharp
                 GridManager.LineColor = new Color(brightness, brightness, brightness);
                 GridManager.QueueRedraw();
             }
+            Owner.PushCurrentStateToHistory();
+        }
+
+        private void OnGridAntiAliasSoftnessChanged(double value)
+        {
+            _gridAntiAliasSoftnessValue.Text = $"{value:F1}x";
+            if (GridManager != null)
+            {
+                GridManager.SetGridAntiAliasSoftness((float)value);
+            }
+        }
+
+        private void OnGridAntiAliasSoftnessDragEnded(bool valueChanged)
+        {
             Owner.PushCurrentStateToHistory();
         }
 

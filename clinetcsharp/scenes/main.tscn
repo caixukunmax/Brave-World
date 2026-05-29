@@ -32,6 +32,7 @@ script = ExtResource("6_auth")
 offset_right = 5550.0
 offset_bottom = 5550.0
 color = Color(0, 0, 0, 1)
+mouse_filter = 2
 
 [node name="GridManager" type="Node2D" parent="." groups=["grid_manager"]]
 script = ExtResource("1_grid")

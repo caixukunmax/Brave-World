@@ -38,7 +38,7 @@ namespace ClinetCSharp
         /// 原理：GuiGetHoveredControl() 返回 Godot GUI 系统中鼠标下的最顶层 Control，
         /// 它会正确处理 CanvasLayer 层级和 MouseFilter。只要任何 Control（Panel、Button 等）
         /// 挡在鼠标位置，就应阻止游戏世界层处理该事件。
-        /// MouseFilter=Ignore 的控件不会被 GuiGetHoveredControl() 返回（如 CombatATBPanel）。
+        /// MouseFilter=Ignore 的控件不会被 GuiGetHoveredControl() 返回。
         /// </summary>
         public static bool IsMouseOverAnyUi(Viewport viewport)
         {

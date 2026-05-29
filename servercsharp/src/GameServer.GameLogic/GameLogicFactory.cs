@@ -48,7 +48,7 @@ public class GameLogicFactory : IGameLogicFactory
             _loggerFactory.CreateLogger<SkillPipeline>(), actionRegistry, Tables);
 
         var combatManager = new CombatManager(
-            _loggerFactory.CreateLogger<CombatManager>(), pipeline, actionRegistry, network, Tables);
+            _loggerFactory.CreateLogger<CombatManager>(), _loggerFactory, pipeline, actionRegistry, network, Tables);
         combatManager.MapData = mapData;
 
         return new CombatServiceAdapter(combatManager);
@@ -164,6 +164,9 @@ public class GameLogicFactory : IGameLogicFactory
         if (combatService is not CombatServiceAdapter combatAdapter) return;
         if (monsterAi is IMonsterRegistry registry)
             combatAdapter.Inner.MonsterRegistry = registry;
+        // 反向绑定：让 MonsterManager 能操作 CombatManager 断开关系
+        if (monsterAi is MonsterAiServiceAdapter monsterAdapter)
+            monsterAdapter.Inner.CombatManager = combatAdapter.Inner;
     }
 
     public void BindLevelUpService(

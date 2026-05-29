@@ -14,6 +14,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="..\Scripts\GridOverlayAntiAliasSoftnessPolicy.cs"
+             Link="GridOverlayAntiAliasSoftnessPolicy.cs"
+             Condition="Exists('..\Scripts\GridOverlayAntiAliasSoftnessPolicy.cs')" />
     <Compile Include="..\Scripts\RoleControlCenterXResolver.cs"
              Link="RoleControlCenterXResolver.cs"
              Condition="Exists('..\Scripts\RoleControlCenterXResolver.cs')" />

@@ -18,6 +18,11 @@ namespace ClinetCSharp
         // 编辑状态
         public bool IsEditing { get; private set; } = false;
 
+        // 进入编辑模式前的游戏状态快照（用于退出时恢复）
+        private bool _wasTreePaused;
+        private bool _wasPlayerVisible;
+        private bool _wasMonsterPatrolOverlayVisible;
+
         // 选中系统
         public Dictionary<Vector2I, bool> SelectedCells { get; private set; } = new Dictionary<Vector2I, bool>();  // Vector2i -> bool
         public bool IsSelecting { get; private set; } = false;       // 是否正在拖拽选择
@@ -38,6 +43,7 @@ namespace ClinetCSharp
 
         // 撤销历史
         private System.Collections.Generic.List<List<List<GridCell>>> _undoStack = new();
+        private System.Collections.Generic.List<List<List<GridCell>>> _redoStack = new();
         public const int MaxUndoSteps = 20;
 
         // 选择历史（用于右键撤销选择）
@@ -46,13 +52,55 @@ namespace ClinetCSharp
 
         public override async void _Ready()
         {
-            // 延迟获取节点引用
-            await ToSignal(GetTree(), "process_frame");
-            GridManager = GetTree().GetFirstNodeInGroup("grid_manager") as GridManager;
-            Camera = GetTree().GetFirstNodeInGroup("camera") as Camera2D;
-            Player = GetTree().GetFirstNodeInGroup("player") as Node2D;
+            // 循环等待关键节点出现（最多10帧），避免 _Ready 时机差异导致获取失败
+            for (int i = 0; i < 10; i++)
+            {
+                GridManager = GetTree()?.GetFirstNodeInGroup("grid_manager") as GridManager;
+                Camera = GetTree()?.GetFirstNodeInGroup("camera") as Camera2D;
+                Player = GetTree()?.GetFirstNodeInGroup("player") as Node2D;
+                if (GridManager != null && Camera != null)
+                    break;
+                await ToSignal(GetTree(), "process_frame");
+            }
+            GD.Print($"[MapEditor] 初始化完成 GridManager={(GridManager != null ? "OK" : "NULL")} Camera={(Camera != null ? "OK" : "NULL")}");
 
-            GD.Print("[MapEditor] 初始化完成");
+            // 自动化测试模式：检测到 --test-grid-visibility 参数时自动进入编辑模式
+            foreach (var arg in OS.GetCmdlineArgs())
+            {
+                if (arg == "--test-grid-visibility")
+                {
+                    GD.Print("[MapEditor] Auto-test mode detected, opening editor...");
+                    ToggleEditor();
+                    _ = RunAutoTestScreenshot();
+                    break;
+                }
+            }
+        }
+
+        // 网格修复版本号，每次修改后递增，用于验证客户端加载的是最新代码
+        public const string GridFixVersion = "v4.5"; // AA shader overlay with debug-tunable softness
+
+        public override void _Process(double delta)
+        {
+            if (IsEditing && _editorPanel != null)
+            {
+                var diagLabel = _editorPanel.GetNodeOrNull<Label>("VBoxContainer/DiagLabel");
+                if (diagLabel != null && GridManager != null && Camera != null)
+                {
+                    var zoom = Camera.Zoom.X;
+                    var (lineWidthWorld, lineColor) = GridManager.ComputeGridLineRenderStylePublic(zoom);
+                    var screenLineWidth = lineWidthWorld * zoom;
+                    // 编辑模式下实际线宽会被强制到至少 1.5px，诊断标签需要反映真实值
+                    if (GridManager.IsEditMode && screenLineWidth < 1.5f)
+                        screenLineWidth = 1.5f;
+                    var mode = "整体-shader";
+                    var actualColor = GridManager.IsEditMode ? new Color(1.0f, 1.0f, 1.0f, 1.0f) : lineColor;
+                    var aaSoftness = GridManager.GetGridAntiAliasSoftness();
+                    diagLabel.Text = $"[修复版本 {GridFixVersion}]\n" +
+                                     $"zoom={zoom:F2} 实际线宽={screenLineWidth:F2}px 模式={mode}\n" +
+                                     $"颜色=({actualColor.R:F2},{actualColor.G:F2},{actualColor.B:F2},{actualColor.A:F2}) 柔化={aaSoftness:F1}x";
+                }
+            }
         }
 
         public override void _Input(InputEvent @event)
@@ -110,7 +158,7 @@ namespace ClinetCSharp
                     if (mb.Pressed)
                     {
                         // 根据配置决定是否需要Ctrl键
-                        if (!RequireCtrlForSelection || Input.IsKeyPressed(Key.Ctrl))
+                        if (!RequireCtrlForSelection || mb.CtrlPressed)
                         {
                             StartSelection(mb);
                         }
@@ -136,7 +184,7 @@ namespace ClinetCSharp
             if (@event is InputEventMouseMotion mm)
             {
                 // 根据配置决定是否需要Ctrl键才能更新选择
-                if (IsSelecting && (!RequireCtrlForSelection || Input.IsKeyPressed(Key.Ctrl)))
+                if (IsSelecting && (!RequireCtrlForSelection || mm.CtrlPressed))
                 {
                     UpdateSelection(mm);
                 }
@@ -200,43 +248,158 @@ namespace ClinetCSharp
         {
             IsEditing = enabled;
 
+            // 兜底：如果 GridManager 之前获取失败，在这里重新尝试
+            if (GridManager == null)
+            {
+                GridManager = GetTree()?.GetFirstNodeInGroup("grid_manager") as GridManager;
+                if (GridManager == null)
+                    GD.PushError("[MapEditor] SetEditMode: GridManager is still null!");
+                else
+                    GD.Print($"[MapEditor] SetEditMode: late-acquired GridManager={GridManager.Name}");
+            }
             GridManager?.SetEditMode(enabled);
 
             if (Camera is CameraController camCtrl)
                 camCtrl.SetEditorMode(enabled);
 
-            if (Player != null)
-                Player.Visible = !enabled;
-
             // 控制调试面板的可见性（地图编辑器独立于调试面板）
             var debugPanel = GetTree().GetFirstNodeInGroup("debug_panel");
-            if (debugPanel != null)
+            if (debugPanel is CanvasItem ci)
             {
-                if (enabled)
-                    debugPanel.Call("hide_panel");
-                else
-                    debugPanel.Call("show_panel");
-            }
-
-            if (!enabled)
-            {
-                // 退出编辑模式时清除选中的格子
-                SelectedCells.Clear();
-                IsSelecting = false;
-                QueueRedraw();
+                ci.Visible = !enabled;
             }
 
             if (enabled)
             {
-                GD.Print("[MapEditor] 进入编辑模式");
-                ShowEditorUi();
+                EnterEditMode();
             }
             else
             {
-                GD.Print("[MapEditor] 退出编辑模式");
-                HideEditorUi();
-                SelectedCells.Clear();
+                ExitEditMode();
             }
+        }
+
+        private async System.Threading.Tasks.Task RunAutoTestScreenshot()
+        {
+            // 1. 等待编辑器完全加载
+            GD.Print("[MapEditor] Auto-test: waiting 3s for editor to fully load...");
+            await ToSignal(GetTree().CreateTimer(3.0f), "timeout");
+
+            var camera = GetTree().GetFirstNodeInGroup("camera") as Camera2D;
+            var viewport = GetViewport();
+
+            // 2. 在多个关键 zoom 级别分别截图，覆盖所有边界情况
+            float[] testZooms = new float[] { 1.0f, 0.7f, 0.5f, 0.4f, 0.3f, 0.2f };
+            foreach (var zoom in testZooms)
+            {
+                if (camera != null)
+                {
+                    camera.Zoom = new Vector2(zoom, zoom);
+                    GD.Print($"[MapEditor] Auto-test: set zoom={zoom:F2}");
+                }
+
+                // 等待画面稳定（GridManager 检测到 zoom 变化后会 QueueRedraw）
+                await ToSignal(GetTree().CreateTimer(1.0f), "timeout");
+
+                var img = viewport.GetTexture().GetImage();
+                var path = ProjectSettings.GlobalizePath($"user://auto_test_grid_zoom_{zoom:F2}.png");
+                var dir = System.IO.Path.GetDirectoryName(path);
+                if (!System.IO.Directory.Exists(dir))
+                    System.IO.Directory.CreateDirectory(dir);
+                img.SavePng(path);
+                GD.Print($"[MapEditor] Auto-test: screenshot saved to {path}");
+            }
+
+            await ToSignal(GetTree().CreateTimer(0.5f), "timeout");
+            GD.Print("[MapEditor] Auto-test: quitting...");
+            GetTree().Quit();
+        }
+
+        private void EnterEditMode()
+        {
+            GD.Print("[MapEditor] 进入编辑模式 — 冻结游戏状态，重新加载地图数据");
+
+            // 1. 保存游戏状态快照
+            _wasTreePaused = GetTree().Paused;
+            _wasPlayerVisible = Player?.Visible ?? false;
+
+            var patrolOverlay = GetTree().GetFirstNodeInGroup("monster_patrol_overlay") as CanvasItem;
+            _wasMonsterPatrolOverlayVisible = patrolOverlay?.Visible ?? false;
+
+            // 2. 暂停游戏树（冻结所有 _Process/_PhysicsProcess）
+            GetTree().Paused = true;
+            // 地图编辑器自身和相机控制器需要在 Pause 时继续处理输入
+            ProcessMode = ProcessModeEnum.Always;
+            if (Camera is Node camNode)
+                camNode.ProcessMode = ProcessModeEnum.Always;
+            // 编辑器面板及其子节点也需要保持响应
+            if (_editorPanel != null)
+                SetProcessModeRecursive(_editorPanel, ProcessModeEnum.Always);
+
+            // 3. 隐藏玩家、所有怪物实例、所有NPC实例、巡逻覆盖层
+            if (Player != null)
+                Player.Visible = false;
+
+            var monsterMgr = GetTree().GetFirstNodeInGroup("monster_manager") as MonsterManager;
+            monsterMgr?.SetAllMonstersVisible(false);
+
+            var npcMgr = GetTree().GetFirstNodeInGroup("npc_manager") as NpcManager;
+            npcMgr?.SetAllNpcsVisible(false);
+
+            if (patrolOverlay != null)
+                patrolOverlay.Visible = false;
+
+            // 4. 重新加载地图数据（从CSV读取最新配置）
+            GridManager?.LoadMap(GridManager.CurrentMapName);
+
+            // 5. 清空编辑历史
+            SelectedCells.Clear();
+            IsSelecting = false;
+            _undoStack.Clear();
+            _redoStack.Clear();
+            _selectionHistory.Clear();
+
+            QueueRedraw();
+            ShowEditorUi();
+        }
+
+        private void ExitEditMode()
+        {
+            GD.Print("[MapEditor] 退出编辑模式 — 恢复游戏状态");
+
+            // 1. 恢复游戏树运行，恢复 ProcessMode
+            GetTree().Paused = _wasTreePaused;
+            ProcessMode = ProcessModeEnum.Inherit;
+            if (Camera is Node camNode)
+                camNode.ProcessMode = ProcessModeEnum.Inherit;
+
+            // 2. 恢复玩家、所有怪物实例、所有NPC实例、巡逻覆盖层显示
+            if (Player != null)
+                Player.Visible = _wasPlayerVisible;
+
+            var monsterMgr = GetTree().GetFirstNodeInGroup("monster_manager") as MonsterManager;
+            monsterMgr?.SetAllMonstersVisible(true);
+
+            var npcMgr = GetTree().GetFirstNodeInGroup("npc_manager") as NpcManager;
+            npcMgr?.SetAllNpcsVisible(true);
+
+            var patrolOverlay = GetTree().GetFirstNodeInGroup("monster_patrol_overlay") as CanvasItem;
+            if (patrolOverlay != null)
+                patrolOverlay.Visible = _wasMonsterPatrolOverlayVisible;
+
+            // 3. 清除选中的格子
+            SelectedCells.Clear();
+            IsSelecting = false;
+            QueueRedraw();
+
+            HideEditorUi();
+        }
+
+        private void SetProcessModeRecursive(Node node, ProcessModeEnum mode)
+        {
+            node.ProcessMode = mode;
+            foreach (var child in node.GetChildren())
+                SetProcessModeRecursive(child, mode);
         }
 
         private void ShowEditorUi()
@@ -272,7 +435,7 @@ namespace ClinetCSharp
 
             _editorPanel = new Control();
             _editorPanel.SetAnchorsPreset(Control.LayoutPreset.TopRight);
-            _editorPanel.Size = new Vector2(300, 500);
+            _editorPanel.Size = new Vector2(300, 850);
             _editorPanel.Position = new Vector2(-320, 20);
             canvasLayer.AddChild(_editorPanel);
 
@@ -281,17 +444,36 @@ namespace ClinetCSharp
             _editorPanel.AddChild(panel);
 
             var vbox = new VBoxContainer();
+            vbox.Name = "VBoxContainer";
             vbox.SetAnchorsPreset(Control.LayoutPreset.FullRect);
             vbox.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
             vbox.AddThemeConstantOverride("separation", 10);
             _editorPanel.AddChild(vbox);
 
+            // 版本号诊断信息（放在最顶部，确保可见）
+            var diagLabel = new Label();
+            diagLabel.Name = "DiagLabel";
+            diagLabel.Text = $"[修复版本 {GridFixVersion}]";
+            diagLabel.AddThemeColorOverride("font_color", Colors.Yellow);
+            diagLabel.AddThemeFontSizeOverride("font_size", 14);
+            vbox.AddChild(diagLabel);
+            vbox.AddChild(new HSeparator());
+
             // 标题
             var title = new Label();
+            title.Name = "EditorTitle";
             title.Text = "🗺️ 地图编辑器";
             title.HorizontalAlignment = HorizontalAlignment.Center;
             title.AddThemeFontSizeOverride("font_size", 18);
             vbox.AddChild(title);
+
+            // 当前地图名
+            var mapNameLabel = new Label();
+            mapNameLabel.Name = "MapNameLabel";
+            mapNameLabel.Text = GridManager != null ? $"当前地图: {GridManager.CurrentMapName}" : "当前地图: --";
+            mapNameLabel.HorizontalAlignment = HorizontalAlignment.Center;
+            mapNameLabel.AddThemeColorOverride("font_color", Colors.Yellow);
+            vbox.AddChild(mapNameLabel);
 
             // 选中状态显示
             var selectionLabel = new Label();
@@ -333,16 +515,15 @@ namespace ClinetCSharp
             visibleCheck.Toggled += OnVisibleToggled;
             vbox.AddChild(visibleCheck);
 
-            // 地形类型
+            // 地形类型（动态加载自 TerrainConfigUtil）
             var terrainLabel = new Label();
             terrainLabel.Text = "地形类型:";
             vbox.AddChild(terrainLabel);
 
             var terrainOption = new OptionButton();
             terrainOption.Name = "TerrainOption";
-            var terrains = new[] { "普通", "水域", "草地", "沙地", "岩石", "雪地", "沼泽" };
-            for (int i = 0; i < terrains.Length; i++)
-                terrainOption.AddItem(terrains[i], i);
+            foreach (var kvp in TerrainConfigUtil.Configs)
+                terrainOption.AddItem(kvp.Value.Name, kvp.Key);
             terrainOption.ItemSelected += OnTerrainSelected;
             vbox.AddChild(terrainOption);
 
@@ -351,6 +532,21 @@ namespace ClinetCSharp
             applyBtn.Text = "✓ 应用到选中";
             applyBtn.Pressed += ApplyToSelection;
             vbox.AddChild(applyBtn);
+
+            // 撤销/重做按钮
+            var undoRedoHbox = new HBoxContainer();
+            vbox.AddChild(undoRedoHbox);
+
+            var undoBtn = new Button();
+            undoBtn.Text = "↩ 撤销";
+            undoBtn.Pressed += Undo;
+            undoRedoHbox.AddChild(undoBtn);
+
+            var redoBtn = new Button();
+            redoBtn.Name = "RedoBtn";
+            redoBtn.Text = "↪ 重做";
+            redoBtn.Pressed += Redo;
+            undoRedoHbox.AddChild(redoBtn);
 
             // 分隔线
             vbox.AddChild(new HSeparator());
@@ -570,6 +766,7 @@ namespace ClinetCSharp
                 return;
 
             SaveUndoState();
+            _redoStack.Clear();
 
             foreach (var pos in SelectedCells.Keys)
             {
@@ -606,6 +803,7 @@ namespace ClinetCSharp
                 return;
 
             SaveUndoState();
+            _redoStack.Clear(); // 新操作后清空重做栈
 
             foreach (var pos in SelectedCells.Keys)
             {
@@ -618,7 +816,8 @@ namespace ClinetCSharp
                         cell.Walkable = PaintWalkable;
                         cell.Visible = PaintVisible;
                         cell.TerrainType = PaintTerrain;
-                        cell.RefreshTerrainConfig();
+                        // 只刷新 TerrainConfig 引用，不覆盖 Walkable
+                        cell.TerrainConfig = TerrainConfigUtil.Get(PaintTerrain);
                     }
                 }
             }
@@ -748,11 +947,17 @@ namespace ClinetCSharp
 
         private void Undo()
         {
-            if (_undoStack.Count == 0)
+            if (_undoStack.Count == 0 || GridManager == null)
             {
                 GD.Print("[MapEditor] 没有可撤销的操作");
                 return;
             }
+
+            // 保存当前状态到 redo 栈
+            var currentState = CloneGridData(GridManager.GridData);
+            _redoStack.Add(currentState);
+            if (_redoStack.Count > MaxUndoSteps)
+                _redoStack.RemoveAt(0);
 
             var state = _undoStack[_undoStack.Count - 1];
             _undoStack.RemoveAt(_undoStack.Count - 1);
@@ -761,17 +966,101 @@ namespace ClinetCSharp
             GD.Print("[MapEditor] 撤销操作");
         }
 
+        private void Redo()
+        {
+            if (_redoStack.Count == 0 || GridManager == null)
+            {
+                GD.Print("[MapEditor] 没有可重做的操作");
+                return;
+            }
+
+            // 保存当前状态到 undo 栈
+            var currentState = CloneGridData(GridManager.GridData);
+            _undoStack.Add(currentState);
+            if (_undoStack.Count > MaxUndoSteps)
+                _undoStack.RemoveAt(0);
+
+            var state = _redoStack[_redoStack.Count - 1];
+            _redoStack.RemoveAt(_redoStack.Count - 1);
+            GridManager.GridData = state;
+            GridManager.QueueRedraw();
+            GD.Print("[MapEditor] 重做操作");
+        }
+
+        private List<List<GridCell>> CloneGridData(List<List<GridCell>> source)
+        {
+            var result = new List<List<GridCell>>();
+            foreach (var row in source)
+            {
+                var stateRow = new List<GridCell>();
+                foreach (var cell in row)
+                {
+                    var copy = new GridCell(cell.Pos.X, cell.Pos.Y);
+                    cell.CopyTo(copy);
+                    stateRow.Add(copy);
+                }
+                result.Add(stateRow);
+            }
+            return result;
+        }
+
         // ============ 文件操作 ============
 
         private void OnSavePressed()
         {
             if (GridManager == null)
                 return;
-            var err = GridManager.SaveCurrentMap();
-            if (err == Error.Ok)
-                GD.Print("[MapEditor] 地图保存成功");
-            else
-                GD.PushError("[MapEditor] 地图保存失败: " + err);
+
+            var mapName = GridManager.CurrentMapName;
+            var confirmDialog = new ConfirmationDialog();
+            confirmDialog.Title = "保存地图";
+            confirmDialog.DialogText = $"确定要保存地图 '{mapName}' 吗？\n这将覆盖现有的地图文件。";
+            confirmDialog.Confirmed += () =>
+            {
+                var err = GridManager.SaveCurrentMap();
+                if (err == Error.Ok)
+                {
+                    GD.Print($"[MapEditor] 地图 '{mapName}' 保存成功");
+                    ShowToast($"地图 '{mapName}' 保存成功!");
+                }
+                else
+                {
+                    GD.PushError($"[MapEditor] 地图 '{mapName}' 保存失败: " + err);
+                    ShowToast($"保存失败: {err}", Colors.Red);
+                }
+            };
+            AddChild(confirmDialog);
+            confirmDialog.PopupCentered();
+        }
+
+        private void ShowToast(string message, Color? color = null)
+        {
+            var toast = new Label();
+            toast.Text = message;
+            toast.HorizontalAlignment = HorizontalAlignment.Center;
+            toast.AddThemeColorOverride("font_color", color ?? Colors.Green);
+            toast.AddThemeFontSizeOverride("font_size", 16);
+
+            var panel = new Panel();
+            panel.SetAnchorsPreset(Control.LayoutPreset.CenterTop);
+            panel.Position = new Vector2(0, 60);
+            panel.AddChild(toast);
+
+            var canvasLayer = new CanvasLayer();
+            canvasLayer.Layer = 100;
+            canvasLayer.AddChild(panel);
+            AddChild(canvasLayer);
+
+            // 2秒后自动消失
+            var timer = new Timer();
+            timer.WaitTime = 2.0;
+            timer.OneShot = true;
+            timer.Timeout += () =>
+            {
+                canvasLayer.QueueFree();
+            };
+            canvasLayer.AddChild(timer);
+            timer.Start();
         }
 
         private void OnExportPressed()

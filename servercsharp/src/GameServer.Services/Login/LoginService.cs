@@ -41,7 +41,7 @@ public class LoginService
         _servers = servers;
         _tokenGen = tokenGen;
         _eventBus = eventBus;
-        _allowAutoRegister = config.GetValue<bool>("Game:AllowAutoRegister", false);
+        _allowAutoRegister = config.GetValue<bool>("Game:AllowAutoRegister", true);
     }
 
     public void RegisterRoutes(MessageRouter router, Gateway.GatewayService gateway)

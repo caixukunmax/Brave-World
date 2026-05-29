@@ -16,6 +16,7 @@ namespace ClinetCSharp
             if (_renderComponents.Count > 0)
                 return;
 
+            AddRenderComponent(new RenderComponents.CombatAuraComponent());
             AddRenderComponent(new RenderComponents.AppearanceComponent());
             AddRenderComponent(new RenderComponents.HealthBarComponent());
             AddRenderComponent(new RenderComponents.MpBarComponent());

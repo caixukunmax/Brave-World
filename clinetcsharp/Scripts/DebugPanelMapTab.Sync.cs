@@ -18,6 +18,15 @@ namespace ClinetCSharp
                 bool responsiveMode = GridManager.ResponsiveMode;
                 _gridSizeValue.Text = responsiveMode ? $"{GridManager.GridSize}（自动）" : GridManager.GridSize.ToString();
                 _gridSizeSlider.SetBlockSignals(false);
+
+                if (_gridAntiAliasSoftnessSlider != null)
+                {
+                    _gridAntiAliasSoftnessSlider.SetBlockSignals(true);
+                    _gridAntiAliasSoftnessSlider.Value = GridManager.GetGridAntiAliasSoftness();
+                    _gridAntiAliasSoftnessSlider.SetBlockSignals(false);
+                    if (_gridAntiAliasSoftnessValue != null)
+                        _gridAntiAliasSoftnessValue.Text = $"{GridManager.GetGridAntiAliasSoftness():F1}x";
+                }
             }
 
             UpdateStrategySectionVisibility();

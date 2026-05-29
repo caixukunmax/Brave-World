@@ -69,7 +69,7 @@ message CombatLogNotify {
 }
 
 /**
- * 战斗 ATB 状态推送
+ * 战斗状态推送（纯 CD 即时制）
  */
 message CombatStateNotify {
   message SkillCdEntry {
@@ -80,7 +80,7 @@ message CombatStateNotify {
   message CombatUnit {
     uint64 entity_id = 1;      // account_id 或 instance_id
     string entity_name = 2;    // 显示名称
-    float atb = 3;             // 0.0 ~ 100.0
+    float atb = 3;             // 【已废弃】纯 CD 制下始终为 0，保留以兼容旧客户端
     bool is_player = 4;        // true=玩家, false=怪物
     int32 hp = 5;              // 当前血量
     int32 max_hp = 6;          // 最大血量
@@ -779,6 +779,75 @@ enum CombatEndReason {
 message CombatEndNotify {
   CombatEndReason reason = 1;
   repeated uint64 entity_ids = 2;
+}
+
+/**
+ * 读条开始通知（cast_time > 0 时广播）
+ */
+message CastStartNotify {
+  uint64 caster_id = 1;
+  uint32 skill_id = 2;
+  float cast_time = 3;
+  uint64 target_id = 4;    // 主目标
+  int32 target_x = 5;      // 若是 GroundPos
+  int32 target_y = 6;
+}
+
+/**
+ * 技能释放结果通知（成功/打空）
+ */
+message CastResultNotify {
+  uint64 caster_id = 1;
+  uint32 skill_id = 2;
+  repeated uint64 target_ids = 3;
+  bool is_miss = 4;        // true = 打空（无合法目标）
+}
+
+/**
+ * 战斗事件通知（伤害/治疗/Buff）
+ */
+message CombatEventNotify {
+  uint64 target_id = 1;
+  int32 hp_delta = 2;      // 正值=治疗，负值=伤害
+  int32 mp_delta = 3;
+  repeated CombatBuffEntry buffs = 4;
+}
+
+message CombatBuffEntry {
+  int32 buff_id = 1;
+  string buff_name = 2;
+  int32 stacks = 3;
+  float remaining_time = 4;
+  int32 shield_amount = 5;
+}
+
+/**
+ * 弹道生成通知（当前未实现弹道系统，预留）
+ */
+message ProjectileSpawnNotify {
+  uint64 projectile_id = 1;
+  uint32 skill_id = 2;
+  int32 from_x = 3;
+  int32 from_y = 4;
+  int32 to_x = 5;
+  int32 to_y = 6;
+  float speed = 7;
+}
+
+/**
+ * 弹道命中通知（当前未实现弹道系统，预留）
+ */
+message ProjectileHitNotify {
+  uint64 projectile_id = 1;
+  uint64 target_id = 2;
+  repeated CombatEventNotify events = 3;
+}
+
+/**
+ * 单体脱战通知
+ */
+message DisengageNotify {
+  uint64 entity_id = 1;
 }
 
 /**

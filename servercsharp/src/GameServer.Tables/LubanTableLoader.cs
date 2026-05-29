@@ -154,6 +154,15 @@ public class LubanTableLoader
     }
 
     /// <summary>
+    /// 获取玩家先攻加速值（从 TbPlayerAttr 表读取，默认 id=1）
+    /// </summary>
+    public int GetPlayerFirstStrikeHaste(int id = 1)
+    {
+        var row = PlayerAttrs.GetValueOrDefault(id);
+        return row?.FirstStrikeHaste ?? 30;
+    }
+
+    /// <summary>
     /// 获取指定等级的玩家完整属性（基础 + 等级成长）
     /// 返回 (hp, mp, patk, matk, pdef, mdef, mpRegen)
     /// </summary>
@@ -200,9 +209,9 @@ public class LubanTableLoader
         int matk = Math.Max(1, atk / 2);
         int mdef = Math.Max(1, def / 2);
 
-        // 如果将来 xlsx 扩展了更多属性键（使用 EAttr 枚举值），优先使用
-        // EAttr: PATK=5, MATK=6, PDEF=7, MDEF=8
-        if (map.TryGetValue(5, out var pa)) patk = pa;
+        // 配置表 attrs 格式: HP=1|ATK=2|DEF=3|AGILITY=5
+        // attr_key=5 是 AGILITY（敏捷/闪避相关），不是 PATK
+        // 若将来需扩展 PATK/MATK/PDEF/MDEF，应在配置表中新增对应字段
         if (map.TryGetValue(6, out var ma)) matk = ma;
         if (map.TryGetValue(7, out var pd)) pdef = pd;
         if (map.TryGetValue(8, out var md)) mdef = md;

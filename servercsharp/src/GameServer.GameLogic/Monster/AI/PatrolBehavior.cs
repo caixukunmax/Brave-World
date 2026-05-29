@@ -58,7 +58,7 @@ public class PatrolBehavior : IBehaviorHandler
                 var next = Pathfind.BfsNextStep(m.X, m.Y, tx, ty, mapName, _mapData, isBlocked);
                 if (next != null)
                 {
-                    m.State = "patrol";
+                    m.State = MonsterState.Patrol;
                     m.LastMoveTime = now;
                     return next;
                 }
@@ -80,7 +80,7 @@ public class PatrolBehavior : IBehaviorHandler
             {
                 if (_mapData.IsWalkable(mapName, nx, ny) && !isBlocked(nx, ny))
                 {
-                    m.State = "patrol";
+                    m.State = MonsterState.Patrol;
                     m.LastMoveTime = now;
                     return (nx, ny);
                 }

@@ -14,6 +14,7 @@ public class SkillPipeline
     private readonly ActionRegistry _actionRegistry;
     private readonly LubanTableLoader? _tables;
     public CombatManager? CombatManager { get; set; }
+    public ProjectileManager? ProjectileManager { get; set; }
 
     // 静态引用供无状态 handler 查询技能配置
     private static LubanTableLoader? _staticTables;
@@ -94,6 +95,18 @@ public class SkillPipeline
                     candidates.Add((rel.TargetId, d));
             }
 
+            // 优先攻击目标：如果设定且在射程内，优先使用
+            if (ctx.PriorityTargetId > 0)
+            {
+                var priorityPositions = FindEntityCombatPositions(ctx.PriorityTargetId, maps);
+                if (priorityPositions.Count > 0)
+                {
+                    int pd = MinCombatDistance(casterPositions, priorityPositions);
+                    if (pd <= cfg.CastRange)
+                        return [ctx.PriorityTargetId];
+                }
+            }
+
             candidates.Sort((a, b) => a.dist.CompareTo(b.dist));
             return candidates.Count > 0 ? [candidates[0].id] : null;
         }
@@ -160,7 +173,7 @@ public class SkillPipeline
     }
 
     // ---- 阶段 3: Cast Start ----
-    public void StartCast(long casterId, int skillId, Dictionary<string, MapState>? maps)
+    public void StartCast(long casterId, int skillId, Dictionary<string, MapState>? maps, double? actualCastTime = null)
     {
         var ctx = CombatManager!.RelationsMgr.Contexts.GetValueOrDefault(casterId);
         var cfg = GetSkillConfig(skillId);
@@ -168,7 +181,8 @@ public class SkillPipeline
 
         ctx.SubState = "CASTING";
         ctx.CastSkillId = skillId;
-        ctx.CastEndTime = Environment.TickCount64 + (long)(cfg.CastTime * 1000);
+        double effectiveCastTime = actualCastTime ?? cfg.CastTime;
+        ctx.CastEndTime = Environment.TickCount64 + (long)(effectiveCastTime * 1000);
 
         // 扣除 MP（仅玩家，怪物 mp_cost=0 不扣）
         if (cfg.MpCost > 0 && maps != null)
@@ -240,6 +254,7 @@ public class SkillPipeline
             SkillLevel = 1,
             CombatManager = CombatManager,
             Maps = maps,
+            ProjectileManager = ProjectileManager,
         };
 
         foreach (var actionCfg in cfg.Actions)
@@ -253,9 +268,17 @@ public class SkillPipeline
                 4 => "ApplyBuff",     // ECombatActionType.ApplyBuff
                 5 => "ApplyBuff",     // ECombatActionType.ApplyShield (复用 ApplyBuff，shield_base 在 BuffConfig 里)
                 6 => "Purify",        // ECombatActionType.Purify
+                7 => "SpawnProjectile", // ECombatActionType.SpawnProjectile
                 _ => null!
             };
             if (actionType == null) continue;
+
+            // SpawnProjectile 特殊处理：直接生成弹道，不走 ActionRegistry
+            if (actionType == "SpawnProjectile")
+            {
+                SpawnProjectile(casterId, targets, context, cfg, actionCfg);
+                continue;
+            }
 
             var handler = _actionRegistry.Get(actionType);
             if (handler != null)
@@ -327,15 +350,37 @@ public class SkillPipeline
 
         // 阶段 3: Cast Start
         double castTime = cfg?.CastTime ?? 0;
-        CombatTrace.SkillStartCast(_logger, combatId, casterId, SkillPipeline.GetEntityName(casterId, maps!), skillId, castTime, cfg?.MpCost ?? 0);
-        StartCast(casterId, skillId, maps);
 
-        if (castTime > 0) return "PENDING";
+        // 应用先攻加速：首个技能且未使用过先手时，按百分比减少 CastTime
+        if (!ctx.HasUsedFirstStrike && ctx.FirstStrikeHaste > 0 && castTime > 0)
+        {
+            double hasteRatio = ctx.FirstStrikeHaste / 100.0;
+            castTime = castTime * (1.0 - hasteRatio);
+            if (castTime < 0) castTime = 0;
+            ctx.HasUsedFirstStrike = true;
+        }
+
+        CombatTrace.SkillStartCast(_logger, combatId, casterId, SkillPipeline.GetEntityName(casterId, maps!), skillId, castTime, cfg?.MpCost ?? 0);
+        StartCast(casterId, skillId, maps, castTime);
+
+        if (castTime > 0 && maps != null && CombatManager != null)
+        {
+            var primaryTargetId = targets.Count > 0 ? targets[0] : casterId;
+            var (_, pos) = SkillPipeline.FindEntityPosition(primaryTargetId, maps);
+            CombatManager.BroadcastCastStartNotify(casterId, skillId, (float)castTime, primaryTargetId, pos?.x ?? 0, pos?.y ?? 0, maps);
+            return "PENDING";
+        }
 
         // 阶段 4: Final Validation
         if (!FinalValidation(skillId, casterId, targets, maps))
         {
             CombatTrace.SkillFinalValidation(_logger, combatId, casterId, SkillPipeline.GetEntityName(casterId, maps!), skillId, false, targets);
+            if (cfg != null && cfg.MpCost > 0 && maps != null)
+            {
+                RefundMp(casterId, cfg.MpCost, maps);
+            }
+            if (maps != null && CombatManager != null)
+                CombatManager.BroadcastCastResultNotify(casterId, skillId, targets, true, maps);
             EndCast(casterId, skillId, true);
             return "MISS";
         }
@@ -347,6 +392,8 @@ public class SkillPipeline
 
         // 阶段 6: Cast End
         EndCast(casterId, skillId, false);
+        if (maps != null && CombatManager != null)
+            CombatManager.BroadcastCastResultNotify(casterId, skillId, targets, false, maps);
         CombatTrace.SkillCastResult(_logger, combatId, casterId, SkillPipeline.GetEntityName(casterId, maps!), skillId, "SUCCESS");
         return "SUCCESS";
     }
@@ -367,22 +414,103 @@ public class SkillPipeline
         if (Environment.TickCount64 < ctx.CastEndTime) return "PENDING";
 
         var targets = SelectTargets(skillId.Value, casterId, ctx, maps);
+
+        // 读条期间目标死亡/消失：尝试自动切换为仇恨最高的敌人
         if (targets == null || targets.Count == 0)
         {
+            var fallbackTargets = SelectTargetsByHate(skillId.Value, casterId, ctx, maps);
+            if (fallbackTargets != null && fallbackTargets.Count > 0)
+            {
+                targets = fallbackTargets;
+            }
+        }
+
+        // 仍然找不到目标：中断读条，返还 MP
+        if (targets == null || targets.Count == 0)
+        {
+            var cfg = GetSkillConfig(skillId.Value);
+            if (cfg != null && cfg.MpCost > 0 && maps != null)
+            {
+                RefundMp(casterId, cfg.MpCost, maps);
+            }
+            if (maps != null && CombatManager != null)
+                CombatManager.BroadcastCastResultNotify(casterId, skillId.Value, new List<long>(), true, maps);
             EndCast(casterId, skillId.Value, true);
-            return "MISS";
+            return "INTERRUPTED";
         }
 
         if (!FinalValidation(skillId.Value, casterId, targets, maps))
         {
+            var cfg = GetSkillConfig(skillId.Value);
+            if (cfg != null && cfg.MpCost > 0 && maps != null)
+            {
+                RefundMp(casterId, cfg.MpCost, maps);
+            }
+            if (maps != null && CombatManager != null)
+                CombatManager.BroadcastCastResultNotify(casterId, skillId.Value, targets, true, maps);
             EndCast(casterId, skillId.Value, true);
             return "MISS";
         }
 
         ExecuteActions(skillId.Value, casterId, targets, maps);
         EndCast(casterId, skillId.Value, false);
+        if (maps != null && CombatManager != null)
+            CombatManager.BroadcastCastResultNotify(casterId, skillId.Value, targets, false, maps);
         CombatTrace.SkillCastResult(_logger, CombatManager?.GetCombatId(casterId) ?? 0, casterId, SkillPipeline.GetEntityName(casterId, maps!), skillId.Value, "SUCCESS");
         return "SUCCESS";
+    }
+
+    // ---- SpawnProjectile ----
+    private void SpawnProjectile(long casterId, List<long> targets, ActionContext context, SkillConfigRow cfg, CombatActionBeanRow actionCfg)
+    {
+        var maps = context.Maps;
+        var projectileMgr = context.ProjectileManager;
+        var combatMgr = context.CombatManager;
+        if (maps == null || projectileMgr == null || combatMgr == null)
+        {
+            _logger.LogWarning("[SkillPipeline] SpawnProjectile missing dependencies");
+            return;
+        }
+
+        // 获取施法者位置
+        var (casterMap, casterPos) = FindEntityPosition(casterId, maps);
+        if (casterMap == null || casterPos == null)
+        {
+            _logger.LogWarning("[SkillPipeline] SpawnProjectile caster position not found");
+            return;
+        }
+
+        // 获取目标位置（取 targets[0] 的当前位置）
+        int targetX = casterPos.Value.x;
+        int targetY = casterPos.Value.y;
+        if (targets.Count > 0)
+        {
+            var (tMap, tPos) = FindEntityPosition(targets[0], maps);
+            if (tMap == casterMap && tPos != null)
+            {
+                targetX = tPos.Value.x;
+                targetY = tPos.Value.y;
+            }
+            else
+            {
+                _logger.LogWarning("[SkillPipeline] SpawnProjectile target position not found, skipping");
+                return;
+            }
+        }
+
+        string damageType = actionCfg.DamageType == 2 ? "magical" : "physical";
+        float speed = cfg.ProjectileSpeed > 0 ? cfg.ProjectileSpeed : 5f;
+        int maxRange = cfg.ProjectileMaxRange > 0 ? cfg.ProjectileMaxRange : cfg.CastRange;
+
+        long projectileId = projectileMgr.Spawn(
+            casterId, cfg.Id, casterMap,
+            casterPos.Value.x, casterPos.Value.y,
+            targetX, targetY,
+            speed, maxRange, damageType, actionCfg.Coefficient);
+
+        // 广播弹道生成通知
+        combatMgr.BroadcastProjectileSpawnNotify(projectileId, casterId, cfg.Id,
+            casterPos.Value.x, casterPos.Value.y, targetX, targetY, speed, maps);
     }
 
     // ---- Helpers ----
@@ -473,5 +601,89 @@ public class SkillPipeline
             if (map.Npcs.ContainsKey(entityId)) return mapName;
         }
         return null;
+    }
+
+    /// <summary>
+    /// 按仇恨优先级选择目标（读条期间原目标死亡时的自动切换）。
+    /// 优先级：挑衅期内 > 距离最近 > 血量最低 > 累计伤害最高。
+    /// </summary>
+    public List<long>? SelectTargetsByHate(int skillId, long casterId, CombatContext ctx, Dictionary<string, MapState>? maps)
+    {
+        var cfg = GetSkillConfig(skillId);
+        if (cfg == null || maps == null) return null;
+
+        var casterPositions = FindEntityCombatPositions(casterId, maps);
+        if (casterPositions.Count == 0) return null;
+
+        if (cfg.TargetType == ESkillTargetType.SingleEnemy)
+        {
+            long nowMs = Environment.TickCount64;
+            var candidates = new List<(long id, int dist, int hpPercent, int accumulatedDmg, bool inTaunt)>();
+
+            foreach (var relationId in ctx.RelationIds)
+            {
+                var rel = CombatManager!.RelationsMgr.Relations.GetValueOrDefault(relationId);
+                if (rel == null || !rel.IsActive || rel.AttackerId != casterId) continue;
+
+                var targetPositions = FindEntityCombatPositions(rel.TargetId, maps);
+                if (targetPositions.Count == 0) continue;
+
+                int d = MinCombatDistance(casterPositions, targetPositions);
+                if (d > cfg.CastRange) continue;
+
+                // 获取目标血量百分比
+                int hpPercent = 100;
+                int maxHp = 1;
+                foreach (var map in maps.Values)
+                {
+                    if (map.Players.TryGetValue(rel.TargetId, out var p))
+                    { maxHp = Math.Max(1, p.MaxHp); hpPercent = p.Hp * 100 / maxHp; break; }
+                    if (map.Monsters.TryGetValue(rel.TargetId, out var m))
+                    { maxHp = Math.Max(1, m.MaxHp); hpPercent = m.Hp * 100 / maxHp; break; }
+                }
+
+                bool inTaunt = rel.TauntEndTime > nowMs && rel.TauntSourceId == casterId;
+                candidates.Add((rel.TargetId, d, hpPercent, rel.AccumulatedDamage, inTaunt));
+            }
+
+            if (candidates.Count == 0) return null;
+
+            // 排序：挑衅期内 > 距离最近 > 血量最低 > 累计伤害最高
+            candidates.Sort((a, b) =>
+            {
+                int cmp = b.inTaunt.CompareTo(a.inTaunt); // true > false
+                if (cmp != 0) return cmp;
+                cmp = a.dist.CompareTo(b.dist);
+                if (cmp != 0) return cmp;
+                cmp = a.hpPercent.CompareTo(b.hpPercent);
+                if (cmp != 0) return cmp;
+                return b.accumulatedDmg.CompareTo(a.accumulatedDmg);
+            });
+
+            return [candidates[0].id];
+        }
+
+        // 其他目标类型暂时按普通SelectTargets处理
+        return SelectTargets(skillId, casterId, ctx, maps);
+    }
+
+    /// <summary>
+    /// 返还 MP 给施法者（读条中断时）。
+    /// </summary>
+    private static void RefundMp(long entityId, int mpCost, Dictionary<string, MapState> maps)
+    {
+        foreach (var map in maps.Values)
+        {
+            if (map.Players.TryGetValue(entityId, out var p))
+            {
+                p.Mp = Math.Min(p.MaxMp, p.Mp + mpCost);
+                return;
+            }
+            if (map.Monsters.TryGetValue(entityId, out var m))
+            {
+                m.Mp = Math.Min(m.MaxMp, m.Mp + mpCost);
+                return;
+            }
+        }
     }
 }

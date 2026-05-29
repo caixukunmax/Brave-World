@@ -141,6 +141,9 @@ namespace ClinetCSharp
         public float CastBarLength => Mathf.Clamp(VisualOuterSize * CastBarLengthScale, 10.0f, GridSize * 2.0f);
         public float CastBarHeight => Mathf.Clamp(GridSize * CastBarHeightScale, 2.0f, GridSize);
 
+        // ========== 战斗状态 ==========
+        public bool IsInCombat { get; set; } = false;
+
         // ========== 动作栏（Monster 已在用，Player 也有） ==========
         public string CastingSkill { get; set; } = "";
         public float CastProgress { get; set; } = 0f;

@@ -1,4 +1,5 @@
 using System.Net.Sockets;
+using System.Linq;
 using Google.Protobuf;
 using PCommon = global::Common;
 using PProtocol = global::Protocol;
@@ -30,6 +31,8 @@ class Program
     static string CurrentMap = "xinshoucun";
     static int GridX = 25;
     static int GridY = 25;
+
+    static readonly System.Collections.Generic.List<PCommon.Packet> PushQueue = new();
 
     static async Task Main(string[] args)
     {
@@ -85,6 +88,26 @@ class Program
                         var password = GetArg(args, "--password", "test");
                         var gmCmd = GetArg(args, "--cmd", "help");
                         await RunGm(username, password, gmCmd);
+                        break;
+                    }
+                case "combat":
+                    {
+                        var username = GetArg(args, "--username", "test");
+                        var password = GetArg(args, "--password", "test");
+                        var tx = int.Parse(GetArg(args, "--tx", "20"));
+                        var ty = int.Parse(GetArg(args, "--ty", "20"));
+                        await RunCombatTest(username, password, tx, ty);
+                        break;
+                    }
+                case "flee":
+                    {
+                        var username = GetArg(args, "--username", "test");
+                        var password = GetArg(args, "--password", "test");
+                        var tx = int.Parse(GetArg(args, "--tx", "20"));
+                        var ty = int.Parse(GetArg(args, "--ty", "20"));
+                        var fleeX = int.Parse(GetArg(args, "--flee-x", "40"));
+                        var fleeY = int.Parse(GetArg(args, "--flee-y", "40"));
+                        await RunFleeTest(username, password, tx, ty, fleeX, fleeY);
                         break;
                     }
                 case "bot":
@@ -243,6 +266,156 @@ class Program
 
         var gmRsp = await DoGm(gmCmd);
         Console.WriteLine($"[GM] code={gmRsp?.Code}, msg={gmRsp?.Message}");
+    }
+
+    static async Task RunFleeTest(string username, string password, int targetX, int targetY, int fleeX, int fleeY)
+    {
+        await ConnectAsync();
+        await SendGatewayConnect();
+
+        var loginRsp = await DoLogin(username, password);
+        if (loginRsp?.Code != PCommon.ErrorCode.Success) { Console.WriteLine("[FAIL] Login"); return; }
+
+        var selectRsp = await DoSelectServer(1);
+        if (selectRsp?.Code != PCommon.ErrorCode.Success) { Console.WriteLine("[FAIL] SelectServer"); return; }
+
+        if (selectRsp.Roles.Count == 0)
+        {
+            var name = $"Test_{Guid.NewGuid().ToString()[..6]}";
+            var createRsp = await DoCreateRole(name);
+            if (createRsp?.Code != PCommon.ErrorCode.Success) { Console.WriteLine("[FAIL] CreateRole"); return; }
+            RoleId = createRsp.RoleInfo.RoleId;
+        }
+        else
+        {
+            RoleId = selectRsp.Roles[0].RoleId;
+        }
+
+        var enterRsp = await DoEnterGame(RoleId);
+        if (enterRsp?.Code != PCommon.ErrorCode.Success) { Console.WriteLine("[FAIL] EnterGame"); return; }
+        CurrentMap = enterRsp.RoleInfo.CurrentMap;
+        GridX = enterRsp.RoleInfo.GridX;
+        GridY = enterRsp.RoleInfo.GridY;
+
+        Console.WriteLine($"[FLEE] In game at ({GridX},{GridY}) on {CurrentMap}");
+
+        // Step 1: Teleport near monster to trigger combat
+        var gmRsp = await DoGm($"teleport,{targetX},{targetY}");
+        Console.WriteLine($"[GM] teleport to monster: {gmRsp?.Message}");
+        if (gmRsp?.Code == PCommon.ErrorCode.Success)
+        {
+            var parts = gmRsp.Message?.Split(':');
+            if (parts != null && parts.Length >= 3)
+            {
+                if (int.TryParse(parts[1], out var nx)) GridX = nx;
+                if (int.TryParse(parts[2], out var ny)) GridY = ny;
+            }
+        }
+        DrainPushQueue();
+
+        // Move one step to trigger collision/combat
+        int dx = targetX > GridX ? 1 : (targetX < GridX ? -1 : 0);
+        int dy = targetY > GridY ? 1 : (targetY < GridY ? -1 : 0);
+        if (dx == 0 && dy == 0) dx = 1;
+        var moveRsp = await DoMove(GridX + dx, GridY + dy);
+        Console.WriteLine($"[MOVE] trigger move: code={moveRsp?.Code}, pos=({moveRsp?.X},{moveRsp?.Y})");
+
+        // Wait 3s for combat to establish
+        Console.WriteLine("[FLEE] Waiting 3s for combat to establish...");
+        await WatchPushMessages(3000);
+
+        // Step 2: Teleport far away to force chase timeout
+        Console.WriteLine($"[FLEE] Teleporting far away to ({fleeX},{fleeY})...");
+        var fleeRsp = await DoGm($"teleport,{fleeX},{fleeY}");
+        Console.WriteLine($"[GM] flee teleport: {fleeRsp?.Message}");
+        if (fleeRsp?.Code == PCommon.ErrorCode.Success)
+        {
+            var parts = fleeRsp.Message?.Split(':');
+            if (parts != null && parts.Length >= 3)
+            {
+                if (int.TryParse(parts[1], out var nx)) GridX = nx;
+                if (int.TryParse(parts[2], out var ny)) GridY = ny;
+            }
+        }
+        DrainPushQueue();
+
+        // Step 3: Watch for 20s to observe chase -> timeout -> return -> re-aggro?
+        Console.WriteLine("[FLEE] Watching monster behavior for 20s...");
+        await WatchPushMessages(20000);
+        Console.WriteLine("[FLEE] Test complete.");
+    }
+
+    static async Task RunCombatTest(string username, string password, int targetX, int targetY)
+    {
+        await ConnectAsync();
+        await SendGatewayConnect();
+
+        // Login flow
+        var loginRsp = await DoLogin(username, password);
+        if (loginRsp?.Code != PCommon.ErrorCode.Success) { Console.WriteLine("[FAIL] Login"); return; }
+
+        var selectRsp = await DoSelectServer(1);
+        if (selectRsp?.Code != PCommon.ErrorCode.Success) { Console.WriteLine("[FAIL] SelectServer"); return; }
+
+        if (selectRsp.Roles.Count == 0)
+        {
+            var name = $"Test_{Guid.NewGuid().ToString()[..6]}";
+            var createRsp = await DoCreateRole(name);
+            if (createRsp?.Code != PCommon.ErrorCode.Success) { Console.WriteLine("[FAIL] CreateRole"); return; }
+            RoleId = createRsp.RoleInfo.RoleId;
+        }
+        else
+        {
+            RoleId = selectRsp.Roles[0].RoleId;
+        }
+
+        var enterRsp = await DoEnterGame(RoleId);
+        if (enterRsp?.Code != PCommon.ErrorCode.Success) { Console.WriteLine("[FAIL] EnterGame"); return; }
+        CurrentMap = enterRsp.RoleInfo.CurrentMap;
+        GridX = enterRsp.RoleInfo.GridX;
+        GridY = enterRsp.RoleInfo.GridY;
+
+        Console.WriteLine($"[COMBAT] In game at ({GridX},{GridY}) on {CurrentMap}");
+
+        // Step 1: Teleport near target
+        var gmRsp = await DoGm($"teleport,{targetX},{targetY}");
+        Console.WriteLine($"[GM] teleport result: code={gmRsp?.Code}, msg={gmRsp?.Message}");
+        if (gmRsp?.Code == PCommon.ErrorCode.Success)
+        {
+            // Parse teleport result to update coords
+            var parts = gmRsp.Message?.Split(':');
+            if (parts != null && parts.Length >= 3)
+            {
+                if (int.TryParse(parts[1], out var nx)) GridX = nx;
+                if (int.TryParse(parts[2], out var ny)) GridY = ny;
+            }
+            Console.WriteLine($"[COMBAT] Teleported to ({GridX},{GridY})");
+        }
+        else
+        {
+            Console.WriteLine("[FAIL] Teleport failed");
+            return;
+        }
+
+        // Drain any push messages that arrived during setup
+        DrainPushQueue();
+
+        // Step 2: Move one step toward the target to trigger collision
+        int dx = targetX > GridX ? 1 : (targetX < GridX ? -1 : 0);
+        int dy = targetY > GridY ? 1 : (targetY < GridY ? -1 : 0);
+        if (dx == 0 && dy == 0) dx = 1; // already at target, move anyway
+
+        int moveTx = GridX + dx;
+        int moveTy = GridY + dy;
+        Console.WriteLine($"[COMBAT] Moving from ({GridX},{GridY}) to ({moveTx},{moveTy})...");
+
+        var moveRsp = await DoMove(moveTx, moveTy);
+        Console.WriteLine($"[MOVE] code={moveRsp?.Code}, msg={moveRsp?.Message}, pos=({moveRsp?.X},{moveRsp?.Y}), duration={moveRsp?.DurationMs}ms");
+
+        // Step 3: Watch push messages for 10 seconds
+        Console.WriteLine("[COMBAT] Watching push messages for 10s...");
+        await WatchPushMessages(10000);
+        Console.WriteLine("[COMBAT] Test complete.");
     }
 
     static async Task RunBot(string username, string password, int durationSec)
@@ -471,6 +644,20 @@ class Program
 
     static async Task<byte[]?> TryReadResponse(uint expectedSession)
     {
+        // Check push queue first
+        lock (PushQueue)
+        {
+            for (int i = 0; i < PushQueue.Count; i++)
+            {
+                if (PushQueue[i].Session == expectedSession)
+                {
+                    var data = PushQueue[i].Data.ToByteArray();
+                    PushQueue.RemoveAt(i);
+                    return data;
+                }
+            }
+        }
+
         if (Stream == null || Tcp == null) return null;
 
         // Read available bytes
@@ -506,9 +693,132 @@ class Program
             {
                 return packet.Data.ToByteArray();
             }
-            // else: unsolicited message, ignore for now
+            else
+            {
+                lock (PushQueue) { PushQueue.Add(packet); }
+            }
         }
         return null;
+    }
+
+    static void DrainPushQueue()
+    {
+        lock (PushQueue)
+        {
+            foreach (var packet in PushQueue)
+            {
+                PrintPushMessage(packet);
+            }
+            PushQueue.Clear();
+        }
+    }
+
+    static void PrintPushMessage(PCommon.Packet packet)
+    {
+        try
+        {
+            var msgId = (PProtocol.MessageId)packet.MsgId;
+            switch (msgId)
+            {
+                case PProtocol.MessageId.GameCombatStartNotify:
+                    {
+                        var n = PGame.CombatStartNotify.Parser.ParseFrom(packet.Data);
+                        Console.WriteLine($"[PUSH] CombatStart: entities=[{string.Join(",", n.EntityIds)}]");
+                        break;
+                    }
+                case PProtocol.MessageId.GameCombatEndNotify:
+                    {
+                        var n = PGame.CombatEndNotify.Parser.ParseFrom(packet.Data);
+                        Console.WriteLine($"[PUSH] CombatEnd: reason={n.Reason}, entities=[{string.Join(",", n.EntityIds)}]");
+                        break;
+                    }
+                case PProtocol.MessageId.GameCombatStateNotify:
+                    {
+                        var n = PGame.CombatStateNotify.Parser.ParseFrom(packet.Data);
+                        var units = string.Join(", ", n.Units.Select(u => $"{u.EntityName}(id={u.EntityId},hp={u.Hp}/{u.MaxHp},mp={u.Mp}/{u.MaxMp})"));
+                        Console.WriteLine($"[PUSH] CombatState: [{units}]");
+                        break;
+                    }
+                case PProtocol.MessageId.GameMonsterMoveNotify:
+                    {
+                        var n = PGame.MonsterMoveNotify.Parser.ParseFrom(packet.Data);
+                        Console.WriteLine($"[PUSH] MonsterMove: id={n.InstanceId} from=({n.FromX},{n.FromY}) to=({n.ToX},{n.ToY})");
+                        break;
+                    }
+                case PProtocol.MessageId.GameMoveCancelNotify:
+                    {
+                        var n = PGame.MoveCancelNotify.Parser.ParseFrom(packet.Data);
+                        Console.WriteLine($"[PUSH] MoveCancel: entity={n.EntityId} rollback=({n.RollbackX},{n.RollbackY})");
+                        break;
+                    }
+                case PProtocol.MessageId.GameBuffUpdateNotify:
+                    {
+                        var n = PGame.BuffUpdateNotify.Parser.ParseFrom(packet.Data);
+                        var buffs = string.Join(", ", n.Buffs.Select(b => $"{b.BuffName}(id={b.BuffId},stacks={b.Stacks})"));
+                        Console.WriteLine($"[PUSH] BuffUpdate: entity={n.EntityId} buffs=[{buffs}]");
+                        break;
+                    }
+                default:
+                    Console.WriteLine($"[PUSH] msgId={packet.MsgId} session={packet.Session} len={packet.Data.Length}");
+                    break;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[PUSH] msgId={packet.MsgId} session={packet.Session} parse_error={ex.Message}");
+        }
+    }
+
+    static async Task WatchPushMessages(int durationMs)
+    {
+        if (Stream == null || Tcp == null) return;
+        var deadline = DateTime.UtcNow.AddMilliseconds(durationMs);
+        while (DateTime.UtcNow < deadline)
+        {
+            lock (PushQueue)
+            {
+                while (PushQueue.Count > 0)
+                {
+                    var packet = PushQueue[0];
+                    PushQueue.RemoveAt(0);
+                    PrintPushMessage(packet);
+                }
+            }
+
+            if (Stream.DataAvailable || Tcp.Available > 0)
+            {
+                var buf = new byte[Tcp.Available];
+                var read = await Stream.ReadAsync(buf);
+                if (read > 0)
+                {
+                    var newBuf = new byte[ReadBuffer.Length + read];
+                    Buffer.BlockCopy(ReadBuffer, 0, newBuf, 0, ReadBuffer.Length);
+                    Buffer.BlockCopy(buf, 0, newBuf, ReadBuffer.Length, read);
+                    ReadBuffer = newBuf;
+
+                    while (true)
+                    {
+                        if (ExpectedLength < 0)
+                        {
+                            if (ReadBuffer.Length < 4) break;
+                            ExpectedLength = BitConverter.ToInt32(ReadBuffer, 0);
+                            ReadBuffer = ReadBuffer[4..];
+                        }
+                        if (ReadBuffer.Length < ExpectedLength) break;
+
+                        var packetBytes = new byte[ExpectedLength];
+                        Buffer.BlockCopy(ReadBuffer, 0, packetBytes, 0, ExpectedLength);
+                        ReadBuffer = ReadBuffer[ExpectedLength..];
+                        ExpectedLength = -1;
+
+                        var packet = PCommon.Packet.Parser.ParseFrom(packetBytes);
+                        PrintPushMessage(packet);
+                    }
+                }
+            }
+
+            await Task.Delay(100);
+        }
     }
 
     // ─────────────────────────────────────────────────────────
@@ -536,6 +846,7 @@ class Program
         Console.WriteLine("  enter --username U --password P [--role-name N]  Full login+enter/create");
         Console.WriteLine("  move --username U --password P --x X --y Y       Login and move to (X,Y)");
         Console.WriteLine("  gm --username U --password P --cmd CMD           Execute GM command");
+        Console.WriteLine("  combat --username U --password P --tx X --ty Y   Teleport to (X,Y) and move 1 step to trigger combat");
         Console.WriteLine("  bot --username U --password P [--duration N]     Run a random-move bot for N seconds");
         Console.WriteLine("");
         Console.WriteLine("Global flags:");

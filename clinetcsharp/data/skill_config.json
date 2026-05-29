@@ -17,7 +17,9 @@
         "buff_id": 0
       }
     ],
-    "job": 1
+    "job": 1,
+    "projectile_speed": 0,
+    "projectile_max_range": 0
   },
   {
     "id": 3,
@@ -43,7 +45,9 @@
         "buff_id": 10
       }
     ],
-    "job": 1
+    "job": 1,
+    "projectile_speed": 0,
+    "projectile_max_range": 0
   },
   {
     "id": 4,
@@ -63,7 +67,9 @@
         "buff_id": 0
       }
     ],
-    "job": 1
+    "job": 1,
+    "projectile_speed": 0,
+    "projectile_max_range": 0
   },
   {
     "id": 5,
@@ -77,13 +83,15 @@
     "target_type": 1,
     "actions": [
       {
-        "action_type": 1,
+        "action_type": 7,
         "damage_type": 2,
         "coefficient": 1.5,
         "buff_id": 0
       }
     ],
-    "job": 2
+    "job": 2,
+    "projectile_speed": 5,
+    "projectile_max_range": 3
   },
   {
     "id": 6,
@@ -109,7 +117,9 @@
         "buff_id": 6
       }
     ],
-    "job": 2
+    "job": 2,
+    "projectile_speed": 0,
+    "projectile_max_range": 0
   },
   {
     "id": 7,
@@ -129,7 +139,9 @@
         "buff_id": 0
       }
     ],
-    "job": 2
+    "job": 2,
+    "projectile_speed": 0,
+    "projectile_max_range": 0
   },
   {
     "id": 9,
@@ -149,7 +161,9 @@
         "buff_id": 0
       }
     ],
-    "job": 3
+    "job": 3,
+    "projectile_speed": 0,
+    "projectile_max_range": 0
   },
   {
     "id": 10,
@@ -169,7 +183,9 @@
         "buff_id": 0
       }
     ],
-    "job": 3
+    "job": 3,
+    "projectile_speed": 0,
+    "projectile_max_range": 0
   },
   {
     "id": 11,
@@ -189,7 +205,9 @@
         "buff_id": 0
       }
     ],
-    "job": 3
+    "job": 3,
+    "projectile_speed": 0,
+    "projectile_max_range": 0
   },
   {
     "id": 12,
@@ -209,7 +227,9 @@
         "buff_id": 0
       }
     ],
-    "job": 4
+    "job": 4,
+    "projectile_speed": 0,
+    "projectile_max_range": 0
   },
   {
     "id": 13,
@@ -229,7 +249,9 @@
         "buff_id": 0
       }
     ],
-    "job": 4
+    "job": 4,
+    "projectile_speed": 0,
+    "projectile_max_range": 0
   },
   {
     "id": 14,
@@ -255,7 +277,9 @@
         "buff_id": 10
       }
     ],
-    "job": 4
+    "job": 4,
+    "projectile_speed": 0,
+    "projectile_max_range": 0
   },
   {
     "id": 20,
@@ -275,7 +299,9 @@
         "buff_id": 3
       }
     ],
-    "job": 1
+    "job": 1,
+    "projectile_speed": 0,
+    "projectile_max_range": 0
   },
   {
     "id": 21,
@@ -295,7 +321,9 @@
         "buff_id": 5
       }
     ],
-    "job": 1
+    "job": 1,
+    "projectile_speed": 0,
+    "projectile_max_range": 0
   },
   {
     "id": 22,
@@ -315,7 +343,9 @@
         "buff_id": 1
       }
     ],
-    "job": 2
+    "job": 2,
+    "projectile_speed": 0,
+    "projectile_max_range": 0
   },
   {
     "id": 23,
@@ -341,7 +371,9 @@
         "buff_id": 2
       }
     ],
-    "job": 2
+    "job": 2,
+    "projectile_speed": 0,
+    "projectile_max_range": 0
   },
   {
     "id": 24,
@@ -361,7 +393,9 @@
         "buff_id": 4
       }
     ],
-    "job": 3
+    "job": 3,
+    "projectile_speed": 0,
+    "projectile_max_range": 0
   },
   {
     "id": 25,
@@ -381,7 +415,9 @@
         "buff_id": 8
       }
     ],
-    "job": 3
+    "job": 3,
+    "projectile_speed": 0,
+    "projectile_max_range": 0
   },
   {
     "id": 26,
@@ -407,7 +443,9 @@
         "buff_id": 1
       }
     ],
-    "job": 4
+    "job": 4,
+    "projectile_speed": 0,
+    "projectile_max_range": 0
   },
   {
     "id": 27,
@@ -433,7 +471,9 @@
         "buff_id": 2
       }
     ],
-    "job": 4
+    "job": 4,
+    "projectile_speed": 0,
+    "projectile_max_range": 0
   },
   {
     "id": 30,
@@ -459,7 +499,9 @@
         "buff_id": 9
       }
     ],
-    "job": 1
+    "job": 1,
+    "projectile_speed": 0,
+    "projectile_max_range": 0
   },
   {
     "id": 31,
@@ -485,7 +527,9 @@
         "buff_id": 7
       }
     ],
-    "job": 2
+    "job": 2,
+    "projectile_speed": 0,
+    "projectile_max_range": 0
   },
   {
     "id": 32,
@@ -505,7 +549,9 @@
         "buff_id": 0
       }
     ],
-    "job": 3
+    "job": 3,
+    "projectile_speed": 0,
+    "projectile_max_range": 0
   },
   {
     "id": 33,
@@ -525,6 +571,8 @@
         "buff_id": 11
       }
     ],
-    "job": 4
+    "job": 4,
+    "projectile_speed": 0,
+    "projectile_max_range": 0
   }
 ]

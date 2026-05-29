@@ -61,6 +61,7 @@ namespace ClinetCSharp
         {
             return skillId switch
             {
+                1 => Make("#4A2218", "#8A3A2A", "#FFE0C8", "#FFAA7A", SkillIconGlyph.Slash),
                 2 => Make("#6A1C18", "#A43324", "#FFD8C2", "#FFAD85", SkillIconGlyph.Slash),
                 3 => Make("#3A2948", "#67438A", "#E8D9FF", "#C89BFF", SkillIconGlyph.Shield),
                 4 => Make("#4D2018", "#A14B21", "#FFE5B4", "#FFC27A", SkillIconGlyph.Whirlwind),

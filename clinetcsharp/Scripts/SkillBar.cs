@@ -34,6 +34,8 @@ namespace ClinetCSharp
             if (_network != null)
             {
                 _network.CombatStateNotify += OnCombatStateNotify;
+                _network.CastStartNotify += OnCastStartNotify;
+                _network.CastResultNotify += OnCastResultNotify;
                 _network.RoleAttrUpdated += OnRoleAttrUpdated;
             }
 
@@ -45,6 +47,8 @@ namespace ClinetCSharp
             if (_network != null)
             {
                 _network.CombatStateNotify -= OnCombatStateNotify;
+                _network.CastStartNotify -= OnCastStartNotify;
+                _network.CastResultNotify -= OnCastResultNotify;
                 _network.RoleAttrUpdated -= OnRoleAttrUpdated;
             }
         }
@@ -120,6 +124,24 @@ namespace ClinetCSharp
             ClearAllCds();
         }
 
+        private void OnCastStartNotify(Game.CastStartNotify notify)
+        {
+            // 读条开始：可在此处添加读条动画或音效提示
+            GD.Print($"[SkillBar] CastStart: caster={notify.CasterId} skill={notify.SkillId} time={notify.CastTime:F1}s");
+        }
+
+        private void OnCastResultNotify(Game.CastResultNotify notify)
+        {
+            if (notify.IsMiss)
+            {
+                GD.Print($"[SkillBar] CastResult: caster={notify.CasterId} skill={notify.SkillId} MISS");
+            }
+            else
+            {
+                GD.Print($"[SkillBar] CastResult: caster={notify.CasterId} skill={notify.SkillId} targets=[{string.Join(",", notify.TargetIds)}]");
+            }
+        }
+
         private void RefreshSlots()
         {
             if (_network == null) return;
@@ -128,8 +150,6 @@ namespace ClinetCSharp
             for (int i = 0; i < MaxSlots; i++)
             {
                 uint skillId = i < equipped.Count ? equipped[i] : 0;
-                // 过滤掉普通攻击(id=1)
-                if (skillId == 1) skillId = 0;
                 _slots[i].SetSkill(skillId);
             }
         }
@@ -164,7 +184,7 @@ namespace ClinetCSharp
             // 本地 CD 检查 — 减少无效请求
             if (slot.IsOnCooldown) return;
 
-            // 发送施法请求（纯 CD 即时制，不再需要 ATB）
+            // 发送施法请求（纯 CD 即时制）
             if (_network != null)
             {
                 var req = new Game.CastRequest { SkillId = slot.SkillId };

@@ -5,7 +5,7 @@ using GameServer.Services.Core;
 namespace GameServer.Services.Monster.AI;
 
 /// <summary>
-/// 战斗态行为基类：处理目标解析、追击节流、按接战距离追到可攻击范围�?/// </summary>
+/// 战斗态行为基类：处理目标解析、追击节流、按接战距离追到可攻击范围�?/// </summary>
 public abstract class CombatBehaviorBase : ICombatBehaviorHandler
 {
     protected readonly MapDataProvider MapData;
@@ -15,15 +15,15 @@ public abstract class CombatBehaviorBase : ICombatBehaviorHandler
     public abstract CombatBehaviorType Type { get; }
 
     protected abstract int ResolveEngageRange(MonsterRuntimeState monster);
-    protected abstract string HoldState { get; }
-    protected abstract string ChaseState { get; }
+    protected abstract MonsterState HoldState { get; }
+    protected abstract MonsterState ChaseState { get; }
 
     public (int x, int y)? Run(MonsterRuntimeState m, string mapName, Dictionary<long, PlayerStateView> players, IWorldState? world)
     {
         var target = ResolveTarget(m, players);
         if (target == null)
         {
-            m.State = "combat";
+            m.State = MonsterState.Combat;
             return null;
         }
 
@@ -41,7 +41,7 @@ public abstract class CombatBehaviorBase : ICombatBehaviorHandler
         long chaseIntervalMs = m.AiConfig.ChaseIntervalMs ?? GameConstants.MonsterAiTickMs;
         if (m.LastMoveTime != 0 && (now - m.LastMoveTime) < chaseIntervalMs)
         {
-            m.State = "combat";
+            m.State = MonsterState.Combat;
             return null;
         }
 

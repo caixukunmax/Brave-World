@@ -61,14 +61,17 @@ namespace ClinetCSharp
 
         public void SpawnChests(List<Game.ChestInfo> chestData, int gridSize)
         {
+            var gridMgr = GetTree()?.GetFirstNodeInGroup("grid_manager") as GridManager;
             foreach (var chest in _chests)
+            {
+                if (!chest.Opened && gridMgr != null)
+                    gridMgr.UnblockCell(new Vector2I(chest.GridX, chest.GridY));
                 chest.QueueFree();
+            }
             _chests.Clear();
 
             _gridSize = gridSize;
             if (chestData == null) return;
-
-            var gridMgr = GetTree()?.GetFirstNodeInGroup("grid_manager") as GridManager;
 
             foreach (var c in chestData)
             {
@@ -183,13 +186,19 @@ namespace ClinetCSharp
             foreach (var c in notify.Chests)
             {
                 if (c.Opened) continue;
+                var pos = new Vector2I((int)c.X, (int)c.Y);
+
+                // 去重：同一位置已有未开启宝箱时跳过，防止增量补偿导致重复
+                if (gridMgr != null && gridMgr.IsBlockedByChest(pos))
+                    continue;
+
                 var chest = new Chest();
                 chest.Setup(c.ChestId, c.X, c.Y, c.Opened, _gridSize);
                 AddChild(chest);
                 _chests.Add(chest);
 
                 if (!chest.Opened && gridMgr != null)
-                    gridMgr.BlockCell(new Vector2I(chest.GridX, chest.GridY));
+                    gridMgr.BlockCell(pos);
             }
 
             GD.Print($"[ChestManager] ChestUpdateNotify: +{notify.Chests.Count} chests");

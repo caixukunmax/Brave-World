@@ -39,6 +39,9 @@ public class CombatRelationManager
             ctx.CastSkillId = null;
             ctx.CastEndTime = null;
             ctx.PostCastEndTime = null;
+            ctx.FirstStrikeHaste = 0;
+            ctx.HasUsedFirstStrike = false;
+            ctx.PriorityTargetId = 0;
         }
     }
 
@@ -52,6 +55,7 @@ public class CombatRelationManager
 
         int relationId = _nextRelationId++;
         var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        long nowMs = Environment.TickCount64;
         Relations[relationId] = new CombatRelation
         {
             RelationId = relationId,
@@ -60,11 +64,39 @@ public class CombatRelationManager
             StartTime = now,
             LastDamageTime = now,
             IsActive = true,
+            TauntEndTime = nowMs + 2000, // 挑衅期 2 秒
+            TauntSourceId = attackerId,
         };
 
         GetOrCreateContext(attackerId).RelationIds.Add(relationId);
         GetOrCreateContext(targetId).RelationIds.Add(relationId);
         return relationId;
+    }
+
+    /// <summary>
+    /// 刷新挑衅期：将 targetId 作为被挑衅者，sourceId 作为挑衅者，刷新/设置双向关系的挑衅期。
+    /// </summary>
+    public void RefreshTaunt(long sourceId, long targetId)
+    {
+        long nowMs = Environment.TickCount64;
+        long tauntEnd = nowMs + 2000;
+
+        foreach (var (_, rel) in Relations)
+        {
+            if (!rel.IsActive) continue;
+            // 更新 sourceId → targetId 的关系
+            if (rel.AttackerId == sourceId && rel.TargetId == targetId)
+            {
+                rel.TauntEndTime = tauntEnd;
+                rel.TauntSourceId = sourceId;
+            }
+            // 更新 targetId → sourceId 的关系（双向同步）
+            if (rel.AttackerId == targetId && rel.TargetId == sourceId)
+            {
+                rel.TauntEndTime = tauntEnd;
+                rel.TauntSourceId = sourceId;
+            }
+        }
     }
 
     public void RemoveRelation(int relationId)
@@ -80,6 +112,25 @@ public class CombatRelationManager
 
         if (ctxA != null && ctxA.RelationIds.Count == 0) SetState(rel.AttackerId, "IDLE");
         if (ctxB != null && ctxB.RelationIds.Count == 0) SetState(rel.TargetId, "IDLE");
+    }
+
+    /// <summary>
+    /// 双向移除：断开 entityA 与 entityB 之间的所有活跃关系。
+    /// </summary>
+    public void RemoveBidirectionalRelation(long entityA, long entityB)
+    {
+        var toRemove = new List<int>();
+        foreach (var (relationId, rel) in Relations)
+        {
+            if (!rel.IsActive) continue;
+            if ((rel.AttackerId == entityA && rel.TargetId == entityB) ||
+                (rel.AttackerId == entityB && rel.TargetId == entityA))
+            {
+                toRemove.Add(relationId);
+            }
+        }
+        foreach (var relationId in toRemove)
+            RemoveRelation(relationId);
     }
 
     public void OnEntityRemoved(long entityId)
@@ -103,17 +154,55 @@ public class CombatRelationManager
         return false;
     }
 
+    /// <summary>
+    /// 更新双方所有活跃关系的 LastDamageTime。
+    /// </summary>
     public void UpdateLastDamageTime(long attackerId, long targetId)
     {
-        var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         foreach (var (_, rel) in Relations)
         {
-            if (rel.IsActive &&
-                ((rel.AttackerId == attackerId && rel.TargetId == targetId) ||
-                 (rel.AttackerId == targetId && rel.TargetId == attackerId)))
+            if (!rel.IsActive) continue;
+            if ((rel.AttackerId == attackerId && rel.TargetId == targetId) ||
+                (rel.AttackerId == targetId && rel.TargetId == attackerId))
             {
                 rel.LastDamageTime = now;
             }
         }
+    }
+
+    /// <summary>
+    /// 累加指定关系方向的伤害。
+    /// </summary>
+    public void AddAccumulatedDamage(long attackerId, long targetId, int damage)
+    {
+        foreach (var (_, rel) in Relations)
+        {
+            if (!rel.IsActive) continue;
+            if (rel.AttackerId == attackerId && rel.TargetId == targetId)
+            {
+                rel.AccumulatedDamage += damage;
+            }
+        }
+    }
+
+    /// <summary>
+    /// 获取指定实体当前的所有活跃敌人ID列表。
+    /// </summary>
+    public List<long> GetActiveEnemies(long entityId)
+    {
+        var enemies = new HashSet<long>();
+        var ctx = Contexts.GetValueOrDefault(entityId);
+        if (ctx == null) return enemies.ToList();
+
+        foreach (var relationId in ctx.RelationIds)
+        {
+            if (!Relations.TryGetValue(relationId, out var rel)) continue;
+            if (!rel.IsActive) continue;
+            // 关系的另一方就是敌人
+            long enemyId = rel.AttackerId == entityId ? rel.TargetId : rel.AttackerId;
+            enemies.Add(enemyId);
+        }
+        return enemies.ToList();
     }
 }

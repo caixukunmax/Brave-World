@@ -162,6 +162,16 @@ namespace ClinetCSharp
 
             var actualWidth = gridData.Count > 0 ? gridData[0].Count : 0;
             GD.Print($"[MapDataManager] 加载地图成功: {mapName} 尺寸: {actualWidth}x{gridData.Count}");
+
+            // 统一应用地形配置，确保本地 CSV 与服务端 Walkable 一致，避免同步后突变
+            foreach (var row in gridData)
+            {
+                foreach (var cell in row)
+                {
+                    cell.RefreshTerrainConfig();
+                }
+            }
+
             return gridData;
         }
 

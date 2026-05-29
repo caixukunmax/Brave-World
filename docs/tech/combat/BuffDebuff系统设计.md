@@ -178,8 +178,8 @@ public Dictionary<int, BuffConfigRow> Buffs { get; private set; } = new();
 - 在 CombatManager.Tick 中调用
 
 ### 4.3 硬控（Stun）集成
-- TickATB 中：`if (ctx.Buffs.HasTag("stun")) continue;` — 跳过 ATB 增长但保留当前值
-- Stun 状态不涨 ATB = 无法行动，解冻后从断点继续
+- 怪物自动施法前检查：`if (ctx.Buffs.HasTag("stun")) return 0;` — Stun 状态下不释放技能
+- Stun 不影响技能 CD 的自然流逝，仅阻止主动释放行为
 - Stun 不影响被选为目标（冰冻的目标仍可被打）
 
 ### 4.4 吸收盾集成
@@ -274,7 +274,7 @@ COMBAT_LOG_SHIELD_ABSORB = 11;
 | `Tables/LubanBeans.cs` | 新增 BuffConfigRow 等（对齐 Luban 生成物） |
 | `Tables/LubanTableLoader.cs` | 加载 Buff 表 |
 | `Combat/CombatTypes.cs` | CombatContext 增加 Buffs |
-| `Combat/CombatManager.cs` | TickBuffs + ApplyDamage 护盾 + ATB Stun 检查 |
+| `Combat/CombatManager.cs` | TickBuffs + ApplyDamage 护盾 + Stun 技能锁定检查 |
 | `Combat/SkillPipeline.cs` | ExecuteActions 支持 action_type 4/5 |
 | `Combat/Actions/ICombatAction.cs` | ActionContext 新增 Tables 字段 |
 | `Combat/Actions/DealDamageAction.cs` | 属性修正集成（CalcDamage 加 casterCtx 参数） |
@@ -294,7 +294,7 @@ COMBAT_LOG_SHIELD_ABSORB = 11;
 |------|------|------|
 | Buff 存储位置 | CombatContext | Buff 只在战斗中存在，脱战自动清除 |
 | DOT 伤害公式 | matk * coefficient | 复用现有伤害公式，施法者 matk |
-| Stun 实现 | ATB 暂停（保留当前值） | 纯控制而非惩罚，解冻后从断点继续 |
+| Stun 实现 | 阻止主动技能释放（CD 正常流逝） | 纯控制而非惩罚，解冻后可立即释放已冷却技能 |
 | 护盾实现 | 特殊 Buff + shield_base | 统一在 Buff 框架内，不需要独立系统 |
 | 叠加规则 | Refresh/Add/Ignore 三种 | 覆盖常见需求，配置驱动 |
 | 脱战清 Buff | 是 | 战斗结束所有 Buff 清 |
@@ -364,7 +364,7 @@ BuffEffectBean 中有 `buff_id` 字段，意味着 Buff 的 OnTick/OnApply 可�
 
 ### 11.7 Stun 期间能否被选为目标
 
-**可以**。Stun 只影响 ATB 增长（被控方无法主动行动），不影响被攻击。冰冻的目标仍然可以被选为 SingleEnemy/AllEnemiesInRange 的目标。
+**可以**。Stun 只阻止被控方主动释放技能（怪物 AI 跳过、玩家 SkillBar 点击被拒绝），不影响被攻击。冰冻的目标仍然可以被选为 SingleEnemy/AllEnemiesInRange 的目标。
 
 ### 11.8 HealAction 也需要属性修正
 

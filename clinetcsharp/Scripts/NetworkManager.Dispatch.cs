@@ -91,6 +91,24 @@ namespace ClinetCSharp
                     case MessageId.GameCombatEndNotify:
                         HandleCombatEndNotify(data);
                         break;
+                    case MessageId.GameCastStartNotify:
+                        HandleCastStartNotify(data);
+                        break;
+                    case MessageId.GameCastResultNotify:
+                        HandleCastResultNotify(data);
+                        break;
+                    case MessageId.GameCombatEventNotify:
+                        HandleCombatEventNotify(data);
+                        break;
+                    case MessageId.GameProjectileSpawnNotify:
+                        HandleProjectileSpawnNotify(data);
+                        break;
+                    case MessageId.GameProjectileHitNotify:
+                        HandleProjectileHitNotify(data);
+                        break;
+                    case MessageId.GameDisengageNotify:
+                        HandleDisengageNotify(data);
+                        break;
                     case MessageId.GamePlayerDeathNotify:
                         HandlePlayerDeathNotify(data);
                         break;

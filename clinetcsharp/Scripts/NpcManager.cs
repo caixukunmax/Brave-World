@@ -52,6 +52,16 @@ namespace ClinetCSharp
 
         public static NpcManager Instance;
 
+        /// <summary>统一设置所有NPC实例的可见性（地图编辑器用）</summary>
+        public void SetAllNpcsVisible(bool visible)
+        {
+            foreach (var npc in _npcs)
+            {
+                if (npc != null && IsInstanceValid(npc))
+                    npc.Visible = visible;
+            }
+        }
+
         // 多配置样式系统 — Key = 配置ID（NpcType）
         // [Obsolete] 已被 EntityProfileManager 接管。保留仅用于旧代码兼容和迁移。
         public static readonly Dictionary<int, EntityStyleConfig> StyleConfigs = new();

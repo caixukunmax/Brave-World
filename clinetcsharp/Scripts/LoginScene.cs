@@ -22,6 +22,7 @@ namespace ClinetCSharp
         private enum TestFlowState { None, Login, SelectServer, EnterGame, CreateRole }
         private TestFlowState _testFlowState = TestFlowState.None;
         private bool _pendingTestDirect; // 重连成功后自动触发 Test Direct
+        private bool _autoTestMode;      // --test-grid-visibility 自动化测试模式
 
         public override void _Ready()
         {
@@ -66,6 +67,17 @@ namespace ClinetCSharp
                 _statusLabel.Text = "网络管理器未初始化";
                 GD.PushError("[LoginScene] NetworkManager is null");
             }
+
+            // 自动化测试：检测到参数后标记，连接成功后自动触发 Test Direct
+            foreach (var arg in OS.GetCmdlineArgs())
+            {
+                if (arg == "--test-grid-visibility")
+                {
+                    GD.Print("[LoginScene] Auto-test mode detected.");
+                    _autoTestMode = true;
+                    break;
+                }
+            }
         }
 
         private void OnConnected()
@@ -73,6 +85,15 @@ namespace ClinetCSharp
             GD.Print("[LoginScene] Connected to server");
             _statusLabel.Text = "已连接到服务器";
             _loginButton.Disabled = false;
+
+            // 自动化测试：连接成功后自动走 Test Direct
+            if (_autoTestMode)
+            {
+                _autoTestMode = false;
+                GD.Print("[LoginScene] Auto-test: triggering Test Direct...");
+                OnTestDirectPressed();
+                return;
+            }
 
             // 如果重连前点了 Test Direct，连上后自动继续
             if (_pendingTestDirect)

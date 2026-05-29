@@ -10,6 +10,8 @@ namespace ClinetCSharp
 
         public override async void _Ready()
         {
+            // 设为 Always，确保游戏暂停（如进入地图编辑器）时仍能截图
+            ProcessMode = ProcessModeEnum.Always;
             GD.Print("[ScreenshotTool] _Ready() called - ScreenshotTool initializing...");
 
             var dir = DirAccess.Open("res://");

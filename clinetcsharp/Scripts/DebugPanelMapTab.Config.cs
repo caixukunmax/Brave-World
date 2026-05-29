@@ -12,6 +12,7 @@ namespace ClinetCSharp
             cfg.SetValue("map", "zoom", _zoomSlider.Value);
             cfg.SetValue("map", "grid_line_width", _gridLineWidthSlider.Value);
             cfg.SetValue("map", "grid_line_brightness", _gridLineBrightnessSlider.Value);
+            cfg.SetValue("map", "grid_aa_softness", _gridAntiAliasSoftnessSlider?.Value ?? (double)GridOverlayAntiAliasSoftnessPolicy.Default);
             cfg.SetValue("map", "show_grid_coords", _gridCoordsCheck.ButtonPressed);
 
             cfg.SetValue("camera", "return_delay", _cameraReturnDelaySlider.Value);
@@ -69,6 +70,7 @@ namespace ClinetCSharp
             _lineWidthModeOption?.SetBlockSignals(true);
             _gridLineWidthSlider.SetBlockSignals(true);
             _gridLineBrightnessSlider.SetBlockSignals(true);
+            _gridAntiAliasSoftnessSlider?.SetBlockSignals(true);
 
             int gridSizeMode = (int)(double)cfg.GetValue("map", "grid_size_mode",
                 (double)((bool)cfg.GetValue("responsive", "enabled", false)
@@ -85,6 +87,8 @@ namespace ClinetCSharp
             _zoomSlider.Value = (double)cfg.GetValue("map", "zoom", 1.0);
             _gridLineWidthSlider.Value = (double)cfg.GetValue("map", "grid_line_width", 2.0);
             _gridLineBrightnessSlider.Value = (double)cfg.GetValue("map", "grid_line_brightness", 0.7);
+            if (_gridAntiAliasSoftnessSlider != null)
+                _gridAntiAliasSoftnessSlider.Value = (double)cfg.GetValue("map", "grid_aa_softness", (double)GridOverlayAntiAliasSoftnessPolicy.Default);
             _gridCoordsCheck.ButtonPressed = (bool)cfg.GetValue("map", "show_grid_coords", false);
 
             _gridSizeModeOption?.SetBlockSignals(false);
@@ -93,6 +97,7 @@ namespace ClinetCSharp
             _zoomSlider.SetBlockSignals(false);
             _gridLineWidthSlider.SetBlockSignals(false);
             _gridLineBrightnessSlider.SetBlockSignals(false);
+            _gridAntiAliasSoftnessSlider?.SetBlockSignals(false);
 
             ApplyMapSettingsToManagers();
 
@@ -186,6 +191,7 @@ namespace ClinetCSharp
                 }
                 float brightness = (float)_gridLineBrightnessSlider.Value;
                 GridManager.SetLineBrightness(brightness);
+                GridManager.SetGridAntiAliasSoftness((float)(_gridAntiAliasSoftnessSlider?.Value ?? GridOverlayAntiAliasSoftnessPolicy.Default));
                 GridManager.ShowGridCoords = _gridCoordsCheck.ButtonPressed;
             }
 
@@ -212,6 +218,7 @@ namespace ClinetCSharp
                 ["zoom"] = _zoomSlider?.Value ?? 1.0,
                 ["grid_line_width"] = _gridLineWidthSlider?.Value ?? 2.0,
                 ["grid_line_brightness"] = _gridLineBrightnessSlider?.Value ?? 0.7,
+                ["grid_aa_softness"] = _gridAntiAliasSoftnessSlider?.Value ?? (double)GridOverlayAntiAliasSoftnessPolicy.Default,
                 ["show_grid_coords"] = _gridCoordsCheck?.ButtonPressed ?? false
             };
             if (_lineWidthScaleSlider != null)

@@ -31,11 +31,16 @@ namespace ClinetCSharp
         [Export] public float DashLength { get; set; } = 8.0f;
         [Export] public float GapLength { get; set; } = 4.0f;
 
+        /// <summary>网格线保证稳定渲染的 zoom 安全区间。在此区间内无论 zoom 如何变化，所有线都能完整渲染。</summary>
+        public const float GridRenderMinZoom = 0.1f;
+        public const float GridRenderMaxZoom = 5.0f;
+
         // 线宽自适应设置
         [Export] public bool AutoLineWidth { get; set; } = true;  // 是否启用自动线宽
-        [Export] public float LineWidthScale { get; set; } = 2.0f;  // 线宽比例系数（可调节）
-        [Export] public float MinScreenLineWidth { get; set; } = 0.1f;  // 最小屏幕线宽（像素）- 允许细线
-        [Export] public float MaxScreenLineWidth { get; set; } = 5.0f;  // 最大屏幕线宽（像素）
+        [Export] public float LineWidthScale { get; set; } = 1.0f;  // 线宽比例系数（默认 1px）
+        [Export] public float MinScreenLineWidth { get; set; } = 1.0f;  // 最小屏幕线宽 1px，低于此值线条不稳定
+        [Export] public float MaxScreenLineWidth { get; set; } = 2.0f;  // 最大屏幕线宽 2px，保持"尽可能细"
+        [Export] public float GridAntiAliasSoftness { get; set; } = GridOverlayAntiAliasSoftnessPolicy.Default;
 
         // 线宽自适应校准（新开关模式）
         public bool AdaptiveCalibrationEnabled { get; set; } = false;  // 自适应校准开关
@@ -63,17 +68,39 @@ namespace ClinetCSharp
         public bool ShowTerrainLabels { get; set; } = false;  // 显示地形名称标签
 
         // 被移除格子的显示设置
-        [Export] public Color RemovedCellColor { get; set; } = new Color(0.3f, 0.3f, 0.3f, 0.5f);  // 默认半透明灰色
+        [Export] public Color RemovedCellColor { get; set; } = new Color(0.3f, 0.3f, 0.3f, 0.25f);  // 平衡可见度与网格线对比度
         [Export] public bool ShowRemovedCells { get; set; } = true;  // 是否显示被移除的格子
 
         // 自适应校准用的 zoom 跟踪
         private float _lastCameraZoom = 0.0f;
+        // 线宽参数变化跟踪（调整参考点、切换编辑模式等需要刷新网格线）
+        private bool _lastAdaptiveEnabled = false;
+        private bool _lastAutoLineWidth = false;
+        private bool _lastIsEditMode = false;
+        private float _lastLineWidth = float.NaN;
+        private float _lastLineWidthScale = float.NaN;
+        private float _lastGridAntiAliasSoftness = float.NaN;
+        private float _lastRefZoomA = float.NaN;
+        private float _lastRefWidthA = float.NaN;
+        private float _lastRefZoomB = float.NaN;
+        private float _lastRefWidthB = float.NaN;
+
+        private GridShaderOverlay? _gridShaderOverlay;
 
         public override void _Ready()
         {
+            // 初始化地形标签字体
+            _terrainLabelFont = ThemeDB.Singleton?.FallbackFont;
+            if (_terrainLabelFont == null)
+            {
+                var sysFont = new SystemFont();
+                sysFont.FontNames = new string[] { "Microsoft YaHei", "SimHei", "Noto Sans CJK SC", "WenQuanYi Zen Hei" };
+                _terrainLabelFont = sysFont;
+            }
+
             LoadMapData();
 
-            // 启用 2D 像素对齐：防止子像素偏移导致的闪烁
+            // 视口级 DrawRect 网格在开启 2D 像素对齐时更稳定。
             var viewport = GetViewport();
             if (viewport != null)
             {
@@ -96,21 +123,93 @@ namespace ClinetCSharp
             // 初始化 zoom 跟踪
             _lastCameraZoom = GetCameraZoom();
 
+            EnsureGridShaderOverlay();
+            UpdateGridShaderOverlay();
+
             QueueRedraw();
         }
 
         public override void _Process(double _delta)
         {
-            // 网格世界线宽始终依赖相机 zoom，因此任意 zoom 变化都需要重绘。
-            if (AutoLineWidth || AdaptiveCalibrationEnabled || _previewLineWidth > 0.0f)
+            var currentZoom = GetCameraZoom();
+
+            bool zoomChanged = Mathf.Abs(currentZoom - _lastCameraZoom) > 0.001f;
+
+            // 线宽参数变化检测（调整参考点、切换编辑模式、改线宽设置等）
+            bool paramsChanged =
+                _lastAdaptiveEnabled != AdaptiveCalibrationEnabled ||
+                _lastAutoLineWidth != AutoLineWidth ||
+                _lastIsEditMode != IsEditMode ||
+                Mathf.Abs(_lastLineWidth - LineWidth) > 0.001f ||
+                Mathf.Abs(_lastLineWidthScale - LineWidthScale) > 0.001f ||
+                Mathf.Abs(_lastGridAntiAliasSoftness - GridAntiAliasSoftness) > 0.001f ||
+                Mathf.Abs(_lastRefZoomA - RefZoomA) > 0.001f ||
+                Mathf.Abs(_lastRefWidthA - RefWidthA) > 0.001f ||
+                Mathf.Abs(_lastRefZoomB - RefZoomB) > 0.001f ||
+                Mathf.Abs(_lastRefWidthB - RefWidthB) > 0.001f;
+
+            if (zoomChanged || paramsChanged)
             {
-                var currentZoom = GetCameraZoom();
-                if (Mathf.Abs(currentZoom - _lastCameraZoom) > 0.001f)
+                _lastCameraZoom = currentZoom;
+
+                if (paramsChanged)
                 {
-                    _lastCameraZoom = currentZoom;
-                    QueueRedraw();
+                    _lastAdaptiveEnabled = AdaptiveCalibrationEnabled;
+                    _lastAutoLineWidth = AutoLineWidth;
+                    _lastIsEditMode = IsEditMode;
+                    _lastLineWidth = LineWidth;
+                    _lastLineWidthScale = LineWidthScale;
+                    _lastGridAntiAliasSoftness = GridAntiAliasSoftness;
+                    _lastRefZoomA = RefZoomA;
+                    _lastRefWidthA = RefWidthA;
+                    _lastRefZoomB = RefZoomB;
+                    _lastRefWidthB = RefWidthB;
                 }
+
+                UpdateGridShaderOverlay();
+
+                QueueRedraw();
             }
+        }
+
+        private void EnsureGridShaderOverlay()
+        {
+            if (_gridShaderOverlay != null && IsInstanceValid(_gridShaderOverlay))
+                return;
+
+            _gridShaderOverlay = GetNodeOrNull<GridShaderOverlay>("GridShaderOverlay");
+            if (_gridShaderOverlay != null)
+                return;
+
+            _gridShaderOverlay = new GridShaderOverlay();
+            _gridShaderOverlay.Name = "GridShaderOverlay";
+            AddChild(_gridShaderOverlay);
+        }
+
+        private void UpdateGridShaderOverlay()
+        {
+            EnsureGridShaderOverlay();
+            if (_gridShaderOverlay == null)
+                return;
+
+            var cameraZoom = Mathf.Clamp(GetCameraZoom(), GridRenderMinZoom, GridRenderMaxZoom);
+            var (lineWidthWorld, lineColor) = ComputeGridLineRenderStyle(cameraZoom);
+            float screenLineWidth = lineWidthWorld * cameraZoom;
+
+            if (IsEditMode)
+            {
+                if (screenLineWidth < 1.5f)
+                    screenLineWidth = 1.5f;
+                lineColor = new Color(1.0f, 1.0f, 1.0f, 1.0f);
+            }
+
+            _gridShaderOverlay.UpdateOverlay(
+                GridSize,
+                MapWidth,
+                MapHeight,
+                screenLineWidth,
+                lineColor,
+                GridAntiAliasSoftness);
         }
 
         private void LoadMapData()
@@ -158,44 +257,54 @@ namespace ClinetCSharp
         public override void _Draw()
         {
             DrawGrid();
+
+            // 其余信息叠加在网格之上。
             if (IsEditMode && ShowWalkableOverlay)
                 DrawWalkableOverlay();
-            if (IsEditMode && ShowTerrainLabels)
+            if (IsEditMode)
                 DrawTerrainLabels();
             if (ShowGridCoords)
                 DrawGridCoords();
+
+            // DEBUG: 在地图中央画一个巨大的测试文字，验证 DrawString 是否工作
+            if (IsEditMode && _terrainLabelFont != null)
+            {
+                var testPos = new Vector2(MapWidth * GridSize / 2, MapHeight * GridSize / 2);
+                DrawRect(new Rect2(testPos - new Vector2(60, 20), new Vector2(120, 40)), new Color(0, 1, 0, 0.5f), true);
+                DrawString(_terrainLabelFont, testPos, "TEST文字", HorizontalAlignment.Left, width: -1, fontSize: 24, modulate: Colors.Magenta);
+            }
         }
 
         private void DrawGrid()
         {
-            var cameraZoom = GetCameraZoom();
-            cameraZoom = Mathf.Max(cameraZoom, 0.01f);
-            var (lineWidthWorld, lineColor) = ComputeGridLineRenderStyle(cameraZoom);
-
             for (int y = 0; y < MapHeight; y++)
             {
                 for (int x = 0; x < MapWidth; x++)
                 {
                     var cell = GridData[y][x];
-                    if (cell.Exists)
-                        DrawCellBorderNormal(x, y, lineWidthWorld, lineColor);
-                    else
+                    if (!cell.Exists && ShowRemovedCells)
                     {
-                        if (ShowRemovedCells)
-                        {
-                            var pos = new Vector2(x * GridSize, y * GridSize);
-                            var rect = new Rect2(pos, new Vector2(GridSize, GridSize));
-                            DrawRect(rect, RemovedCellColor, true);
-                        }
+                        var pos = new Vector2(x * GridSize, y * GridSize);
+                        var rect = new Rect2(pos, new Vector2(GridSize, GridSize));
+                        DrawRect(rect, RemovedCellColor, true);
                     }
                 }
             }
         }
 
+        public (float lineWidthWorld, Color lineColor) ComputeGridLineRenderStylePublic(float cameraZoom)
+        {
+            return ComputeGridLineRenderStyle(cameraZoom);
+        }
+
         private (float lineWidthWorld, Color lineColor) ComputeGridLineRenderStyle(float cameraZoom)
         {
             float targetScreenLineWidth = GetTargetScreenLineWidth(cameraZoom);
-            targetScreenLineWidth = Mathf.Clamp(targetScreenLineWidth, MinScreenLineWidth, MaxScreenLineWidth);
+            // 自适应模式下，上限使用参考点最大值，避免硬编码 2px 截断用户设置
+            float maxWidth = AdaptiveCalibrationEnabled
+                ? Mathf.Max(MaxScreenLineWidth, Mathf.Max(RefWidthA, RefWidthB))
+                : MaxScreenLineWidth;
+            targetScreenLineWidth = Mathf.Clamp(targetScreenLineWidth, MinScreenLineWidth, maxWidth);
 
             float alphaScale = 1.0f;
             float drawScreenLineWidth = targetScreenLineWidth;
@@ -208,7 +317,9 @@ namespace ClinetCSharp
             }
 
             float lineWidthWorld = drawScreenLineWidth / cameraZoom;
-            lineWidthWorld = Mathf.Clamp(lineWidthWorld, 0.01f, GridSize * 0.3f);
+            // 只保留下限，不限制上限。远距离时 world width 必须足够大才能保证屏幕线宽可见。
+            // 之前的 GridSize * 0.3f 上限在 zoom 很小时会截断 world width，导致屏幕线宽 < 1px。
+            lineWidthWorld = Mathf.Max(lineWidthWorld, 0.01f);
 
             var lineColor = LineColor;
             lineColor.A *= alphaScale;
@@ -227,24 +338,6 @@ namespace ClinetCSharp
                 return Mathf.Max(LineWidthScale, MinScreenLineWidth);
 
             return Mathf.Max(LineWidth, MinScreenLineWidth);
-        }
-
-        private void DrawCellBorderNormal(int x, int y, float lineWidth, Color lineColor)
-        {
-            var pos = new Vector2(x * GridSize, y * GridSize);
-            var size = new Vector2(GridSize, GridSize);
-
-            // 唯一边界绘制：共享边只绘制一次，避免双倍叠加导致的“有些线更粗”。
-            DrawRect(new Rect2(pos, new Vector2(size.X, lineWidth)), lineColor, true);
-            DrawRect(new Rect2(pos, new Vector2(lineWidth, size.Y)), lineColor, true);
-
-            bool drawRight = x == MapWidth - 1 || !GridData[y][x + 1].Exists;
-            bool drawBottom = y == MapHeight - 1 || !GridData[y + 1][x].Exists;
-
-            if (drawRight)
-                DrawRect(new Rect2(pos + new Vector2(size.X - lineWidth, 0), new Vector2(lineWidth, size.Y)), lineColor, true);
-            if (drawBottom)
-                DrawRect(new Rect2(pos + new Vector2(0, size.Y - lineWidth), new Vector2(size.X, lineWidth)), lineColor, true);
         }
 
         private float GetCameraZoom()
@@ -314,41 +407,52 @@ namespace ClinetCSharp
 
         private void DrawTerrainLabels()
         {
-            if (!ShowTerrainLabels) return;
-
-            _terrainLabelFont ??= ThemeDB.FallbackFont;
-            if (_terrainLabelFont == null) return;
+            // 强制画一个巨大的黄色方块在(0,0)，验证此方法是否生效
+            DrawRect(new Rect2(0, 0, 200, 100), new Color(1, 1, 0, 0.9f), true);
+            DrawString(_terrainLabelFont, new Vector2(10, 60), "LABELS_TEST", HorizontalAlignment.Left, width: -1, fontSize: 24, modulate: Colors.Red);
 
             var cameraZoom = GetCameraZoom();
-            // 只在 zoom 足够近时显示标签，避免密集
             if (cameraZoom < 0.5f) return;
 
+            int labelCount = 0;
             for (int y = 0; y < MapHeight; y++)
             {
                 for (int x = 0; x < MapWidth; x++)
                 {
                     var cell = GridData[y][x];
                     if (!cell.Exists || cell.TerrainType == 0)
-                        continue; // 跳过不存在和普通地形
+                        continue;
 
-                    var pos = new Vector2(x * GridSize + 2, y * GridSize + _terrainLabelFontSize + 2);
+                    labelCount++;
                     var name = cell.GetTerrainName();
                     if (string.IsNullOrEmpty(name)) continue;
 
-                    // 黑色描边文字，确保任何背景色都可见
+                    // 半透明白色背景
+                    var bgRect = new Rect2(new Vector2(x * GridSize + 4, y * GridSize + 4), new Vector2(GridSize - 8, GridSize - 8));
+                    DrawRect(bgRect, new Color(1, 1, 1, 0.25f), true);
+
+                    var fontSize = Mathf.Min(16, (int)(GridSize * 0.4f));
+                    var textSize = _terrainLabelFont.GetStringSize(name, fontSize: fontSize);
+                    var pos = new Vector2(
+                        x * GridSize + (GridSize - textSize.X) / 2,
+                        y * GridSize + (GridSize + textSize.Y) / 2
+                    );
+
                     var outlineColor = Colors.Black;
                     var textColor = Colors.White;
-                    var fontSize = Mathf.Min(_terrainLabelFontSize, (int)(GridSize * 0.4f));
 
-                    // 描边
-                    DrawString(_terrainLabelFont, pos + new Vector2(-1, 0), name, HorizontalAlignment.Left, -1, fontSize, outlineColor);
-                    DrawString(_terrainLabelFont, pos + new Vector2(1, 0), name, HorizontalAlignment.Left, -1, fontSize, outlineColor);
-                    DrawString(_terrainLabelFont, pos + new Vector2(0, -1), name, HorizontalAlignment.Left, -1, fontSize, outlineColor);
-                    DrawString(_terrainLabelFont, pos + new Vector2(0, 1), name, HorizontalAlignment.Left, -1, fontSize, outlineColor);
-                    // 正文
-                    DrawString(_terrainLabelFont, pos, name, HorizontalAlignment.Left, -1, fontSize, textColor);
+                    DrawString(_terrainLabelFont, pos + new Vector2(-1, 0), name, HorizontalAlignment.Left, width: -1, fontSize: fontSize, modulate: outlineColor);
+                    DrawString(_terrainLabelFont, pos + new Vector2(1, 0), name, HorizontalAlignment.Left, width: -1, fontSize: fontSize, modulate: outlineColor);
+                    DrawString(_terrainLabelFont, pos + new Vector2(0, -1), name, HorizontalAlignment.Left, width: -1, fontSize: fontSize, modulate: outlineColor);
+                    DrawString(_terrainLabelFont, pos + new Vector2(0, 1), name, HorizontalAlignment.Left, width: -1, fontSize: fontSize, modulate: outlineColor);
+                    DrawString(_terrainLabelFont, pos, name, HorizontalAlignment.Left, width: -1, fontSize: fontSize, modulate: textColor);
                 }
             }
+
+            // 在地图左上角显示统计
+            var debugText = $"labels:{labelCount} MH:{MapHeight} MW:{MapWidth} Z:{cameraZoom:F2}";
+            DrawRect(new Rect2(0, 100, 320, 30), new Color(0, 0, 0, 0.7f), true);
+            DrawString(_terrainLabelFont, new Vector2(5, 122), debugText, HorizontalAlignment.Left, width: -1, fontSize: 16, modulate: Colors.Yellow);
         }
 
         // ============ 坐标转换 ============
@@ -514,6 +618,14 @@ namespace ClinetCSharp
             QueueRedraw();
         }
 
+        public void SetGridAntiAliasSoftness(float value)
+        {
+            GridAntiAliasSoftness = GridOverlayAntiAliasSoftnessPolicy.Clamp(value);
+            QueueRedraw();
+        }
+
+        public float GetGridAntiAliasSoftness() => GridAntiAliasSoftness;
+
         public void SetFixedWorldLineWidth(float width)
         {
             LineWidth = Mathf.Clamp(width, 0.01f, 20.0f);
@@ -676,6 +788,8 @@ namespace ClinetCSharp
 
             var nm = GetTree()?.GetFirstNodeInGroup("npc_manager") as NpcManager;
             nm?.SetGridSize(newSize);
+
+            UpdateGridShaderOverlay();
         }
 
         public void SetLineBrightness(float brightness)
@@ -747,6 +861,7 @@ namespace ClinetCSharp
                 MapHeight = GridData.Count;
                 MapWidth = GridData.Count > 0 ? GridData[0].Count : 50;
                 CurrentMapName = mapName;
+                UpdateGridShaderOverlay();
                 QueueRedraw();
                 return true;
             }

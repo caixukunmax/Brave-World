@@ -81,6 +81,10 @@ public class AiRow
     [JsonPropertyName("param_1")] public CombatBehaviorType Param1 { get; set; }
     [JsonPropertyName("param_2")] public int Param2 { get; set; }
     [JsonPropertyName("param_3")] public double Param3 { get; set; }
+    [JsonPropertyName("territory_radius")] public int? TerritoryRadius { get; set; }
+    [JsonPropertyName("chase_timeout")] public double? ChaseTimeout { get; set; }
+    [JsonPropertyName("return_buff_id")] public int? ReturnBuffId { get; set; }
+    [JsonPropertyName("return_speed_multiplier")] public double? ReturnSpeedMultiplier { get; set; }
 }
 
 // ---- MapConfig ----
@@ -108,6 +112,7 @@ public class PlayerAttrRow
     [JsonPropertyName("pdef")] public int Pdef { get; set; }
     [JsonPropertyName("mdef")] public int Mdef { get; set; }
     [JsonPropertyName("mp_regen")] public int MpRegen { get; set; }
+    [JsonPropertyName("first_strike_haste")] public int FirstStrikeHaste { get; set; }
 }
 
 // ---- CombatLogText ----
@@ -142,6 +147,8 @@ public class SkillConfigRow
     [JsonPropertyName("target_type")] public ESkillTargetType TargetType { get; set; } = ESkillTargetType.SingleEnemy;
     [JsonPropertyName("actions")] public List<CombatActionBeanRow> Actions { get; set; } = new();
     [JsonPropertyName("job")] public int Job { get; set; }
+    [JsonPropertyName("projectile_speed")] public float ProjectileSpeed { get; set; }
+    [JsonPropertyName("projectile_max_range")] public int ProjectileMaxRange { get; set; }
 }
 
 // ---- Job ----

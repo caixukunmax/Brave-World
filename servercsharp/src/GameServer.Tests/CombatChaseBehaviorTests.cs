@@ -28,7 +28,7 @@ public class CombatChaseBehaviorTests
         var next = behavior.Run(monster, "test_map", players, new FakeWorldState());
 
         Assert.Null(next);
-        Assert.Equal("combat_hold", monster.State);
+        Assert.Equal(MonsterState.CombatHold, monster.State);
         Assert.Equal(1001, monster.TargetId);
     }
 
@@ -51,7 +51,7 @@ public class CombatChaseBehaviorTests
         var next = behavior.Run(monster, "test_map", players, new FakeWorldState());
 
         Assert.Equal((2, 1), next);
-        Assert.Equal("combat_chase", monster.State);
+        Assert.Equal(MonsterState.CombatChase, monster.State);
         Assert.Equal(2002, monster.TargetId);
     }
 
@@ -74,7 +74,7 @@ public class CombatChaseBehaviorTests
         var next = behavior.Run(monster, "test_map", players, new FakeWorldState());
 
         Assert.Null(next);
-        Assert.Equal("combat_ranged_hold", monster.State);
+        Assert.Equal(MonsterState.CombatRangedHold, monster.State);
     }
 
     private static MapDataProvider CreateOpenMap()

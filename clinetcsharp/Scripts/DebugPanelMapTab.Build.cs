@@ -81,6 +81,14 @@ namespace ClinetCSharp
             CreateLineWidthCalibrationUI(_lineWidthAdaptiveParams);
 
             (_gridLineBrightnessSlider, _gridLineBrightnessValue) = CreateSliderRow(_lineWidthStrategySection, "线条亮度", 0.1f, 1.0f, 0.7f, DebugPanelLengthScalePolicy.StepF);
+            (_gridAntiAliasSoftnessSlider, _gridAntiAliasSoftnessValue) = CreateSliderRow(
+                _lineWidthStrategySection,
+                "抗锯齿柔化",
+                GridOverlayAntiAliasSoftnessPolicy.Min,
+                GridOverlayAntiAliasSoftnessPolicy.Max,
+                GridOverlayAntiAliasSoftnessPolicy.Default,
+                DebugPanelLengthScalePolicy.StepF);
+            _gridAntiAliasSoftnessValue.Text = $"{GridOverlayAntiAliasSoftnessPolicy.Default:F1}x";
         }
 
         private void BuildCameraBehaviorSection(VBoxContainer parent)
@@ -245,7 +253,7 @@ namespace ClinetCSharp
             var labelA = new Label { Name = "_lbl", Text = "参考点 A 缩放" };
             _refZoomASpin = CreateSpinBox(0.2, 3.0, 0.1, 0.4, 60);
             var labelWidthA = new Label { Name = "_lbl", Text = " 线宽" };
-            _refWidthASpin = CreateSpinBox(0.1, 10.0, 0.1, 5.0, 60);
+            _refWidthASpin = CreateSpinBox(0.1, 50.0, 0.1, 5.0, 60);
             rowA.AddChild(labelA);
             rowA.AddChild(_refZoomASpin);
             rowA.AddChild(labelWidthA);
@@ -256,7 +264,7 @@ namespace ClinetCSharp
             var labelB = new Label { Name = "_lbl", Text = "参考点 B 缩放" };
             _refZoomBSpin = CreateSpinBox(0.2, 3.0, 0.1, 1.0, 60);
             var labelWidthB = new Label { Name = "_lbl", Text = " 线宽" };
-            _refWidthBSpin = CreateSpinBox(0.1, 10.0, 0.1, 1.5, 60);
+            _refWidthBSpin = CreateSpinBox(0.1, 50.0, 0.1, 1.5, 60);
             rowB.AddChild(labelB);
             rowB.AddChild(_refZoomBSpin);
             rowB.AddChild(labelWidthB);

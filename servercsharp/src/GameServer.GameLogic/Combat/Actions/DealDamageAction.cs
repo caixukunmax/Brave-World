@@ -59,7 +59,7 @@ public class DealDamageAction : ICombatAction
         return results;
     }
 
-    private static (int damage, string damageType) CalcDamage(long casterId, long targetId,
+    internal static (int damage, string damageType) CalcDamage(long casterId, long targetId,
         string damageType, double coefficient, Dictionary<string, MapState>? maps, CombatManager? combatManager = null)
     {
         int baseDamage = 10;

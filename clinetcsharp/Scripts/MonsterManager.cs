@@ -12,7 +12,7 @@ namespace ClinetCSharp
     public partial class MonsterManager : Node
     {
         private List<Monster> _monsters = new();
-        private HashSet<Vector2I> _monsterPositions = new();
+        private Dictionary<uint, Vector2I> _monsterPositions = new();
         private HashSet<Vector2I> _monsterReservedPositions = new();
         private int _gridSize = 111;
         private NetworkManager _network;
@@ -22,6 +22,16 @@ namespace ClinetCSharp
         public int DeathEffectMode { get; set; } = 1; // 0=直接删除, 1=淡出, 2=变灰停留后淡出
         public float DeathFadeDuration { get; set; } = 0.5f;
         public float DeathGrayDelay { get; set; } = 3.0f;
+
+        /// <summary>统一设置所有怪物实例的可见性（地图编辑器用）</summary>
+        public void SetAllMonstersVisible(bool visible)
+        {
+            foreach (var monster in _monsters)
+            {
+                if (monster != null && IsInstanceValid(monster))
+                    monster.Visible = visible;
+            }
+        }
 
         // 多配置样式系统：Key = 配置ID（MonsterId）
         // [Obsolete] 已被 EntityProfileManager 接管。保留仅用于旧代码兼容和迁移。
@@ -73,6 +83,9 @@ namespace ClinetCSharp
                 if (_network != null)
                 {
                     _network.CombatStateNotify += OnCombatStateNotify;
+                    _network.CombatEndNotify += OnCombatEndNotify;
+                    _network.CastStartNotify += OnCastStartNotify;
+                    _network.CombatEventNotify += OnCombatEventNotify;
                     _network.MonsterMoveCancelNotify += OnMonsterMoveCancel;
                     _network.MonsterDeathNotify += OnMonsterDeathNotify;
                     _network.MonsterRespawnNotify += OnMonsterRespawnNotify;
@@ -90,6 +103,9 @@ namespace ClinetCSharp
             if (_network != null)
             {
                 _network.CombatStateNotify -= OnCombatStateNotify;
+                _network.CombatEndNotify -= OnCombatEndNotify;
+                _network.CastStartNotify -= OnCastStartNotify;
+                _network.CombatEventNotify -= OnCombatEventNotify;
                 _network.MonsterMoveCancelNotify -= OnMonsterMoveCancel;
                 _network.MonsterDeathNotify -= OnMonsterDeathNotify;
                 _network.MonsterRespawnNotify -= OnMonsterRespawnNotify;
@@ -258,7 +274,7 @@ namespace ClinetCSharp
                 if (pm != null) pm.ApplyProfile(monster, 2);
                 else GD.PrintErr("[MonsterManager] EntityProfileManager.Instance is null, cannot apply profile");
                 _monsters.Add(monster);
-                _monsterPositions.Add(new Vector2I(m.X, m.Y));
+                _monsterPositions[m.InstanceId] = new Vector2I(m.X, m.Y);
 
                 GD.Print($"[MonsterManager] Spawned monster {monster.InstanceId}({monster.MonsterName}) at ({monster.GridX},{monster.GridY})");
             }
@@ -320,7 +336,7 @@ namespace ClinetCSharp
 
         public Monster GetMonsterAt(Vector2I gridPos)
         {
-            if (!_monsterPositions.Contains(gridPos) && !_monsterReservedPositions.Contains(gridPos))
+            if (!_monsterPositions.Values.Any(p => p == gridPos) && !_monsterReservedPositions.Contains(gridPos))
                 return null;
             foreach (var m in _monsters)
             {
@@ -336,7 +352,12 @@ namespace ClinetCSharp
         {
             var m = _monsters.Find(x => x.InstanceId == instanceId);
             if (m == null) return;
-            _monsterPositions.Add(from);
+
+            // 清理旧的预约位置，防止怪物改变移动目标时残留过期数据
+            if (m.PendingGridPos.HasValue)
+                _monsterReservedPositions.Remove(m.PendingGridPos.Value);
+
+            _monsterPositions[instanceId] = from;
             _monsterReservedPositions.Add(to);
             m.CurrentState = state;
             float durationSec = durationMs > 0 ? durationMs / 1000.0f : 0.15f;
@@ -345,7 +366,7 @@ namespace ClinetCSharp
 
         public bool IsBlockedByMonster(Vector2I gridPos)
         {
-            return _monsterPositions.Contains(gridPos) || _monsterReservedPositions.Contains(gridPos);
+            return _monsterPositions.Values.Any(p => p == gridPos) || _monsterReservedPositions.Contains(gridPos);
         }
 
         private void OnCombatStateNotify(Game.CombatStateNotify notify)
@@ -354,6 +375,7 @@ namespace ClinetCSharp
             {
                 foreach (var m in _monsters)
                 {
+                    m.IsInCombat = false;
                     m.CastingSkill = "";
                     m.CastProgress = 0;
                     m.HealthBarFillPercent = 1.0f;
@@ -379,9 +401,10 @@ namespace ClinetCSharp
             {
                 if (combatMonsters.TryGetValue(m.InstanceId, out var unit))
                 {
+                    m.IsInCombat = true;
                     m.CastingSkill = unit.CastingSkill;
                     m.CastProgress = unit.CastProgress;
-                    m.AtbValue = unit.Atb;
+                    m.AtbValue = 0f;
                     if (unit.MaxHp > 0)
                     {
                         if (m.SyncHp((int)unit.Hp, (int)unit.MaxHp))
@@ -394,6 +417,7 @@ namespace ClinetCSharp
                 }
                 else
                 {
+                    m.IsInCombat = false;
                     m.CastingSkill = "";
                     m.CastProgress = 0;
                     m.AtbValue = 0f;
@@ -407,12 +431,52 @@ namespace ClinetCSharp
             }
         }
 
+        private void OnCombatEndNotify(Game.CombatEndNotify notify)
+        {
+            foreach (var id in notify.EntityIds)
+            {
+                var m = _monsters.Find(x => x.InstanceId == id);
+                if (m == null) continue;
+                m.IsInCombat = false;
+                m.CastingSkill = "";
+                m.CastProgress = 0;
+                m.AtbValue = 0f;
+                if (!m.IsMoving && IsCombatState(m.CurrentState))
+                    m.CurrentState = "idle";
+                m.RefreshDataBoundLabels();
+                m.QueueRedraw();
+            }
+        }
+
+        private void OnCastStartNotify(Game.CastStartNotify notify)
+        {
+            var m = _monsters.Find(x => x.InstanceId == notify.CasterId);
+            if (m == null) return;
+            m.CastingSkill = SkillDataUtil.GetName((uint)notify.SkillId) ?? $"Skill{notify.SkillId}";
+            m.CastProgress = 0f;
+            m.QueueRedraw();
+        }
+
+        private void OnCombatEventNotify(Game.CombatEventNotify notify)
+        {
+            var m = _monsters.Find(x => x.InstanceId == notify.TargetId);
+            if (m == null) return;
+
+            if (notify.HpDelta != 0 && m.CurrentMaxHp > 0)
+            {
+                int newHp = Mathf.Clamp(m.CurrentHp + notify.HpDelta, 0, m.CurrentMaxHp);
+                if (m.SyncHp(newHp, m.CurrentMaxHp))
+                    m.PlayHitEffect();
+            }
+            m.QueueRedraw();
+        }
+
         private void OnMonsterDeathNotify(Game.MonsterDeathNotify notify)
         {
             var m = _monsters.Find(x => x.InstanceId == notify.InstanceId);
             if (m == null) return;
 
-            _monsterPositions.Remove(new Vector2I(m.GridX, m.GridY));
+            _monsterPositions.Remove(notify.InstanceId);
             if (m.PendingGridPos.HasValue)
                 _monsterReservedPositions.Remove(m.PendingGridPos.Value);
             _monsters.Remove(m);
@@ -429,7 +493,7 @@ namespace ClinetCSharp
             var existing = _monsters.Find(x => x.InstanceId == notify.InstanceId);
             if (existing != null)
             {
-                _monsterPositions.Remove(new Vector2I(existing.GridX, existing.GridY));
+                _monsterPositions.Remove(notify.InstanceId);
                 _monsters.Remove(existing);
                 existing.QueueFree();
             }
@@ -462,7 +526,7 @@ namespace ClinetCSharp
             if (pm != null) pm.ApplyProfile(monster, 2);
             else GD.PrintErr("[MonsterManager] EntityProfileManager.Instance is null, cannot apply profile");
             _monsters.Add(monster);
-            _monsterPositions.Add(new Vector2I(notify.X, notify.Y));
+            _monsterPositions[notify.InstanceId] = new Vector2I(notify.X, notify.Y);
 
             GD.Print($"[MonsterManager] Respawned monster {monster.InstanceId}({monster.MonsterName}) at ({monster.GridX},{monster.GridY})");
         }
@@ -474,8 +538,10 @@ namespace ClinetCSharp
 
             var rollbackPos = new Vector2I(notify.RollbackX, notify.RollbackY);
             if (m.PendingGridPos.HasValue)
+            {
                 _monsterReservedPositions.Remove(m.PendingGridPos.Value);
-            _monsterPositions.Add(rollbackPos);
+            }
+            _monsterPositions[notify.InstanceId] = rollbackPos;
 
             // Keep the rollback smooth while the monster is already moving.
             if (m.IsMoving)
@@ -491,8 +557,7 @@ namespace ClinetCSharp
             if (monster == null)
                 return;
 
-            _monsterPositions.Remove(fromGridPos);
-            _monsterPositions.Add(targetGridPos);
+            _monsterPositions[monster.InstanceId] = targetGridPos;
             _monsterReservedPositions.Remove(targetGridPos);
         }
 

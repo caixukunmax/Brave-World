@@ -1,3 +1,4 @@
+using GameServer.Common.Buffs;
 using GameServer.Common.Config;
 using GameServer.Services.Core;
 using GameServer.Services.Map;
@@ -28,6 +29,9 @@ public class MonsterManager : IMonsterRegistry
 
     /// <summary>怪物死亡回调：(monsterInstanceId, attackerId, monsterId) => void</summary>
     public Action<long, long, int>? OnMonsterDeath { get; set; }
+
+    /// <summary>战斗管理器引用（用于追击超时后断开关系）</summary>
+    public CombatManager? CombatManager { get; set; }
 
     private Dictionary<long, MonsterRuntimeState> _monsters = new();
     private readonly List<RespawnEntry> _respawnEntries = new();
@@ -119,11 +123,17 @@ public class MonsterManager : IMonsterRegistry
             {
                 var mapName = group.Key;
                 var players = GetOnlinePlayers(mapName);
-                var movedMonsters = new List<(long id, int fx, int fy, int tx, int ty, string state, int durationMs)>();
+                if (players.Count > 0)
+                {
+                    _logger.LogInformation("[MonsterTick] map={Map} players={Count} coords=[{Coords}]",
+                        mapName, players.Count, string.Join(", ", players.Values.Select(p => $"{p.RoleName}({p.GridX},{p.GridY})")));
+                }
+                var movedMonsters = new List<(long id, int fx, int fy, int tx, int ty, MonsterState state, int durationMs)>();
                 var cancelledMonsters = new List<(long id, int rollbackX, int rollbackY)>();
 
                 foreach (var (instanceId, m) in group)
                 {
+                    bool inReturnCooldown = m.ReturnCooldownEndMs > Environment.TickCount64;
                     UpdateTerritoryNarration(m, players);
 
                     // ---- 1. 处理正在移动的怪物 ----
@@ -145,8 +155,10 @@ public class MonsterManager : IMonsterRegistry
                                 cancelledMonsters.Add((instanceId, m.X, m.Y));
                                 if (result == ConfirmResult.Collision)
                                 {
-                                    _logger.LogInformation("[Monster] collision at 30%: id={Id} at ({X},{Y})", instanceId, m.X, m.Y);
-                                    _mapService.CheckEntityCollision(instanceId, mapName, m.X, m.Y);
+                                    if (!inReturnCooldown)
+                                    {
+                                        _mapService.CheckEntityCollision(instanceId, mapName, m.X, m.Y);
+                                    }
                                 }
                                 continue;
                             }
@@ -159,7 +171,10 @@ public class MonsterManager : IMonsterRegistry
                                 m.IsMoving = false;
                                 m.CheckpointConfirmed = false;
                                 cancelledMonsters.Add((instanceId, m.X, m.Y));
-                                _mapService.CheckEntityCollision(instanceId, mapName, m.X, m.Y);
+                                if (!inReturnCooldown)
+                                {
+                                    _mapService.CheckEntityCollision(instanceId, mapName, m.X, m.Y);
+                                }
                                 continue;
                             }
                             m.CheckpointConfirmed = true;
@@ -175,13 +190,26 @@ public class MonsterManager : IMonsterRegistry
                             m.CheckpointConfirmed = false;
 
                             // 到达新格后，统一碰撞检测（与玩家一致）
-                            _mapService.CheckEntityCollision(instanceId, mapName, m.X, m.Y);
+                            // 回归冷却期内不触发碰撞，避免回归后立即重新开战
+                            if (!inReturnCooldown)
+                            {
+                                _mapService.CheckEntityCollision(instanceId, mapName, m.X, m.Y);
+                            }
                         }
                         continue; // 移动中不执行 AI
                     }
 
-                    // ---- 2. AI 决策 ----
-                    var next = m.Mode == MonsterAiMode.Combat
+                    // ---- 2. 追击超时检查（领地外） ----
+                    if (m.InCombat && m.TargetId.HasValue)
+                    {
+                        CheckChaseTimeout(m, players);
+                    }
+
+                    // 回归状态或回归冷却期内，强制使用 Overworld 行为（巡逻/回归）
+                    MonsterAiMode effectiveMode = (m.State is MonsterState.Return or MonsterState.ForcedReturn || inReturnCooldown) ? MonsterAiMode.Overworld : m.Mode;
+
+                    // ---- 3. AI 决策 ----
+                    var next = effectiveMode == MonsterAiMode.Combat
                         ? RunCombatBehavior(m, mapName, players)
                         : RunOverworldBehavior(m, mapName, players);
                     if (next == null) continue;
@@ -199,7 +227,11 @@ public class MonsterManager : IMonsterRegistry
                     }
 
                     // ---- 4. 预占目标格 ----
-                    int durationMs = m.MoveSpeedMs > 0 ? m.MoveSpeedMs : GameConstants.DefaultMonsterMoveSpeedMs;
+                    double speedMultiplier = ((m.State is MonsterState.Return or MonsterState.ForcedReturn) && m.AiConfig.ReturnSpeedMultiplier is > 0)
+                        ? m.AiConfig.ReturnSpeedMultiplier.Value
+                        : 1.0;
+                    int baseSpeedMs = m.MoveSpeedMs > 0 ? m.MoveSpeedMs : GameConstants.DefaultMonsterMoveSpeedMs;
+                    int durationMs = (int)(baseSpeedMs / speedMultiplier);
                     bool reserved = _mapService.World.TryReserveMove(
                         instanceId, mapName, m.X, m.Y, nx, ny,
                         durationMs, GameConstants.MoveCheckRatio,
@@ -244,7 +276,7 @@ public class MonsterManager : IMonsterRegistry
                         FromY = fy,
                         ToX = tx,
                         ToY = ty,
-                        State = state,
+                        State = state.ToStateString(),
                         DurationMs = durationMs,
                     };
                     _mapService.BroadcastToMap(mapName, (int)PProtocol.MessageId.GameMonsterMoveNotify, notify.ToByteArray());
@@ -278,10 +310,16 @@ public class MonsterManager : IMonsterRegistry
     {
         if (!_monsters.TryGetValue(instanceId, out var m)) return;
         m.Hp -= damage;
-        m.InCombat = true;
-        m.TargetId = attackerId;
-        m.State = "combat";
-        _logger.LogInformation("[Monster] damaged: id={Id} dmg={Dmg} hp={Hp}", instanceId, damage, m.Hp);
+
+        // 回归/强制返回状态下接受伤害但不重新进入战斗，避免回归途中被 pending 伤害拉回追击
+        bool isReturning = m.State is MonsterState.Return or MonsterState.ForcedReturn;
+        if (!isReturning)
+        {
+            m.InCombat = true;
+            m.TargetId = attackerId;
+            m.State = MonsterState.Combat;
+        }
+        _logger.LogInformation("[Monster] damaged: id={Id} dmg={Dmg} hp={Hp} state={State}", instanceId, damage, m.Hp, m.State);
         if (m.Hp <= 0)
         {
             m.Hp = 0;
@@ -345,9 +383,61 @@ public class MonsterManager : IMonsterRegistry
         m.InCombat = false;
         m.TargetId = null;
         m.NarratedTargetId = null;
-        m.State = "return";
         m.LastMoveTime = 0;
-        _logger.LogInformation("[Monster] disengaged: id={Id}", instanceId);
+        m.ChaseTimeoutTimer = 0;
+
+        // 若尚未选择回归巡逻点（CheckChaseTimeout 已选则跳过，避免重复随机导致目标变更）
+        if (!m.ReturnPatrolPoint.HasValue)
+        {
+            SelectReturnPatrolPoint(m);
+        }
+        m.State = MonsterState.Return;
+        m.ReturnCooldownEndMs = Environment.TickCount64 + (long)((m.AiConfig.ChaseTimeout ?? 10.0) * 1000);
+
+        // 应用回归Buff（若已存在则跳过，避免 CheckChaseTimeout + OnDisengage 重复添加）
+        if (m.AiConfig.ReturnBuffId is > 0 && CombatManager != null)
+        {
+            var monsterCtx = CombatManager.GetContext(instanceId);
+            if (monsterCtx != null && !monsterCtx.Buffs.HasBuff(m.AiConfig.ReturnBuffId.Value))
+            {
+                var now = Environment.TickCount64;
+                var buffCfg = _tables.GetBuff(m.AiConfig.ReturnBuffId.Value);
+                long expireTime = buffCfg != null && buffCfg.Duration > 0
+                    ? now + (long)(buffCfg.Duration * 1000)
+                    : now + 30000; // 默认30秒
+                var buff = new BuffInstance
+                {
+                    BuffId = m.AiConfig.ReturnBuffId.Value,
+                    Stacks = 1,
+                    ApplyTime = now,
+                    ExpireTime = expireTime,
+                    CasterId = instanceId,
+                    TargetId = instanceId,
+                    LastTickTime = now,
+                };
+                monsterCtx.Buffs.AddBuff(buff);
+            }
+        }
+
+        _logger.LogInformation("[Monster] disengaged: id={Id} returnTo=({X},{Y})", instanceId,
+            m.ReturnPatrolPoint?.x ?? m.SpawnX, m.ReturnPatrolPoint?.y ?? m.SpawnY);
+    }
+
+    private static void SelectReturnPatrolPoint(MonsterRuntimeState m)
+    {
+        var cfg = m.AiConfig;
+        if (cfg.PatrolPoints != null && cfg.PatrolPoints.Count > 0)
+        {
+            // 随机选一个巡逻点
+            var pt = cfg.PatrolPoints[Random.Shared.Next(cfg.PatrolPoints.Count)];
+            m.ReturnPatrolPoint = (pt.x, pt.y);
+            m.ReturnPatrolIndex = cfg.PatrolPoints.IndexOf(pt);
+        }
+        else
+        {
+            m.ReturnPatrolPoint = null;
+            m.ReturnPatrolIndex = -1;
+        }
     }
 
     public bool IsOccupied(string mapName, int x, int y)
@@ -422,6 +512,10 @@ public class MonsterManager : IMonsterRegistry
                 ChaseIntervalMs = aiRow.ChaseIntervalMs,
                 CombatBehavior = combatBehavior,
                 CombatRange = combatRange,
+                TerritoryRadius = aiRow.TerritoryRadius,
+                ChaseTimeout = aiRow.ChaseTimeout,
+                ReturnBuffId = aiRow.ReturnBuffId,
+                ReturnSpeedMultiplier = aiRow.ReturnSpeedMultiplier,
             } : new AiConfig { AiType = aiType };
 
             monsters[id] = new MonsterRuntimeState
@@ -544,6 +638,61 @@ public class MonsterManager : IMonsterRegistry
                Math.Abs(player.GridY - monster.SpawnY) <= patrolRange;
     }
 
+    /// <summary>
+    /// 检查怪物追击是否超时。目标离开领地后累计计时，超时则断开战斗关系进入回归。
+    /// </summary>
+    private void CheckChaseTimeout(MonsterRuntimeState m, Dictionary<long, PlayerStateView> players)
+    {
+        if (!m.TargetId.HasValue) return;
+
+        long targetId = m.TargetId.Value;
+        var cfg = m.AiConfig;
+        double chaseTimeout = cfg.ChaseTimeout is > 0 ? cfg.ChaseTimeout.Value : 10.0;
+        // 领地半径：若未配置（<=0），则回退到 MaxChaseDistance（确保有领地限制）
+        int territoryRadius = cfg.TerritoryRadius is > 0 ? cfg.TerritoryRadius.Value : (cfg.MaxChaseDistance is > 0 ? cfg.MaxChaseDistance.Value : 10);
+
+        // 目标是否还在在线玩家列表中
+        if (!players.TryGetValue(targetId, out var targetPlayer))
+        {
+            // 目标已离线/切图，视为离开领地
+            m.ChaseTimeoutTimer += 0.5;
+        }
+        else
+        {
+            // 判断目标是否在领地内
+            bool inTerritory = territoryRadius > 0 &&
+                Pathfind.Manhattan(m.SpawnX, m.SpawnY, targetPlayer.GridX, targetPlayer.GridY) <= territoryRadius;
+
+            if (inTerritory)
+            {
+                m.ChaseTimeoutTimer = 0;
+            }
+            else
+            {
+                m.ChaseTimeoutTimer += 0.5; // Tick 间隔 500ms
+            }
+        }
+
+        if (m.ChaseTimeoutTimer >= chaseTimeout)
+        {
+            _logger.LogInformation("[Monster] chase timeout: id={Id} target={Target} timer={Timer}s, entering return state", m.InstanceId, targetId, m.ChaseTimeoutTimer);
+
+            // 请求 CombatManager 处理脱战广播（统一走脱战通知流程）
+            CombatManager?.RequestDisengage(m.InstanceId, targetId);
+
+            // 清除战斗状态
+            m.InCombat = false;
+            m.TargetId = null;
+            m.ChaseTimeoutTimer = 0;
+            m.LastMoveTime = 0;
+
+            // 选择回归巡逻点
+            SelectReturnPatrolPoint(m);
+            m.State = MonsterState.Return;
+            m.ReturnCooldownEndMs = Environment.TickCount64 + (long)((cfg.ChaseTimeout ?? 10.0) * 1000);
+        }
+    }
+
     // ---- 复活系统 ----
 
     private void ProcessRespawns()
@@ -586,7 +735,7 @@ public class MonsterManager : IMonsterRegistry
             RespawnTimeSec = entry.RespawnTimeSec,
             RespawnType = entry.RespawnType,
             RespawnRange = entry.RespawnRange,
-            State = "idle",
+            State = MonsterState.Idle,
         };
 
         _monsters[entry.InstanceId] = m;

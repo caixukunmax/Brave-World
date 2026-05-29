@@ -17,6 +17,7 @@ public class ActionContext
     public Dictionary<string, object>? ActionParams { get; set; }
     public CombatManager? CombatManager { get; set; }
     public Dictionary<string, MapState>? Maps { get; set; }
+    public ProjectileManager? ProjectileManager { get; set; }
 }
 
 public class ActionResult

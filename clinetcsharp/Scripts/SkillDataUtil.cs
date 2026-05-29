@@ -12,6 +12,7 @@ namespace ClinetCSharp
         public static readonly Dictionary<uint, (string name, int range, double castTime, double cd, int mpCost, int job)> Skills = new()
         {
             // Fallback 数据，Load() 后会被 JSON 覆盖
+            [1] = ("普通攻击", 1, 0.3, 1.5, 0, 0),
             [2] = ("烈斩", 1, 0.8, 3.0, 10, 1),
             [3] = ("盾击", 1, 0.6, 5.0, 15, 1),
             [4] = ("旋风斩", 2, 1.0, 8.0, 15, 1),

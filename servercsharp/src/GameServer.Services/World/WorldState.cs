@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using GameServer.Common.Config;
 using GameServer.Services.Core;
+using Microsoft.Extensions.Logging;
 
 namespace GameServer.Services.World;
 
@@ -41,13 +42,15 @@ public enum ConfirmResult
 public class WorldState : IWorldState
 {
     private readonly MapDataProvider _mapData;
+    private readonly ILogger<WorldState> _logger;
     private readonly ConcurrentDictionary<string, MapState> _maps = new();
     private readonly ConcurrentDictionary<long, MovementReservation> _moveReservations = new();
     private readonly ConcurrentDictionary<string, HashSet<(int x, int y)>> _reservedCells = new();
 
-    public WorldState(MapDataProvider mapData)
+    public WorldState(MapDataProvider mapData, ILogger<WorldState> logger)
     {
         _mapData = mapData;
+        _logger = logger;
         InitMaps();
     }
 
@@ -152,9 +155,18 @@ public class WorldState : IWorldState
     {
         if (_maps.TryGetValue(mapName, out var map) && map.Players.TryGetValue(accountId, out var p))
         {
+            _logger.LogInformation("[WorldState] PlayerMove: account={AccountId} map={MapName} from=({FX},{FY}) to=({TX},{TY})",
+                accountId, mapName, p.GridX, p.GridY, x, y);
             p.GridX = x;
             p.GridY = y;
         }
+        else
+        {
+            _logger.LogWarning("[WorldState] PlayerMove failed: account={AccountId} map={MapName} to=({TX},{TY}) — player not found",
+                accountId, mapName, x, y);
+        }
+        // 清除旧移动预约（如 GM teleport），防止 GetCombatPositions 返回过时坐标
+        _moveReservations.TryRemove(accountId, out _);
     }
 
     public void PlayerLeave(long accountId, string mapName)
