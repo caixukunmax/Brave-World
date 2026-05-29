@@ -53,12 +53,11 @@ namespace ClinetCSharp
                 Size = new Vector2I(300, 200),
                 RenderTargetUpdateMode = SubViewport.UpdateMode.Always,
                 TransparentBg = false,
-                CanvasItemDefaultTextureFilter = Viewport.DefaultCanvasItemTextureFilterEnum.Linear,
             };
             var camera = new Camera2D
             {
                 Position = Vector2.Zero,
-                AnchorMode = Camera2D.AnchorModeEnum.DragCentered,
+                AnchorMode = Camera2D.AnchorModeEnum.DragCenter,
             };
             _subViewport.AddChild(camera);
             _subViewportContainer.AddChild(_subViewport);
