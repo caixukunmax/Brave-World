@@ -4,7 +4,7 @@ namespace ClinetCSharp
 {
     public partial class Player
     {
-        private void ClearLabelNodes()
+        protected void ClearLabelNodes()
         {
             for (int i = 0; i < LabelCount; i++)
             {
@@ -17,7 +17,7 @@ namespace ClinetCSharp
             }
         }
 
-        private void CreateLabelNodes()
+        protected void CreateLabelNodes()
         {
             for (int i = 0; i < LabelCount; i++)
             {
@@ -33,7 +33,7 @@ namespace ClinetCSharp
             }
         }
 
-        private RichTextLabel CreateLabelNode(int index)
+        protected RichTextLabel CreateLabelNode(int index)
         {
             var label = new RichTextLabel();
             label.Name = $"Label_{index}";
@@ -49,16 +49,17 @@ namespace ClinetCSharp
             return label;
         }
 
-        private Color GetLineColor(int index)
+        protected Color GetLineColor(int index)
         {
             if (index >= 0 && index < LineColors.Count)
                 return LineColors[index];
             return TextColor;
         }
 
-        private void UpdateAllLabelPositions()
+        protected void UpdateAllLabelPositions()
         {
             int baseFontSize = EntityLabelLayout.ResolveBaseFontSize(FontSizeOverride, VisualSize);
+            var font = ThemeDB.FallbackFont;
 
             for (int i = 0; i < LabelCount; i++)
             {
@@ -73,7 +74,9 @@ namespace ClinetCSharp
                 if (label == null)
                     continue;
 
-                var textSize = label.GetMinimumSize();
+                // 使用同步的 GetStringSize 避免 RichTextLabel 异步布局（FitContent）导致的大小计算延迟
+                int fs = _labelFontSizes[i] > 0 ? _labelFontSizes[i] : baseFontSize;
+                var textSize = font.GetStringSize(PlayerLabelTexts[i], HorizontalAlignment.Center, -1, fs);
                 bool centerX = LabelCenterX[i] || LabelAutoCenterX;
                 Vector2 lineCenter = EntityLabelLayout.ResolveLineCenter(
                     i,

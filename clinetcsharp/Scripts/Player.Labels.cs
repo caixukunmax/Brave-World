@@ -7,7 +7,7 @@ namespace ClinetCSharp
         /// <summary>
         /// 公共方法：刷新标签显示（供 DebugPanel 调用）
         /// </summary>
-        public async void RefreshLabels()
+        public override async void RefreshLabels()
         {
             await SetupLabelsInternal();
         }
@@ -163,5 +163,6 @@ namespace ClinetCSharp
             base.SetGridSize(newSize);
             UpdateAllLabelPositions();
         }
+
     }
 }

@@ -3,13 +3,15 @@ using Godot;
 namespace ClinetCSharp
 {
     /// <summary>
-    /// 实体模板预览面板 — 可拖动，内置 SubViewport 直接显示预览实体
+    /// 实体模板预览面板 — 可拖动，内置 SubViewport 直接显示预览地图。
+    /// 预览地图完全等同于一张真实地图的迷你版本，确保渲染效果 1:1 一致。
     /// </summary>
     public partial class EntityProfilePreviewPanel : DraggablePanel
     {
         private Label _infoLabel;
         private SubViewportContainer _subViewportContainer;
         private SubViewport _subViewport;
+        private PreviewMap _previewMap;
 
         public System.Action OnClosePreview;
 
@@ -42,11 +44,12 @@ namespace ClinetCSharp
             };
             content.AddChild(_infoLabel);
 
+            // 用 CenterContainer 包裹 SubViewportContainer，确保预览内容居中且不会被拉伸
+            var viewportWrapper = new CenterContainer { Name = "ViewportWrapper" };
             _subViewportContainer = new SubViewportContainer
             {
                 CustomMinimumSize = new Vector2(300, 200),
-                SizeFlagsHorizontal = SizeFlags.ExpandFill,
-                Stretch = true,
+                Stretch = false,
             };
             _subViewport = new SubViewport
             {
@@ -54,16 +57,15 @@ namespace ClinetCSharp
                 RenderTargetUpdateMode = SubViewport.UpdateMode.Always,
                 TransparentBg = false,
             };
-            var camera = new Camera2D
-            {
-                Position = Vector2.Zero,
-                AnchorMode = Camera2D.AnchorModeEnum.DragCenter,
-            };
-            _subViewport.AddChild(camera);
             _subViewportContainer.AddChild(_subViewport);
-            content.AddChild(_subViewportContainer);
+            viewportWrapper.AddChild(_subViewportContainer);
+            content.AddChild(viewportWrapper);
 
             vbox.AddChild(content);
+
+            // 创建预览地图（完全等同于一张真实地图）
+            _previewMap = new PreviewMap();
+            _subViewport.AddChild(_previewMap);
         }
 
         protected override void OnClosed()
@@ -76,26 +78,16 @@ namespace ClinetCSharp
             _infoLabel.Text = $"模板: {profileName}\n类型: {entityType}\nID: {profileId}";
         }
 
-        /// <summary>将预览实体放入 SubViewport 中显示</summary>
+        /// <summary>将预览实体放入预览地图中显示</summary>
         public void SetPreviewEntity(EntityBase entity)
         {
-            if (_subViewport == null)
-                return;
+            _previewMap?.SetEntity(entity);
+        }
 
-            // 移除旧的预览实体
-            foreach (var child in _subViewport.GetChildren())
-            {
-                if (child is EntityBase)
-                {
-                    child.QueueFree();
-                }
-            }
-
-            if (entity != null)
-            {
-                _subViewport.AddChild(entity);
-                entity.Position = Vector2.Zero;
-            }
+        /// <summary>清除预览实体</summary>
+        public void ClearPreviewEntity()
+        {
+            _previewMap?.ClearEntity();
         }
     }
 }

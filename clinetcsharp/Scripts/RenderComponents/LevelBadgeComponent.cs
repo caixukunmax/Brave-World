@@ -14,14 +14,14 @@ namespace ClinetCSharp.RenderComponents
 
         public void OnAttach(EntityBase entity)
         {
-            _player = (Player)entity;
+            _player = entity as Player;
         }
 
         public void OnDetach(EntityBase entity) => _player = null!;
 
         public void Draw()
         {
-            if (!_player.LevelBadgeVisible) return;
+            if (_player == null || !_player.LevelBadgeVisible) return;
 
             var levelText = _player.LevelBadgeText
                 .Replace("{level}", _player.Level.ToString())

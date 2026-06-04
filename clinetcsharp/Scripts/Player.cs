@@ -43,10 +43,10 @@ namespace ClinetCSharp
 
         public HorizontalAlignment TextAlignment { get; set; } = HorizontalAlignment.Center;
 
-        private const int LabelCount = 4;
+        protected const int LabelCount = 4;
         private readonly RichTextLabel[] _labels = new RichTextLabel[LabelCount];
         private readonly Control[] _labelContainers = new Control[LabelCount];
-        private readonly Vector2[] _labelOffsets = new Vector2[LabelCount];
+        protected readonly Vector2[] _labelOffsets = new Vector2[LabelCount];
         private readonly bool[] _labelVisible = new bool[LabelCount] { true, true, true, true };
         private readonly int[] _labelFontSizes = new int[LabelCount];
 

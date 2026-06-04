@@ -11,7 +11,7 @@ namespace ClinetCSharp
         }
 
         /// <summary>确保渲染组件已添加（幂等，只添加一次）</summary>
-        private void EnsureRenderComponents()
+        protected void EnsureRenderComponents()
         {
             if (_renderComponents.Count > 0)
                 return;

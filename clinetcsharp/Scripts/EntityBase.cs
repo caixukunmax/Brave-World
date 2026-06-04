@@ -315,6 +315,7 @@ namespace ClinetCSharp
         protected void SetupRichLabels()
         {
             _useRichLabels = true;
+            var font = ThemeDB.FallbackFont;
             for (int i = 0; i < LabelCount; i++)
             {
                 if (_labelContainers[i] != null && IsInstanceValid(_labelContainers[i]))
@@ -323,6 +324,12 @@ namespace ClinetCSharp
                     _labelContainers[i] = null;
                     _labels[i] = null;
                 }
+
+                // 根据当前文本预计算合理的最小尺寸，避免 FitContent 延迟导致 Size 为 (1,1)
+                int baseFs = FontSize > 0 ? FontSize : Mathf.Max((int)(VisualSize / 4.0f * 0.7f), 8);
+                int fs = LabelFontSizes[i] > 0 ? LabelFontSizes[i] : baseFs;
+                var textSize = font.GetStringSize(LabelTexts[i], HorizontalAlignment.Center, -1, fs);
+                var minSize = new Vector2(Mathf.Max(1, textSize.X), Mathf.Max(1, textSize.Y));
 
                 var container = new Control
                 {
@@ -339,7 +346,7 @@ namespace ClinetCSharp
                     HorizontalAlignment = HorizontalAlignment.Center,
                     VerticalAlignment = VerticalAlignment.Center,
                     AutowrapMode = TextServer.AutowrapMode.Off,
-                    CustomMinimumSize = new Vector2(1, 1),
+                    CustomMinimumSize = minSize,
                     MouseFilter = Control.MouseFilterEnum.Ignore,
                 };
                 label.AddThemeColorOverride("font_color", TextColor);
@@ -362,6 +369,7 @@ namespace ClinetCSharp
             float baseLineHeight = baseFs * 1.1f;
             float totalHeight = baseLineHeight * 4;
             float startY = -(totalHeight / 2.0f) + baseLineHeight * 0.5f;
+            var font = ThemeDB.FallbackFont;
 
             for (int i = 0; i < LabelCount; i++)
             {
@@ -372,7 +380,9 @@ namespace ClinetCSharp
                 var label = _labels[i];
                 if (label == null) continue;
 
-                var textSize = label.GetMinimumSize();
+                // 同步计算文本大小，避免 RichTextLabel 异步布局（FitContent）导致 GetMinimumSize 延迟/错误
+                int fs = LabelFontSizes[i] > 0 ? LabelFontSizes[i] : baseFs;
+                var textSize = font.GetStringSize(LabelTexts[i], HorizontalAlignment.Center, -1, fs);
                 // Y: 居中排列 + 用户偏移
                 float posY = startY + i * baseLineHeight + LabelYOffsets[i];
                 // X: 居中或用户偏移
@@ -409,6 +419,16 @@ namespace ClinetCSharp
             }
         }
 
+        /// <summary>
+        /// 强制刷新标签位置和字号（用于预览面板在 AddChild 后重新计算）。
+        /// 子类（如 Player）可 override 以适配自己的标签系统。
+        /// </summary>
+        public virtual void RefreshLabels()
+        {
+            UpdateRichLabelFontSize();
+            UpdateRichLabelPositions();
+        }
+
         /// <summary>设置标签可见性</summary>
         public virtual void SetLabelVisible(int index, bool visible)
         {
@@ -424,6 +444,17 @@ namespace ClinetCSharp
             return _labelVisible[index];
         }
 
+        /// <summary>同步更新 RichTextLabel 的 CustomMinimumSize，避免 FitContent 异步计算延迟</summary>
+        private void SyncLabelMinSize(int index)
+        {
+            if (_labels[index] == null) return;
+            var font = ThemeDB.FallbackFont;
+            int baseFs = FontSize > 0 ? FontSize : Mathf.Max((int)(VisualSize / 4.0f * 0.7f), 8);
+            int fs = LabelFontSizes[index] > 0 ? LabelFontSizes[index] : baseFs;
+            var textSize = font.GetStringSize(LabelTexts[index], HorizontalAlignment.Center, -1, fs);
+            _labels[index]!.CustomMinimumSize = new Vector2(Mathf.Max(1, textSize.X), Mathf.Max(1, textSize.Y));
+        }
+
         /// <summary>设置标签文字（RichTextLabel 版）</summary>
         public void SetRichLabelText(int index, string text)
         {
@@ -432,6 +463,7 @@ namespace ClinetCSharp
             if (_labels[index] != null)
             {
                 _labels[index]!.Text = text;
+                SyncLabelMinSize(index);
                 UpdateRichLabelPositions();
             }
         }

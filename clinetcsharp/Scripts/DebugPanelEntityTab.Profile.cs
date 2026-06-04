@@ -18,6 +18,40 @@ namespace ClinetCSharp
             _currentProfileId = newId;
             RefreshComponents();
             SyncProfileNameEdit();
+
+            // 如果预览已打开，实时切换为新配置的预览
+            if (_previewEntity != null && GodotObject.IsInstanceValid(_previewEntity))
+            {
+                var profileManager = EntityProfileManager.Instance;
+                var profile = profileManager?.GetProfile(_currentProfileId);
+                if (profileManager != null && profile != null)
+                {
+                    // 如果类型不匹配，重新创建实体以确保和地图算法一致
+                    bool typeMatches = profile.EntityType switch
+                    {
+                        "monster" => _previewEntity is Monster,
+                        "npc" => _previewEntity is Npc,
+                        "player" => _previewEntity is PlayerPreview,
+                        _ => true,
+                    };
+
+                    if (!typeMatches)
+                    {
+                        _previewPanel?.ClearPreviewEntity();
+                        _previewEntity = null;
+                        _previewEntity = CreatePreviewEntity(profile);
+                    }
+
+                    profileManager.ApplyProfile(_previewEntity, _currentProfileId);
+                    _previewPanel?.SetPreviewEntity(_previewEntity);
+                    _previewEntity?.RefreshLabels();
+                }
+
+                if (_previewPanel != null && profile != null)
+                {
+                    _previewPanel.UpdateInfo(profile.Name, profile.EntityType, profile.Id);
+                }
+            }
         }
 
         private void OnAddProfilePressed()
@@ -202,6 +236,35 @@ namespace ClinetCSharp
 
         #region Preview Entity
 
+        /// <summary>
+        /// 根据 Profile 类型创建对应的预览实体，和地图上的实体使用相同的类与初始化流程。
+        /// </summary>
+        private EntityBase CreatePreviewEntity(EntityProfile profile)
+        {
+            EntityBase entity;
+            switch (profile.EntityType)
+            {
+                case "monster":
+                    var monster = new Monster();
+                    monster.Setup(0, 0, 0, 0, "预览怪物", 1, 111, profile.Id);
+                    monster.SetProcessInput(false);
+                    entity = monster;
+                    break;
+                case "npc":
+                    var npc = new Npc();
+                    npc.Setup(0, "预览NPC", 0, 0, 0, 111);
+                    npc.SetProcessInput(false);
+                    entity = npc;
+                    break;
+                case "player":
+                default:
+                    var preview = new PlayerPreview();
+                    entity = preview;
+                    break;
+            }
+            return entity;
+        }
+
         private void OnPreviewPressed()
         {
             var profileManager = EntityProfileManager.Instance;
@@ -212,8 +275,8 @@ namespace ClinetCSharp
             // 销毁旧预览
             DestroyPreviewEntity();
 
-            // 创建预览实体（放入面板的 SubViewport 中显示）
-            _previewEntity = new EntityPreview();
+            // 创建与地图算法一致的预览实体（同类型 + Setup + ApplyProfile）
+            _previewEntity = CreatePreviewEntity(profile);
 
             // 应用当前模板
             profileManager.ApplyProfile(_previewEntity, _currentProfileId);
@@ -230,6 +293,7 @@ namespace ClinetCSharp
                 Owner.AddChild(_previewPanel);
             }
             _previewPanel.SetPreviewEntity(_previewEntity);
+            _previewEntity.RefreshLabels();
             _previewPanel.UpdateInfo(profile.Name, profile.EntityType, profile.Id);
             _previewPanel.Visible = true;
             _previewPanel.GlobalPosition = new Vector2(100, 100);
@@ -237,10 +301,7 @@ namespace ClinetCSharp
 
         private void DestroyPreviewEntity()
         {
-            if (_previewPanel != null)
-            {
-                _previewPanel.SetPreviewEntity(null);
-            }
+            _previewPanel?.ClearPreviewEntity();
             _previewEntity = null;
             if (_previewPanel != null)
             {
@@ -260,6 +321,8 @@ namespace ClinetCSharp
 
             profileManager.ApplyProfile(_previewEntity, _currentProfileId);
         }
+
+
 
         #endregion
     }
