@@ -528,9 +528,11 @@ namespace ClinetCSharp
             if (gm != null)
             {
                 gm.ShowOutsideMapGray = enabled;
-                gm.QueueRedraw();
+                gm.RefreshOutsideMapVisibility();
             }
+#if DEBUG
             GD.Print($"[DebugPanel] ShowOutsideMapGray: {enabled}");
+#endif
         }
 
         private MonsterPatrolOverlay GetOrCreateMonsterPatrolOverlay()

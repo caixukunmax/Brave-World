@@ -45,7 +45,9 @@ namespace ClinetCSharp
         {
             if (IsMoving || _moveSentCount >= MaxMoveQueue || IsServerGridCorrectionActive())
             {
+#if DEBUG
                 GD.Print($"[Player.HandleInput] 跳过移动: IsMoving={IsMoving}, _moveSentCount={_moveSentCount}, IsServerGridCorrectionActive={IsServerGridCorrectionActive()}");
+#endif
                 return;
             }
 
@@ -81,7 +83,9 @@ namespace ClinetCSharp
             var gridManager = GetParent()?.GetNode<GridManager>("GridManager");
             if (gridManager != null && !gridManager.IsWalkable(targetGridPos))
             {
+#if DEBUG
                 GD.Print($"[Player.MoveTo] 被阻挡: 从{_gridPos} 到 {targetGridPos}");
+#endif
                 if (TryStartMonsterCollisionMove(targetGridPos))
                     return;
 
@@ -89,7 +93,9 @@ namespace ClinetCSharp
                 return;
             }
 
+#if DEBUG
             GD.Print($"[Player.MoveTo] 开始移动: 从{_gridPos} 到 {targetGridPos}");
+#endif
             BeginPredictedMove(targetGridPos);
         }
 

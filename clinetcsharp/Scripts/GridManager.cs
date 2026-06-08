@@ -63,7 +63,6 @@ namespace ClinetCSharp
 
         // 编辑模式
         public bool IsEditMode { get; set; } = false;
-        public bool ShowWalkableOverlay { get; set; } = false;
         public bool ShowGridCoords { get; set; } = false;  // 显示格子坐标
         public bool ShowTerrainLabels { get; set; } = false;  // 显示地形名称标签
 
@@ -421,28 +420,37 @@ namespace ClinetCSharp
         {
             if (!IsInBounds(gridPos))
             {
+#if DEBUG
                 GD.Print($"[IsWalkable] {gridPos} 超出地图范围 (MW={MapWidth}, MH={MapHeight})");
+#endif
                 return false;
             }
             if (_blockedByChest.Contains(gridPos))
             {
+#if DEBUG
                 GD.Print($"[IsWalkable] {gridPos} 被宝箱阻挡");
+#endif
                 return false;
             }
             var mm = GetTree()?.GetFirstNodeInGroup("monster_manager") as MonsterManager;
             if (mm != null && mm.IsBlockedByMonster(gridPos))
             {
+#if DEBUG
                 GD.Print($"[IsWalkable] {gridPos} 被怪物阻挡");
+#endif
                 return false;
             }
             var nm = GetTree()?.GetFirstNodeInGroup("npc_manager") as NpcManager;
             if (nm != null && nm.IsBlockedByNpc(gridPos))
             {
+#if DEBUG
                 GD.Print($"[IsWalkable] {gridPos} 被NPC阻挡");
+#endif
                 return false;
             }
             var cell = GridData[gridPos.Y][gridPos.X];
             var walkable = cell.TerrainConfig?.Walkable ?? true;
+#if DEBUG
             if (!walkable)
             {
                 GD.Print($"[IsWalkable] {gridPos} 地形不可行走: terrain={cell.TerrainType}, configNull={cell.TerrainConfig==null}");
@@ -451,6 +459,7 @@ namespace ClinetCSharp
             {
                 GD.Print($"[IsWalkable] {gridPos} 可行走: terrain={cell.TerrainType}, configNull={cell.TerrainConfig==null}");
             }
+#endif
             return walkable;
         }
 
@@ -771,6 +780,16 @@ namespace ClinetCSharp
         }
 
         /// <summary>
+        /// 刷新地图外部灰色区域的可见性（根据 ShowOutsideMapGray 开关更新 shader）
+        /// </summary>
+        public void RefreshOutsideMapVisibility()
+        {
+            if (_gridShaderOverlay == null) return;
+            var color = ShowOutsideMapGray ? OutsideMapColor : Colors.Transparent;
+            _gridShaderOverlay.UpdateOutsideMapColor(color);
+        }
+
+        /// <summary>
         /// 通知地形数据已变化，更新 Shader 遮罩纹理。
         /// 由 MapEditor 在修改地形后调用。
         /// </summary>
@@ -845,12 +864,6 @@ namespace ClinetCSharp
             _terrainMaskTexture = ImageTexture.CreateFromImage(image);
             _gridShaderOverlay.UpdateTerrainMask(_terrainMaskTexture, MapWidth, MapHeight);
             _gridShaderOverlay.UpdateOutsideMapColor(OutsideMapColor);
-        }
-
-        public void SetShowWalkableOverlay(bool show)
-        {
-            ShowWalkableOverlay = show;
-            QueueRedraw();
         }
 
         public void SetShowGridCoords(bool show)
