@@ -52,12 +52,43 @@ namespace ClinetCSharp
             QueueRedraw();
         }
 
+        /// <summary>
+        /// 更新地形墙遮罩纹理。遮罩中黑色(0)表示地形墙（不绘制网格线），白色(1)表示普通格子。
+        /// </summary>
+        public void UpdateTerrainMask(ImageTexture? maskTexture, int mapWidth, int mapHeight)
+        {
+            if (_shaderMaterial == null)
+                return;
+
+            if (maskTexture != null)
+            {
+                _shaderMaterial.SetShaderParameter("terrain_mask", maskTexture);
+                _shaderMaterial.SetShaderParameter("terrain_mask_size", new Vector2(mapWidth, mapHeight));
+            }
+            else
+            {
+                // 没有遮罩时，使用默认值（全白，所有格子都绘制网格线）
+                _shaderMaterial.SetShaderParameter("terrain_mask_size", new Vector2(1.0f, 1.0f));
+            }
+
+            QueueRedraw();
+        }
+
         public override void _Draw()
         {
             if (_shaderMaterial == null || _mapWidthWorld <= 0.0f || _mapHeightWorld <= 0.0f)
                 return;
 
             DrawRect(new Rect2(0.0f, 0.0f, _mapWidthWorld, _mapHeightWorld), Colors.White, true);
+        }
+
+        /// <summary>
+        /// 更新地图外部/地形墙的填充颜色（传给 shader 的 outside_map_color uniform）
+        /// </summary>
+        public void UpdateOutsideMapColor(Color color)
+        {
+            if (_shaderMaterial == null) return;
+            _shaderMaterial.SetShaderParameter("outside_map_color", new Vector4(color.R, color.G, color.B, color.A));
         }
     }
 }

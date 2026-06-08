@@ -40,7 +40,8 @@ public class CastRequestHandler : IMessageHandler
             return Task.FromResult<byte[]?>(MakeError("combat_not_ready"));
         }
 
-        var maps = _session.MapService.GetAllMapsLegacy();
+        var maps = _session.MapService.GetMapsSnapshot();
+        _session.MapService.RefreshCombatPositionsForSnapshot(maps);
         var result = combatService.HandleCastRequest(claims.AccountId, skillId, targetId, maps);
         return Task.FromResult(result);
     }

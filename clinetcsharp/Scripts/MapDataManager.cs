@@ -16,7 +16,7 @@ namespace ClinetCSharp
         public const string ConfigFilename = "config.cfg";
 
         /// <summary>
-        /// 创建默认地图数据 (50x50, 全部可行走)
+        /// 创建默认地图数据 (50x50, 全部为普通地形)
         /// </summary>
         public static List<List<GridCell>> CreateDefaultGridData(int width, int height)
         {
@@ -27,8 +27,6 @@ namespace ClinetCSharp
                 for (int x = 0; x < width; x++)
                 {
                     var cell = new GridCell(x, y);
-                    cell.Walkable = true;
-                    cell.Visible = true;
                     cell.TerrainType = 0;
                     row.Add(cell);
                 }
@@ -131,11 +129,9 @@ namespace ClinetCSharp
                     // 解析值
                     var val = values[x].StripEdges();
 
-                    // 简化的单行格式: walkable,visible,terrain,height,custom
-                    // 或更简单的只给walkable: 0或1
+                    // 格式: terrain;height;custom
                     if (val.Contains(";"))
                     {
-                        // 复杂格式: 用分号分隔多个属性
                         var parts = new Array();
                         foreach (var p in val.Split(";"))
                             parts.Add(p);
@@ -143,9 +139,9 @@ namespace ClinetCSharp
                     }
                     else
                     {
-                        // 简单格式: 只有一个值表示walkable
-                        cell.Walkable = val != "0" && val != "false";
-                        cell.Visible = true;
+                        // 简单格式: 只有一个值表示 terrain
+                        cell.TerrainType = int.TryParse(val, out var t) ? t : 0;
+                        cell.RefreshTerrainConfig();
                     }
 
                     row.Add(cell);
@@ -176,12 +172,64 @@ namespace ClinetCSharp
         }
 
         /// <summary>
-        /// 保存地图到CSV
+        /// 保存地图到CSV（同时保存到客户端运行时目录和 tables 源目录）
         /// </summary>
         public static Error SaveMapToCsv(string mapName, List<List<GridCell>> gridData)
         {
+            // 1. 保存到客户端运行时目录 (res://maps/)
             var csvPath = MapsFolder + mapName + "/" + CsvFilename;
+            var err = WriteMapCsv(csvPath, gridData);
+            if (err != Error.Ok)
+                return err;
 
+            // 2. 同时保存到 tables 源目录，供 Luban 导表使用
+            try
+            {
+                var projectRoot = System.IO.Path.GetFullPath(
+                    System.IO.Path.Combine(ProjectSettings.GlobalizePath("res://"), ".."));
+                var tablesPath = System.IO.Path.Combine(projectRoot, "tables", "datas", "maps", mapName, CsvFilename);
+                var tablesDir = System.IO.Path.GetDirectoryName(tablesPath);
+                if (!string.IsNullOrEmpty(tablesDir) && !System.IO.Directory.Exists(tablesDir))
+                    System.IO.Directory.CreateDirectory(tablesDir);
+
+                var content = BuildMapCsvContent(gridData);
+                System.IO.File.WriteAllText(tablesPath, content, System.Text.Encoding.UTF8);
+                GD.Print($"[MapDataManager] 同步保存到 tables: {tablesPath}");
+            }
+            catch (System.Exception ex)
+            {
+                GD.PushError($"[MapDataManager] 同步保存到 tables 失败: {ex.Message}");
+                // 不影响主保存流程，只记录错误
+            }
+
+            GD.Print("[MapDataManager] 保存地图成功: " + mapName);
+            return Error.Ok;
+        }
+
+        private static string BuildMapCsvContent(List<List<GridCell>> gridData)
+        {
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine("# Grid Map Data");
+            sb.AppendLine("# Format: terrain;height;custom");
+            sb.AppendLine("# terrain: 0=normal, 1=water, 2=grass, 3=sand, 4=rock, 5=snow, 6=swamp, 7=lava, 8=holy, 9=wall, 10=airwall");
+            sb.AppendLine("# height: 0-9");
+            sb.AppendLine("# custom: optional string");
+
+            foreach (var row in gridData)
+            {
+                var lineParts = new System.Collections.Generic.List<string>();
+                foreach (var cell in row)
+                {
+                    var cellStr = $"{cell.TerrainType};{cell.Height};{cell.CustomData}";
+                    lineParts.Add(cellStr);
+                }
+                sb.AppendLine(string.Join(",", lineParts));
+            }
+            return sb.ToString();
+        }
+
+        private static Error WriteMapCsv(string csvPath, List<List<GridCell>> gridData)
+        {
             var file = FileAccess.Open(csvPath, FileAccess.ModeFlags.Write);
             if (file == null)
             {
@@ -189,32 +237,24 @@ namespace ClinetCSharp
                 return FileAccess.GetOpenError();
             }
 
-            // 写入注释头
             file.StoreLine("# Grid Map Data");
-            file.StoreLine("# Format: exists;walkable;visible;terrain;height;custom");
-            file.StoreLine("# exists: 0=false, 1=true");
-            file.StoreLine("# walkable: 0=false, 1=true");
-            file.StoreLine("# visible: 0=false, 1=true");
-            file.StoreLine("# terrain: 0=normal, 1=water, 2=grass, 3=sand, 4=rock...");
+            file.StoreLine("# Format: terrain;height;custom");
+            file.StoreLine("# terrain: 0=normal, 1=water, 2=grass, 3=sand, 4=rock, 5=snow, 6=swamp, 7=lava, 8=holy, 9=wall, 10=airwall");
             file.StoreLine("# height: 0-9");
+            file.StoreLine("# custom: optional string");
 
-            // 写入数据
             foreach (var row in gridData)
             {
                 var lineParts = new System.Collections.Generic.List<string>();
                 foreach (var cell in row)
                 {
-                    // 使用简化格式,用分号分隔
-                    var cellStr = $"{(cell.Exists ? "1" : "0")};{(cell.Walkable ? "1" : "0")};{(cell.Visible ? "1" : "0")};{cell.TerrainType};{cell.Height};{cell.CustomData}";
+                    var cellStr = $"{cell.TerrainType};{cell.Height};{cell.CustomData}";
                     lineParts.Add(cellStr);
                 }
-
                 file.StoreLine(string.Join(",", lineParts));
             }
 
             file.Close();
-
-            GD.Print("[MapDataManager] 保存地图成功: " + mapName);
             return Error.Ok;
         }
 

@@ -56,7 +56,6 @@ namespace ClinetCSharp
                 MinScreenLineWidth = mainGrid?.MinScreenLineWidth ?? 1.0f,
                 MaxScreenLineWidth = mainGrid?.MaxScreenLineWidth ?? 2.0f,
                 GridAntiAliasSoftness = mainGrid?.GridAntiAliasSoftness ?? GridOverlayAntiAliasSoftnessPolicy.Default,
-                ShowRemovedCells = false,
                 ShowGridCoords = false,
                 ShowTerrainLabels = false,
                 IsEditMode = false,

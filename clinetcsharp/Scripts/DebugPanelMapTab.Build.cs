@@ -130,6 +130,11 @@ namespace ClinetCSharp
             _monsterPatrolOverlayCheck = new CheckButton { Text = "显示所有怪物巡逻区域" };
             patrolOverlayRow.AddChild(_monsterPatrolOverlayCheck);
             section.AddChild(patrolOverlayRow);
+
+            var outsideMapGrayRow = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+            _showOutsideMapGrayCheck = new CheckButton { Text = "显示地图外灰色", ButtonPressed = true };
+            outsideMapGrayRow.AddChild(_showOutsideMapGrayCheck);
+            section.AddChild(outsideMapGrayRow);
         }
 
         private void BuildEditorInputSection(VBoxContainer parent)

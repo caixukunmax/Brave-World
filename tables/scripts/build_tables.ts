@@ -32,6 +32,12 @@ interface PathsConfig {
   tables: {
     json_data_dir: string;
   };
+  maps: {
+    source_dir: string;
+    cs_output_dir: string;
+    client_output_dir: string;
+    cs_registry_path: string;
+  };
 }
 
 // =============================================================================
@@ -255,6 +261,74 @@ function main(): void {
   if (fs.existsSync(BIN_DATA_DIR)) {
     copyDirSync(JSON_DATA_DIR, BIN_DATA_DIR);
     success('JSON data → bin/Debug/net8.0/data/tables (runtime sync)');
+  }
+
+  // --------------------------------------------------------------------------
+  // Pass 2: 同步地图 CSV 到客户端和服务端
+  // --------------------------------------------------------------------------
+  console.log('----------------------------------------');
+  info('Syncing map CSV files...');
+  console.log('----------------------------------------');
+
+  const MAP_SOURCE_DIR = path.resolve(ROOT_DIR, paths.maps.source_dir);
+  const MAP_CLIENT_DIR = path.resolve(ROOT_DIR, paths.maps.client_output_dir);
+  const MAP_SERVER_DIR = path.resolve(ROOT_DIR, paths.maps.cs_output_dir);
+  const MAP_REGISTRY_PATH = path.resolve(ROOT_DIR, paths.maps.cs_registry_path);
+
+  // 读取地图注册表，获取 display_name -> map_name 映射
+  const mapNameMap = new Map<string, string>(); // display_name -> map_name
+  if (fs.existsSync(MAP_REGISTRY_PATH)) {
+    const registry = JSON.parse(fs.readFileSync(MAP_REGISTRY_PATH, 'utf-8'));
+    for (const entry of registry) {
+      if (entry.display_name && entry.map_name) {
+        mapNameMap.set(entry.display_name, entry.map_name);
+      }
+    }
+  }
+
+  if (fs.existsSync(MAP_SOURCE_DIR)) {
+    const mapDirs = fs.readdirSync(MAP_SOURCE_DIR, { withFileTypes: true })
+      .filter(e => e.isDirectory());
+
+    for (const dir of mapDirs) {
+      const displayName = dir.name;
+      const serverMapName = mapNameMap.get(displayName) || displayName;
+
+      const srcDir = path.join(MAP_SOURCE_DIR, displayName);
+      const clientDir = path.join(MAP_CLIENT_DIR, displayName);
+      const serverDir = path.join(MAP_SERVER_DIR, serverMapName);
+
+      // 同步到客户端
+      copyDirSync(srcDir, clientDir);
+      success(`Map '${displayName}' → ${paths.maps.client_output_dir}`);
+
+      // 同步到服务端
+      copyDirSync(srcDir, serverDir);
+      success(`Map '${displayName}' → ${paths.maps.cs_output_dir}/${serverMapName}`);
+    }
+
+    // 同时同步到服务端 bin 目录（运行时读取位置）
+    const BIN_DEBUG_DIR = path.resolve(ROOT_DIR, 'servercsharp/src/GameServer/bin/Debug/net8.0/data/maps');
+    const BIN_RELEASE_DIR = path.resolve(ROOT_DIR, 'servercsharp/src/GameServer/bin/Release/net8.0/data/maps');
+    for (const dir of mapDirs) {
+      const displayName = dir.name;
+      const serverMapName = mapNameMap.get(displayName) || displayName;
+      const srcDir = path.join(MAP_SOURCE_DIR, displayName);
+
+      if (fs.existsSync(BIN_DEBUG_DIR)) {
+        const binDir = path.join(BIN_DEBUG_DIR, serverMapName);
+        copyDirSync(srcDir, binDir);
+      }
+      if (fs.existsSync(BIN_RELEASE_DIR)) {
+        const binDir = path.join(BIN_RELEASE_DIR, serverMapName);
+        copyDirSync(srcDir, binDir);
+      }
+    }
+    if (fs.existsSync(BIN_DEBUG_DIR) || fs.existsSync(BIN_RELEASE_DIR)) {
+      success('Map CSV → bin/Debug|Release/net8.0/data/maps (runtime sync)');
+    }
+  } else {
+    warn(`Map source dir not found: ${MAP_SOURCE_DIR}`);
   }
 
   // 清理临时目录

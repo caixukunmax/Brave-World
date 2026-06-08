@@ -67,9 +67,9 @@ namespace ClinetCSharp
         public bool ShowGridCoords { get; set; } = false;  // 显示格子坐标
         public bool ShowTerrainLabels { get; set; } = false;  // 显示地形名称标签
 
-        // 被移除格子的显示设置
-        [Export] public Color RemovedCellColor { get; set; } = new Color(0.3f, 0.3f, 0.3f, 0.25f);  // 平衡可见度与网格线对比度
-        [Export] public bool ShowRemovedCells { get; set; } = true;  // 是否显示被移除的格子
+        // 地图范围外灰色显示设置
+        [Export] public bool ShowOutsideMapGray { get; set; } = true;
+        [Export] public Color OutsideMapColor { get; set; } = new Color(0.15f, 0.15f, 0.15f, 1.0f);
 
         // 自适应校准用的 zoom 跟踪
         private float _lastCameraZoom = 0.0f;
@@ -86,6 +86,8 @@ namespace ClinetCSharp
         private float _lastRefWidthB = float.NaN;
 
         private GridShaderOverlay? _gridShaderOverlay;
+        private ColorRect? _background;
+        private ImageTexture? _terrainMaskTexture;
 
         public override void _Ready()
         {
@@ -99,6 +101,9 @@ namespace ClinetCSharp
             }
 
             LoadMapData();
+
+            // 同步 Background 尺寸
+            SyncBackgroundSize();
 
             // 视口级 DrawRect 网格在开启 2D 像素对齐时更稳定。
             var viewport = GetViewport();
@@ -125,6 +130,7 @@ namespace ClinetCSharp
 
             EnsureGridShaderOverlay();
             UpdateGridShaderOverlay();
+            UpdateTerrainMask();
 
             QueueRedraw();
         }
@@ -210,6 +216,8 @@ namespace ClinetCSharp
                 screenLineWidth,
                 lineColor,
                 GridAntiAliasSoftness);
+
+            _gridShaderOverlay.UpdateOutsideMapColor(OutsideMapColor);
         }
 
         private void LoadMapData()
@@ -234,6 +242,8 @@ namespace ClinetCSharp
                     MapDataManager.CreateNewMap(CurrentMapName, MapWidth, MapHeight);
                 MapDataManager.SaveMapToCsv(CurrentMapName, GridData);
             }
+
+            UpdateTerrainMask();
         }
 
         private void CreateDefaultGridData()
@@ -245,9 +255,7 @@ namespace ClinetCSharp
                 for (int x = 0; x < MapWidth; x++)
                 {
                     var cell = new GridCell(x, y);
-                    cell.Exists = true;
-                    cell.Walkable = true;
-                    cell.Visible = true;
+                    cell.TerrainType = 0;
                     row.Add(cell);
                 }
                 GridData.Add(row);
@@ -256,40 +264,20 @@ namespace ClinetCSharp
 
         public override void _Draw()
         {
-            DrawGrid();
+            // 地图范围外灰色 + 地形墙填充 + 地形颜色覆盖层：全部由 GPU shader 渲染
+            // (grid_overlay.gdshader 通过 terrain_mask RGBA8 纹理 + outside_map_color 处理)
+            // 不再需要 CPU 端 DrawOutsideMapGray / DrawTerrainWalls / DrawWalkableOverlay
 
-            // 其余信息叠加在网格之上。
-            if (IsEditMode && ShowWalkableOverlay)
-                DrawWalkableOverlay();
+            // 文本覆盖层保留在 CPU 端（GPU 难以高效渲染多语言文本）
             if (IsEditMode)
                 DrawTerrainLabels();
             if (ShowGridCoords)
                 DrawGridCoords();
-
-            // DEBUG: 在地图中央画一个巨大的测试文字，验证 DrawString 是否工作
-            if (IsEditMode && _terrainLabelFont != null)
-            {
-                var testPos = new Vector2(MapWidth * GridSize / 2, MapHeight * GridSize / 2);
-                DrawRect(new Rect2(testPos - new Vector2(60, 20), new Vector2(120, 40)), new Color(0, 1, 0, 0.5f), true);
-                DrawString(_terrainLabelFont, testPos, "TEST文字", HorizontalAlignment.Left, width: -1, fontSize: 24, modulate: Colors.Magenta);
-            }
         }
 
         private void DrawGrid()
         {
-            for (int y = 0; y < MapHeight; y++)
-            {
-                for (int x = 0; x < MapWidth; x++)
-                {
-                    var cell = GridData[y][x];
-                    if (!cell.Exists && ShowRemovedCells)
-                    {
-                        var pos = new Vector2(x * GridSize, y * GridSize);
-                        var rect = new Rect2(pos, new Vector2(GridSize, GridSize));
-                        DrawRect(rect, RemovedCellColor, true);
-                    }
-                }
-            }
+            // 网格线由 GPU shader 渲染（GridShaderOverlay），此方法保留为空
         }
 
         public (float lineWidthWorld, Color lineColor) ComputeGridLineRenderStylePublic(float cameraZoom)
@@ -352,54 +340,10 @@ namespace ClinetCSharp
             return 1.0f;
         }
 
-        private void DrawWalkableOverlay()
-        {
-            // 编辑模式下显示可行走/不可行走区域
-            for (int y = 0; y < MapHeight; y++)
-            {
-                for (int x = 0; x < MapWidth; x++)
-                {
-                    var cell = GridData[y][x];
-                    if (!cell.Exists)
-                        continue;  // 不存在的格子跳过
-
-                    var pos = new Vector2(x * GridSize, y * GridSize);
-                    var rect = new Rect2(pos, new Vector2(GridSize, GridSize));
-
-                    if (!cell.Walkable)
-                    {
-                        // 不可行走显示红色半透明
-                        DrawRect(rect, new Color(1, 0, 0, 0.3f), true);
-                    }
-                    else if (!cell.Visible)
-                    {
-                        // 不可见显示灰色半透明
-                        DrawRect(rect, new Color(0.5f, 0.5f, 0.5f, 0.3f), true);
-                    }
-                    else
-                    {
-                        // 根据地形类型显示不同颜色
-                        var terrainColor = GetTerrainColor(cell.TerrainType);
-                        if (terrainColor != Colors.Transparent)
-                            DrawRect(rect, terrainColor, true);
-                    }
-                }
-            }
-        }
-
-        private Color GetTerrainColor(int terrainType)
-        {
-            var config = TerrainConfigUtil.Get(terrainType);
-            if (config == null) return Colors.Transparent;
-
-            return new Color(
-                config.ColorR / 255f,
-                config.ColorG / 255f,
-                config.ColorB / 255f,
-                config.ColorA
-            );
-        }
-
+        /// <summary>
+        /// 无条件绘制地形墙(9)的深灰色填充，普通模式和编辑模式下都显示，
+        /// 使地形墙与地图边界外区域视觉一致。
+        /// </summary>
         // ============ 地形标签显示 ============
 
         private Font? _terrainLabelFont;
@@ -407,23 +351,17 @@ namespace ClinetCSharp
 
         private void DrawTerrainLabels()
         {
-            // 强制画一个巨大的黄色方块在(0,0)，验证此方法是否生效
-            DrawRect(new Rect2(0, 0, 200, 100), new Color(1, 1, 0, 0.9f), true);
-            DrawString(_terrainLabelFont, new Vector2(10, 60), "LABELS_TEST", HorizontalAlignment.Left, width: -1, fontSize: 24, modulate: Colors.Red);
-
             var cameraZoom = GetCameraZoom();
             if (cameraZoom < 0.5f) return;
 
-            int labelCount = 0;
             for (int y = 0; y < MapHeight; y++)
             {
                 for (int x = 0; x < MapWidth; x++)
                 {
                     var cell = GridData[y][x];
-                    if (!cell.Exists || cell.TerrainType == 0)
+                    if (cell.TerrainType == 0)
                         continue;
 
-                    labelCount++;
                     var name = cell.GetTerrainName();
                     if (string.IsNullOrEmpty(name)) continue;
 
@@ -448,11 +386,6 @@ namespace ClinetCSharp
                     DrawString(_terrainLabelFont, pos, name, HorizontalAlignment.Left, width: -1, fontSize: fontSize, modulate: textColor);
                 }
             }
-
-            // 在地图左上角显示统计
-            var debugText = $"labels:{labelCount} MH:{MapHeight} MW:{MapWidth} Z:{cameraZoom:F2}";
-            DrawRect(new Rect2(0, 100, 320, 30), new Color(0, 0, 0, 0.7f), true);
-            DrawString(_terrainLabelFont, new Vector2(5, 122), debugText, HorizontalAlignment.Left, width: -1, fontSize: 16, modulate: Colors.Yellow);
         }
 
         // ============ 坐标转换 ============
@@ -487,25 +420,44 @@ namespace ClinetCSharp
         public bool IsWalkable(Vector2I gridPos)
         {
             if (!IsInBounds(gridPos))
+            {
+                GD.Print($"[IsWalkable] {gridPos} 超出地图范围 (MW={MapWidth}, MH={MapHeight})");
                 return false;
+            }
             if (_blockedByChest.Contains(gridPos))
+            {
+                GD.Print($"[IsWalkable] {gridPos} 被宝箱阻挡");
                 return false;
+            }
             var mm = GetTree()?.GetFirstNodeInGroup("monster_manager") as MonsterManager;
             if (mm != null && mm.IsBlockedByMonster(gridPos))
+            {
+                GD.Print($"[IsWalkable] {gridPos} 被怪物阻挡");
                 return false;
+            }
             var nm = GetTree()?.GetFirstNodeInGroup("npc_manager") as NpcManager;
             if (nm != null && nm.IsBlockedByNpc(gridPos))
+            {
+                GD.Print($"[IsWalkable] {gridPos} 被NPC阻挡");
                 return false;
+            }
             var cell = GridData[gridPos.Y][gridPos.X];
-            return cell.Exists && cell.Walkable;
+            var walkable = cell.TerrainConfig?.Walkable ?? true;
+            if (!walkable)
+            {
+                GD.Print($"[IsWalkable] {gridPos} 地形不可行走: terrain={cell.TerrainType}, configNull={cell.TerrainConfig==null}");
+            }
+            else
+            {
+                GD.Print($"[IsWalkable] {gridPos} 可行走: terrain={cell.TerrainType}, configNull={cell.TerrainConfig==null}");
+            }
+            return walkable;
         }
 
         public bool IsCellVisible(Vector2I gridPos)
         {
-            if (!IsInBounds(gridPos))
-                return false;
-            var cell = GridData[gridPos.Y][gridPos.X];
-            return cell.Exists && cell.Visible;
+            // 所有地图范围内的格子都可见
+            return IsInBounds(gridPos);
         }
 
         public GridCell GetCell(Vector2I gridPos)
@@ -790,6 +742,17 @@ namespace ClinetCSharp
             nm?.SetGridSize(newSize);
 
             UpdateGridShaderOverlay();
+            SyncBackgroundSize();
+        }
+
+        private void SyncBackgroundSize()
+        {
+            if (_background == null)
+            {
+                _background = GetParent()?.GetNodeOrNull<ColorRect>("Background");
+                if (_background == null) return;
+            }
+            _background.Size = new Vector2(MapWidth * GridSize, MapHeight * GridSize);
         }
 
         public void SetLineBrightness(float brightness)
@@ -801,8 +764,87 @@ namespace ClinetCSharp
         public void SetEditMode(bool enabled)
         {
             IsEditMode = enabled;
-            ShowWalkableOverlay = enabled;
+            // 地形颜色/墙由 GPU shader 始终渲染，无需额外开关
+            UpdateTerrainMask();
+            UpdateGridShaderOverlay();
             QueueRedraw();
+        }
+
+        /// <summary>
+        /// 通知地形数据已变化，更新 Shader 遮罩纹理。
+        /// 由 MapEditor 在修改地形后调用。
+        /// </summary>
+        public void NotifyTerrainChanged()
+        {
+            UpdateTerrainMask();
+            QueueRedraw();
+        }
+
+        /// <summary>
+        /// 根据当前 GridData 生成地形墙遮罩纹理并更新到 Shader。
+        /// 遮罩中黑色(0)表示地形墙（不绘制网格线），白色(1)表示普通格子。
+        /// </summary>
+        /// <summary>
+        /// 根据当前 GridData 生成 RGBA8 地形遮罩纹理并更新到 Shader。
+        /// R 通道：0=地形墙(不绘制网格线，显示灰色填充)，255=普通格子
+        /// GBA 通道：地形配置颜色（RGB），地形墙使用 OutsideMapColor
+        /// </summary>
+        private void UpdateTerrainMask()
+        {
+            if (_gridShaderOverlay == null || GridData.Count == 0)
+                return;
+
+            var image = Image.CreateEmpty(MapWidth, MapHeight, false, Image.Format.Rgba8);
+            for (int y = 0; y < MapHeight; y++)
+            {
+                for (int x = 0; x < MapWidth; x++)
+                {
+                    var cell = GridData[y][x];
+                    byte maskValue;
+                    float r, g, b;
+
+                    if (cell.TerrainType == 9)
+                    {
+                        // 地形墙：mask=0(灰色填充)，颜色=OutsideMapColor
+                        maskValue = 0;
+                        r = OutsideMapColor.R;
+                        g = OutsideMapColor.G;
+                        b = OutsideMapColor.B;
+                    }
+                    else if (cell.TerrainType == 10)
+                    {
+                        // 空气墙：mask=255(显示网格线)，颜色=淡红色
+                        maskValue = 255;
+                        r = 1.0f;
+                        g = 0.0f;
+                        b = 0.0f;
+                    }
+                    else
+                    {
+                        // 普通格子：mask=255(显示网格线)
+                        maskValue = 255;
+                        var cfg = cell.TerrainConfig ?? TerrainConfigUtil.Get(cell.TerrainType);
+                        if (cfg != null && (cfg.ColorR > 0 || cfg.ColorG > 0 || cfg.ColorB > 0))
+                        {
+                            r = cfg.ColorR / 255f;
+                            g = cfg.ColorG / 255f;
+                            b = cfg.ColorB / 255f;
+                        }
+                        else
+                        {
+                            r = 0f;
+                            g = 0f;
+                            b = 0f;
+                        }
+                    }
+
+                    image.SetPixel(x, y, new Color(maskValue / 255f, r, g, b));
+                }
+            }
+
+            _terrainMaskTexture = ImageTexture.CreateFromImage(image);
+            _gridShaderOverlay.UpdateTerrainMask(_terrainMaskTexture, MapWidth, MapHeight);
+            _gridShaderOverlay.UpdateOutsideMapColor(OutsideMapColor);
         }
 
         public void SetShowWalkableOverlay(bool show)
@@ -828,10 +870,6 @@ namespace ClinetCSharp
             {
                 for (int x = 0; x < MapWidth; x++)
                 {
-                    var cell = GridData[y][x];
-                    if (!cell.Exists)
-                        continue;  // 不存在的格子跳过
-
                     var worldPos = GridToWorld(new Vector2I(x, y));
                     var text = $"x:{x}\ny:{y}";
 
@@ -862,6 +900,8 @@ namespace ClinetCSharp
                 MapWidth = GridData.Count > 0 ? GridData[0].Count : 50;
                 CurrentMapName = mapName;
                 UpdateGridShaderOverlay();
+                UpdateTerrainMask();
+                SyncBackgroundSize();
                 QueueRedraw();
                 return true;
             }
@@ -883,5 +923,6 @@ namespace ClinetCSharp
             }
             return err;
         }
+
     }
 }

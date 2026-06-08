@@ -22,6 +22,9 @@ namespace ClinetCSharp
         private bool _wasTreePaused;
         private bool _wasPlayerVisible;
         private bool _wasMonsterPatrolOverlayVisible;
+        private bool _wasFunctionBarVisible;
+        private bool _wasSkillBarVisible;
+        private System.Collections.Generic.List<DraggablePanel> _wasVisiblePanels = new();
 
         // 选中系统
         public Dictionary<Vector2I, bool> SelectedCells { get; private set; } = new Dictionary<Vector2I, bool>();  // Vector2i -> bool
@@ -30,9 +33,6 @@ namespace ClinetCSharp
         public Vector2I SelectionEnd { get; private set; }          // 框选结束格子
 
         // 当前设置的属性（应用到选中格子）
-        public bool PaintExists { get; set; } = true;
-        public bool PaintWalkable { get; set; } = true;
-        public bool PaintVisible { get; set; } = true;
         public int PaintTerrain { get; set; } = 0;
 
         // UI引用
@@ -41,10 +41,50 @@ namespace ClinetCSharp
         // 按键配置（可由调试面板设置）
         public bool RequireCtrlForSelection { get; set; } = true;  // 是否需要Ctrl键才能选中
 
-        // 撤销历史
-        private System.Collections.Generic.List<List<List<GridCell>>> _undoStack = new();
-        private System.Collections.Generic.List<List<List<GridCell>>> _redoStack = new();
+        // 撤销历史（差分命令模式：只记录被修改格子的旧值，不再深拷贝全网格）
+        private System.Collections.Generic.List<TerrainEditCommand> _undoStack = new();
+        private System.Collections.Generic.List<TerrainEditCommand> _redoStack = new();
         public const int MaxUndoSteps = 20;
+
+        /// <summary>
+        /// 地形编辑命令 — 记录一次编辑操作中被修改格子的旧地形值。
+        /// 仅存储 (位置, 旧值) 差分，而非完整网格深拷贝。
+        /// </summary>
+        private class TerrainEditCommand
+        {
+            /// <summary>应用此命令后的新地形值（用于 Redo）</summary>
+            public int NewTerrainType;
+            /// <summary>被修改的格子列表及其旧地形值</summary>
+            public List<(Vector2I Pos, int OldTerrainType)> Changes = new();
+
+            public void Undo(GridManager grid)
+            {
+                foreach (var (pos, oldType) in Changes)
+                {
+                    if (!grid.IsInBounds(pos)) continue;
+                    var cell = grid.GetCell(pos);
+                    if (cell == null) continue;
+                    cell.TerrainType = oldType;
+                    cell.TerrainConfig = TerrainConfigUtil.Get(oldType);
+                }
+                grid.NotifyTerrainChanged();
+                GD.Print($"[MapEditor.Undo] 恢复 {Changes.Count} 个格子的地形");
+            }
+
+            public void Redo(GridManager grid)
+            {
+                foreach (var (pos, _) in Changes)
+                {
+                    if (!grid.IsInBounds(pos)) continue;
+                    var cell = grid.GetCell(pos);
+                    if (cell == null) continue;
+                    cell.TerrainType = NewTerrainType;
+                    cell.TerrainConfig = TerrainConfigUtil.Get(NewTerrainType);
+                }
+                grid.NotifyTerrainChanged();
+                GD.Print($"[MapEditor.Redo] 重做 {Changes.Count} 个格子的地形为 {NewTerrainType}");
+            }
+        }
 
         // 选择历史（用于右键撤销选择）
         private List<Dictionary<Vector2I, bool>> _selectionHistory = new List<Dictionary<Vector2I, bool>>();  // 每次选择操作前保存选中状态
@@ -323,8 +363,8 @@ namespace ClinetCSharp
             _wasTreePaused = GetTree().Paused;
             _wasPlayerVisible = Player?.Visible ?? false;
 
-            var patrolOverlay = GetTree().GetFirstNodeInGroup("monster_patrol_overlay") as CanvasItem;
-            _wasMonsterPatrolOverlayVisible = patrolOverlay?.Visible ?? false;
+            var patrolOverlay = GetTree().GetFirstNodeInGroup("monster_patrol_overlay") as MonsterPatrolOverlay;
+            _wasMonsterPatrolOverlayVisible = patrolOverlay?.OverlayEnabled ?? false;
 
             // 2. 暂停游戏树（冻结所有 _Process/_PhysicsProcess）
             GetTree().Paused = true;
@@ -336,7 +376,7 @@ namespace ClinetCSharp
             if (_editorPanel != null)
                 SetProcessModeRecursive(_editorPanel, ProcessModeEnum.Always);
 
-            // 3. 隐藏玩家、所有怪物实例、所有NPC实例、巡逻覆盖层
+            // 3. 隐藏玩家、所有怪物实例、所有NPC实例、巡逻覆盖层、宝箱、掉落物
             if (Player != null)
                 Player.Visible = false;
 
@@ -345,9 +385,48 @@ namespace ClinetCSharp
 
             var npcMgr = GetTree().GetFirstNodeInGroup("npc_manager") as NpcManager;
             npcMgr?.SetAllNpcsVisible(false);
+            npcMgr?.CloseInteractMenu();
 
-            if (patrolOverlay != null)
-                patrolOverlay.Visible = false;
+            patrolOverlay?.SetOverlayEnabled(false);
+
+            var chestMgr = GetTree().GetFirstNodeInGroup("chest_manager") as ChestManager;
+            chestMgr?.SetAllChestsVisible(false);
+
+            var dropMgr = GetTree().GetFirstNodeInGroup("drop_manager") as DropManager;
+            dropMgr?.SetAllDropsVisible(false);
+
+            // 4. 隐藏所有与地图编辑器无关的 UI（功能按钮栏、技能栏、所有面板）
+            var funcBar = GetTree()?.GetFirstNodeInGroup("function_bar") as CanvasItem;
+            if (funcBar != null)
+            {
+                _wasFunctionBarVisible = funcBar.Visible;
+                funcBar.Visible = false;
+            }
+
+            var skillBar = GetTree()?.GetFirstNodeInGroup("skill_bar") as CanvasItem;
+            if (skillBar != null)
+            {
+                _wasSkillBarVisible = skillBar.Visible;
+                skillBar.Visible = false;
+            }
+
+            _wasVisiblePanels.Clear();
+            var panelMgr = PanelManager.Instance;
+            if (panelMgr != null)
+            {
+                // 先快照当前可见的面板
+                var uiCanvas = panelMgr.GetParent() as CanvasLayer;
+                if (uiCanvas != null)
+                {
+                    foreach (var child in uiCanvas.GetChildren())
+                    {
+                        if (child is DraggablePanel dp && dp.Visible)
+                            _wasVisiblePanels.Add(dp);
+                    }
+                }
+                // 然后全部隐藏
+                panelMgr.HideAll();
+            }
 
             // 4. 重新加载地图数据（从CSV读取最新配置）
             GridManager?.LoadMap(GridManager.CurrentMapName);
@@ -383,9 +462,30 @@ namespace ClinetCSharp
             var npcMgr = GetTree().GetFirstNodeInGroup("npc_manager") as NpcManager;
             npcMgr?.SetAllNpcsVisible(true);
 
-            var patrolOverlay = GetTree().GetFirstNodeInGroup("monster_patrol_overlay") as CanvasItem;
-            if (patrolOverlay != null)
-                patrolOverlay.Visible = _wasMonsterPatrolOverlayVisible;
+            var patrolOverlay = GetTree().GetFirstNodeInGroup("monster_patrol_overlay") as MonsterPatrolOverlay;
+            patrolOverlay?.SetOverlayEnabled(_wasMonsterPatrolOverlayVisible);
+
+            var chestMgr = GetTree().GetFirstNodeInGroup("chest_manager") as ChestManager;
+            chestMgr?.SetAllChestsVisible(true);
+
+            var dropMgr = GetTree().GetFirstNodeInGroup("drop_manager") as DropManager;
+            dropMgr?.SetAllDropsVisible(true);
+
+            // 恢复所有与地图编辑器无关的 UI
+            var funcBar = GetTree()?.GetFirstNodeInGroup("function_bar") as CanvasItem;
+            if (funcBar != null)
+                funcBar.Visible = _wasFunctionBarVisible;
+
+            var skillBar = GetTree()?.GetFirstNodeInGroup("skill_bar") as CanvasItem;
+            if (skillBar != null)
+                skillBar.Visible = _wasSkillBarVisible;
+
+            foreach (var panel in _wasVisiblePanels)
+            {
+                if (panel != null && IsInstanceValid(panel))
+                    panel.Visible = true;
+            }
+            _wasVisiblePanels.Clear();
 
             // 3. 清除选中的格子
             SelectedCells.Clear();
@@ -411,10 +511,7 @@ namespace ClinetCSharp
                 _editorPanel.Visible = true;
                 _editorPanel.MouseFilter = Control.MouseFilterEnum.Stop;
 
-                // 初始化颜色按钮
-                var colorBtn = _editorPanel.GetNodeOrNull<Button>("RemovedColorRow/RemovedColorBtn");
-                if (colorBtn != null && GridManager != null)
-                    colorBtn.AddThemeColorOverride("font_color", GridManager.RemovedCellColor);
+                // 编辑器 UI 已初始化
             }
         }
 
@@ -491,30 +588,6 @@ namespace ClinetCSharp
             propLabel.AddThemeFontSizeOverride("font_size", 14);
             vbox.AddChild(propLabel);
 
-            // 是否存在
-            var existsCheck = new CheckButton();
-            existsCheck.Name = "ExistsCheck";
-            existsCheck.Text = "存在格子";
-            existsCheck.ButtonPressed = true;
-            existsCheck.Toggled += OnExistsToggled;
-            vbox.AddChild(existsCheck);
-
-            // 可行走
-            var walkableCheck = new CheckButton();
-            walkableCheck.Name = "WalkableCheck";
-            walkableCheck.Text = "可行走";
-            walkableCheck.ButtonPressed = true;
-            walkableCheck.Toggled += OnWalkableToggled;
-            vbox.AddChild(walkableCheck);
-
-            // 可见
-            var visibleCheck = new CheckButton();
-            visibleCheck.Name = "VisibleCheck";
-            visibleCheck.Text = "可见";
-            visibleCheck.ButtonPressed = true;
-            visibleCheck.Toggled += OnVisibleToggled;
-            vbox.AddChild(visibleCheck);
-
             // 地形类型（动态加载自 TerrainConfigUtil）
             var terrainLabel = new Label();
             terrainLabel.Text = "地形类型:";
@@ -584,18 +657,6 @@ namespace ClinetCSharp
 
             // 被删除格子颜色
             var removedColorRow = new HBoxContainer();
-            removedColorRow.Name = "RemovedColorRow";
-            var removedColorLabel = new Label();
-            removedColorLabel.Text = "已删除格子颜色:";
-            removedColorLabel.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-            var removedColorBtn = new Button();
-            removedColorBtn.Name = "RemovedColorBtn";
-            removedColorBtn.Text = "■";
-            removedColorBtn.Pressed += OnRemovedColorPressed;
-            removedColorRow.AddChild(removedColorLabel);
-            removedColorRow.AddChild(removedColorBtn);
-            vbox.AddChild(removedColorRow);
-
             // 分隔线
             vbox.AddChild(new HSeparator());
 
@@ -765,24 +826,27 @@ namespace ClinetCSharp
             if (SelectedCells.Count == 0 || GridManager == null)
                 return;
 
-            SaveUndoState();
+            // 在修改前记录撤销命令
+            var cmd = CreateUndoCommand(9);
+            if (cmd.Changes.Count == 0) return;
+
+            _undoStack.Add(cmd);
+            if (_undoStack.Count > MaxUndoSteps)
+                _undoStack.RemoveAt(0);
             _redoStack.Clear();
 
-            foreach (var pos in SelectedCells.Keys)
+            foreach (var (pos, oldTerrain) in cmd.Changes)
             {
-                if (GridManager.IsInBounds(pos))
-                {
-                    var cell = GridManager.GetCell(pos);
-                    if (cell != null)
-                    {
-                        cell.Exists = false;
-                        cell.Walkable = false;  // 被删除的格子不可行走
-                    }
-                }
+                var cell = GridManager.GetCell(pos);
+                if (cell == null) continue;
+                // Delete 键将格子设为地形墙（不可行走的灰色障碍）
+                cell.TerrainType = 9;
+                cell.TerrainConfig = TerrainConfigUtil.Get(9);
+                GD.Print($"[MapEditor.Delete] pos=({pos.X},{pos.Y}) old={oldTerrain} new=9(wall)");
             }
 
-            GridManager.QueueRedraw();
-            GD.Print("[MapEditor] 删除了 " + SelectedCells.Count + " 个格子");
+            GridManager.NotifyTerrainChanged();
+            GD.Print("[MapEditor] 将 " + cmd.Changes.Count + " 个格子设为地形墙");
         }
 
         private void UpdateSelectionLabel()
@@ -802,90 +866,42 @@ namespace ClinetCSharp
             if (SelectedCells.Count == 0 || GridManager == null)
                 return;
 
-            SaveUndoState();
+            // 在修改前记录撤销命令
+            var cmd = CreateUndoCommand(PaintTerrain);
+            if (cmd.Changes.Count == 0) return;
+
+            _undoStack.Add(cmd);
+            if (_undoStack.Count > MaxUndoSteps)
+                _undoStack.RemoveAt(0);
             _redoStack.Clear(); // 新操作后清空重做栈
 
-            foreach (var pos in SelectedCells.Keys)
+            foreach (var (pos, oldTerrain) in cmd.Changes)
             {
-                if (GridManager.IsInBounds(pos))
-                {
-                    var cell = GridManager.GetCell(pos);
-                    if (cell != null)
-                    {
-                        cell.Exists = PaintExists;
-                        cell.Walkable = PaintWalkable;
-                        cell.Visible = PaintVisible;
-                        cell.TerrainType = PaintTerrain;
-                        // 只刷新 TerrainConfig 引用，不覆盖 Walkable
-                        cell.TerrainConfig = TerrainConfigUtil.Get(PaintTerrain);
-                    }
-                }
+                var cell = GridManager.GetCell(pos);
+                if (cell == null) continue;
+                cell.TerrainType = PaintTerrain;
+                cell.TerrainConfig = TerrainConfigUtil.Get(PaintTerrain);
+                GD.Print($"[MapEditor.Apply] pos=({pos.X},{pos.Y}) old={oldTerrain} new={PaintTerrain} walkable={cell.TerrainConfig?.Walkable ?? true}");
             }
 
-            GridManager.QueueRedraw();
-            GD.Print("[MapEditor] 已应用属性到 " + SelectedCells.Count + " 个格子");
+            GridManager.NotifyTerrainChanged();
+            GD.Print("[MapEditor] 已应用地形到 " + cmd.Changes.Count + " 个格子");
         }
 
         // ============ UI回调 ============
 
-        private void OnExistsToggled(bool enabled)
-        {
-            PaintExists = enabled;
-        }
-
-        private void OnWalkableToggled(bool enabled)
-        {
-            PaintWalkable = enabled;
-        }
-
-        private void OnVisibleToggled(bool enabled)
-        {
-            PaintVisible = enabled;
-        }
-
         private void OnTerrainSelected(long index)
         {
-            PaintTerrain = (int)index;
-        }
-
-        private void OnRemovedColorPressed()
-        {
-            // 切换被删除格子的颜色
-            if (GridManager == null)
-                return;
-
-            // 颜色预设：灰色 -> 深灰 -> 红色 -> 蓝色 -> 绿色 -> 灰色
-            var colorPresets = new[]
+            var terrainOption = _editorPanel?.GetNodeOrNull<OptionButton>("VBoxContainer/TerrainOption");
+            if (terrainOption != null)
             {
-                new Color(0.3f, 0.3f, 0.3f, 0.5f),  // 灰色（默认）
-                new Color(0.2f, 0.2f, 0.2f, 0.6f),  // 深灰
-                new Color(0.5f, 0.2f, 0.2f, 0.5f),  // 暗红
-                new Color(0.2f, 0.2f, 0.5f, 0.5f),  // 暗蓝
-                new Color(0.2f, 0.5f, 0.2f, 0.5f),  // 暗绿
-            };
-
-            // 找到当前颜色索引，切换到下一个
-            var currentColor = GridManager.RemovedCellColor;
-            int currentIndex = 0;
-            for (int i = 0; i < colorPresets.Length; i++)
-            {
-                if (currentColor.IsEqualApprox(colorPresets[i]))
-                {
-                    currentIndex = i;
-                    break;
-                }
+                PaintTerrain = terrainOption.GetItemId((int)index);
+                GD.Print($"[MapEditor] 选择地形: index={index}, id={PaintTerrain}, name={terrainOption.GetItemText((int)index)}");
             }
-
-            var nextIndex = (currentIndex + 1) % colorPresets.Length;
-            GridManager.RemovedCellColor = colorPresets[nextIndex];
-
-            // 更新按钮颜色
-            var btn = _editorPanel?.GetNodeOrNull<Button>("RemovedColorRow/RemovedColorBtn");
-            if (btn != null)
-                btn.AddThemeColorOverride("font_color", GridManager.RemovedCellColor);
-
-            GridManager.QueueRedraw();
-            GD.Print("[MapEditor] 已删除格子颜色改为: " + GridManager.RemovedCellColor);
+            else
+            {
+                PaintTerrain = (int)index;
+            }
         }
 
         // ============ 选择历史系统（右键撤销） ============
@@ -922,27 +938,23 @@ namespace ClinetCSharp
 
         // ============ 撤销系统 ============
 
-        private void SaveUndoState()
+        /// <summary>
+        /// 创建撤销命令 — 记录当前选中格子中将被修改的格子及其旧地形值。
+        /// 必须在修改格子之前调用。
+        /// </summary>
+        private TerrainEditCommand CreateUndoCommand(int newTerrainType)
         {
-            if (GridManager?.GridData == null || GridManager.GridData.Count == 0)
-                return;
+            var cmd = new TerrainEditCommand { NewTerrainType = newTerrainType };
+            if (GridManager == null) return cmd;
 
-            var state = new List<List<GridCell>>();
-            foreach (var row in GridManager.GridData)
+            foreach (var pos in SelectedCells.Keys)
             {
-                var stateRow = new List<GridCell>();
-                foreach (var cell in row)
-                {
-                    var copy = new GridCell(cell.Pos.X, cell.Pos.Y);
-                    cell.CopyTo(copy);
-                    stateRow.Add(copy);
-                }
-                state.Add(stateRow);
+                if (!GridManager.IsInBounds(pos)) continue;
+                var cell = GridManager.GetCell(pos);
+                if (cell == null) continue;
+                cmd.Changes.Add((pos, cell.TerrainType));
             }
-
-            _undoStack.Add(state);
-            if (_undoStack.Count > MaxUndoSteps)
-                _undoStack.RemoveAt(0);
+            return cmd;
         }
 
         private void Undo()
@@ -953,16 +965,22 @@ namespace ClinetCSharp
                 return;
             }
 
-            // 保存当前状态到 redo 栈
-            var currentState = CloneGridData(GridManager.GridData);
-            _redoStack.Add(currentState);
+            // 在执行 Undo 前，创建反向命令存入 redo 栈
+            var cmd = _undoStack[_undoStack.Count - 1];
+            var reverseCmd = new TerrainEditCommand { NewTerrainType = cmd.NewTerrainType };
+            foreach (var (pos, _) in cmd.Changes)
+            {
+                if (!GridManager.IsInBounds(pos)) continue;
+                var cell = GridManager.GetCell(pos);
+                if (cell == null) continue;
+                reverseCmd.Changes.Add((pos, cell.TerrainType));
+            }
+            _redoStack.Add(reverseCmd);
             if (_redoStack.Count > MaxUndoSteps)
                 _redoStack.RemoveAt(0);
 
-            var state = _undoStack[_undoStack.Count - 1];
             _undoStack.RemoveAt(_undoStack.Count - 1);
-            GridManager.GridData = state;
-            GridManager.QueueRedraw();
+            cmd.Undo(GridManager);
             GD.Print("[MapEditor] 撤销操作");
         }
 
@@ -974,34 +992,23 @@ namespace ClinetCSharp
                 return;
             }
 
-            // 保存当前状态到 undo 栈
-            var currentState = CloneGridData(GridManager.GridData);
-            _undoStack.Add(currentState);
+            // 在执行 Redo 前，创建反向命令存入 undo 栈
+            var cmd = _redoStack[_redoStack.Count - 1];
+            var reverseCmd = new TerrainEditCommand { NewTerrainType = cmd.NewTerrainType };
+            foreach (var (pos, _) in cmd.Changes)
+            {
+                if (!GridManager.IsInBounds(pos)) continue;
+                var cell = GridManager.GetCell(pos);
+                if (cell == null) continue;
+                reverseCmd.Changes.Add((pos, cell.TerrainType));
+            }
+            _undoStack.Add(reverseCmd);
             if (_undoStack.Count > MaxUndoSteps)
                 _undoStack.RemoveAt(0);
 
-            var state = _redoStack[_redoStack.Count - 1];
             _redoStack.RemoveAt(_redoStack.Count - 1);
-            GridManager.GridData = state;
-            GridManager.QueueRedraw();
+            cmd.Redo(GridManager);
             GD.Print("[MapEditor] 重做操作");
-        }
-
-        private List<List<GridCell>> CloneGridData(List<List<GridCell>> source)
-        {
-            var result = new List<List<GridCell>>();
-            foreach (var row in source)
-            {
-                var stateRow = new List<GridCell>();
-                foreach (var cell in row)
-                {
-                    var copy = new GridCell(cell.Pos.X, cell.Pos.Y);
-                    cell.CopyTo(copy);
-                    stateRow.Add(copy);
-                }
-                result.Add(stateRow);
-            }
-            return result;
         }
 
         // ============ 文件操作 ============

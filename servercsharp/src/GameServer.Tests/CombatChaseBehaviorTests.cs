@@ -80,7 +80,8 @@ public class CombatChaseBehaviorTests
     private static MapDataProvider CreateOpenMap()
     {
         var provider = new MapDataProvider();
-        var cells = Enumerable.Repeat("0;1", 25).ToArray();
+        // 新格式: terrain;height;custom (0=普通地形, 可行走)
+        var cells = Enumerable.Repeat("0;0;", 25).ToArray();
         provider.LoadMap("test_map", 5, 5, cells);
         return provider;
     }

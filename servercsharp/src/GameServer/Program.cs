@@ -173,7 +173,8 @@ public class GameServerHostedService : IHostedService
         eventBus.On("CollisionDetected", (data) =>
         {
             var (entityA, entityB, mapName) = ((long entityA, long entityB, string mapName))data!;
-            var maps = mapService.GetAllMapsLegacy();
+            var maps = mapService.GetMapsSnapshot();
+            mapService.RefreshCombatPositionsForSnapshot(maps);
             hotReloader.CombatService?.OnCollision(entityA, entityB, maps);
         });
 
@@ -201,7 +202,8 @@ public class GameServerHostedService : IHostedService
         eventBus.On("NpcCombatTriggered", (data) =>
         {
             var (playerId, npcInstanceId, combatMapName) = ((long playerId, long npcInstanceId, string combatMapName))data!;
-            var maps = mapService.GetAllMapsLegacy();
+            var maps = mapService.GetMapsSnapshot();
+            mapService.RefreshCombatPositionsForSnapshot(maps);
             hotReloader.CombatService?.OnCollision(playerId, npcInstanceId, maps);
         });
 
@@ -267,9 +269,10 @@ public class GameServerHostedService : IHostedService
         using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(GameConstants.CombatTickMs));
         while (await timer.WaitForNextTickAsync(ct))
         {
-            var maps = mapService.GetAllMapsLegacy();
+            var maps = mapService.GetMapsSnapshot();
+            mapService.RefreshCombatPositionsForSnapshot(maps);
             hotReloader.CombatService?.Tick(0.1, maps, hotReloader.MonsterService as IMonsterRegistry);
-            mapService.SyncCombatHp(maps);
+            // SyncCombatHp 不再需要 — 战斗系统直接修改权威数据
 
             // 非战斗状态的 buff 过期检查
             mapService.TickOutOfCombatBuffs(maps);

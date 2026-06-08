@@ -89,6 +89,16 @@ namespace ClinetCSharp
             }
         }
 
+        /// <summary>统一设置所有宝箱实例的可见性（地图编辑器用）</summary>
+        public void SetAllChestsVisible(bool visible)
+        {
+            foreach (var chest in _chests)
+            {
+                if (chest != null && IsInstanceValid(chest))
+                    chest.Visible = visible;
+            }
+        }
+
         public bool TryInteractChest(Vector2 worldPos, Vector2I playerGrid)
         {
             foreach (var chest in _chests)

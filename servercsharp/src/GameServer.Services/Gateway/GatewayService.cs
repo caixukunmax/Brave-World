@@ -80,6 +80,11 @@ public class GatewayService : INetworkSender
         _actionChannel.Writer.TryWrite(async () =>
         {
             if (!_connections.TryGetValue(connId, out var conn)) return;
+            if (!conn.Socket.Connected)
+            {
+                DoCloseConnection(connId, "inactive");
+                return;
+            }
             await SendPacketAsync(conn, msgId, session, data);
         });
     }
@@ -91,6 +96,11 @@ public class GatewayService : INetworkSender
             var key = $"{accountId}:{serverId}";
             if (!_accountConnections.TryGetValue(key, out var connId)) return;
             if (!_connections.TryGetValue(connId, out var conn)) return;
+            if (!conn.Socket.Connected)
+            {
+                DoCloseConnection(connId, "inactive");
+                return;
+            }
             await SendPacketAsync(conn, msgId, 0, data);
         });
     }
@@ -240,29 +250,45 @@ public class GatewayService : INetworkSender
     {
         try
         {
+            if (!conn.Socket.Connected) return;
             var packet = PacketCodec.MakePacket(msgId, session, data);
             var bytes = PacketCodec.Encode(packet);
             await conn.Socket.SendAsync(new ArraySegment<byte>(bytes), SocketFlags.None);
         }
+        catch (SocketException)
+        {
+            // 发送失败 = 连接已死，立即同步清理，避免后续消息继续尝试
+            DoCloseConnection(conn.ConnId, "send_failed");
+        }
+        catch (ObjectDisposedException)
+        {
+            DoCloseConnection(conn.ConnId, "disposed");
+        }
         catch (Exception ex) { _logger.LogError(ex, "Send failed: connId={ConnId}", conn.ConnId); }
+    }
+
+    /// <summary>同步执行连接清理（仅在 _actionChannel 处理线程内调用）</summary>
+    private void DoCloseConnection(long connId, string reason)
+    {
+        if (_connections.Remove(connId, out var conn))
+        {
+            if (conn.AccountId > 0 && conn.ServerId > 0)
+            {
+                var key = $"{conn.AccountId}:{conn.ServerId}";
+                if (_accountConnections.TryGetValue(key, out var existingId) && existingId == connId)
+                    _accountConnections.Remove(key);
+            }
+            _logger.LogInformation("Connection closed: connId={ConnId} reason={Reason}", connId, reason);
+            try { conn.Socket.Close(); } catch { }
+            conn.Cts.Cancel();
+        }
     }
 
     private void CloseConnection(long connId, string reason)
     {
         _actionChannel.Writer.TryWrite(() =>
         {
-            if (_connections.Remove(connId, out var conn))
-            {
-                if (conn.AccountId > 0 && conn.ServerId > 0)
-                {
-                    var key = $"{conn.AccountId}:{conn.ServerId}";
-                    if (_accountConnections.TryGetValue(key, out var existingId) && existingId == connId)
-                        _accountConnections.Remove(key);
-                }
-                _logger.LogInformation("Connection closed: connId={ConnId} reason={Reason}", connId, reason);
-                try { conn.Socket.Close(); } catch { }
-                conn.Cts.Cancel();
-            }
+            DoCloseConnection(connId, reason);
             return Task.CompletedTask;
         });
     }

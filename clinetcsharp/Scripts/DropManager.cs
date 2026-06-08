@@ -85,6 +85,16 @@ namespace ClinetCSharp
             drop.QueueFree();
         }
 
+        /// <summary>统一设置所有掉落物实例的可见性（地图编辑器用）</summary>
+        public void SetAllDropsVisible(bool visible)
+        {
+            foreach (var drop in _drops.Values)
+            {
+                if (drop != null && IsInstanceValid(drop))
+                    drop.Visible = visible;
+            }
+        }
+
         private void ShowPickupFloatingText(int itemId, uint count)
         {
             string text = $"+{count} Item#{itemId}";

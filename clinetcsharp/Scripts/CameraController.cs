@@ -334,8 +334,14 @@ namespace ClinetCSharp
                 {
                     var currentMouse = GetGlobalMousePosition();
                     var offset = currentMouse - _dragStartMousePos;
-                    Position = _dragStartCameraPos - offset;
-                    Position = Position.Round();
+                    // 避免纯点击时 Round() 导致相机位置抖动
+                    if (offset != Vector2.Zero)
+                    {
+                        Position = _dragStartCameraPos - offset;
+                        // 注意：拖拽过程中禁止 Round()，否则会与 GetGlobalMousePosition()
+                        // 形成反馈回路（相机跳变 → 鼠标世界坐标跳变 → 相机再次跳变），
+                        // 导致拖动时画面持续抖动。
+                    }
                 }
                 return;
             }
@@ -344,8 +350,14 @@ namespace ClinetCSharp
             {
                 var currentMouse = GetGlobalMousePosition();
                 var offset = currentMouse - _dragStartMousePos;
-                Position = _dragStartCameraPos - offset;
-                Position = Position.Round();
+                // 避免纯点击时 Round() 导致相机位置抖动
+                if (offset != Vector2.Zero)
+                {
+                    Position = _dragStartCameraPos - offset;
+                    // 注意：拖拽过程中禁止 Round()，否则会与 GetGlobalMousePosition()
+                    // 形成反馈回路（相机跳变 → 鼠标世界坐标跳变 → 相机再次跳变），
+                    // 导致拖动时画面持续抖动。
+                }
 
                 IsReturning = false;
                 _dragTimer = 0.0f;

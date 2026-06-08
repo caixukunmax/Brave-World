@@ -63,6 +63,8 @@ namespace ClinetCSharp
                 _cameraDebugCheck.Toggled += OnCameraDebugToggled;
             if (_monsterPatrolOverlayCheck != null)
                 _monsterPatrolOverlayCheck.Toggled += OnMonsterPatrolOverlayToggled;
+            if (_showOutsideMapGrayCheck != null)
+                _showOutsideMapGrayCheck.Toggled += OnShowOutsideMapGrayToggled;
 
             if (_freeLookCheck != null)
                 _freeLookCheck.Toggled += OnFreeLookToggled;
@@ -150,6 +152,8 @@ namespace ClinetCSharp
                 _cameraDebugCheck.Toggled -= OnCameraDebugToggled;
             if (_monsterPatrolOverlayCheck != null)
                 _monsterPatrolOverlayCheck.Toggled -= OnMonsterPatrolOverlayToggled;
+            if (_showOutsideMapGrayCheck != null)
+                _showOutsideMapGrayCheck.Toggled -= OnShowOutsideMapGrayToggled;
 
             if (_freeLookCheck != null)
                 _freeLookCheck.Toggled -= OnFreeLookToggled;

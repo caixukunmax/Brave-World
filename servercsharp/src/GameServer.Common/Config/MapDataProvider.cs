@@ -1,3 +1,5 @@
+using GameServer.Tables;
+
 namespace GameServer.Common.Config;
 
 /// <summary>
@@ -7,6 +9,12 @@ public class MapDataProvider
 {
     private readonly Dictionary<string, MapData> _maps = new();
     private readonly Dictionary<string, MapRegistryEntry> _registry = new();
+    private readonly LubanTableLoader? _tables;
+
+    public MapDataProvider(LubanTableLoader? tables = null)
+    {
+        _tables = tables;
+    }
 
     /// <summary>加载地图注册表 + CSV 地形数据</summary>
     public int LoadAllMaps(string dataDir)
@@ -47,7 +55,6 @@ public class MapDataProvider
 
     public void LoadMap(string mapName, int width, int height, string[] cells)
     {
-        var walkable = new bool[width, height];
         var terrainType = new int[width, height];
         for (int y = 0; y < height; y++)
         {
@@ -57,13 +64,13 @@ public class MapDataProvider
                 if (idx < cells.Length)
                 {
                     var parts = cells[idx].Split(';');
-                    walkable[x, y] = parts.Length >= 2 && parts[1] == "1";
-                    if (parts.Length >= 4 && int.TryParse(parts[3], out var t))
+                    // 新格式: terrain;height;custom
+                    if (parts.Length >= 1 && int.TryParse(parts[0], out var t))
                         terrainType[x, y] = t;
                 }
             }
         }
-        _maps[mapName] = new MapData(mapName, width, height, walkable, terrainType);
+        _maps[mapName] = new MapData(mapName, width, height, terrainType);
     }
 
     /// <summary>解析 CSV 文件，返回扁平化 cell 数组</summary>
@@ -91,7 +98,7 @@ public class MapDataProvider
             var cols = dataLines[y].Split(',');
             for (int x = 0; x < width; x++)
             {
-                cells[y * width + x] = x < cols.Length ? cols[x].Trim() : "0;0;0;0;0;";
+                cells[y * width + x] = x < cols.Length ? cols[x].Trim() : "0;0;";
             }
         }
 
@@ -102,10 +109,9 @@ public class MapDataProvider
     {
         if (!_maps.TryGetValue(mapName, out var map)) return false;
         if (x < 0 || x >= map.Width || y < 0 || y >= map.Height) return false;
-        if (!map.Walkable[x, y]) return false;
-        // 水域(1)和岩浆(7)不可走
         int terrain = map.TerrainType[x, y];
-        return terrain != 1 && terrain != 7;
+        var cfg = _tables?.TerrainConfigs.GetValueOrDefault(terrain);
+        return cfg?.Walkable ?? true;
     }
 
     public int GetTerrainType(string mapName, int x, int y)
@@ -150,7 +156,7 @@ public class MapDataProvider
 
     public Dictionary<string, MapRegistryEntry> GetAllRegistryEntries() => _registry;
 
-    public record MapData(string Name, int Width, int Height, bool[,] Walkable, int[,] TerrainType);
+    public record MapData(string Name, int Width, int Height, int[,] TerrainType);
 }
 
 /// <summary>map_registry.json 中的条目</summary>

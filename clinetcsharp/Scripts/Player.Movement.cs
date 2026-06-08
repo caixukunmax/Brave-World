@@ -44,7 +44,10 @@ namespace ClinetCSharp
         private void HandleInput()
         {
             if (IsMoving || _moveSentCount >= MaxMoveQueue || IsServerGridCorrectionActive())
+            {
+                GD.Print($"[Player.HandleInput] 跳过移动: IsMoving={IsMoving}, _moveSentCount={_moveSentCount}, IsServerGridCorrectionActive={IsServerGridCorrectionActive()}");
                 return;
+            }
 
             // 蓄力期间禁止本地移动输入，避免服务器拒绝后产生回弹
             if (!string.IsNullOrEmpty(CastingSkill))
@@ -78,6 +81,7 @@ namespace ClinetCSharp
             var gridManager = GetParent()?.GetNode<GridManager>("GridManager");
             if (gridManager != null && !gridManager.IsWalkable(targetGridPos))
             {
+                GD.Print($"[Player.MoveTo] 被阻挡: 从{_gridPos} 到 {targetGridPos}");
                 if (TryStartMonsterCollisionMove(targetGridPos))
                     return;
 
@@ -85,6 +89,7 @@ namespace ClinetCSharp
                 return;
             }
 
+            GD.Print($"[Player.MoveTo] 开始移动: 从{_gridPos} 到 {targetGridPos}");
             BeginPredictedMove(targetGridPos);
         }
 

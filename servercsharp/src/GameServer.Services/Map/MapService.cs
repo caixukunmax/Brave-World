@@ -173,7 +173,54 @@ public class MapService
             _network.SendToAccount(p.AccountId, p.ServerId, msgId, data);
     }
 
-    // ---- 向后兼容旧接口 ----
+    // ---- 快照接口（直接引用权威数据，不深拷贝） ----
+
+    /// <summary>
+    /// 获取地图快照 — 返回直接引用权威 WorldState 数据的 Dictionary。
+    /// 战斗系统直接修改 MapPlayerState/MapMonsterState 的 HP/MP/Buff/InCombat，
+    /// 无需事后 SyncCombatHp。注意：调用方不应增删 Players/Monsters 字典条目。
+    /// </summary>
+    public Dictionary<string, MapState> GetMapsSnapshot()
+    {
+        var result = new Dictionary<string, MapState>();
+        foreach (var (name, instance) in _worldState.GetAllMaps())
+            result[name] = instance;
+        return result;
+    }
+
+    /// <summary>
+    /// 刷新快照中所有实体的 CombatPositions（有活跃移动预约时更新为双格区间）。
+    /// 替代原先 GetAllMapsLegacy 中从 WorldState.GetCombatPositions 获取位置并存入副本的逻辑。
+    /// 由于快照直接引用权威数据，只需刷新 CombatPositions 字段即可。
+    /// </summary>
+    public void RefreshCombatPositionsForSnapshot(Dictionary<string, MapState> snapshot)
+    {
+        foreach (var (mapName, map) in snapshot)
+        {
+            foreach (var (id, p) in map.Players)
+            {
+                var combatPos = _worldState.GetCombatPositions(id)
+                    .Where(cp => cp.mapName == mapName)
+                    .Select(cp => (cp.x, cp.y))
+                    .ToList();
+                p.CombatPositions = combatPos.Count > 0 ? combatPos
+                    : new List<(int, int)> { (p.GridX, p.GridY) };
+            }
+            foreach (var (id, m) in map.Monsters)
+            {
+                var combatPos = _worldState.GetCombatPositions(id)
+                    .Where(cp => cp.mapName == mapName)
+                    .Select(cp => (cp.x, cp.y))
+                    .ToList();
+                m.CombatPositions = combatPos.Count > 0 ? combatPos
+                    : new List<(int, int)> { (m.X, m.Y) };
+            }
+        }
+    }
+
+    // ---- 向后兼容旧接口（保留用于过渡期，新代码请用 GetMapsSnapshot） ----
+
+    [Obsolete("Use GetMapsSnapshot() + RefreshCombatPositionsForSnapshot() instead")]
     public Dictionary<string, MapState> GetAllMapsLegacy()
     {
         var result = new Dictionary<string, MapState>();
@@ -224,8 +271,10 @@ public class MapService
     }
 
     /// <summary>
-    /// 战斗 tick 后，将 legacy MapState 中的 HP 变更同步回权威的 MapPlayerState/MapMonsterState
+    /// [DEPRECATED] 将 legacy MapState 中的 HP 变更同步回权威数据。
+    /// 使用 GetMapsSnapshot() 时不再需要此方法（战斗系统直接修改权威数据）。
     /// </summary>
+    [Obsolete("Not needed when using GetMapsSnapshot() — combat modifies authoritative data directly")]
     public void SyncCombatHp(Dictionary<string, MapState> legacyMaps)
     {
         foreach (var (mapName, legacyMap) in legacyMaps)

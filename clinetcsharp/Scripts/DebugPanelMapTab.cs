@@ -38,6 +38,7 @@ namespace ClinetCSharp
         #region Fields - Map Tab Debug Toggles
         private CheckButton _debugInfoCheck;
         private CheckButton _cameraDebugCheck;
+        private CheckButton _showOutsideMapGrayCheck;
         #endregion
 
         #region Fields - Dynamic Created Controls (map-related)
@@ -519,6 +520,17 @@ namespace ClinetCSharp
         {
             var overlay = GetOrCreateMonsterPatrolOverlay();
             overlay?.SetOverlayEnabled(enabled);
+        }
+
+        private void OnShowOutsideMapGrayToggled(bool enabled)
+        {
+            var gm = GridManager as GridManager;
+            if (gm != null)
+            {
+                gm.ShowOutsideMapGray = enabled;
+                gm.QueueRedraw();
+            }
+            GD.Print($"[DebugPanel] ShowOutsideMapGray: {enabled}");
         }
 
         private MonsterPatrolOverlay GetOrCreateMonsterPatrolOverlay()

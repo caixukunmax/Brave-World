@@ -5,18 +5,13 @@ namespace ClinetCSharp
 {
     /// <summary>
     /// 格子数据类
-    /// 存储单个格子的所有属性和状态
+    /// 存储单个格子的地形属性和状态
     /// </summary>
     [GlobalClass]
     public partial class GridCell : RefCounted
     {
         // 坐标ID (在网格中的位置)
         public Vector2I Pos { get; set; } = Vector2I.Zero;
-
-        // 基础状态
-        public bool Exists { get; set; } = true;        // 是否存在（false = 虚空/未创建）
-        public bool Walkable { get; set; } = true;      // 是否可行走 (false = 障碍/墙)
-        public bool Visible { get; set; } = true;       // 是否可见 (false = 不渲染网格线)
 
         // 地形属性
         public int TerrainType { get; set; } = 0;       // 地形类型: 0=普通, 1=水, 2=草地, 3=沙地, 4=岩石...
@@ -31,11 +26,6 @@ namespace ClinetCSharp
         public void RefreshTerrainConfig()
         {
             TerrainConfig = TerrainConfigUtil.Get(TerrainType);
-            if (TerrainConfig != null)
-            {
-                // 以配置表为准覆盖 Walkable (服务端权威)
-                Walkable = TerrainConfig.Walkable;
-            }
         }
 
         // 扩展数据
@@ -63,9 +53,6 @@ namespace ClinetCSharp
             {
                 ["x"] = Pos.X,
                 ["y"] = Pos.Y,
-                ["exists"] = Exists,
-                ["walkable"] = Walkable,
-                ["visible"] = Visible,
                 ["terrain"] = TerrainType,
                 ["height"] = Height,
                 ["custom"] = CustomData
@@ -81,12 +68,6 @@ namespace ClinetCSharp
             {
                 Pos = new Vector2I((int)dict["x"], (int)dict["y"]);
             }
-            if (dict.ContainsKey("exists"))
-                Exists = (bool)dict["exists"];
-            if (dict.ContainsKey("walkable"))
-                Walkable = (bool)dict["walkable"];
-            if (dict.ContainsKey("visible"))
-                Visible = (bool)dict["visible"];
             if (dict.ContainsKey("terrain"))
                 TerrainType = (int)dict["terrain"];
             if (dict.ContainsKey("height"))
@@ -104,9 +85,6 @@ namespace ClinetCSharp
         {
             return new Array
             {
-                Exists ? "1" : "0",
-                Walkable ? "1" : "0",
-                Visible ? "1" : "0",
                 TerrainType.ToString(),
                 Height.ToString(),
                 CustomData
@@ -114,31 +92,16 @@ namespace ClinetCSharp
         }
 
         /// <summary>
-        /// 从简化CSV格式加载 (exists,walkable,visible,terrain,height,custom)
+        /// 从简化CSV格式加载 (terrain;height;custom)
         /// </summary>
         public void FromCsvValues(Godot.Collections.Array values)
         {
             if (values.Count >= 1)
-            {
-                var val = values[0].AsString();
-                Exists = val == "1" || val == "true";
-            }
+                TerrainType = values[0].AsInt32();
             if (values.Count >= 2)
-            {
-                var val = values[1].AsString();
-                Walkable = val == "1" || val == "true";
-            }
+                Height = values[1].AsInt32();
             if (values.Count >= 3)
-            {
-                var val = values[2].AsString();
-                Visible = val == "1" || val == "true";
-            }
-            if (values.Count >= 4)
-                TerrainType = values[3].AsInt32();
-            if (values.Count >= 5)
-                Height = values[4].AsInt32();
-            if (values.Count >= 6)
-                CustomData = values[5].AsString();
+                CustomData = values[2].AsString();
 
             RefreshTerrainConfig();
         }
@@ -172,9 +135,6 @@ namespace ClinetCSharp
         /// </summary>
         public void CopyTo(GridCell other)
         {
-            other.Exists = Exists;
-            other.Walkable = Walkable;
-            other.Visible = Visible;
             other.TerrainType = TerrainType;
             other.Height = Height;
             other.CustomData = CustomData;
@@ -183,7 +143,7 @@ namespace ClinetCSharp
 
         public override string ToString()
         {
-            return $"GridCell({Pos.X},{Pos.Y}) exists={Exists} walkable={Walkable} visible={Visible} terrain={TerrainType} name={GetTerrainName()}";
+            return $"GridCell({Pos.X},{Pos.Y}) terrain={TerrainType} name={GetTerrainName()}";
         }
     }
 }
