@@ -1,4 +1,5 @@
 using Godot;
+using System.Linq;
 
 namespace ClinetCSharp
 {
@@ -19,6 +20,17 @@ namespace ClinetCSharp
             BuildCurrentComponentsSection(tabContainer);
 
             BuildDialogs();
+
+            // 初始化配置下拉框：即使本地配置文件为空/不存在，也确保默认配置被展示
+            var profileManager = EntityProfileManager.Instance;
+            if (profileManager != null)
+            {
+                if (_currentProfileId < 0 || profileManager.GetProfile(_currentProfileId) == null)
+                    _currentProfileId = profileManager.GetAllProfiles().FirstOrDefault()?.Id ?? -1;
+
+                RefreshProfileList();
+                SyncProfileNameEdit();
+            }
         }
 
         private void BuildCurrentProfileSection(Container parent)

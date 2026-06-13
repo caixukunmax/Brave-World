@@ -141,7 +141,7 @@ namespace ClinetCSharp
         private void LoadDefaultStyleConfig()
         {
             var config = new ConfigFile();
-            if (config.Load("user://debug_panel_config.cfg") != Error.Ok)
+            if (config.Load("res://debug_panel_config.cfg") != Error.Ok)
             {
                 StyleConfigs[1] = EntityStyleConfig.CreateNpcDefault();
                 return;

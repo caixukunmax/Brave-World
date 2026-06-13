@@ -69,12 +69,9 @@ namespace ClinetCSharp
 
         private void LoadConfig()
         {
+            // 缓存玩家引用（部分 tab 的 SyncToCurrentValues 会用到），但配置加载本身不依赖玩家存在
             if (_player == null)
-            {
                 _player = GetTree().GetFirstNodeInGroup("player") as Player;
-                if (_player == null)
-                    return;
-            }
 
             ConfigFile config = new ConfigFile();
             Error err = config.Load(CONFIG_PATH);

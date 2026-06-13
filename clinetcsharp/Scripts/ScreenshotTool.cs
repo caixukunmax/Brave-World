@@ -175,7 +175,7 @@ namespace ClinetCSharp
         /// </summary>
         private void CopyConfigFile(string folderPath)
         {
-            string configPath = "user://debug_panel_config.cfg";
+            string configPath = "res://debug_panel_config.cfg";
             if (FileAccess.FileExists(configPath))
             {
                 var file = FileAccess.Open(configPath, FileAccess.ModeFlags.Read);

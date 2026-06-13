@@ -11,7 +11,7 @@ namespace ClinetCSharp
         private void LoadStyleConfig()
         {
             var config = new ConfigFile();
-            if (config.Load("user://debug_panel_config.cfg") != Error.Ok)
+            if (config.Load("res://debug_panel_config.cfg") != Error.Ok)
                 return;
             if (!config.HasSection("player"))
                 return;

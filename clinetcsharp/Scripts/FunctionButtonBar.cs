@@ -13,7 +13,7 @@ namespace ClinetCSharp
         [Export] public int ButtonSpacing { get; set; } = 3;
         [Export] public int FontSize { get; set; } = 12;
 
-        private const string CONFIG_PATH = "user://function_bar_config.cfg";
+        private const string CONFIG_PATH = "res://function_bar_config.cfg";
         private const int CONFIG_VERSION = 1;
 
         private HBoxContainer _container;

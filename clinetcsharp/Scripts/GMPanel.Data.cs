@@ -20,7 +20,7 @@ namespace ClinetCSharp
 
         private readonly List<GmGroup> _groups = new();
 
-        private const string GmConfigPath = "user://gm_panel.json";
+        private const string GmConfigPath = "res://gm_panel.json";
 
         private void SaveGmConfig()
         {

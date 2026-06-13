@@ -117,7 +117,7 @@ namespace ClinetCSharp
         private void LoadDefaultStyleConfig()
         {
             var config = new ConfigFile();
-            if (config.Load("user://debug_panel_config.cfg") != Error.Ok)
+            if (config.Load("res://debug_panel_config.cfg") != Error.Ok)
             {
                 // 没有配置文件，创建默认配置
                 StyleConfigs[1] = EntityStyleConfig.CreateMonsterDefault();

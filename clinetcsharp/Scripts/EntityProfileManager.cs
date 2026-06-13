@@ -16,7 +16,7 @@ namespace ClinetCSharp
         private Dictionary<int, EntityProfile> _profiles = new();
         private int _nextId = 1;
 
-        internal const string ConfigPath = "user://debug_panel_config.cfg";
+        internal const string ConfigPath = "res://debug_panel_config.cfg";
         internal const int ConfigVersion = 4; // v4 = 定点整数序列化
 
         public override void _Ready()

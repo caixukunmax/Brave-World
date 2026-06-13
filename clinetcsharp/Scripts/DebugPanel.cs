@@ -11,8 +11,8 @@ namespace ClinetCSharp
     {
         #region Constants
         private const int CONFIG_VERSION = 4;
-        internal const string CONFIG_PATH = "user://debug_panel_config.cfg";
-        private const string PRESET_PATH = "user://debug_panel_presets.cfg";
+        internal const string CONFIG_PATH = "res://debug_panel_config.cfg";
+        private const string PRESET_PATH = "res://debug_panel_presets.cfg";
 
         public static readonly Color[] COLOR_PRESETS =
         {
