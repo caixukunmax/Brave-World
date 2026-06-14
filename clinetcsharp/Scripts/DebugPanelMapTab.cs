@@ -58,6 +58,8 @@ namespace ClinetCSharp
         private OptionButton _editorDragButtonOption;
         private CheckButton _editorSelectModCheck;
         private CheckButton _monsterPatrolOverlayCheck;
+        private HSlider _hoverTooltipWidthSlider;
+        private Label _hoverTooltipWidthValue;
 
         private VBoxContainer _gridStrategySection;
         private VBoxContainer _gridManualParams;
@@ -456,6 +458,22 @@ namespace ClinetCSharp
             }
 
             GD.Print($"[DebugPanel] Ctrl+Click select: {enabled}");
+        }
+
+        private void OnHoverTooltipWidthChanged(double value)
+        {
+            _hoverTooltipWidthValue.Text = ((int)value).ToString();
+
+            var mapEditor = Owner.GetTree().GetFirstNodeInGroup("map_editor") as MapEditor;
+            if (mapEditor != null)
+            {
+                mapEditor.HoverTooltipWidth = (float)value;
+            }
+        }
+
+        private void OnHoverTooltipWidthDragEnded(bool valueChanged)
+        {
+            Owner.PushCurrentStateToHistory();
         }
         #endregion
 

@@ -160,4 +160,10 @@ public class MapState
     public ConcurrentDictionary<long, MapPlayerState> Players { get; } = new();
     public ConcurrentDictionary<long, MapMonsterState> Monsters { get; } = new();
     public ConcurrentDictionary<long, MapNpcState> Npcs { get; } = new();
+
+    /// <summary>
+    /// 空间索引：格子 → 该格上的所有实体 ID（玩家、怪物、NPC）。
+    /// 与 Players/Monsters/Npcs 同步维护，用于 O(1) 级别的占用/敌人查询。
+    /// </summary>
+    public Dictionary<(int x, int y), HashSet<long>> GridEntities { get; } = new();
 }

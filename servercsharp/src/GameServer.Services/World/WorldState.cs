@@ -45,7 +45,17 @@ public class WorldState : IWorldState
     private readonly ILogger<WorldState> _logger;
     private readonly ConcurrentDictionary<string, MapState> _maps = new();
     private readonly ConcurrentDictionary<long, MovementReservation> _moveReservations = new();
-    private readonly ConcurrentDictionary<string, HashSet<(int x, int y)>> _reservedCells = new();
+    /// <summary>
+    /// 已预占的格子。key = (mapName, x, y)，value = 占用者 entityId。
+    /// 用 ConcurrentDictionary 替代 Dictionary&lt;string, HashSet&lt;...&gt;&gt;，避免 HashSet 非线程安全问题。
+    /// </summary>
+    private readonly ConcurrentDictionary<(string mapName, int x, int y), long> _reservedCells = new();
+
+    /// <summary>
+    /// 实体位置索引：entityId → (mapName, x, y)。
+    /// 与 MapState.Players/Monsters/Npcs 同步维护，用于 O(1) 定位实体。
+    /// </summary>
+    private readonly Dictionary<long, (string mapName, int x, int y)> _entityLocations = new();
 
     public WorldState(MapDataProvider mapData, ILogger<WorldState> logger)
     {
@@ -69,27 +79,23 @@ public class WorldState : IWorldState
 
     public (string? mapName, (int x, int y)? pos) FindEntityPosition(long entityId)
     {
-        foreach (var (mapName, map) in _maps)
-        {
-            if (map.Players.TryGetValue(entityId, out var p))
-                return (mapName, (p.GridX, p.GridY));
-            if (map.Monsters.TryGetValue(entityId, out var m))
-                return (mapName, (m.X, m.Y));
-        }
+        if (_entityLocations.TryGetValue(entityId, out var loc))
+            return (loc.mapName, (loc.x, loc.y));
         return (null, null);
     }
 
     public string GetEntityName(long entityId)
     {
-        foreach (var map in _maps.Values)
-        {
-            if (map.Players.TryGetValue(entityId, out var p))
-                return p.RoleName;
-            if (map.Monsters.TryGetValue(entityId, out var m))
-                return m.Name;
-            if (map.Npcs.TryGetValue(entityId, out var n))
-                return n.Name;
-        }
+        if (!_entityLocations.TryGetValue(entityId, out var loc))
+            return $"entity_{entityId}";
+        if (!_maps.TryGetValue(loc.mapName, out var map))
+            return $"entity_{entityId}";
+        if (map.Players.TryGetValue(entityId, out var p))
+            return p.RoleName;
+        if (map.Monsters.TryGetValue(entityId, out var m))
+            return m.Name;
+        if (map.Npcs.TryGetValue(entityId, out var n))
+            return n.Name;
         return $"entity_{entityId}";
     }
 
@@ -113,15 +119,24 @@ public class WorldState : IWorldState
     public bool IsOccupied(string mapName, int x, int y)
     {
         if (!_maps.TryGetValue(mapName, out var map)) return false;
-        foreach (var m in map.Monsters.Values)
-            if (m.X == x && m.Y == y) return true;
-        foreach (var p in map.Players.Values)
-            if (p.GridX == x && p.GridY == y) return true;
-        foreach (var n in map.Npcs.Values)
-            if (n.X == x && n.Y == y) return true;
-        if (_reservedCells.TryGetValue(mapName, out var cells))
-            if (cells.Contains((x, y))) return true;
+        if (map.GridEntities.TryGetValue((x, y), out var set) && set.Count > 0)
+            return true;
+        if (_reservedCells.ContainsKey((mapName, x, y))) return true;
         return false;
+    }
+
+    /// <summary>
+    /// 获取指定格子上所有实体 ID（不含 excludedId）。
+    /// </summary>
+    private HashSet<long> GetEntitiesAt(string mapName, int x, int y, long excludedId)
+    {
+        if (!_maps.TryGetValue(mapName, out var map))
+            return new HashSet<long>();
+        if (!map.GridEntities.TryGetValue((x, y), out var set))
+            return new HashSet<long>();
+        var result = new HashSet<long>(set);
+        result.Remove(excludedId);
+        return result;
     }
 
     public ConcurrentDictionary<string, MapState> GetAllMaps() => _maps;
@@ -131,12 +146,43 @@ public class WorldState : IWorldState
 
     public string? GetEntityMapName(long entityId)
     {
-        foreach (var (mapName, map) in _maps)
+        return _entityLocations.TryGetValue(entityId, out var loc) ? loc.mapName : null;
+    }
+
+    // ---- 空间索引维护 ----
+
+    private void AddEntityToSpatialIndex(long entityId, string mapName, int x, int y)
+    {
+        if (!_maps.TryGetValue(mapName, out var map)) return;
+
+        _entityLocations[entityId] = (mapName, x, y);
+        if (!map.GridEntities.TryGetValue((x, y), out var set))
         {
-            if (map.Players.ContainsKey(entityId)) return mapName;
-            if (map.Monsters.ContainsKey(entityId)) return mapName;
+            set = new HashSet<long>();
+            map.GridEntities[(x, y)] = set;
         }
-        return null;
+        set.Add(entityId);
+    }
+
+    private void RemoveEntityFromSpatialIndex(long entityId)
+    {
+        if (!_entityLocations.TryGetValue(entityId, out var loc))
+            return;
+        _entityLocations.Remove(entityId);
+
+        if (_maps.TryGetValue(loc.mapName, out var map) &&
+            map.GridEntities.TryGetValue((loc.x, loc.y), out var set))
+        {
+            set.Remove(entityId);
+            if (set.Count == 0)
+                map.GridEntities.Remove((loc.x, loc.y));
+        }
+    }
+
+    private void MoveEntityInSpatialIndex(long entityId, string mapName, int newX, int newY)
+    {
+        RemoveEntityFromSpatialIndex(entityId);
+        AddEntityToSpatialIndex(entityId, mapName, newX, newY);
     }
 
     // ---- 可变操作 ----
@@ -149,6 +195,7 @@ public class WorldState : IWorldState
             _maps[mapName] = map;
         }
         map.Players[player.AccountId] = player;
+        AddEntityToSpatialIndex(player.AccountId, mapName, player.GridX, player.GridY);
     }
 
     public void PlayerMove(long accountId, string mapName, int x, int y)
@@ -159,6 +206,7 @@ public class WorldState : IWorldState
                 accountId, mapName, p.GridX, p.GridY, x, y);
             p.GridX = x;
             p.GridY = y;
+            MoveEntityInSpatialIndex(accountId, mapName, x, y);
         }
         else
         {
@@ -171,8 +219,8 @@ public class WorldState : IWorldState
 
     public void PlayerLeave(long accountId, string mapName)
     {
-        if (_maps.TryGetValue(mapName, out var map))
-            map.Players.TryRemove(accountId, out _);
+        if (_maps.TryGetValue(mapName, out var map) && map.Players.TryRemove(accountId, out _))
+            RemoveEntityFromSpatialIndex(accountId);
     }
 
     public void MonsterEnter(string mapName, MapMonsterState monster)
@@ -183,6 +231,7 @@ public class WorldState : IWorldState
             _maps[mapName] = map;
         }
         map.Monsters[monster.InstanceId] = monster;
+        AddEntityToSpatialIndex(monster.InstanceId, mapName, monster.X, monster.Y);
     }
 
     public void MonsterMove(long instanceId, string mapName, int x, int y)
@@ -191,13 +240,25 @@ public class WorldState : IWorldState
         {
             m.X = x;
             m.Y = y;
+            MoveEntityInSpatialIndex(instanceId, mapName, x, y);
         }
     }
 
     public void MonsterLeave(long instanceId, string mapName)
     {
-        if (_maps.TryGetValue(mapName, out var map))
-            map.Monsters.TryRemove(instanceId, out _);
+        if (_maps.TryGetValue(mapName, out var map) && map.Monsters.TryRemove(instanceId, out _))
+            RemoveEntityFromSpatialIndex(instanceId);
+    }
+
+    public void NpcEnter(string mapName, MapNpcState npc)
+    {
+        if (!_maps.TryGetValue(mapName, out var map))
+        {
+            map = new MapState { MapId = GameConstants.DefaultMapId };
+            _maps[mapName] = map;
+        }
+        map.Npcs[npc.InstanceId] = npc;
+        AddEntityToSpatialIndex(npc.InstanceId, mapName, npc.X, npc.Y);
     }
 
     // ---- 移动预占系统 ----
@@ -205,32 +266,25 @@ public class WorldState : IWorldState
     public bool TryReserveMove(long entityId, string mapName, int fromX, int fromY, int targetX, int targetY,
         int durationMs, int checkRatio, int dualStartRatio, int dualEndRatio)
     {
-        if (_moveReservations.ContainsKey(entityId))
-            CancelMove(entityId);
+        // 取消旧预约，避免同一实体同时占用多格
+        if (_moveReservations.TryRemove(entityId, out var oldRes))
+            _reservedCells.TryRemove((oldRes.MapName, oldRes.TargetX, oldRes.TargetY), out _);
 
-        if (!_reservedCells.TryGetValue(mapName, out var cells))
-        {
-            cells = new HashSet<(int, int)>();
-            _reservedCells[mapName] = cells;
-        }
-
-        // 检查目标格是否被预定
-        if (cells.Contains((targetX, targetY)))
+        // 检查目标格是否被其他实体预定
+        if (_reservedCells.ContainsKey((mapName, targetX, targetY)))
             return false;
 
         // 检查目标格是否有其他玩家/怪物/NPC（不含自己）
-        if (_maps.TryGetValue(mapName, out var map))
+        if (_maps.TryGetValue(mapName, out var map) &&
+            map.GridEntities.TryGetValue((targetX, targetY), out var occupants))
         {
-            foreach (var p in map.Players.Values)
-                if (p.AccountId != entityId && p.GridX == targetX && p.GridY == targetY)
+            foreach (var id in occupants)
+            {
+                if (id == entityId) continue;
+                // 其他玩家、怪物、NPC 均阻挡移动
+                if (map.Players.ContainsKey(id) || map.Monsters.ContainsKey(id) || map.Npcs.ContainsKey(id))
                     return false;
-            foreach (var m in map.Monsters.Values)
-                if (m.InstanceId != entityId && m.X == targetX && m.Y == targetY)
-                    return false;
-            // NPC 阻挡移动（像墙壁一样）
-            foreach (var n in map.Npcs.Values)
-                if (n.X == targetX && n.Y == targetY)
-                    return false;
+            }
         }
 
         var res = new MovementReservation
@@ -249,7 +303,7 @@ public class WorldState : IWorldState
         };
 
         _moveReservations[entityId] = res;
-        cells.Add((targetX, targetY));
+        _reservedCells[(mapName, targetX, targetY)] = entityId;
         return true;
     }
 
@@ -261,15 +315,17 @@ public class WorldState : IWorldState
         int durationMs, int checkRatio, int dualStartRatio, int dualEndRatio)
     {
         // NPC 阻挡碰撞性移动（NPC 不是敌人）
-        if (_maps.TryGetValue(mapName, out var map))
+        if (_maps.TryGetValue(mapName, out var map) &&
+            map.GridEntities.TryGetValue((targetX, targetY), out var collisionOccupants))
         {
-            foreach (var n in map.Npcs.Values)
-                if (n.X == targetX && n.Y == targetY)
+            foreach (var id in collisionOccupants)
+                if (map.Npcs.ContainsKey(id))
                     return false;
         }
 
-        if (_moveReservations.ContainsKey(entityId))
-            CancelMove(entityId);
+        // 取消旧预约
+        if (_moveReservations.TryRemove(entityId, out var oldCollisionRes))
+            _reservedCells.TryRemove((oldCollisionRes.MapName, oldCollisionRes.TargetX, oldCollisionRes.TargetY), out _);
 
         var res = new MovementReservation
         {
@@ -368,16 +424,18 @@ public class WorldState : IWorldState
 
     /// <summary>
     /// 检查指定地图的目标格是否有敌对实体（用于碰撞通知校验）
+    /// 敌对实体指玩家或怪物；NPC 不算敌对实体。
     /// </summary>
     public bool HasEnemyAt(string mapName, int targetX, int targetY, long excludeEntityId)
     {
         if (!_maps.TryGetValue(mapName, out var map)) return false;
-        foreach (var p in map.Players.Values)
-            if (p.AccountId != excludeEntityId && p.GridX == targetX && p.GridY == targetY)
+        if (!map.GridEntities.TryGetValue((targetX, targetY), out var set)) return false;
+        foreach (var id in set)
+        {
+            if (id == excludeEntityId) continue;
+            if (map.Players.ContainsKey(id) || map.Monsters.ContainsKey(id))
                 return true;
-        foreach (var m in map.Monsters.Values)
-            if (m.InstanceId != excludeEntityId && m.X == targetX && m.Y == targetY)
-                return true;
+        }
         return false;
     }
 
@@ -401,8 +459,7 @@ public class WorldState : IWorldState
     private void CleanupReservation(long entityId, MovementReservation res)
     {
         _moveReservations.TryRemove(entityId, out _);
-        if (_reservedCells.TryGetValue(res.MapName, out var cells))
-            cells.Remove((res.TargetX, res.TargetY));
+        _reservedCells.TryRemove((res.MapName, res.TargetX, res.TargetY), out _);
     }
 
     public MovementReservation? GetReservation(long entityId)

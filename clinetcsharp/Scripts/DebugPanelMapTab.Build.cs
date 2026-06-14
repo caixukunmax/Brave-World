@@ -132,7 +132,7 @@ namespace ClinetCSharp
             section.AddChild(patrolOverlayRow);
 
             var outsideMapGrayRow = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
-            _showOutsideMapGrayCheck = new CheckButton { Text = "显示地图外灰色", ButtonPressed = true };
+            _showOutsideMapGrayCheck = new CheckButton { Text = "显示地图外灰色", ButtonPressed = false };
             outsideMapGrayRow.AddChild(_showOutsideMapGrayCheck);
             section.AddChild(outsideMapGrayRow);
         }
@@ -277,7 +277,7 @@ namespace ClinetCSharp
             parent.AddChild(rowB);
         }
 
-        private void CreateEditorKeyConfigUI(Node mapTab)
+        private void CreateEditorKeyConfigUI(Container mapTab)
         {
             var rowDrag = new HBoxContainer { Name = "EditorDragButtonRow", SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
             var labelDrag = new Label { Name = "_lbl", Text = "拖动视野按键", SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
@@ -295,6 +295,9 @@ namespace ClinetCSharp
             rowSelect.AddChild(labelSelect);
             rowSelect.AddChild(_editorSelectModCheck);
             mapTab.AddChild(rowSelect);
+
+            (_hoverTooltipWidthSlider, _hoverTooltipWidthValue) = CreateSliderRow(mapTab, "悬停提示框宽度", 120f, 400f, 200f, 1f);
+            _hoverTooltipWidthValue.Text = "200";
         }
 
         private void SetupEaseOptions()

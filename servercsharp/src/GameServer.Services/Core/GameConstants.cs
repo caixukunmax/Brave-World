@@ -7,7 +7,7 @@ namespace GameServer.Services.Core;
 public static class GameConstants
 {
     // ---- 地图 ----
-    public const string DefaultMapName = "xinshoucun";
+    public const string DefaultMapName = "新手村";
     public const int DefaultMapId = 1;
     public const int DefaultSpawnX = 25;
     public const int DefaultSpawnY = 25;

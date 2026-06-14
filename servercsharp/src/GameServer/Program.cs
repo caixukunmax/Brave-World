@@ -69,6 +69,7 @@ class Program
                     return new GatewayService(
                         sp.GetRequiredService<ILogger<GatewayService>>(),
                         sp.GetRequiredService<MessageRouter>(),
+                        sp.GetRequiredService<IGameLoopScheduler>(),
                         port,
                         hbTimeout);
                 });
@@ -79,6 +80,7 @@ class Program
                 services.AddSingleton<MessageHandlerRegistry>();
                 services.AddSingleton<MessageRouter>();
                 services.AddSingleton<EventBus>();
+                services.AddSingleton<IGameLoopScheduler, GameLoopScheduler>();
                 services.AddSingleton<MapDataProvider>();
                 services.AddSingleton<WorldState>();
                 services.AddSingleton<CollisionDetector>();
@@ -161,7 +163,12 @@ public class GameServerHostedService : IHostedService
         var eventBus = _sp.GetRequiredService<EventBus>();
         hotReloader.CreateServices(factory, _logger, network, mapData, mapService, handlerRegistry, playerSession, worldState, eventBus);
 
-        // 4. 注册消息路由
+        // 4. 启动游戏逻辑调度器
+        var gameLoop = _sp.GetRequiredService<IGameLoopScheduler>();
+        await gameLoop.StartAsync(_cts.Token);
+        _logger.LogInformation("GameLoopScheduler started");
+
+        // 5. 注册消息路由
         var router = _sp.GetRequiredService<MessageRouter>();
         var gateway = _sp.GetRequiredService<GatewayService>();
         var loginService = _sp.GetRequiredService<LoginService>();
@@ -216,9 +223,9 @@ public class GameServerHostedService : IHostedService
         playerSession.NpcManager = npcManager;
         _logger.LogInformation("Combat & Monster & NPC initialized");
 
-        // 6. 启动游戏 tick 定时器
-        _ = MonsterTickLoop(hotReloader, _cts.Token);
-        _ = CombatTickLoop(hotReloader, mapService, _cts.Token);
+        // 6. 启动游戏 tick 定时器（定时器线程仅负责唤醒，实际逻辑投递到 GameLoopScheduler）
+        _ = MonsterTickLoop(hotReloader, gameLoop, _cts.Token);
+        _ = CombatTickLoop(hotReloader, mapService, gameLoop, _cts.Token);
         _ = PlayerAutoSaveLoop(playerSession, _cts.Token);
         _ = HotReloadCommandLoop(hotReloader, _logger, network, mapData, mapService, handlerRegistry, playerSession, router, worldState, eventBus, _cts.Token);
         _logger.LogInformation("Game tick loops started");
@@ -228,11 +235,13 @@ public class GameServerHostedService : IHostedService
         _logger.LogInformation("======== Game Server Ready ========");
     }
 
-    public Task StopAsync(CancellationToken cancellationToken)
+    public async Task StopAsync(CancellationToken cancellationToken)
     {
         _cts.Cancel();
+        var gameLoop = _sp.GetService<IGameLoopScheduler>();
+        if (gameLoop != null)
+            await gameLoop.StopAsync(cancellationToken);
         _logger.LogInformation("======== Game Server Stopped ========");
-        return Task.CompletedTask;
     }
 
     private async Task SeedServers(ServerRepository serverRepo)
@@ -254,28 +263,39 @@ public class GameServerHostedService : IHostedService
         await serverRepo.Seed(servers);
     }
 
-    private static async Task MonsterTickLoop(HotReloader hotReloader, CancellationToken ct)
+    private static async Task MonsterTickLoop(HotReloader hotReloader, IGameLoopScheduler gameLoop, CancellationToken ct)
     {
         using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(GameConstants.MonsterAiTickMs));
         while (await timer.WaitForNextTickAsync(ct))
-            hotReloader.MonsterService?.Tick();
+        {
+            var monsterService = hotReloader.MonsterService;
+            if (monsterService != null)
+                gameLoop.Enqueue(() => monsterService.Tick());
+        }
     }
 
     private static async Task CombatTickLoop(
         HotReloader hotReloader,
         MapService mapService,
+        IGameLoopScheduler gameLoop,
         CancellationToken ct)
     {
         using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(GameConstants.CombatTickMs));
         while (await timer.WaitForNextTickAsync(ct))
         {
-            var maps = mapService.GetMapsSnapshot();
-            mapService.RefreshCombatPositionsForSnapshot(maps);
-            hotReloader.CombatService?.Tick(0.1, maps, hotReloader.MonsterService as IMonsterRegistry);
-            // SyncCombatHp 不再需要 — 战斗系统直接修改权威数据
-
-            // 非战斗状态的 buff 过期检查
-            mapService.TickOutOfCombatBuffs(maps);
+            var combatService = hotReloader.CombatService;
+            var monsterService = hotReloader.MonsterService;
+            if (combatService != null)
+            {
+                gameLoop.Enqueue(() =>
+                {
+                    var maps = mapService.GetMapsSnapshot();
+                    mapService.RefreshCombatPositionsForSnapshot(maps);
+                    combatService.Tick(0.1, maps, monsterService as IMonsterRegistry);
+                    // 非战斗状态的 buff 过期检查
+                    mapService.TickOutOfCombatBuffs(maps);
+                });
+            }
         }
     }
 
@@ -334,7 +354,7 @@ public class GameServerHostedService : IHostedService
     /// <summary>
     /// 控制台热更命令监听 — 输入 "reload" 触发热更
     /// </summary>
-    private static async Task HotReloadCommandLoop(
+    private static Task HotReloadCommandLoop(
         HotReloader hotReloader,
         Microsoft.Extensions.Logging.ILogger logger,
         GatewayService network,
@@ -365,5 +385,6 @@ public class GameServerHostedService : IHostedService
                 }
             }
         }, ct);
+        return Task.CompletedTask;
     }
 }

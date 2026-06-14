@@ -19,11 +19,11 @@ public class SetPreferredSkillHandler : IMessageHandler
         _network = network;
     }
 
-    public async Task<byte[]?> HandleAsync(MessageContext ctx, byte[] data)
+    public Task<byte[]?> HandleAsync(MessageContext ctx, byte[] data)
     {
         var claims = ctx.Claims!;
         if (!_session.TryGetPlayer(claims.AccountId, out var player))
-            return MakeError(PCommon.ErrorCode.Unauthorized);
+            return Task.FromResult<byte[]?>(MakeError(PCommon.ErrorCode.Unauthorized));
 
         var req = PGame.SetPreferredSkillRequest.Parser.ParseFrom(data);
         int skillId = (int)req.SkillId;
@@ -33,7 +33,7 @@ public class SetPreferredSkillHandler : IMessageHandler
         {
             // 验证技能已装备
             if (!player.EquippedSkills.Contains(skillId))
-                return MakeError(PCommon.ErrorCode.InvalidRequest, "skill not equipped");
+                return Task.FromResult<byte[]?>(MakeError(PCommon.ErrorCode.InvalidRequest, "skill not equipped"));
         }
 
         // 更新 MapPlayerState
@@ -49,7 +49,7 @@ public class SetPreferredSkillHandler : IMessageHandler
             Message = "",
             PreferredSkillId = (uint)skillId,
         };
-        return rsp.ToByteArray();
+        return Task.FromResult<byte[]?>(rsp.ToByteArray());
     }
 
     private static byte[] MakeError(PCommon.ErrorCode code, string msg = "")

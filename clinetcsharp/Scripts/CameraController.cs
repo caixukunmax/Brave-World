@@ -31,8 +31,9 @@ namespace ClinetCSharp
         // 拖拽状态
         public bool IsDragging { get; private set; } = false;          // 是否正在拖拽
         public bool IsReturning { get; private set; } = false;         // 是否处于延迟恢复期
-        private Vector2 _dragStartMousePos;      // 拖拽开始时的鼠标位置
-        private Vector2 _dragStartCameraPos;     // 拖拽开始时的相机位置
+        private Vector2 _dragStartMouseScreenPos; // 拖拽开始时的鼠标屏幕位置（避免世界坐标随相机移动变化导致抖动）
+        private Vector2 _dragStartCameraPos;      // 拖拽开始时的相机位置
+        private Vector2 _dragStartZoom;           // 拖拽开始时的相机缩放
         private float _dragTimer = 0.0f;            // 延迟恢复计时器
 
         // 支持的拖拽按键（默认左键拖动视野）
@@ -187,10 +188,11 @@ namespace ClinetCSharp
 
             IsDragging = true;
             IsReturning = false;
-            _dragStartMousePos = GetGlobalMousePosition();
+            _dragStartMouseScreenPos = GetViewport()?.GetMousePosition() ?? Vector2.Zero;
             _dragStartCameraPos = Position;
+            _dragStartZoom = Zoom;
             if (DebugDrag)
-                GD.Print("[Camera] 开始拖拽 - 鼠标位置: " + _dragStartMousePos + " 相机位置: " + _dragStartCameraPos);
+                GD.Print("[Camera] 开始拖拽 - 鼠标屏幕位置: " + _dragStartMouseScreenPos + " 相机位置: " + _dragStartCameraPos);
         }
 
         private void EndDrag()
@@ -332,15 +334,14 @@ namespace ClinetCSharp
             {
                 if (IsDragging)
                 {
-                    var currentMouse = GetGlobalMousePosition();
-                    var offset = currentMouse - _dragStartMousePos;
-                    // 避免纯点击时 Round() 导致相机位置抖动
-                    if (offset != Vector2.Zero)
+                    var currentMouseScreen = GetViewport()?.GetMousePosition() ?? Vector2.Zero;
+                    var screenOffset = currentMouseScreen - _dragStartMouseScreenPos;
+                    // 避免纯点击时因浮点精度导致相机位置抖动
+                    if (screenOffset != Vector2.Zero)
                     {
-                        Position = _dragStartCameraPos - offset;
-                        // 注意：拖拽过程中禁止 Round()，否则会与 GetGlobalMousePosition()
-                        // 形成反馈回路（相机跳变 → 鼠标世界坐标跳变 → 相机再次跳变），
-                        // 导致拖动时画面持续抖动。
+                        // 使用拖拽开始时的 zoom 计算世界偏移，避免 zoom 变化时抖动
+                        var worldOffset = screenOffset / _dragStartZoom;
+                        Position = _dragStartCameraPos - worldOffset;
                     }
                 }
                 return;
@@ -348,22 +349,20 @@ namespace ClinetCSharp
 
             if (IsDragging)
             {
-                var currentMouse = GetGlobalMousePosition();
-                var offset = currentMouse - _dragStartMousePos;
-                // 避免纯点击时 Round() 导致相机位置抖动
-                if (offset != Vector2.Zero)
+                var currentMouseScreen = GetViewport()?.GetMousePosition() ?? Vector2.Zero;
+                var screenOffset = currentMouseScreen - _dragStartMouseScreenPos;
+                // 避免纯点击时因浮点精度导致相机位置抖动
+                if (screenOffset != Vector2.Zero)
                 {
-                    Position = _dragStartCameraPos - offset;
-                    // 注意：拖拽过程中禁止 Round()，否则会与 GetGlobalMousePosition()
-                    // 形成反馈回路（相机跳变 → 鼠标世界坐标跳变 → 相机再次跳变），
-                    // 导致拖动时画面持续抖动。
+                    var worldOffset = screenOffset / _dragStartZoom;
+                    Position = _dragStartCameraPos - worldOffset;
                 }
 
                 IsReturning = false;
                 _dragTimer = 0.0f;
 
                 if (DebugDrag && Engine.GetProcessFrames() % 60 == 0)
-                    GD.Print("[Camera] 拖拽中 - 鼠标偏移: " + offset + " 当前位置: " + Position);
+                    GD.Print("[Camera] 拖拽中 - 鼠标屏幕偏移: " + screenOffset + " 当前位置: " + Position);
             }
             else if (IsReturning)
             {

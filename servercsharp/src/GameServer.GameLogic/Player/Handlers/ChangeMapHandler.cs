@@ -35,7 +35,7 @@ public class ChangeMapHandler : IMessageHandler
     {
         var claims = ctx.Claims!;
         var req = PGame.ChangeMapRequest.Parser.ParseFrom(data);
-        var targetMap = req.TargetMap;
+        var targetMap = MapNameNormalizer.Normalize(req.TargetMap);
 
         if (string.IsNullOrEmpty(targetMap) || _mapData.GetMap(targetMap) == null)
             return MakeError(PCommon.ErrorCode.InvalidRequest, "target map not found");

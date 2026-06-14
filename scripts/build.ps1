@@ -51,10 +51,7 @@ function Step-Server {
     Write-Host "`n[3] Building server..." -ForegroundColor Cyan
     $sln = Join-Path $RepoRoot 'servercsharp\GameServer.sln'
 
-    # GameLogic 需要先构建（ALC 热加载）
-    dotnet build (Join-Path $RepoRoot 'servercsharp\src\GameServer.GameLogic') -v q --nologo
-    if ($LASTEXITCODE -ne 0) { throw "GameLogic build failed" }
-
+    # GameServer.GameLogic.csproj 已加入解决方案，统一构建即可
     dotnet build $sln -v q --nologo
     if ($LASTEXITCODE -ne 0) { throw "Server build failed" }
     Write-Host "[OK] Server built" -ForegroundColor Green

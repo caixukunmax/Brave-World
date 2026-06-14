@@ -14,6 +14,7 @@ namespace ClinetCSharp
             cfg.SetValue("map", "grid_line_brightness", _gridLineBrightnessSlider.Value);
             cfg.SetValue("map", "grid_aa_softness", _gridAntiAliasSoftnessSlider?.Value ?? (double)GridOverlayAntiAliasSoftnessPolicy.Default);
             cfg.SetValue("map", "show_grid_coords", _gridCoordsCheck.ButtonPressed);
+            cfg.SetValue("map", "show_outside_map_gray", _showOutsideMapGrayCheck?.ButtonPressed ?? false);
 
             cfg.SetValue("camera", "return_delay", _cameraReturnDelaySlider.Value);
             cfg.SetValue("camera", "return_speed", _cameraReturnSpeedSlider.Value);
@@ -44,6 +45,7 @@ namespace ClinetCSharp
                 cfg.SetValue("editor", "drag_button", _editorDragButtonOption.Selected);
                 cfg.SetValue("editor", "require_ctrl_for_selection", _editorSelectModCheck?.ButtonPressed ?? true);
             }
+            cfg.SetValue("editor", "hover_tooltip_width", _hoverTooltipWidthSlider?.Value ?? 200.0);
 
             cfg.SetValue("debug", "show_debug_info", _debugInfoCheck.ButtonPressed);
             cfg.SetValue("debug", "show_monster_patrol_areas", _monsterPatrolOverlayCheck?.ButtonPressed ?? false);
@@ -90,6 +92,8 @@ namespace ClinetCSharp
             if (_gridAntiAliasSoftnessSlider != null)
                 _gridAntiAliasSoftnessSlider.Value = (double)cfg.GetValue("map", "grid_aa_softness", (double)GridOverlayAntiAliasSoftnessPolicy.Default);
             _gridCoordsCheck.ButtonPressed = (bool)cfg.GetValue("map", "show_grid_coords", false);
+            if (_showOutsideMapGrayCheck != null)
+                _showOutsideMapGrayCheck.ButtonPressed = (bool)cfg.GetValue("map", "show_outside_map_gray", false);
 
             _gridSizeModeOption?.SetBlockSignals(false);
             _lineWidthModeOption?.SetBlockSignals(false);
@@ -163,6 +167,13 @@ namespace ClinetCSharp
                 _editorSelectModCheck.ButtonPressed = (bool)cfg.GetValue("editor", "require_ctrl_for_selection", true);
                 OnEditorSelectModChanged(_editorSelectModCheck.ButtonPressed);
             }
+            if (_hoverTooltipWidthSlider != null)
+            {
+                _hoverTooltipWidthSlider.SetBlockSignals(true);
+                _hoverTooltipWidthSlider.Value = (double)cfg.GetValue("editor", "hover_tooltip_width", 200.0);
+                _hoverTooltipWidthSlider.SetBlockSignals(false);
+                OnHoverTooltipWidthChanged(_hoverTooltipWidthSlider.Value);
+            }
 
             _debugInfoCheck.ButtonPressed = (bool)cfg.GetValue("debug", "show_debug_info", false);
             OnDebugInfoToggled(_debugInfoCheck.ButtonPressed);
@@ -193,6 +204,7 @@ namespace ClinetCSharp
                 GridManager.SetLineBrightness(brightness);
                 GridManager.SetGridAntiAliasSoftness((float)(_gridAntiAliasSoftnessSlider?.Value ?? GridOverlayAntiAliasSoftnessPolicy.Default));
                 GridManager.ShowGridCoords = _gridCoordsCheck.ButtonPressed;
+                GridManager.ShowOutsideMapGray = _showOutsideMapGrayCheck?.ButtonPressed ?? false;
             }
 
             if (Camera != null)
@@ -219,7 +231,8 @@ namespace ClinetCSharp
                 ["grid_line_width"] = _gridLineWidthSlider?.Value ?? 2.0,
                 ["grid_line_brightness"] = _gridLineBrightnessSlider?.Value ?? 0.7,
                 ["grid_aa_softness"] = _gridAntiAliasSoftnessSlider?.Value ?? (double)GridOverlayAntiAliasSoftnessPolicy.Default,
-                ["show_grid_coords"] = _gridCoordsCheck?.ButtonPressed ?? false
+                ["show_grid_coords"] = _gridCoordsCheck?.ButtonPressed ?? false,
+                ["show_outside_map_gray"] = _showOutsideMapGrayCheck?.ButtonPressed ?? false
             };
             if (_lineWidthScaleSlider != null)
                 data["line_width_scale"] = _lineWidthScaleSlider.Value;
@@ -258,7 +271,8 @@ namespace ClinetCSharp
                 data["editor"] = new Godot.Collections.Dictionary
                 {
                     ["drag_button"] = _editorDragButtonOption.Selected,
-                    ["require_ctrl_for_selection"] = _editorSelectModCheck?.ButtonPressed ?? true
+                    ["require_ctrl_for_selection"] = _editorSelectModCheck?.ButtonPressed ?? true,
+                    ["hover_tooltip_width"] = _hoverTooltipWidthSlider?.Value ?? 200.0
                 };
             }
 

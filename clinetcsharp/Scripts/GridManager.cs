@@ -1,6 +1,7 @@
 using Godot;
 using Godot.Collections;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace ClinetCSharp
 {
@@ -23,9 +24,7 @@ namespace ClinetCSharp
             ResponsiveVisibleCount = 1,
         }
 
-        [Export] public int GridSize { get; set; } = 64;
-        [Export] public int MapWidth { get; set; } = 50;
-        [Export] public int MapHeight { get; set; } = 50;
+        [Export] public int GridSize { get; set; } = 111;
         [Export] public Color LineColor { get; set; } = new Color(0.7f, 0.7f, 0.7f);
         [Export] public float LineWidth { get; set; } = 1.0f;
         [Export] public float DashLength { get; set; } = 8.0f;
@@ -52,10 +51,24 @@ namespace ClinetCSharp
         public float RefZoomB { get; set; } = 1.0f;  // 标准 zoom
         public float RefWidthB { get; set; } = 1.5f;  // 对应线宽（标准视野正常显示）
 
-        public List<List<GridCell>> GridData { get; set; } = new();
+        /// <summary>地图数据：逻辑坐标 -> 格子。只有存在的格子才会被加入。</summary>
+        public System.Collections.Generic.Dictionary<Vector2I, GridCell> GridData { get; set; } = new();
         public string CurrentMapName { get; set; } = "新手村";
 
+        /// <summary>当前地图边界（所有存在格子的包围盒）。</summary>
+        public Rect2I MapBounds { get; private set; } = new Rect2I(0, 0, 50, 50);
+
+        /// <summary>地图宽度（兼容旧代码，实际为 MapBounds 宽度）</summary>
+        public int MapWidth => MapBounds.Size.X;
+
+        /// <summary>地图高度（兼容旧代码，实际为 MapBounds 高度）</summary>
+        public int MapHeight => MapBounds.Size.Y;
+
+        /// <summary>地图原点（兼容旧代码，实际为 MapBounds 位置）</summary>
+        public Vector2I GridOrigin => MapBounds.Position;
+
         // 响应式布局设置
+        [Export] public bool SkipAutoLoad { get; set; } = false;  // 是否跳过 _Ready 自动加载地图数据（用于 PreviewMap 等手动初始化场景）
         [Export] public bool ResponsiveMode { get; set; } = false;  // 是否启用响应式格子大小
         [Export] public float VisibleGridsX { get; set; } = 5.0f;     // 屏幕横向显示的格子数（支持小数，如5.5）
         [Export] public int MinGridSize { get; set; } = 32;        // 最小格子大小（防止太小）
@@ -63,12 +76,34 @@ namespace ClinetCSharp
 
         // 编辑模式
         public bool IsEditMode { get; set; } = false;
-        public bool ShowGridCoords { get; set; } = false;  // 显示格子坐标
+        public bool ShowGridCoords { get; set; } = false;  // 显示格子逻辑坐标
         public bool ShowTerrainLabels { get; set; } = false;  // 显示地形名称标签
+        public bool ShowCellUids { get; set; } = false;  // 显示格子唯一标识符 UID
 
         // 地图范围外灰色显示设置
-        [Export] public bool ShowOutsideMapGray { get; set; } = true;
-        [Export] public Color OutsideMapColor { get; set; } = new Color(0.15f, 0.15f, 0.15f, 1.0f);
+        private bool _showOutsideMapGray = false;
+        [Export]
+        public bool ShowOutsideMapGray
+        {
+            get => _showOutsideMapGray;
+            set
+            {
+                _showOutsideMapGray = value;
+                RefreshOutsideMapVisibility();
+            }
+        }
+
+        private Color _outsideMapColor = new Color(0.15f, 0.15f, 0.15f, 1.0f);
+        [Export]
+        public Color OutsideMapColor
+        {
+            get => _outsideMapColor;
+            set
+            {
+                _outsideMapColor = value;
+                RefreshOutsideMapVisibility();
+            }
+        }
 
         // 自适应校准用的 zoom 跟踪
         private float _lastCameraZoom = 0.0f;
@@ -99,7 +134,8 @@ namespace ClinetCSharp
                 _terrainLabelFont = sysFont;
             }
 
-            LoadMapData();
+            if (!SkipAutoLoad)
+                LoadMapData();
 
             // 同步 Background 尺寸
             SyncBackgroundSize();
@@ -127,11 +163,34 @@ namespace ClinetCSharp
             // 初始化 zoom 跟踪
             _lastCameraZoom = GetCameraZoom();
 
+            // 初始化线宽参数快照，避免 NaN 比较导致首次变化被吞
+            _lastAdaptiveEnabled = AdaptiveCalibrationEnabled;
+            _lastAutoLineWidth = AutoLineWidth;
+            _lastIsEditMode = IsEditMode;
+            _lastLineWidth = LineWidth;
+            _lastLineWidthScale = LineWidthScale;
+            _lastGridAntiAliasSoftness = GridAntiAliasSoftness;
+            _lastRefZoomA = RefZoomA;
+            _lastRefWidthA = RefWidthA;
+            _lastRefZoomB = RefZoomB;
+            _lastRefWidthB = RefWidthB;
+
             EnsureGridShaderOverlay();
             UpdateGridShaderOverlay();
             UpdateTerrainMask();
 
             QueueRedraw();
+        }
+
+        public override void _ExitTree()
+        {
+            // 防止响应式模式事件泄漏到已释放实例
+            if (_isViewportResizedConnected)
+            {
+                GetTree().Root.SizeChanged -= OnViewportResized;
+                _isViewportResizedConnected = false;
+            }
+            base._ExitTree();
         }
 
         public override void _Process(double _delta)
@@ -191,7 +250,7 @@ namespace ClinetCSharp
             AddChild(_gridShaderOverlay);
         }
 
-        private void UpdateGridShaderOverlay()
+        public void UpdateGridShaderOverlay()
         {
             EnsureGridShaderOverlay();
             if (_gridShaderOverlay == null)
@@ -201,35 +260,34 @@ namespace ClinetCSharp
             var (lineWidthWorld, lineColor) = ComputeGridLineRenderStyle(cameraZoom);
             float screenLineWidth = lineWidthWorld * cameraZoom;
 
-            if (IsEditMode)
-            {
-                if (screenLineWidth < 1.5f)
-                    screenLineWidth = 1.5f;
-                lineColor = new Color(1.0f, 1.0f, 1.0f, 1.0f);
-            }
-
             _gridShaderOverlay.UpdateOverlay(
                 GridSize,
-                MapWidth,
-                MapHeight,
+                MapBounds,
                 screenLineWidth,
                 lineColor,
                 GridAntiAliasSoftness);
 
-            _gridShaderOverlay.UpdateOutsideMapColor(OutsideMapColor);
+            _gridShaderOverlay.UpdateOutsideMapColor(ShowOutsideMapGray ? OutsideMapColor : Colors.Transparent);
         }
 
         private void LoadMapData()
         {
-            // 尝试从CSV加载
-            var loadedData = MapDataManager.LoadMapFromCsv(CurrentMapName);
+            // 尝试从 map.json 加载
+            var loadedData = MapDataManager.LoadMapFromJson(
+                CurrentMapName, out var loadedBounds, out var loadedSpawn, out var loadedDisplayName);
 
             if (loadedData.Count > 0)
             {
                 GridData = loadedData;
-                MapHeight = GridData.Count;
-                MapWidth = GridData.Count > 0 ? GridData[0].Count : 50;
-                GD.Print($"[GridManager] 加载地图: {CurrentMapName} {MapWidth}x{MapHeight}");
+                MapBounds = loadedBounds;
+                RecalculateMapBounds();
+                GD.Print($"[GridManager] 加载地图: {CurrentMapName} 格子数={GridData.Count}, bounds={MapBounds}");
+            }
+            else if (FileAccess.FileExists(MapDataManager.MapsFolder + CurrentMapName + "/" + MapDataManager.JsonFilename))
+            {
+                // JSON 存在但 cells 为空：保持声明的 bounds
+                MapBounds = loadedBounds;
+                GD.Print($"[GridManager] 加载地图: {CurrentMapName} 格子数=0, bounds={MapBounds}");
             }
             else
             {
@@ -238,8 +296,9 @@ namespace ClinetCSharp
                 CreateDefaultGridData();
                 // 保存默认地图
                 if (!MapDataManager.MapExists(CurrentMapName))
-                    MapDataManager.CreateNewMap(CurrentMapName, MapWidth, MapHeight);
-                MapDataManager.SaveMapToCsv(CurrentMapName, GridData);
+                    MapDataManager.CreateNewMap(CurrentMapName, MapBounds.Size.X, MapBounds.Size.Y);
+                else
+                    MapDataManager.SaveMapToJson(CurrentMapName, GridData, CurrentMapName, MapBounds, new Vector2I(25, 25));
             }
 
             UpdateTerrainMask();
@@ -248,17 +307,38 @@ namespace ClinetCSharp
         private void CreateDefaultGridData()
         {
             GridData.Clear();
-            for (int y = 0; y < MapHeight; y++)
+            for (int y = MapBounds.Position.Y; y < MapBounds.Position.Y + MapBounds.Size.Y; y++)
             {
-                var row = new List<GridCell>();
-                for (int x = 0; x < MapWidth; x++)
+                for (int x = MapBounds.Position.X; x < MapBounds.Position.X + MapBounds.Size.X; x++)
                 {
                     var cell = new GridCell(x, y);
                     cell.TerrainType = 0;
-                    row.Add(cell);
+                    GridData[new Vector2I(x, y)] = cell;
                 }
-                GridData.Add(row);
             }
+        }
+
+        /// <summary>
+        /// 根据当前 GridData 中所有存在格子的坐标重新计算 MapBounds。
+        /// </summary>
+        public void RecalculateMapBounds()
+        {
+            if (GridData.Count == 0)
+            {
+                MapBounds = new Rect2I(0, 0, 50, 50);
+                return;
+            }
+
+            int minX = int.MaxValue, maxX = int.MinValue;
+            int minY = int.MaxValue, maxY = int.MinValue;
+            foreach (var pos in GridData.Keys)
+            {
+                if (pos.X < minX) minX = pos.X;
+                if (pos.X > maxX) maxX = pos.X;
+                if (pos.Y < minY) minY = pos.Y;
+                if (pos.Y > maxY) maxY = pos.Y;
+            }
+            MapBounds = new Rect2I(minX, minY, maxX - minX + 1, maxY - minY + 1);
         }
 
         public override void _Draw()
@@ -272,6 +352,8 @@ namespace ClinetCSharp
                 DrawTerrainLabels();
             if (ShowGridCoords)
                 DrawGridCoords();
+            if (ShowCellUids)
+                DrawCellUids();
         }
 
         private void DrawGrid()
@@ -286,12 +368,22 @@ namespace ClinetCSharp
 
         private (float lineWidthWorld, Color lineColor) ComputeGridLineRenderStyle(float cameraZoom)
         {
-            float targetScreenLineWidth = GetTargetScreenLineWidth(cameraZoom);
-            // 自适应模式下，上限使用参考点最大值，避免硬编码 2px 截断用户设置
-            float maxWidth = AdaptiveCalibrationEnabled
-                ? Mathf.Max(MaxScreenLineWidth, Mathf.Max(RefWidthA, RefWidthB))
-                : MaxScreenLineWidth;
-            targetScreenLineWidth = Mathf.Clamp(targetScreenLineWidth, MinScreenLineWidth, maxWidth);
+            float targetScreenLineWidth;
+            if (IsEditMode)
+            {
+                // 编辑模式下使用固定屏幕线宽，保证任何 zoom 下线宽一致且可见
+                // 不再随距离变粗（自适应校准/自动线宽在编辑模式下不生效）
+                targetScreenLineWidth = 2.0f;
+            }
+            else
+            {
+                targetScreenLineWidth = GetTargetScreenLineWidth(cameraZoom);
+                // 自适应模式下，上限使用参考点最大值，避免硬编码 2px 截断用户设置
+                float maxWidth = AdaptiveCalibrationEnabled
+                    ? Mathf.Max(MaxScreenLineWidth, Mathf.Max(RefWidthA, RefWidthB))
+                    : MaxScreenLineWidth;
+                targetScreenLineWidth = Mathf.Clamp(targetScreenLineWidth, MinScreenLineWidth, maxWidth);
+            }
 
             float alphaScale = 1.0f;
             float drawScreenLineWidth = targetScreenLineWidth;
@@ -308,7 +400,7 @@ namespace ClinetCSharp
             // 之前的 GridSize * 0.3f 上限在 zoom 很小时会截断 world width，导致屏幕线宽 < 1px。
             lineWidthWorld = Mathf.Max(lineWidthWorld, 0.01f);
 
-            var lineColor = LineColor;
+            var lineColor = IsEditMode ? new Color(1.0f, 1.0f, 1.0f, 1.0f) : LineColor;
             lineColor.A *= alphaScale;
             return (lineWidthWorld, lineColor);
         }
@@ -353,37 +445,36 @@ namespace ClinetCSharp
             var cameraZoom = GetCameraZoom();
             if (cameraZoom < 0.5f) return;
 
-            for (int y = 0; y < MapHeight; y++)
+            foreach (var cell in GridData.Values)
             {
-                for (int x = 0; x < MapWidth; x++)
-                {
-                    var cell = GridData[y][x];
-                    if (cell.TerrainType == 0)
-                        continue;
+                if (cell.TerrainType == 0)
+                    continue;
 
-                    var name = cell.GetTerrainName();
-                    if (string.IsNullOrEmpty(name)) continue;
+                var name = cell.GetTerrainName();
+                if (string.IsNullOrEmpty(name)) continue;
 
-                    // 半透明白色背景
-                    var bgRect = new Rect2(new Vector2(x * GridSize + 4, y * GridSize + 4), new Vector2(GridSize - 8, GridSize - 8));
-                    DrawRect(bgRect, new Color(1, 1, 1, 0.25f), true);
+                var x = cell.Pos.X;
+                var y = cell.Pos.Y;
 
-                    var fontSize = Mathf.Min(16, (int)(GridSize * 0.4f));
-                    var textSize = _terrainLabelFont.GetStringSize(name, fontSize: fontSize);
-                    var pos = new Vector2(
-                        x * GridSize + (GridSize - textSize.X) / 2,
-                        y * GridSize + (GridSize + textSize.Y) / 2
-                    );
+                // 半透明白色背景
+                var bgRect = new Rect2(new Vector2(x * GridSize + 4, y * GridSize + 4), new Vector2(GridSize - 8, GridSize - 8));
+                DrawRect(bgRect, new Color(1, 1, 1, 0.25f), true);
 
-                    var outlineColor = Colors.Black;
-                    var textColor = Colors.White;
+                var fontSize = Mathf.Min(16, (int)(GridSize * 0.4f));
+                var textSize = _terrainLabelFont.GetStringSize(name, fontSize: fontSize);
+                var pos = new Vector2(
+                    x * GridSize + (GridSize - textSize.X) / 2,
+                    y * GridSize + (GridSize + textSize.Y) / 2
+                );
 
-                    DrawString(_terrainLabelFont, pos + new Vector2(-1, 0), name, HorizontalAlignment.Left, width: -1, fontSize: fontSize, modulate: outlineColor);
-                    DrawString(_terrainLabelFont, pos + new Vector2(1, 0), name, HorizontalAlignment.Left, width: -1, fontSize: fontSize, modulate: outlineColor);
-                    DrawString(_terrainLabelFont, pos + new Vector2(0, -1), name, HorizontalAlignment.Left, width: -1, fontSize: fontSize, modulate: outlineColor);
-                    DrawString(_terrainLabelFont, pos + new Vector2(0, 1), name, HorizontalAlignment.Left, width: -1, fontSize: fontSize, modulate: outlineColor);
-                    DrawString(_terrainLabelFont, pos, name, HorizontalAlignment.Left, width: -1, fontSize: fontSize, modulate: textColor);
-                }
+                var outlineColor = Colors.Black;
+                var textColor = Colors.White;
+
+                DrawString(_terrainLabelFont, pos + new Vector2(-1, 0), name, HorizontalAlignment.Left, width: -1, fontSize: fontSize, modulate: outlineColor);
+                DrawString(_terrainLabelFont, pos + new Vector2(1, 0), name, HorizontalAlignment.Left, width: -1, fontSize: fontSize, modulate: outlineColor);
+                DrawString(_terrainLabelFont, pos + new Vector2(0, -1), name, HorizontalAlignment.Left, width: -1, fontSize: fontSize, modulate: outlineColor);
+                DrawString(_terrainLabelFont, pos + new Vector2(0, 1), name, HorizontalAlignment.Left, width: -1, fontSize: fontSize, modulate: outlineColor);
+                DrawString(_terrainLabelFont, pos, name, HorizontalAlignment.Left, width: -1, fontSize: fontSize, modulate: textColor);
             }
         }
 
@@ -391,20 +482,21 @@ namespace ClinetCSharp
 
         public Vector2 GridToWorld(Vector2I gridPos)
         {
-            return new Vector2(gridPos.X * GridSize + GridSize / 2.0f,
-                               gridPos.Y * GridSize + GridSize / 2.0f);
+            var localX = gridPos.X * GridSize + GridSize / 2.0f;
+            var localY = gridPos.Y * GridSize + GridSize / 2.0f;
+            return new Vector2(localX, localY);
         }
 
         public Vector2I WorldToGrid(Vector2 worldPos)
         {
-            return new Vector2I(Mathf.FloorToInt(worldPos.X / GridSize),
-                                Mathf.FloorToInt(worldPos.Y / GridSize));
+            var gridX = Mathf.FloorToInt(worldPos.X / GridSize);
+            var gridY = Mathf.FloorToInt(worldPos.Y / GridSize);
+            return new Vector2I(gridX, gridY);
         }
 
         public bool IsInBounds(Vector2I gridPos)
         {
-            return gridPos.X >= 0 && gridPos.X < MapWidth &&
-                   gridPos.Y >= 0 && gridPos.Y < MapHeight;
+            return GridData.ContainsKey(gridPos);
         }
 
         // ============ 行走检查 ============
@@ -448,7 +540,7 @@ namespace ClinetCSharp
 #endif
                 return false;
             }
-            var cell = GridData[gridPos.Y][gridPos.X];
+            var cell = GridData[gridPos];
             var walkable = cell.TerrainConfig?.Walkable ?? true;
 #if DEBUG
             if (!walkable)
@@ -471,16 +563,15 @@ namespace ClinetCSharp
 
         public GridCell GetCell(Vector2I gridPos)
         {
-            if (!IsInBounds(gridPos))
-                return null;
-            return GridData[gridPos.Y][gridPos.X];
+            GridData.TryGetValue(gridPos, out var cell);
+            return cell;
         }
 
         public void SetCell(Vector2I gridPos, GridCell cellData)
         {
-            if (!IsInBounds(gridPos))
+            if (!GridData.ContainsKey(gridPos))
                 return;
-            cellData.CopyTo(GridData[gridPos.Y][gridPos.X]);
+            cellData.CopyTo(GridData[gridPos]);
             QueueRedraw();
         }
 
@@ -754,14 +845,15 @@ namespace ClinetCSharp
             SyncBackgroundSize();
         }
 
-        private void SyncBackgroundSize()
+        public void SyncBackgroundSize()
         {
             if (_background == null)
             {
                 _background = GetParent()?.GetNodeOrNull<ColorRect>("Background");
                 if (_background == null) return;
             }
-            _background.Size = new Vector2(MapWidth * GridSize, MapHeight * GridSize);
+            _background.Size = new Vector2(MapBounds.Size.X * GridSize, MapBounds.Size.Y * GridSize);
+            _background.Position = new Vector2(MapBounds.Position.X * GridSize, MapBounds.Position.Y * GridSize);
         }
 
         public void SetLineBrightness(float brightness)
@@ -811,59 +903,87 @@ namespace ClinetCSharp
         private void UpdateTerrainMask()
         {
             if (_gridShaderOverlay == null || GridData.Count == 0)
-                return;
-
-            var image = Image.CreateEmpty(MapWidth, MapHeight, false, Image.Format.Rgba8);
-            for (int y = 0; y < MapHeight; y++)
             {
-                for (int x = 0; x < MapWidth; x++)
+                GD.Print($"[GridManager] UpdateTerrainMask: 跳过, _gridShaderOverlay=null?{_gridShaderOverlay==null}, GridData.Count={GridData.Count}");
+                return;
+            }
+
+            var bounds = MapBounds;
+            var image = Image.CreateEmpty(bounds.Size.X, bounds.Size.Y, false, Image.Format.Rgba8);
+
+            for (int y = 0; y < bounds.Size.Y; y++)
+            {
+                for (int x = 0; x < bounds.Size.X; x++)
                 {
-                    var cell = GridData[y][x];
+                    var logicalPos = new Vector2I(bounds.Position.X + x, bounds.Position.Y + y);
                     byte maskValue;
                     float r, g, b;
 
-                    if (cell.TerrainType == 9)
+                    if (GridData.TryGetValue(logicalPos, out var cell))
                     {
-                        // 地形墙：mask=0(灰色填充)，颜色=OutsideMapColor
+                        if (cell.TerrainType == 9)
+                        {
+                            // 地形墙：mask=0(灰色填充)，颜色=OutsideMapColor
+                            maskValue = 0;
+                            r = OutsideMapColor.R;
+                            g = OutsideMapColor.G;
+                            b = OutsideMapColor.B;
+                        }
+                        else if (cell.TerrainType == 10)
+                        {
+                            // 空气墙：mask=255(显示网格线)，颜色=淡红色
+                            maskValue = 255;
+                            r = 1.0f;
+                            g = 0.0f;
+                            b = 0.0f;
+                        }
+                        else
+                        {
+                            // 普通格子：mask=255(显示网格线)
+                            maskValue = 255;
+                            var cfg = cell.TerrainConfig ?? TerrainConfigUtil.Get(cell.TerrainType);
+                            // 只有 ColorA > 0 时才渲染地形颜色背景（ColorA=0 表示透明，走纯网格线渲染）
+                            if (cfg != null && cfg.ColorA > 0 && (cfg.ColorR > 0 || cfg.ColorG > 0 || cfg.ColorB > 0))
+                            {
+                                r = cfg.ColorR / 255f;
+                                g = cfg.ColorG / 255f;
+                                b = cfg.ColorB / 255f;
+                            }
+                            else
+                            {
+                                r = 0f;
+                                g = 0f;
+                                b = 0f;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        // 不存在的格子：按地图外处理
                         maskValue = 0;
                         r = OutsideMapColor.R;
                         g = OutsideMapColor.G;
                         b = OutsideMapColor.B;
-                    }
-                    else if (cell.TerrainType == 10)
-                    {
-                        // 空气墙：mask=255(显示网格线)，颜色=淡红色
-                        maskValue = 255;
-                        r = 1.0f;
-                        g = 0.0f;
-                        b = 0.0f;
-                    }
-                    else
-                    {
-                        // 普通格子：mask=255(显示网格线)
-                        maskValue = 255;
-                        var cfg = cell.TerrainConfig ?? TerrainConfigUtil.Get(cell.TerrainType);
-                        if (cfg != null && (cfg.ColorR > 0 || cfg.ColorG > 0 || cfg.ColorB > 0))
-                        {
-                            r = cfg.ColorR / 255f;
-                            g = cfg.ColorG / 255f;
-                            b = cfg.ColorB / 255f;
-                        }
-                        else
-                        {
-                            r = 0f;
-                            g = 0f;
-                            b = 0f;
-                        }
                     }
 
                     image.SetPixel(x, y, new Color(maskValue / 255f, r, g, b));
                 }
             }
 
-            _terrainMaskTexture = ImageTexture.CreateFromImage(image);
-            _gridShaderOverlay.UpdateTerrainMask(_terrainMaskTexture, MapWidth, MapHeight);
-            _gridShaderOverlay.UpdateOutsideMapColor(OutsideMapColor);
+            // 复用同一个 ImageTexture 实例，避免 Godot 渲染服务器因纹理引用变化导致缓存/批次问题
+            if (_terrainMaskTexture != null &&
+                _terrainMaskTexture.GetWidth() == bounds.Size.X &&
+                _terrainMaskTexture.GetHeight() == bounds.Size.Y)
+            {
+                _terrainMaskTexture.Update(image);
+            }
+            else
+            {
+                _terrainMaskTexture = ImageTexture.CreateFromImage(image);
+            }
+            _gridShaderOverlay.UpdateTerrainMask(_terrainMaskTexture, bounds.Size.X, bounds.Size.Y);
+            _gridShaderOverlay.UpdateOutsideMapColor(ShowOutsideMapGray ? OutsideMapColor : Colors.Transparent);
+            GD.Print($"[GridManager] UpdateTerrainMask: 已更新 terrain_mask {bounds.Size.X}x{bounds.Size.Y}, bounds={bounds}");
         }
 
         public void SetShowGridCoords(bool show)
@@ -872,27 +992,57 @@ namespace ClinetCSharp
             QueueRedraw();
         }
 
+        public void SetShowCellUids(bool show)
+        {
+            ShowCellUids = show;
+            QueueRedraw();
+        }
+
         private void DrawGridCoords()
         {
-            // 绘制每个格子的坐标
+            // 绘制每个格子的逻辑坐标
             var font = ThemeDB.FallbackFont;
             var fontSize = Mathf.Max(8, GridSize / 6);  // 根据格子大小动态调整字号
             var textColor = new Color(0.8f, 0.8f, 0.8f, 0.7f);  // 浅灰色
 
-            for (int y = 0; y < MapHeight; y++)
+            foreach (var cell in GridData.Values)
             {
-                for (int x = 0; x < MapWidth; x++)
-                {
-                    var worldPos = GridToWorld(new Vector2I(x, y));
-                    var text = $"x:{x}\ny:{y}";
+                var worldPos = GridToWorld(cell.Pos);
+                var text = $"x:{cell.Pos.X}\ny:{cell.Pos.Y}";
 
-                    // 计算文字位置（居中）
-                    var textSize = font.GetMultilineStringSize(text, HorizontalAlignment.Center, -1, fontSize);
-                    var textPos = worldPos - new Vector2(textSize.X / 2, textSize.Y / 2);
+                // 计算文字位置（居中）
+                var textSize = font.GetMultilineStringSize(text, HorizontalAlignment.Center, -1, fontSize);
+                var textPos = worldPos - new Vector2(textSize.X / 2, textSize.Y / 2);
 
-                    // 绘制文字
-                    DrawMultilineString(font, textPos, text, HorizontalAlignment.Center, -1, fontSize, (int)(textSize.Y + 2), textColor);
-                }
+                // 绘制文字
+                DrawMultilineString(font, textPos, text, HorizontalAlignment.Center, -1, fontSize, (int)(textSize.Y + 2), textColor);
+            }
+        }
+
+        private void DrawCellUids()
+        {
+            // 绘制每个格子的 UID（唯一标识符，创建时生成，永不改变）
+            var font = ThemeDB.FallbackFont;
+            var fontSize = Mathf.Max(8, GridSize / 6);
+            var textColor = new Color(1.0f, 0.9f, 0.3f, 0.85f);  // 金黄色，醒目但不过度遮挡
+
+            foreach (var cell in GridData.Values)
+            {
+                if (string.IsNullOrEmpty(cell.Uid)) continue;
+
+                var worldPos = GridToWorld(cell.Pos);
+
+                // 计算文字位置（居中）
+                var textSize = font.GetStringSize(cell.Uid, fontSize: fontSize);
+                var textPos = worldPos - new Vector2(textSize.X / 2, textSize.Y / 2);
+
+                // 绘制文字（带黑色描边增强可读性）
+                var outlineColor = Colors.Black;
+                DrawString(font, textPos + new Vector2(-1, 0), cell.Uid, HorizontalAlignment.Left, width: -1, fontSize: fontSize, modulate: outlineColor);
+                DrawString(font, textPos + new Vector2(1, 0), cell.Uid, HorizontalAlignment.Left, width: -1, fontSize: fontSize, modulate: outlineColor);
+                DrawString(font, textPos + new Vector2(0, -1), cell.Uid, HorizontalAlignment.Left, width: -1, fontSize: fontSize, modulate: outlineColor);
+                DrawString(font, textPos + new Vector2(0, 1), cell.Uid, HorizontalAlignment.Left, width: -1, fontSize: fontSize, modulate: outlineColor);
+                DrawString(font, textPos, cell.Uid, HorizontalAlignment.Left, width: -1, fontSize: fontSize, modulate: textColor);
             }
         }
 
@@ -900,35 +1050,137 @@ namespace ClinetCSharp
 
         public Error SaveCurrentMap()
         {
-            return MapDataManager.SaveMapToCsv(CurrentMapName, GridData);
+            return MapDataManager.SaveMapToJson(CurrentMapName, GridData, CurrentMapName, MapBounds, new Vector2I(25, 25));
+        }
+
+        /// <summary>
+        /// 扩展当前地图：只新增给定格子的集合，默认填充普通地形。
+        /// 支持产生负坐标，会同步更新 MapBounds。
+        /// </summary>
+        public Error ExtendMap(IEnumerable<Vector2I> cellsToAdd)
+        {
+            int addedCount = 0;
+            foreach (var logicalPos in cellsToAdd)
+            {
+                if (GridData.ContainsKey(logicalPos))
+                    continue;
+
+                var newCell = new GridCell(logicalPos.X, logicalPos.Y);
+                newCell.TerrainType = 0;
+                newCell.TerrainConfig = TerrainConfigUtil.Get(0);
+                GridData[logicalPos] = newCell;
+                addedCount++;
+            }
+
+            if (addedCount == 0)
+            {
+                GD.PushWarning("[GridManager.ExtendMap] 没有新格子可添加");
+                return Error.AlreadyExists;
+            }
+
+            GD.Print($"[GridManager.ExtendMap] 实际新增 {addedCount} 个格子");
+            RecalculateMapBounds();
+            SaveMapBoundsToConfig();
+            SaveCurrentMap();
+
+            // 刷新渲染与持久化
+            UpdateGridShaderOverlay();
+            _gridShaderOverlay?.UpdateTerrainMask(null, 0, 0);
+            UpdateTerrainMask();
+            SyncBackgroundSize();
+            QueueRedraw();
+
+            GD.Print($"[GridManager.ExtendMap] 已新增 {addedCount} 个格子, 当前格子数={GridData.Count}, bounds={MapBounds}");
+            return Error.Ok;
+        }
+
+        /// <summary>
+        /// 兼容旧接口：传入矩形选区，矩形内所有不在 GridData 中的格子都会被添加。
+        /// </summary>
+        public Error ExtendMap(Rect2I selectionBounds)
+        {
+            if (selectionBounds.Size.X <= 0 || selectionBounds.Size.Y <= 0)
+            {
+                GD.PushError("[GridManager.ExtendMap] 选区尺寸无效");
+                return Error.InvalidParameter;
+            }
+
+            GD.Print($"[GridManager.ExtendMap] 当前格子数={GridData.Count}, 选区={selectionBounds}");
+
+            var cells = new List<Vector2I>();
+            for (int y = selectionBounds.Position.Y; y < selectionBounds.Position.Y + selectionBounds.Size.Y; y++)
+            {
+                for (int x = selectionBounds.Position.X; x < selectionBounds.Position.X + selectionBounds.Size.X; x++)
+                {
+                    cells.Add(new Vector2I(x, y));
+                }
+            }
+            return ExtendMap(cells);
+        }
+
+        /// <summary>将当前 MapBounds 保存到 map.json</summary>
+        public void SaveMapBoundsToConfig()
+        {
+            SaveCurrentMap();
         }
 
         public bool LoadMap(string mapName)
         {
-            var loadedData = MapDataManager.LoadMapFromCsv(mapName);
-            if (loadedData.Count > 0)
+            GD.Print($"[GridManager] LoadMap: 请求加载 '{mapName}'");
+            // 诊断：替换前统计 terrain 分布
+            var beforeStats = GetTerrainStats();
+            GD.Print($"[GridManager] LoadMap: 替换前 terrain 分布={beforeStats}");
+
+            var loadedData = MapDataManager.LoadMapFromJson(mapName, out var loadedBounds, out _, out _);
+            GD.Print($"[GridManager] LoadMap: loadedData.Count={loadedData.Count}");
+            if (loadedData.Count > 0 || FileAccess.FileExists(MapDataManager.MapsFolder + mapName + "/" + MapDataManager.JsonFilename))
             {
                 GridData = loadedData;
-                MapHeight = GridData.Count;
-                MapWidth = GridData.Count > 0 ? GridData[0].Count : 50;
+                MapBounds = loadedBounds;
+                RecalculateMapBounds();
                 CurrentMapName = mapName;
+
                 UpdateGridShaderOverlay();
+                // 先重置 terrain_mask，强制 Godot 渲染服务器解除旧纹理绑定
+                _gridShaderOverlay?.UpdateTerrainMask(null, 0, 0);
                 UpdateTerrainMask();
                 SyncBackgroundSize();
                 QueueRedraw();
+                var afterStats = GetTerrainStats();
+                GD.Print($"[GridManager] LoadMap: 成功加载 '{mapName}' 格子数={GridData.Count}, bounds={MapBounds}, 替换后 terrain 分布={afterStats}");
                 return true;
             }
+            GD.PrintErr($"[GridManager] LoadMap: 地图 '{mapName}' 不存在");
             return false;
         }
 
-        public Error ExportCsv(string exportPath)
+        /// <summary>
+        /// 获取当前 GridData 的 terrain 类型分布统计，用于诊断
+        /// </summary>
+        private string GetTerrainStats()
         {
-            return MapDataManager.ExportCsv(CurrentMapName, exportPath);
+            if (GridData.Count == 0) return "(空)";
+            var stats = new System.Collections.Generic.Dictionary<int, int>();
+            foreach (var cell in GridData.Values)
+            {
+                var t = cell.TerrainType;
+                if (!stats.ContainsKey(t)) stats[t] = 0;
+                stats[t]++;
+            }
+            var parts = new List<string>();
+            foreach (var kvp in stats.OrderBy(kv => kv.Key))
+                parts.Add($"T{kvp.Key}={kvp.Value}");
+            return string.Join(", ", parts);
         }
 
-        public Error ImportCsv(string importPath)
+        public Error ExportJson(string exportPath)
         {
-            var err = MapDataManager.ImportCsv(importPath, CurrentMapName);
+            return MapDataManager.ExportJson(CurrentMapName, exportPath);
+        }
+
+        public Error ImportJson(string importPath)
+        {
+            var err = MapDataManager.ImportJson(importPath, CurrentMapName);
             if (err == Error.Ok)
             {
                 // 重新加载

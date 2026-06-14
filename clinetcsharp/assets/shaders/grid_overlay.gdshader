@@ -44,17 +44,16 @@ void fragment() {
                        world_pos.y < 0.0 || world_pos.y > map_size_world.y;
 
     // 地形墙或地图外：显示灰色填充，无网格线
+    // 注意：CanvasItem shader 中不要使用 return，否则行为未定义
+    vec4 final_color;
     if (mask_value < 0.5 || outside_map) {
-        COLOR = outside_map_color;
-        return;
+        final_color = outside_map_color;
+    } else if (terrain_color.r > 0.001 || terrain_color.g > 0.001 || terrain_color.b > 0.001) {
+        vec4 bg = vec4(terrain_color, 1.0);
+        final_color = mix(bg, vec4(line_color.rgb, 1.0), grid_alpha);
+    } else {
+        final_color = vec4(line_color.rgb, grid_alpha);
     }
 
-    // 有地形颜色的格子：显示地形颜色背景 + 网格线叠加
-    if (terrain_color.r > 0.001 || terrain_color.g > 0.001 || terrain_color.b > 0.001) {
-        vec4 bg = vec4(terrain_color, 1.0);
-        COLOR = mix(bg, vec4(line_color.rgb, 1.0), grid_alpha);
-    } else {
-        // 无特殊地形颜色：透明背景 + 网格线
-        COLOR = vec4(line_color.rgb, grid_alpha);
-    }
+    COLOR = final_color;
 }

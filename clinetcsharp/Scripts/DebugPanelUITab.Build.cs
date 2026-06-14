@@ -71,7 +71,6 @@ namespace ClinetCSharp
 
             _buffBarRightAlignCheck = new CheckBox { Text = "靠右对齐(新buff压栈)" };
             _buffBarRightAlignCheck.ButtonPressed = buffBar?.RightAlign ?? false;
-            _buffBarRightAlignCheck.Toggled += OnBuffBarRightAlignToggled;
             tabContainer.AddChild(_buffBarRightAlignCheck);
         }
 

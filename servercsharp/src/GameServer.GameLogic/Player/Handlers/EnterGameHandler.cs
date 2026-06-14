@@ -82,7 +82,7 @@ public class EnterGameHandler : IMessageHandler
             await _session.Roles.Update(roleId, u => u.Set(r => r.LearnedSkills, role.LearnedSkills));
         }
 
-        var mapName = role.CurrentMap;
+        var mapName = MapNameNormalizer.Normalize(role.CurrentMap);
         _session.MapService.PlayerEnter(new PlayerSnapshot
         {
             AccountId = claims.AccountId,

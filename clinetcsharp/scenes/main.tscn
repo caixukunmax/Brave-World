@@ -37,8 +37,6 @@ mouse_filter = 2
 [node name="GridManager" type="Node2D" parent="." groups=["grid_manager"]]
 script = ExtResource("1_grid")
 grid_size = 111
-map_width = 50
-map_height = 50
 
 [node name="Player" type="Node2D" parent="." groups=["player"]]
 script = ExtResource("2_player")
@@ -84,20 +82,13 @@ layer = 100
 
 [node name="PanelManager" type="Node" parent="UICanvas"]
 script = ExtResource("14_pm")
-
-[node name="DebugPanel" parent="UICanvas" instance=ExtResource("4_debug")]
-
-[node name="GMPanel" parent="UICanvas" instance=ExtResource("9_gm")]
-
-[node name="IntegratedPanel" parent="UICanvas" instance=ExtResource("15_panel")]
-
-[node name="CharacterPanel" parent="UICanvas" instance=ExtResource("16_charpanel")]
-
-[node name="EntityListPanel" parent="UICanvas" instance=ExtResource("17_entity")]
-
-[node name="InventoryUI" parent="UICanvas" instance=ExtResource("18_invui")]
-
-[node name="SkillPanel" parent="UICanvas" instance=ExtResource("20_skill")]
+debug_panel_scene = ExtResource("4_debug")
+gm_panel_scene = ExtResource("9_gm")
+integrated_panel_scene = ExtResource("15_panel")
+character_panel_scene = ExtResource("16_charpanel")
+entity_list_panel_scene = ExtResource("17_entity")
+inventory_ui_scene = ExtResource("18_invui")
+skill_panel_scene = ExtResource("20_skill")
 
 [node name="SkillBarCanvas" type="CanvasLayer" parent="."]
 layer = 60

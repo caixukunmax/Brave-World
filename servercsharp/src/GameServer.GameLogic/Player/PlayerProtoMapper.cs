@@ -32,7 +32,7 @@ public static class PlayerProtoMapper
             Job = role.Job,
             Title = role.Title,
             Status = role.Status,
-            CurrentMap = role.CurrentMap,
+            CurrentMap = MapNameNormalizer.Normalize(role.CurrentMap),
             GridX = role.GridX,
             GridY = role.GridY,
         };

@@ -29,24 +29,22 @@ namespace ClinetCSharp
             int mapPixelWidth = PreviewMapWidth * gridSize;
             int mapPixelHeight = PreviewMapHeight * gridSize;
 
-            // 背景（和主地图一致：黑色）
+            // 背景（透明，由 shader 为实际格子绘制黑色底）
             _background = new ColorRect
             {
                 Name = "Background",
-                Color = Colors.Black,
+                Color = Colors.Transparent,
                 Size = new Vector2(mapPixelWidth, mapPixelHeight),
                 MouseFilter = Control.MouseFilterEnum.Ignore,
             };
             AddChild(_background);
 
-            // GridManager（复制主地图渲染参数，使用独立地图名避免加载真实地图）
+            // GridManager（复制主地图渲染参数，使用独立数据避免加载真实地图）
             _gridManager = new GridManager
             {
                 Name = "GridManager",
-                CurrentMapName = "__preview_map__",
+                SkipAutoLoad = true,
                 GridSize = gridSize,
-                MapWidth = PreviewMapWidth,
-                MapHeight = PreviewMapHeight,
                 LineColor = mainGrid?.LineColor ?? new Color(0.7f, 0.7f, 0.7f),
                 LineWidth = mainGrid?.LineWidth ?? 1.0f,
                 DashLength = mainGrid?.DashLength ?? 8.0f,
@@ -61,6 +59,13 @@ namespace ClinetCSharp
                 IsEditMode = false,
             };
             AddChild(_gridManager);
+
+            // 手动填充预览地图数据（矩形），并刷新渲染
+            _gridManager.GridData = MapDataManager.CreateDefaultGridData(PreviewMapWidth, PreviewMapHeight);
+            _gridManager.RecalculateMapBounds();
+            _gridManager.UpdateGridShaderOverlay();
+            _gridManager.NotifyTerrainChanged();
+            _gridManager.SyncBackgroundSize();
 
             // 相机（对准地图中心，自动计算 zoom 使地图完整显示）
             _camera = new Camera2D
@@ -96,6 +101,14 @@ namespace ClinetCSharp
         /// <summary>在地图中心放置实体，并禁用其输入/AI/物理</summary>
         public void SetEntity(EntityBase entity)
         {
+            // 如果传入的是当前已挂载的同一个实体，直接刷新状态即可。
+            // 避免 RemoveChild + QueueFree + AddChild 导致同一实例被释放而无法渲染。
+            if (_entity != null && IsInstanceValid(_entity) && _entity == entity)
+            {
+                ApplyEntityPreviewState(_entity);
+                return;
+            }
+
             if (_entity != null && IsInstanceValid(_entity))
             {
                 RemoveChild(_entity);
@@ -105,19 +118,26 @@ namespace ClinetCSharp
             _entity = entity;
             if (_entity == null) return;
 
+            ApplyEntityPreviewState(_entity);
+            AddChild(_entity);
+        }
+
+        /// <summary>将实体调整为预览状态：同步 GridSize、居中、禁用交互逻辑</summary>
+        private void ApplyEntityPreviewState(EntityBase entity)
+        {
+            entity.SetGridSize(_gridManager.GridSize);
+
             int centerX = PreviewMapWidth / 2;
             int centerY = PreviewMapHeight / 2;
-            _entity.Position = UiUtils.GridToWorld(new Vector2I(centerX, centerY), _gridManager.GridSize);
+            entity.Position = UiUtils.GridToWorld(new Vector2I(centerX, centerY), _gridManager.GridSize);
 
             // 禁用所有交互和逻辑，仅保留渲染
-            _entity.SetProcessInput(false);
-            _entity.SetProcess(false);
-            _entity.SetPhysicsProcess(false);
+            entity.SetProcessInput(false);
+            entity.SetProcess(false);
+            entity.SetPhysicsProcess(false);
 
-            if (_entity is Player player)
+            if (entity is Player player)
                 player.SetProcessUnhandledInput(false);
-
-            AddChild(_entity);
         }
 
         /// <summary>清除当前实体</summary>

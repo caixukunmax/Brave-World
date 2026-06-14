@@ -1,8 +1,8 @@
 /**
  * 地图配置同步脚本
- * 扫描 tables/datas/maps/ 下的 CSV 地图，部署到两端：
- *   1. C# 服务器:  servercsharp/data/maps/{name}/map.csv + map_registry.json
- *   2. 客户端:     clinetcsharp/maps/{name}/map.csv
+ * 扫描 tables/datas/maps/ 下的 JSON 地图，部署到两端：
+ *   1. C# 服务器:  servercsharp/data/maps/{name}/map.json + map_registry.json
+ *   2. 客户端:     clinetcsharp/maps/{name}/map.json
  */
 
 import * as fs from 'fs';
@@ -13,6 +13,32 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const ROOT = path.resolve(__dirname, '..', '..');
 const PATHS_FILE = path.join(ROOT, 'paths.json');
+
+interface MapCell {
+  terrain: number;
+  height: number;
+  custom?: string;
+}
+
+interface MapBounds {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+interface MapSpawn {
+  x: number;
+  y: number;
+}
+
+interface MapJson {
+  version: number;
+  display_name?: string;
+  bounds?: MapBounds;
+  spawn?: MapSpawn;
+  cells?: Record<string, MapCell>;
+}
 
 interface MapConfig {
   map_name: string;
@@ -38,67 +64,43 @@ function loadPaths() {
 }
 
 function toPinyin(name: string): string {
-  const map: Record<string, string> = {
-    '新手村': 'xinshoucun',
-  };
-  return map[name] || name.replace(/[^a-zA-Z0-9_]/g, '_').toLowerCase();
+  // 不再把任何中文名强制转拼音，保持原名以统一客户端/服务端地图 key。
+  return name;
 }
 
-function parseCsvFile(csvPath: string): { width: number; height: number; cells: string[] } | null {
-  const content = fs.readFileSync(csvPath, 'utf-8');
-  const lines = content.split(/\r?\n/);
+function parseJsonFile(jsonPath: string): { json: MapJson; width: number; height: number } | null {
+  let content = fs.readFileSync(jsonPath, 'utf-8');
+  // 去除 UTF-8 BOM
+  if (content.charCodeAt(0) === 0xFEFF) {
+    content = content.slice(1);
+  }
+  const json: MapJson = JSON.parse(content);
 
-  const dataLines: string[] = [];
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith('#')) continue;
-    dataLines.push(trimmed);
+  if ((json.version ?? 0) < 2) {
+    console.log(`[SyncMaps] 跳过: JSON 版本过低 ${jsonPath}`);
+    return null;
   }
 
-  if (dataLines.length === 0) return null;
-
-  const height = dataLines.length;
-  const firstCells = dataLines[0].split(',');
-  const width = firstCells.length;
-
-  const cells: string[] = [];
-  for (let y = 0; y < height; y++) {
-    const cols = dataLines[y].split(',');
-    for (let x = 0; x < width; x++) {
-      cells.push(cols[x] ? cols[x].trim() : '0;0;0;0;0;');
-    }
+  const bounds = json.bounds;
+  if (!bounds) {
+    console.log(`[SyncMaps] 跳过: 缺少 bounds ${jsonPath}`);
+    return null;
   }
 
-  return { width, height, cells };
+  return { json, width: bounds.w, height: bounds.h };
 }
 
-function loadMapConfig(configPath: string, mapName: string, width: number, height: number): MapConfig {
-  const config: MapConfig = {
+function loadMapConfig(json: MapJson, mapName: string, width: number, height: number): MapConfig {
+  const bounds = json.bounds ?? { x: 0, y: 0, w: width, h: height };
+  const spawn = json.spawn ?? { x: Math.floor(width / 2), y: Math.floor(height / 2) };
+  return {
     map_name: toPinyin(mapName),
-    display_name: mapName,
-    width,
-    height,
-    spawn_x: Math.floor(width / 2),
-    spawn_y: Math.floor(height / 2),
+    display_name: json.display_name || mapName,
+    width: bounds.w,
+    height: bounds.h,
+    spawn_x: spawn.x,
+    spawn_y: spawn.y,
   };
-
-  if (fs.existsSync(configPath)) {
-    const content = fs.readFileSync(configPath, 'utf-8');
-    for (const line of content.split('\n')) {
-      const trimmed = line.trim();
-      if (trimmed.startsWith('#') || trimmed.startsWith('[') || !trimmed.includes('=')) continue;
-      const eqIdx = trimmed.indexOf('=');
-      const key = trimmed.substring(0, eqIdx).trim();
-      const val = trimmed.substring(eqIdx + 1).trim();
-      if (key === 'width') config.width = parseInt(val) || config.width;
-      if (key === 'height') config.height = parseInt(val) || config.height;
-      if (key === 'spawn_x') config.spawn_x = parseInt(val) || config.spawn_x;
-      if (key === 'spawn_y') config.spawn_y = parseInt(val) || config.spawn_y;
-      if (key === 'display_name') config.display_name = val || config.display_name;
-    }
-  }
-
-  return config;
 }
 
 function syncMaps() {
@@ -130,35 +132,31 @@ function syncMaps() {
 
     const mapName = entry.name;
     const mapSourceDir = path.join(SOURCE_DIR, mapName);
-    const csvPath = path.join(mapSourceDir, 'map.csv');
-    const configPath = path.join(mapSourceDir, 'config.cfg');
+    const jsonPath = path.join(mapSourceDir, 'map.json');
 
-    if (!fs.existsSync(csvPath)) {
-      console.log(`[SyncMaps] 跳过 ${mapName}: 没有 map.csv`);
+    if (!fs.existsSync(jsonPath)) {
+      console.log(`[SyncMaps] 跳过 ${mapName}: 没有 map.json`);
       continue;
     }
 
-    const data = parseCsvFile(csvPath);
+    const data = parseJsonFile(jsonPath);
     if (!data) {
-      console.log(`[SyncMaps] 跳过 ${mapName}: CSV 解析失败`);
+      console.log(`[SyncMaps] 跳过 ${mapName}: JSON 解析失败`);
       continue;
     }
 
     const luaName = toPinyin(mapName);
-    const mapConfig = loadMapConfig(configPath, mapName, data.width, data.height);
+    const mapConfig = loadMapConfig(data.json, mapName, data.width, data.height);
 
-    // 1. C# 服务器 — CSV
+    // 1. C# 服务器 — JSON
     const csMapDir = path.join(CS_DIR, luaName);
     fs.mkdirSync(csMapDir, { recursive: true });
-    fs.copyFileSync(csvPath, path.join(csMapDir, 'map.csv'));
+    fs.copyFileSync(jsonPath, path.join(csMapDir, 'map.json'));
 
-    // 2. 客户端 — CSV + config.cfg
+    // 2. 客户端 — JSON
     const clientMapDir = path.join(CLIENT_DIR, mapName);
     fs.mkdirSync(clientMapDir, { recursive: true });
-    fs.copyFileSync(csvPath, path.join(clientMapDir, 'map.csv'));
-    if (fs.existsSync(configPath)) {
-      fs.copyFileSync(configPath, path.join(clientMapDir, 'config.cfg'));
-    }
+    fs.copyFileSync(jsonPath, path.join(clientMapDir, 'map.json'));
 
     registry.push(mapConfig);
     console.log(`[SyncMaps] ${mapName} (${data.width}x${data.height}) → cs:${luaName} + client:${mapName}`);

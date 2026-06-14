@@ -13,30 +13,40 @@ namespace GameServer.Services.Gateway;
 
 /// <summary>
 /// TCP 网关服务 — 移植自 gateway/service.lua
+/// 双通道设计：
+/// 1. ConnectionChannel 串行处理 socket 生命周期、账号绑定、心跳、发包写操作；
+/// 2. GameLoopScheduler 串行执行业务 handler，避免 DB/重逻辑阻塞 I/O。
 /// </summary>
 public class GatewayService : INetworkSender
 {
     private readonly ILogger<GatewayService> _logger;
     private readonly MessageRouter _router;
+    private readonly IGameLoopScheduler _gameLoop;
     private readonly int _port;
     private readonly int _heartbeatTimeoutSeconds;
 
     private long _connCounter;
     private readonly Dictionary<long, Connection> _connections = new();
     private readonly Dictionary<string, long> _accountConnections = new();
-    private readonly Channel<Func<Task>> _actionChannel = Channel.CreateUnbounded<Func<Task>>();
+    private readonly Channel<Func<Task>> _connectionChannel = Channel.CreateUnbounded<Func<Task>>();
 
-    public GatewayService(ILogger<GatewayService> logger, MessageRouter router, int port = 8889, int heartbeatTimeoutSeconds = 3600)
+    public GatewayService(
+        ILogger<GatewayService> logger,
+        MessageRouter router,
+        IGameLoopScheduler gameLoop,
+        int port = 8889,
+        int heartbeatTimeoutSeconds = 3600)
     {
         _logger = logger;
         _router = router;
+        _gameLoop = gameLoop;
         _port = port;
         _heartbeatTimeoutSeconds = heartbeatTimeoutSeconds;
     }
 
     public async Task StartAsync(CancellationToken ct)
     {
-        _ = Task.Run(() => ProcessActionsAsync(ct), ct);
+        _ = Task.Run(() => ProcessConnectionActionsAsync(ct), ct);
         _ = Task.Run(() => HeartbeatCheckLoop(ct), ct);
 
         var listener = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
@@ -61,7 +71,7 @@ public class GatewayService : INetworkSender
                     LastHeartbeat = DateTime.UtcNow,
                 };
 
-                _actionChannel.Writer.TryWrite(() =>
+                _connectionChannel.Writer.TryWrite(() =>
                 {
                     _connections[connId] = conn;
                     _logger.LogInformation("New connection: connId={ConnId} addr={Addr}", connId, addr);
@@ -77,7 +87,7 @@ public class GatewayService : INetworkSender
 
     public void SendToClient(long connId, int msgId, uint session, byte[] data)
     {
-        _actionChannel.Writer.TryWrite(async () =>
+        _connectionChannel.Writer.TryWrite(async () =>
         {
             if (!_connections.TryGetValue(connId, out var conn)) return;
             if (!conn.Socket.Connected)
@@ -91,7 +101,7 @@ public class GatewayService : INetworkSender
 
     public void SendToAccount(long accountId, int serverId, int msgId, byte[] data)
     {
-        _actionChannel.Writer.TryWrite(async () =>
+        _connectionChannel.Writer.TryWrite(async () =>
         {
             var key = $"{accountId}:{serverId}";
             if (!_accountConnections.TryGetValue(key, out var connId)) return;
@@ -107,7 +117,7 @@ public class GatewayService : INetworkSender
 
     public void BindToken(long connId, string token, long accountId, int serverId)
     {
-        _actionChannel.Writer.TryWrite(async () =>
+        _connectionChannel.Writer.TryWrite(async () =>
         {
             if (!_connections.TryGetValue(connId, out var conn)) return;
 
@@ -170,7 +180,8 @@ public class GatewayService : INetworkSender
                     if (offset > 0)
                         Buffer.BlockCopy(buffer, consumed, buffer, 0, offset);
 
-                    _actionChannel.Writer.TryWrite(() => HandlePacket(conn, packet));
+                    // 所有数据包先回到连接通道：更新心跳、按类型分发
+                    _connectionChannel.Writer.TryWrite(() => HandleIncomingPacket(conn, packet));
                 }
             }
         }
@@ -179,45 +190,47 @@ public class GatewayService : INetworkSender
         finally { CloseConnection(conn.Id, "connection_lost"); }
     }
 
-    private async Task HandlePacket(Connection conn, PCommon.Packet packet)
+    private Task HandleIncomingPacket(Connection conn, PCommon.Packet packet)
     {
         conn.LastHeartbeat = DateTime.UtcNow;
         var msgId = (int)packet.MsgId;
-        var session = packet.Session;
-        var data = packet.Data.ToByteArray();
 
-        _logger.LogDebug("RECV connId={ConnId} msgId={MsgId} session={Session}", conn.ConnId, msgId, session);
-
+        // 系统包（连接/心跳）在连接通道直接处理，避免进入游戏逻辑调度器
         if (msgId == (int)PProtocol.MessageId.GatewayConnectReq)
-        {
-            await HandleConnectReq(conn, session, data);
-            return;
-        }
+            return HandleConnectReq(conn, packet.Session, packet.Data.ToByteArray());
 
         if (msgId == (int)PProtocol.MessageId.GatewayHeartbeatReq)
-        {
-            await HandleHeartbeatReq(conn, session);
-            return;
-        }
+            return HandleHeartbeatReq(conn);
 
-        if (!_router.HasRoute(msgId))
-        {
-            _logger.LogWarning("No route for msgId={MsgId}", msgId);
-            var errResp = new PCommon.Response { Code = PCommon.ErrorCode.ServiceUnavailable, Message = $"No route for msg_id={msgId}" }.ToByteArray();
-            await SendPacketAsync(conn, msgId + 1, session, errResp);
-            return;
-        }
-
-        var responseData = await _router.Dispatch(msgId, new MessageContext
+        // 业务包：捕获连接上下文后投递到游戏逻辑调度器执行
+        var ctx = new MessageContext
         {
             ConnId = conn.ConnId,
-            Session = session,
+            Session = packet.Session,
             Token = conn.Token,
             AccountId = conn.AccountId,
             ServerId = conn.ServerId,
-        }, data);
-        if (responseData != null)
-            await SendPacketAsync(conn, msgId + 1, session, responseData);
+        };
+        var data = packet.Data.ToByteArray();
+
+        _gameLoop.Enqueue(async () =>
+        {
+            _logger.LogDebug("RECV connId={ConnId} msgId={MsgId} session={Session}", conn.ConnId, msgId, packet.Session);
+
+            if (!_router.HasRoute(msgId))
+            {
+                _logger.LogWarning("No route for msgId={MsgId}", msgId);
+                var errResp = new PCommon.Response { Code = PCommon.ErrorCode.ServiceUnavailable, Message = $"No route for msg_id={msgId}" }.ToByteArray();
+                SendToClient(conn.ConnId, msgId + 1, packet.Session, errResp);
+                return;
+            }
+
+            var responseData = await _router.Dispatch(msgId, ctx, data);
+            if (responseData != null)
+                SendToClient(conn.ConnId, msgId + 1, packet.Session, responseData);
+        });
+
+        return Task.CompletedTask;
     }
 
     private async Task HandleConnectReq(Connection conn, uint session, byte[] data)
@@ -236,14 +249,14 @@ public class GatewayService : INetworkSender
         await SendPacketAsync(conn, (int)PProtocol.MessageId.GatewayConnectRsp, session, rsp.ToByteArray());
     }
 
-    private async Task HandleHeartbeatReq(Connection conn, uint session)
+    private async Task HandleHeartbeatReq(Connection conn)
     {
         var rsp = new PGateway.HeartbeatResponse
         {
             ServerTime = (ulong)DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
             OnlineCount = (uint)_connections.Count,
         };
-        await SendPacketAsync(conn, (int)PProtocol.MessageId.GatewayHeartbeatRsp, session, rsp.ToByteArray());
+        await SendPacketAsync(conn, (int)PProtocol.MessageId.GatewayHeartbeatRsp, 0, rsp.ToByteArray());
     }
 
     private async Task SendPacketAsync(Connection conn, int msgId, uint session, byte[] data)
@@ -267,7 +280,7 @@ public class GatewayService : INetworkSender
         catch (Exception ex) { _logger.LogError(ex, "Send failed: connId={ConnId}", conn.ConnId); }
     }
 
-    /// <summary>同步执行连接清理（仅在 _actionChannel 处理线程内调用）</summary>
+    /// <summary>同步执行连接清理（仅在 _connectionChannel 处理线程内调用）</summary>
     private void DoCloseConnection(long connId, string reason)
     {
         if (_connections.Remove(connId, out var conn))
@@ -286,19 +299,19 @@ public class GatewayService : INetworkSender
 
     private void CloseConnection(long connId, string reason)
     {
-        _actionChannel.Writer.TryWrite(() =>
+        _connectionChannel.Writer.TryWrite(() =>
         {
             DoCloseConnection(connId, reason);
             return Task.CompletedTask;
         });
     }
 
-    private async Task ProcessActionsAsync(CancellationToken ct)
+    private async Task ProcessConnectionActionsAsync(CancellationToken ct)
     {
-        await foreach (var action in _actionChannel.Reader.ReadAllAsync(ct))
+        await foreach (var action in _connectionChannel.Reader.ReadAllAsync(ct))
         {
             try { await action(); }
-            catch (Exception ex) { _logger.LogError(ex, "Action error"); }
+            catch (Exception ex) { _logger.LogError(ex, "Connection action error"); }
         }
     }
 
@@ -311,7 +324,7 @@ public class GatewayService : INetworkSender
             var timeout = TimeSpan.FromSeconds(_heartbeatTimeoutSeconds);
             var toClose = new List<long>();
 
-            _actionChannel.Writer.TryWrite(() =>
+            _connectionChannel.Writer.TryWrite(() =>
             {
                 foreach (var (connId, conn) in _connections)
                 {

@@ -1,6 +1,30 @@
 [
   {
-    "map_name": "xinshoucun",
+    "map_name": "A",
+    "display_name": "A",
+    "width": 14,
+    "height": 10,
+    "spawn_x": 25,
+    "spawn_y": 25
+  },
+  {
+    "map_name": "AA",
+    "display_name": "AA",
+    "width": 13,
+    "height": 10,
+    "spawn_x": 25,
+    "spawn_y": 25
+  },
+  {
+    "map_name": "古蛮之地",
+    "display_name": "古蛮之地",
+    "width": 100,
+    "height": 50,
+    "spawn_x": 50,
+    "spawn_y": 25
+  },
+  {
+    "map_name": "新手村",
     "display_name": "新手村",
     "width": 50,
     "height": 50,
@@ -8,16 +32,24 @@
     "spawn_y": 25
   },
   {
-    "map_name": "senlin",
-    "display_name": "迷雾森林",
-    "width": 50,
-    "height": 50,
+    "map_name": "精灵古怪之地",
+    "display_name": "精灵古怪之地",
+    "width": 15,
+    "height": 10,
     "spawn_x": 25,
     "spawn_y": 25
   },
   {
-    "map_name": "shanmai",
-    "display_name": "断罪山脉",
+    "map_name": "经济之地",
+    "display_name": "经济之地",
+    "width": 15,
+    "height": 10,
+    "spawn_x": 25,
+    "spawn_y": 25
+  },
+  {
+    "map_name": "蛮荒之地",
+    "display_name": "蛮荒之地",
     "width": 50,
     "height": 50,
     "spawn_x": 25,

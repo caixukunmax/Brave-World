@@ -31,7 +31,7 @@ public class NpcManager : INpcManager
     /// </summary>
     private static readonly List<NpcDef> NpcDefs = new()
     {
-        new NpcDef { NpcId = 1, Name = "转职大师", MapName = "xinshoucun", X = 25, Y = 24, NpcType = (int)NpcType.JobMaster },
+        new NpcDef { NpcId = 1, Name = "转职大师", MapName = "新手村", X = 25, Y = 24, NpcType = (int)NpcType.JobMaster },
     };
 
     public NpcManager(WorldState worldState, ILogger<NpcManager> logger)
@@ -55,7 +55,7 @@ public class NpcManager : INpcManager
             }
             var instanceId = _nextNpcSeq++;
 
-            map.Npcs[instanceId] = new MapNpcState
+            var npc = new MapNpcState
             {
                 InstanceId = instanceId,
                 NpcId = def.NpcId,
@@ -64,6 +64,7 @@ public class NpcManager : INpcManager
                 X = def.X,
                 Y = def.Y,
             };
+            _worldState.NpcEnter(def.MapName, npc);
 
             _logger.LogInformation("[Npc] Initialized NPC {Name} (type={Type}) at {Map} ({X},{Y}), instanceId={InstId}",
                 def.Name, def.NpcType, def.MapName, def.X, def.Y, instanceId);

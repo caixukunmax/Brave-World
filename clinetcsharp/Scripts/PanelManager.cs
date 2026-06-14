@@ -1,4 +1,5 @@
 using Godot;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -20,16 +21,57 @@ namespace ClinetCSharp
     {
         public static PanelManager Instance { get; private set; }
 
+        [Export] public PackedScene DebugPanelScene { get; set; }
+        [Export] public PackedScene GMPanelScene { get; set; }
+        [Export] public PackedScene IntegratedPanelScene { get; set; }
+        [Export] public PackedScene CharacterPanelScene { get; set; }
+        [Export] public PackedScene EntityListPanelScene { get; set; }
+        [Export] public PackedScene InventoryUIScene { get; set; }
+        [Export] public PackedScene SkillPanelScene { get; set; }
+
         private CanvasLayer _uiCanvas;
         private readonly List<DraggablePanel> _panels = new();
         private DraggablePanel _focusedPanel;
         private readonly Dictionary<Key, DraggablePanel> _toggleKeys = new();
         private readonly List<IPanel> _allPanels = new();
+        private readonly Dictionary<Type, PackedScene> _panelScenes = new();
 
         public override void _Ready()
         {
             Instance = this;
             _uiCanvas = GetParent() as CanvasLayer;
+
+            // 兜底：当 C# [Export] 属性因 Godot/C# 绑定问题未从 tscn 加载时，按路径手动加载
+            DebugPanelScene ??= GD.Load<PackedScene>("res://scenes/debug_panel.tscn");
+            GMPanelScene ??= GD.Load<PackedScene>("res://scenes/gm_panel.tscn");
+            IntegratedPanelScene ??= GD.Load<PackedScene>("res://scenes/integrated_panel.tscn");
+            CharacterPanelScene ??= GD.Load<PackedScene>("res://scenes/character_panel.tscn");
+            EntityListPanelScene ??= GD.Load<PackedScene>("res://scenes/entity_list_panel.tscn");
+            InventoryUIScene ??= GD.Load<PackedScene>("res://scenes/inventory_ui_panel.tscn");
+            SkillPanelScene ??= GD.Load<PackedScene>("res://scenes/skill_panel.tscn");
+
+            RegisterScene<DebugPanel>(DebugPanelScene);
+            RegisterScene<GMPanel>(GMPanelScene);
+            RegisterScene<IntegratedPanel>(IntegratedPanelScene);
+            RegisterScene<CharacterPanel>(CharacterPanelScene);
+            RegisterScene<EntityListPanel>(EntityListPanelScene);
+            RegisterScene<InventoryUI>(InventoryUIScene);
+            RegisterScene<SkillPanel>(SkillPanelScene);
+
+            // 调试面板负责在初始化时应用 debug_panel_config.cfg 里的网格/相机/实体配置
+            // 必须在启动时就实例化（保持隐藏），否则游戏一开始会缺少这些配置
+            CallDeferred(MethodName.EnsureDebugPanelAtStartup);
+        }
+
+        private void EnsureDebugPanelAtStartup()
+        {
+            EnsurePanel<DebugPanel>();
+        }
+
+        private void RegisterScene<T>(PackedScene scene) where T : class, IPanel
+        {
+            if (scene != null)
+                _panelScenes[typeof(T)] = scene;
         }
 
         public override void _ExitTree()
@@ -67,12 +109,33 @@ namespace ClinetCSharp
 
         public T GetPanel<T>() where T : class, IPanel
         {
-            return _allPanels.OfType<T>().FirstOrDefault();
+            return EnsurePanel<T>();
         }
 
         public T GetDraggablePanel<T>() where T : DraggablePanel
         {
-            return _panels.OfType<T>().FirstOrDefault();
+            return EnsurePanel<T>() as T;
+        }
+
+        private T EnsurePanel<T>() where T : class, IPanel
+        {
+            var existing = _allPanels.OfType<T>().FirstOrDefault();
+            if (existing != null) return existing;
+            if (!_panelScenes.TryGetValue(typeof(T), out var scene)) return null;
+            if (_uiCanvas == null) return null;
+
+            var instance = scene.Instantiate();
+            if (instance is not Node node) return null;
+
+            _uiCanvas.AddChild(node);
+
+            // 立即注册，避免 CallDeferred(RegisterWithManager) 的延迟导致首次查询返回空
+            if (instance is DraggablePanel dp)
+                Register(dp);
+            if (instance is IPanel panel)
+                RegisterPanel(panel);
+
+            return _allPanels.OfType<T>().FirstOrDefault();
         }
 
         public void HideAll()

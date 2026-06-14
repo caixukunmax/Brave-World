@@ -91,6 +91,11 @@ namespace ClinetCSharp
                 _editorDragButtonOption.ItemSelected += OnEditorDragButtonChanged;
             if (_editorSelectModCheck != null)
                 _editorSelectModCheck.Toggled += OnEditorSelectModChanged;
+            if (_hoverTooltipWidthSlider != null)
+            {
+                _hoverTooltipWidthSlider.ValueChanged += OnHoverTooltipWidthChanged;
+                _hoverTooltipWidthSlider.DragEnded += OnHoverTooltipWidthDragEnded;
+            }
         }
 
         public override void DisconnectSignals()
@@ -180,6 +185,11 @@ namespace ClinetCSharp
                 _editorDragButtonOption.ItemSelected -= OnEditorDragButtonChanged;
             if (_editorSelectModCheck != null)
                 _editorSelectModCheck.Toggled -= OnEditorSelectModChanged;
+            if (_hoverTooltipWidthSlider != null)
+            {
+                _hoverTooltipWidthSlider.ValueChanged -= OnHoverTooltipWidthChanged;
+                _hoverTooltipWidthSlider.DragEnded -= OnHoverTooltipWidthDragEnded;
+            }
         }
     }
 }

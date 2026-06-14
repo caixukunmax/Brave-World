@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using GameServer.Common.Buffs;
 using GameServer.Tables;
 
@@ -5,11 +6,12 @@ namespace GameServer.Services.Map.Combat;
 
 /// <summary>
 /// 战斗关系管理 — 纯数据 CRUD，无网络依赖
+/// 使用 ConcurrentDictionary 以支持多线程安全读取；写操作在单线程调度器内执行。
 /// </summary>
 public class CombatRelationManager
 {
-    public readonly Dictionary<int, CombatRelation> Relations = new();
-    public readonly Dictionary<long, CombatContext> Contexts = new();
+    public readonly ConcurrentDictionary<int, CombatRelation> Relations = new();
+    public readonly ConcurrentDictionary<long, CombatContext> Contexts = new();
     private int _nextRelationId = 1;
     private readonly LubanTableLoader? _tables;
 
@@ -53,7 +55,7 @@ public class CombatRelationManager
                 return existing.RelationId;
         }
 
-        int relationId = _nextRelationId++;
+        int relationId = Interlocked.Increment(ref _nextRelationId);
         var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         long nowMs = Environment.TickCount64;
         Relations[relationId] = new CombatRelation
@@ -139,7 +141,7 @@ public class CombatRelationManager
         if (ctx == null) return;
         foreach (var relationId in ctx.RelationIds.ToList())
             RemoveRelation(relationId);
-        Contexts.Remove(entityId);
+        Contexts.TryRemove(entityId, out _);
     }
 
     public bool HasActiveRelation(long entityA, long entityB)

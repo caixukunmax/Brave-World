@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using GameServer.Common.Buffs;
 using GameServer.Common.Config;
 using GameServer.Services.Core;
@@ -33,7 +34,7 @@ public class MonsterManager : IMonsterRegistry
     /// <summary>战斗管理器引用（用于追击超时后断开关系）</summary>
     public CombatManager? CombatManager { get; set; }
 
-    private Dictionary<long, MonsterRuntimeState> _monsters = new();
+    private readonly ConcurrentDictionary<long, MonsterRuntimeState> _monsters = new();
     private readonly List<RespawnEntry> _respawnEntries = new();
 
     public MonsterManager(
@@ -66,7 +67,7 @@ public class MonsterManager : IMonsterRegistry
     public void Init()
     {
         _logger.LogInformation("[Monster] initializing...");
-        _monsters = new Dictionary<long, MonsterRuntimeState>();
+        _monsters.Clear();
 
         _tables.Load();
 
@@ -118,7 +119,8 @@ public class MonsterManager : IMonsterRegistry
         try
         {
             // 按地图分组处理
-            var byMap = _monsters.GroupBy(kv => kv.Value.MapName).ToList();
+            var monsterSnapshot = _monsters.ToArray();
+            var byMap = monsterSnapshot.GroupBy(kv => kv.Value.MapName).ToList();
             foreach (var group in byMap)
             {
                 var mapName = group.Key;
@@ -327,7 +329,7 @@ public class MonsterManager : IMonsterRegistry
 
             // 从世界状态移除怪物
             _mapService.World.MonsterLeave(instanceId, m.MapName);
-            _monsters.Remove(instanceId);
+            _monsters.TryRemove(instanceId, out _);
 
             // 广播死亡通知给地图上的所有玩家
             var notify = new PGame.MonsterDeathNotify
@@ -442,7 +444,7 @@ public class MonsterManager : IMonsterRegistry
 
     public bool IsOccupied(string mapName, int x, int y)
     {
-        foreach (var m in _monsters.Values)
+        foreach (var m in _monsters.Values.ToArray())
             if (m.MapName == mapName && m.X == x && m.Y == y) return true;
         return false;
     }
@@ -450,7 +452,7 @@ public class MonsterManager : IMonsterRegistry
     public List<MapMonsterState> GetMonstersOnMap(string mapName)
     {
         var result = new List<MapMonsterState>();
-        foreach (var m in _monsters.Values)
+        foreach (var m in _monsters.Values.ToArray())
         {
             if (m.MapName == mapName)
             {

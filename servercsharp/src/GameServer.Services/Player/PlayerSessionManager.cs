@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using GameServer.Database.Models;
 using GameServer.Database.Repositories;
 using GameServer.Services.Core;
@@ -18,7 +19,7 @@ public class PlayerSessionManager
     private readonly MapService _mapService;
     private readonly ILogger _logger;
 
-    private readonly Dictionary<long, Role> _onlinePlayers = new();
+    private readonly ConcurrentDictionary<long, Role> _onlinePlayers = new();
 
     public PlayerSessionManager(
         RoleRepository roles,
@@ -37,8 +38,19 @@ public class PlayerSessionManager
     // ---- 在线玩家管理 ----
 
     public bool TryGetPlayer(long accountId, out Role player) => _onlinePlayers.TryGetValue(accountId, out player!);
-    public void SetOnline(long accountId, Role role) => _onlinePlayers[accountId] = role;
-    public Dictionary<long, Role> OnlinePlayers => _onlinePlayers;
+
+    public void SetOnline(long accountId, Role role)
+    {
+        ArgumentNullException.ThrowIfNull(role);
+        _onlinePlayers[accountId] = role;
+    }
+
+    public bool SetOffline(long accountId) => _onlinePlayers.TryRemove(accountId, out _);
+
+    /// <summary>
+    /// 返回在线玩家快照，避免外部遍历时被并发修改。
+    /// </summary>
+    public IReadOnlyDictionary<long, Role> OnlinePlayers => _onlinePlayers.ToArray().ToDictionary(kv => kv.Key, kv => kv.Value);
 
     // ---- 依赖访问（供 Handlers 使用）----
 

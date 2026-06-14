@@ -122,20 +122,26 @@ function main(): void {
     fs.unlinkSync(path.join(outputCsDir, f));
   }
 
-  for (const protoFile of allProtoFiles) {
-    const filename = path.basename(protoFile, '.proto');
-    try {
-      execSync(
-        `"${protocCmd}" --proto_path="${protoDir}" --csharp_out="${outputCsDir}" "${protoFile}"`,
-        { stdio: 'pipe' }
-      );
+  const protoFileNames = allProtoFiles.map(f => path.basename(f));
+  try {
+    const cmd = [
+      `"${protocCmd}"`,
+      `--proto_path="${protoDir}"`,
+      `--csharp_out="${outputCsDir}"`,
+      ...protoFileNames.map(f => `"${f}"`),
+    ].join(' ');
+    execSync(cmd, { stdio: 'pipe' });
+    for (const filename of protoFileNames.map(f => path.basename(f, '.proto'))) {
       success(`${filename}.cs`);
-    } catch (err) {
-      warn(`${filename}.cs (failed)`);
-      if (err instanceof Error) {
-        console.error(err.message);
-      }
     }
+  } catch (err) {
+    error('C# client proto compilation failed');
+    if (err instanceof Error) {
+      const stderr = (err as any).stderr;
+      if (stderr) console.error(stderr.toString());
+      else console.error(err.message);
+    }
+    process.exit(1);
   }
 
   // 复制到服务端目录

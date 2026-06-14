@@ -23,7 +23,7 @@ public class MoveStartHandler : IMessageHandler
         _logger = logger;
     }
 
-    public async Task<byte[]?> HandleAsync(MessageContext ctx, byte[] data)
+    public Task<byte[]?> HandleAsync(MessageContext ctx, byte[] data)
     {
         var claims = ctx.Claims!;
         var req = PGame.MoveRequest.Parser.ParseFrom(data);
@@ -32,14 +32,14 @@ public class MoveStartHandler : IMessageHandler
         var mapName = req.MapName;
 
         if (Math.Abs(toX - fromX) + Math.Abs(toY - fromY) != 1)
-            return MoveRsp(PCommon.ErrorCode.InvalidRequest, "invalid distance", fromX, fromY);
+            return Task.FromResult<byte[]?>(MoveRsp(PCommon.ErrorCode.InvalidRequest, "invalid distance", fromX, fromY));
 
         if (string.IsNullOrEmpty(mapName) || !_session.MapService.IsWalkable(mapName, toX, toY))
-            return MoveRsp(PCommon.ErrorCode.Forbidden, "target not walkable", fromX, fromY);
+            return Task.FromResult<byte[]?>(MoveRsp(PCommon.ErrorCode.Forbidden, "target not walkable", fromX, fromY));
 
         // 蓄力期间禁止移动
         if (_session.CombatService?.IsCasting(claims.AccountId) == true)
-            return MoveRsp(PCommon.ErrorCode.Forbidden, "casting", fromX, fromY);
+            return Task.FromResult<byte[]?>(MoveRsp(PCommon.ErrorCode.Forbidden, "casting", fromX, fromY));
 
         // 获取玩家移动速度（钳制在下限之上，防止过高移速导致闪现感）
         int durationMs = GameConstants.BaseMoveSpeedMs;
@@ -83,14 +83,14 @@ public class MoveStartHandler : IMessageHandler
             {
                 _logger.LogInformation("[Move] collision move: player={PlayerId} from=({FX},{FY}) to=({TX},{TY}) — deferring collision to 30%",
                     claims.AccountId, fromX, fromY, toX, toY);
-                return MoveRsp(PCommon.ErrorCode.Success, "", fromX, fromY, durationMs);
+                return Task.FromResult<byte[]?>(MoveRsp(PCommon.ErrorCode.Success, "", fromX, fromY, durationMs));
             }
 
             // 碰撞移动也失败（极少见），按原有逻辑处理
-            return MoveRsp(PCommon.ErrorCode.Forbidden, "blocked", fromX, fromY);
+            return Task.FromResult<byte[]?>(MoveRsp(PCommon.ErrorCode.Forbidden, "blocked", fromX, fromY));
         }
 
-        return MoveRsp(PCommon.ErrorCode.Success, "", toX, toY, durationMs);
+        return Task.FromResult<byte[]?>(MoveRsp(PCommon.ErrorCode.Success, "", toX, toY, durationMs));
     }
 
     private static byte[] MoveRsp(PCommon.ErrorCode code, string msg, int x, int y, int durationMs = 0)
@@ -127,7 +127,7 @@ public class MoveConfirmHandler : IMessageHandler
         _logger = logger;
     }
 
-    public async Task<byte[]?> HandleAsync(MessageContext ctx, byte[] data)
+    public Task<byte[]?> HandleAsync(MessageContext ctx, byte[] data)
     {
         var claims = ctx.Claims!;
         var req = PGame.MoveConfirmRequest.Parser.ParseFrom(data);
@@ -156,7 +156,7 @@ public class MoveConfirmHandler : IMessageHandler
                 // 触发战斗
                 _session.MapService.CheckEntityCollision(claims.AccountId, mapName, pos.Value.x, pos.Value.y);
             }
-            return null;
+            return Task.FromResult<byte[]?>(null);
         }
 
         if (result == ConfirmResult.Failed)
@@ -179,7 +179,7 @@ public class MoveConfirmHandler : IMessageHandler
             var (mapName2, pos2) = _session.MapService.World.FindEntityPosition(claims.AccountId);
             if (mapName2 != null && pos2 != null)
                 _session.MapService.CheckEntityCollision(claims.AccountId, mapName2, pos2.Value.x, pos2.Value.y);
-            return null;
+            return Task.FromResult<byte[]?>(null);
         }
 
         // Confirm 成功：坐标已更新到目标格，检查相邻敌方实体
@@ -195,7 +195,7 @@ public class MoveConfirmHandler : IMessageHandler
             }
         }
 
-        return null;
+        return Task.FromResult<byte[]?>(null);
     }
 }
 
@@ -206,7 +206,7 @@ public class MoveCompleteHandler : IMessageHandler
 
     public MoveCompleteHandler(PlayerSessionManager session) => _session = session;
 
-    public async Task<byte[]?> HandleAsync(MessageContext ctx, byte[] data)
+    public Task<byte[]?> HandleAsync(MessageContext ctx, byte[] data)
     {
         var claims = ctx.Claims!;
         var req = PGame.MoveCompleteRequest.Parser.ParseFrom(data);
@@ -220,7 +220,7 @@ public class MoveCompleteHandler : IMessageHandler
             player.GridY = req.TargetY;
         }
 
-        return null;
+        return Task.FromResult<byte[]?>(null);
     }
 }
 
@@ -242,7 +242,7 @@ public class MoveCollisionHandler : IMessageHandler
         _logger = logger;
     }
 
-    public async Task<byte[]?> HandleAsync(MessageContext ctx, byte[] data)
+    public Task<byte[]?> HandleAsync(MessageContext ctx, byte[] data)
     {
         var claims = ctx.Claims!;
         var req = PGame.MoveCollisionNotify.Parser.ParseFrom(data);
@@ -255,7 +255,7 @@ public class MoveCollisionHandler : IMessageHandler
         if (mapName == null || pos == null)
         {
             _logger.LogWarning("[MoveCollision] player={PlayerId} position not found", claims.AccountId);
-            return null;
+            return Task.FromResult<byte[]?>(null);
         }
 
         // 校验：目标格是否真有敌人（防止作弊或过时信息）
@@ -275,7 +275,7 @@ public class MoveCollisionHandler : IMessageHandler
             };
             _network.SendToAccount(claims.AccountId, claims.ServerId,
                 (int)PProtocol.MessageId.GameMoveCancelNotify, notify.ToByteArray());
-            return null;
+            return Task.FromResult<byte[]?>(null);
         }
 
         // 校验通过：触发战斗
@@ -283,6 +283,6 @@ public class MoveCollisionHandler : IMessageHandler
             claims.AccountId, req.TargetX, req.TargetY, mapName);
         _session.MapService.CheckEntityCollision(claims.AccountId, mapName, pos.Value.x, pos.Value.y);
 
-        return null;
+        return Task.FromResult<byte[]?>(null);
     }
 }

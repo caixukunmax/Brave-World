@@ -8,7 +8,7 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <AnalysisLevel>latest</AnalysisLevel>
     <!-- 现有代码暂时抑制的分析警告，后续逐步修复 -->
-    <NoWarn>$(NoWarn);CA1848;CA1707;CA1305;CA1304;CA1311;CA1862;CA5351;CS1998</NoWarn>
+    <NoWarn>$(NoWarn);CA1848;CA1707;CA1305;CA1304;CA1311;CA1862;CA5351</NoWarn>
   </PropertyGroup>
 
   <!-- 测试项目放宽警告 -->

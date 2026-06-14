@@ -506,6 +506,10 @@ namespace ClinetCSharp
             if (viewport == null) return;
             var screenSize = viewport.GetVisibleRect().Size;
 
+            // 视口尺寸无效时（如 headless / 启动极早阶段）跳过恢复，避免 Clamp 抛异常
+            if (screenSize.X < MinWidth + 100 || screenSize.Y < MinHeight + 100)
+                return;
+
             float px = Mathf.Clamp(x, 0, screenSize.X - 100);
             float py = Mathf.Clamp(y < 0 ? screenSize.Y - h - 20 : y, 0, screenSize.Y - 100);
             float pw = Mathf.Max(MinWidth, w);

@@ -1,31 +1,61 @@
+using System.Collections.Concurrent;
+using Microsoft.Extensions.Logging;
+
 namespace GameServer.Common.Events;
 
 /// <summary>
 /// 进程内事件总线 — 替代 Skynet multicast channel
+/// 线程安全：订阅与发布可并发执行，发布时读取 handler 列表快照。
 /// </summary>
 public class EventBus
 {
-    private readonly Dictionary<string, List<Action<object?>>> _handlers = new();
+    private readonly ILogger<EventBus> _logger;
+    private readonly ConcurrentDictionary<string, List<Action<object?>>> _handlers = new();
+
+    public EventBus(ILogger<EventBus> logger)
+    {
+        _logger = logger;
+    }
 
     public void On(string eventName, Action<object?> handler)
     {
-        if (!_handlers.TryGetValue(eventName, out var list))
+        ArgumentNullException.ThrowIfNull(handler);
+        var list = _handlers.GetOrAdd(eventName, _ => new List<Action<object?>>());
+        lock (list)
         {
-            list = new List<Action<object?>>();
-            _handlers[eventName] = list;
+            list.Add(handler);
         }
-        list.Add(handler);
+    }
+
+    public void Off(string eventName, Action<object?> handler)
+    {
+        ArgumentNullException.ThrowIfNull(handler);
+        if (!_handlers.TryGetValue(eventName, out var list)) return;
+        lock (list)
+        {
+            list.Remove(handler);
+        }
     }
 
     public void Emit(string eventName, object? data = null)
     {
         if (!_handlers.TryGetValue(eventName, out var list)) return;
-        foreach (var handler in list)
+
+        Action<object?>[] snapshot;
+        lock (list)
         {
-            try { handler(data); }
+            snapshot = list.Count == 0 ? Array.Empty<Action<object?>>() : list.ToArray();
+        }
+
+        foreach (var handler in snapshot)
+        {
+            try
+            {
+                handler(data);
+            }
             catch (Exception ex)
             {
-                Console.WriteLine($"[EventBus] handler error for {eventName}: {ex.Message}");
+                _logger.LogError(ex, "[EventBus] handler error for {EventName}", eventName);
             }
         }
     }

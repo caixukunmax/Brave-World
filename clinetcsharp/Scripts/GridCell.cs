@@ -13,6 +13,12 @@ namespace ClinetCSharp
         // 坐标ID (在网格中的位置)
         public Vector2I Pos { get; set; } = Vector2I.Zero;
 
+        /// <summary>
+        /// 格子唯一标识符（UID），创建时基于坐标生成，格式 "x,y"。
+        /// UID 在格子生命周期内保持不变，即使地图拓展导致逻辑坐标改变。
+        /// </summary>
+        public string Uid { get; set; } = "";
+
         // 地形属性
         public int TerrainType { get; set; } = 0;       // 地形类型: 0=普通, 1=水, 2=草地, 3=沙地, 4=岩石...
         public int Height { get; set; } = 0;            // 高度层级 (0-9, 用于高低差系统)
@@ -42,6 +48,7 @@ namespace ClinetCSharp
         public GridCell(int x, int y)
         {
             Pos = new Vector2I(x, y);
+            Uid = $"{x}_{y}";
         }
 
         /// <summary>
@@ -68,6 +75,8 @@ namespace ClinetCSharp
             {
                 Pos = new Vector2I((int)dict["x"], (int)dict["y"]);
             }
+            if (dict.ContainsKey("uid"))
+                Uid = (string)dict["uid"];
             if (dict.ContainsKey("terrain"))
                 TerrainType = (int)dict["terrain"];
             if (dict.ContainsKey("height"))
@@ -79,12 +88,13 @@ namespace ClinetCSharp
         }
 
         /// <summary>
-        /// 转换为CSV行 (不包含坐标,用于简化格式)
+        /// 转换为CSV行 (uid;terrain;height;custom)
         /// </summary>
         public Godot.Collections.Array ToCsvValues()
         {
             return new Array
             {
+                Uid,
                 TerrainType.ToString(),
                 Height.ToString(),
                 CustomData
@@ -92,16 +102,40 @@ namespace ClinetCSharp
         }
 
         /// <summary>
-        /// 从简化CSV格式加载 (terrain;height;custom)
+        /// 从CSV格式加载。
+        /// 兼容两种格式：
+        /// - 新格式: uid;terrain;height;custom  (parts[0] 包含逗号)
+        /// - 旧格式: terrain;height;custom       (parts[0] 是纯数字)
         /// </summary>
         public void FromCsvValues(Godot.Collections.Array values)
         {
-            if (values.Count >= 1)
-                TerrainType = values[0].AsInt32();
-            if (values.Count >= 2)
-                Height = values[1].AsInt32();
-            if (values.Count >= 3)
-                CustomData = values[2].AsString();
+            if (values.Count == 0) return;
+
+            // 判断格式：新格式有 4 个字段（uid;terrain;height;custom），旧格式 2~3 个字段
+            bool isNewFormat = values.Count >= 4;
+
+            if (isNewFormat)
+            {
+                // 新格式: uid;terrain;height;custom
+                if (values.Count >= 1)
+                    Uid = values[0].AsString();
+                if (values.Count >= 2)
+                    TerrainType = values[1].AsInt32();
+                if (values.Count >= 3)
+                    Height = values[2].AsInt32();
+                if (values.Count >= 4)
+                    CustomData = values[3].AsString();
+            }
+            else
+            {
+                // 旧格式: terrain;height;custom
+                if (values.Count >= 1)
+                    TerrainType = values[0].AsInt32();
+                if (values.Count >= 2)
+                    Height = values[1].AsInt32();
+                if (values.Count >= 3)
+                    CustomData = values[2].AsString();
+            }
 
             RefreshTerrainConfig();
         }
@@ -139,11 +173,12 @@ namespace ClinetCSharp
             other.Height = Height;
             other.CustomData = CustomData;
             other.TerrainConfig = TerrainConfig;
+            // 注意：不复制 Uid，UID 是格子的唯一身份标识
         }
 
         public override string ToString()
         {
-            return $"GridCell({Pos.X},{Pos.Y}) terrain={TerrainType} name={GetTerrainName()}";
+            return $"GridCell(uid={Uid} pos={Pos.X},{Pos.Y}) terrain={TerrainType} name={GetTerrainName()}";
         }
     }
 }

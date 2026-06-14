@@ -30,11 +30,11 @@ public class NpcCombatHandler : IMessageHandler
         _eventBus = eventBus;
     }
 
-    public async Task<byte[]?> HandleAsync(MessageContext ctx, byte[] data)
+    public Task<byte[]?> HandleAsync(MessageContext ctx, byte[] data)
     {
         var claims = ctx.Claims!;
         if (!_session.TryGetPlayer(claims.AccountId, out var player))
-            return MakeError(PCommon.ErrorCode.Unauthorized);
+            return Task.FromResult<byte[]?>(MakeError(PCommon.ErrorCode.Unauthorized));
 
         var req = PGame.NpcCombatRequest.Parser.ParseFrom(data);
         long npcInstanceId = (long)req.NpcInstanceId;
@@ -43,16 +43,16 @@ public class NpcCombatHandler : IMessageHandler
         var entityPos = _worldState.FindEntityPosition(claims.AccountId);
         string? mapName = entityPos.mapName;
         if (mapName == null)
-            return MakeError(PCommon.ErrorCode.Unauthorized);
+            return Task.FromResult<byte[]?>(MakeError(PCommon.ErrorCode.Unauthorized));
 
         // 找到 NPC
         var map = _worldState.GetMapState(mapName);
         if (map == null || !map.Npcs.TryGetValue(npcInstanceId, out var npc))
-            return MakeError(PCommon.ErrorCode.InvalidRequest);
+            return Task.FromResult<byte[]?>(MakeError(PCommon.ErrorCode.InvalidRequest));
 
         // NPC 已经在战斗中
         if (npc.InCombat)
-            return MakeError(PCommon.ErrorCode.InvalidRequest);
+            return Task.FromResult<byte[]?>(MakeError(PCommon.ErrorCode.InvalidRequest));
 
         // 初始化 NPC 战斗属性（如果还没设过）
         if (npc.MaxHp <= 0)
@@ -83,7 +83,7 @@ public class NpcCombatHandler : IMessageHandler
             Code = PCommon.ErrorCode.Success,
             NpcInstanceId = req.NpcInstanceId,
         };
-        return rsp.ToByteArray();
+        return Task.FromResult<byte[]?>(rsp.ToByteArray());
     }
 
     private byte[] MakeError(PCommon.ErrorCode code)

@@ -129,10 +129,7 @@ namespace ClinetCSharp
         #region Actions
         private void ToggleDebugPanel()
         {
-            var dp = GetTree()?.GetFirstNodeInGroup("debug_panel") as IPanel;
-            if (dp == null) return;
-            if (dp.IsVisible()) dp.HidePanel();
-            else dp.ShowPanel();
+            PanelManager.Instance?.GetDraggablePanel<DebugPanel>()?.Toggle();
         }
 
         private void ToggleGMPanel()
