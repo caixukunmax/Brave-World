@@ -35,5 +35,8 @@
     <Compile Include="..\Scripts\PlayerRoleInfoPositionSyncPolicy.cs"
              Link="PlayerRoleInfoPositionSyncPolicy.cs"
              Condition="Exists('..\Scripts\PlayerRoleInfoPositionSyncPolicy.cs')" />
+    <Compile Include="..\Scripts\TextInventoryLayout.cs"
+             Link="TextInventoryLayout.cs"
+             Condition="Exists('..\Scripts\TextInventoryLayout.cs')" />
   </ItemGroup>
 </Project>
