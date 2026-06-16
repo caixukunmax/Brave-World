@@ -4,14 +4,11 @@ namespace ClinetCSharp
 {
     /// <summary>
     /// Inventory panel shell and lifecycle.
-    /// Grid construction and interactions live in partial files.
+    /// Text-based inventory construction and interactions live in partial files.
     /// </summary>
     public partial class InventoryUI : DraggablePanel
     {
         private VBoxContainer _content;
-        private GridContainer _grid;
-
-        private const int DefaultMaxSlots = 20;
 
         protected override void OnPanelInitialized()
         {
@@ -27,6 +24,7 @@ namespace ClinetCSharp
                 inventoryManager.InventoryChanged += OnInventoryChanged;
 
             SetToggleKey(Key.I);
+            RefreshInventory();
         }
 
         public override void _ExitTree()
