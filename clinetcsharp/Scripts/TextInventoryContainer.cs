@@ -93,6 +93,12 @@ namespace ClinetCSharp
 
         public override void _Draw()
         {
+            if (_items.Count == 0)
+            {
+                DrawString(GetThemeDefaultFont(), new Vector2(Size.X / 2 - 20, Size.Y / 2), "（空）", HorizontalAlignment.Left, -1, 16, new Color(0.4f, 0.4f, 0.4f));
+                return;
+            }
+
             if (_dragTargetIndex >= 0 && _dragTargetIndex <= _items.Count)
             {
                 float y = GetInsertY(_dragTargetIndex);
