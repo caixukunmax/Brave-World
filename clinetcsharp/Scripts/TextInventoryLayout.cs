@@ -8,18 +8,22 @@ namespace ClinetCSharp
         public const float ChineseCharWidth = 1.0f;
         public const float MultiplierWidth = 1.0f;
         public const float DigitWidth = 0.6f;
+        public const float SpacingWidth = 0.5f;
 
         public class ItemEntry
         {
-            public uint ItemId;
-            public string Name = "";
-            public uint Count;
-            public int Quality;
+            public uint ItemId { get; set; }
+            public string Name { get; set; } = "";
+            public uint Count { get; set; }
+            public int Quality { get; set; }
         }
 
         public static float MeasureItemWidth(string name, uint count)
         {
-            int digits = count <= 0 ? 1 : (int)Math.Floor(Math.Log10(count)) + 1;
+            ArgumentNullException.ThrowIfNull(name);
+
+            // Count is unsigned; zero is reserved for "no item" display as "×0".
+            int digits = count == 0 ? 1 : (int)Math.Floor(Math.Log10(count)) + 1;
             return name.Length * ChineseCharWidth + MultiplierWidth + digits * DigitWidth;
         }
 
@@ -36,7 +40,7 @@ namespace ClinetCSharp
                     throw new InvalidOperationException($"Item '{item.Name}' is too wide for the inventory panel.");
 
                 if (currentLine.Count > 0)
-                    itemWidth += GetSpacingWidth();
+                    itemWidth += SpacingWidth;
 
                 if (currentWidth + itemWidth > lineWidth)
                 {
@@ -67,11 +71,6 @@ namespace ClinetCSharp
             {
                 return false;
             }
-        }
-
-        private static float GetSpacingWidth()
-        {
-            return 0.5f;
         }
     }
 }
