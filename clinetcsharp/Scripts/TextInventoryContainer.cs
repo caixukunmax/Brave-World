@@ -106,7 +106,12 @@ namespace ClinetCSharp
 
         public override bool _CanDropData(Vector2 atPosition, Variant data)
         {
-            return data.VariantType == Variant.Type.Object && data.AsGodotObject() is TextInventoryItem;
+            if (data.VariantType != Variant.Type.Object || data.AsGodotObject() is not TextInventoryItem)
+                return false;
+
+            _dragTargetIndex = CalculateInsertIndex(atPosition);
+            QueueRedraw();
+            return true;
         }
 
         private void OnItemRightClicked(uint itemId, uint count)
