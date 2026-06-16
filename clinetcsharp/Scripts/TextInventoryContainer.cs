@@ -29,24 +29,35 @@ namespace ClinetCSharp
         public (int used, int total) GetCapacity()
         {
             int total = LineWidth * LineCount;
-            int used = 0;
-            var lines = TextInventoryLayout.Reflow(_entries, LineWidth);
-            foreach (var line in lines)
+            try
             {
-                for (int i = 0; i < line.Count; i++)
+                int used = 0;
+                var lines = TextInventoryLayout.Reflow(_entries, LineWidth);
+                foreach (var line in lines)
                 {
-                    used += (int)Mathf.Ceil(TextInventoryLayout.MeasureItemWidth(line[i].Name, line[i].Count));
-                    if (i < line.Count - 1)
-                        used += (int)Mathf.Ceil(TextInventoryLayout.SpacingWidth);
+                    for (int i = 0; i < line.Count; i++)
+                    {
+                        used += (int)Mathf.Ceil(TextInventoryLayout.MeasureItemWidth(line[i].Name, line[i].Count));
+                        if (i < line.Count - 1)
+                            used += (int)Mathf.Ceil(TextInventoryLayout.SpacingWidth);
+                    }
                 }
+                return (used, total);
             }
-            return (used, total);
+            catch (System.InvalidOperationException ex)
+            {
+                GD.PushWarning($"[TextInventoryContainer] Cannot fit items: {ex.Message}");
+                return (total, total);
+            }
         }
 
         private void Rebuild()
         {
             foreach (var child in _items)
+            {
+                child.RightClicked -= OnItemRightClicked;
                 child.QueueFree();
+            }
             _items.Clear();
 
             foreach (var entry in _entries)
@@ -65,24 +76,25 @@ namespace ClinetCSharp
         {
             float xUnit = FontSize;
             float yOffset = 0f;
-            float xOffset = 0f;
+            int itemIndex = 0;
 
-            for (int i = 0; i < _items.Count; i++)
+            var lines = TextInventoryLayout.Reflow(_entries, LineWidth);
+            foreach (var line in lines)
             {
-                var item = _items[i];
-                float itemWidth = TextInventoryLayout.MeasureItemWidth(item.ItemName, item.ItemCount) * xUnit;
-                float spacing = i > 0 ? GetSpacingPixels() : 0f;
-
-                if (xOffset + spacing + itemWidth > LineWidth * xUnit && xOffset > 0)
+                float xOffset = 0f;
+                for (int i = 0; i < line.Count; i++)
                 {
-                    xOffset = 0f;
-                    yOffset += FontSize + LineSpacing;
-                }
+                    var item = _items[itemIndex];
+                    float itemWidth = TextInventoryLayout.MeasureItemWidth(item.ItemName, item.ItemCount) * xUnit;
+                    float spacing = i > 0 ? GetSpacingPixels() : 0f;
 
-                xOffset += spacing;
-                item.Position = new Vector2(xOffset, yOffset);
-                item.Size = new Vector2(itemWidth, FontSize);
-                xOffset += itemWidth;
+                    xOffset += spacing;
+                    item.Position = new Vector2(xOffset, yOffset);
+                    item.Size = new Vector2(itemWidth, FontSize);
+                    xOffset += itemWidth;
+                    itemIndex++;
+                }
+                yOffset += FontSize + LineSpacing;
             }
         }
 
