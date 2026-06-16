@@ -95,7 +95,10 @@ namespace ClinetCSharp
         {
             if (_items.Count == 0)
             {
-                DrawString(GetThemeDefaultFont(), new Vector2(Size.X / 2 - 20, Size.Y / 2), "（空）", HorizontalAlignment.Left, -1, 16, new Color(0.4f, 0.4f, 0.4f));
+                var font = GetThemeDefaultFont();
+                var textSize = font.GetStringSize("（空）", fontSize: FontSize);
+                var pos = new Vector2((Size.X - textSize.X) / 2, (Size.Y + textSize.Y) / 2);
+                DrawString(font, pos, "（空）", HorizontalAlignment.Left, -1, FontSize, new Color(0.4f, 0.4f, 0.4f));
                 return;
             }
 
