@@ -9,16 +9,17 @@ namespace ClinetCSharp
         [Export] public uint ItemCount;
         [Export] public int Quality;
         [Export] public uint ItemId;
+        [Export] public int FontSize = 16;
+        [Export] public Color HoverColor = Colors.Yellow;
 
         private Color _normalColor;
-        private Color _hoverColor = Colors.Yellow;
 
         public override void _Ready()
         {
             MouseFilter = MouseFilterEnum.Pass;
             VerticalAlignment = VerticalAlignment.Center;
-            AddThemeFontSizeOverride("font_size", 16);
-            MouseEntered += () => AddThemeColorOverride("font_color", _hoverColor);
+            AddThemeFontSizeOverride("font_size", FontSize);
+            MouseEntered += () => AddThemeColorOverride("font_color", HoverColor);
             MouseExited += () => AddThemeColorOverride("font_color", _normalColor);
             UpdateVisuals();
         }
@@ -64,7 +65,7 @@ namespace ClinetCSharp
                 Text = Text,
                 Modulate = new Color(1, 1, 1, 0.7f)
             };
-            label.AddThemeFontSizeOverride("font_size", 16);
+            label.AddThemeFontSizeOverride("font_size", FontSize);
             label.AddThemeColorOverride("font_color", ItemIconCatalog.GetQualityColor(Quality));
             return label;
         }
