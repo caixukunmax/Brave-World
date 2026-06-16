@@ -40,7 +40,7 @@ namespace ClinetCSharp
 
         protected internal override void NotifyFocusGained()
         {
-            RefreshGrid();
+            RefreshInventory();
         }
 
         private void CenterOnViewport()

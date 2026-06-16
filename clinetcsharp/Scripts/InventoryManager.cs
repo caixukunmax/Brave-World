@@ -186,5 +186,12 @@ namespace ClinetCSharp
                 return cfg.Name;
             return $"物品{itemId}";
         }
+
+        public int GetItemQuality(uint itemId)
+        {
+            if (_itemConfig.TryGetValue(itemId, out var cfg))
+                return cfg.Quality;
+            return 0;
+        }
     }
 }

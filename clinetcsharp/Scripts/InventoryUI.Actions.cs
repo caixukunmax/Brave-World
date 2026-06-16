@@ -1,4 +1,5 @@
 using Godot;
+using System.Collections.Generic;
 
 namespace ClinetCSharp
 {
@@ -6,60 +7,62 @@ namespace ClinetCSharp
     {
         private void OnInventoryChanged()
         {
-            if (Visible)
-                RefreshGrid();
+            RefreshInventory();
         }
 
-        private void RefreshGrid()
+        private void RefreshInventory()
         {
-            if (_grid == null)
+            if (_inventoryContainer == null)
                 return;
 
-            foreach (var child in _grid.GetChildren())
-                child.QueueFree();
-
-            var inventoryManager = UiServices.GetInventoryManager(this);
-            if (inventoryManager == null)
+            var manager = UiServices.GetInventoryManager(this);
+            if (manager == null)
             {
-                FillEmptySlots(DefaultMaxSlots);
+                _inventoryContainer.SetItems(new List<TextInventoryLayout.ItemEntry>());
+                UpdateCapacityLabel();
                 return;
             }
 
-            foreach (var slot in inventoryManager.Items)
-                _grid.AddChild(BuildItemButton(slot));
+            var entries = new List<TextInventoryLayout.ItemEntry>();
+            foreach (var slot in manager.Items)
+            {
+                entries.Add(new TextInventoryLayout.ItemEntry
+                {
+                    ItemId = slot.ItemId,
+                    Name = slot.Name,
+                    Count = slot.Count,
+                    Quality = manager.GetItemQuality(slot.ItemId),
+                });
+            }
 
-            int emptySlotCount = DefaultMaxSlots - (inventoryManager.Items?.Count ?? 0);
-            FillEmptySlots(emptySlotCount);
+            _inventoryContainer.SetItems(entries);
+            UpdateCapacityLabel();
         }
 
-        private void FillEmptySlots(int count)
-        {
-            for (int i = 0; i < count; i++)
-                _grid.AddChild(BuildEmptySlotButton());
-        }
-
-        private void OnItemClicked(uint itemId, uint count)
+        private void OnItemRightClicked(uint itemId, uint count)
         {
             var popup = new PopupMenu();
             popup.AddItem("使用 x1", 0);
             popup.AddItem("丢弃 x1", 1);
+            popup.AddItem("丢弃全部", 2);
 
             popup.IdPressed += id =>
             {
-                var inventoryManager = UiServices.GetInventoryManager(this);
-                if (inventoryManager == null)
+                var manager = UiServices.GetInventoryManager(this);
+                if (manager == null)
                     return;
 
                 if (id == 0)
-                    inventoryManager.SendUseItem(itemId, 1);
+                    manager.SendUseItem(itemId, 1);
                 else if (id == 1)
-                    inventoryManager.SendDropItem(itemId, 1);
+                    manager.SendDropItem(itemId, 1);
+                else if (id == 2)
+                    manager.SendDropItem(itemId, count);
 
                 popup.QueueFree();
             };
 
             popup.PopupHide += () => popup.QueueFree();
-
             AddChild(popup);
             popup.Position = new Vector2I(
                 Mathf.RoundToInt(GetViewport().GetMousePosition().X),
