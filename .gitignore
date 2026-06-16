@@ -16,6 +16,7 @@ Thumbs.db
 
 # Claude
 .claude/
+.superpowers/
 
 # Build artifacts
 bin/
@@ -51,3 +52,4 @@ appsettings.*.json
 # Temporary scripts
 /*.py
 maptab_*
+.worktrees/
