@@ -30,9 +30,15 @@ namespace ClinetCSharp
         {
             int total = LineWidth * LineCount;
             int used = 0;
-            foreach (var entry in _entries)
+            var lines = TextInventoryLayout.Reflow(_entries, LineWidth);
+            foreach (var line in lines)
             {
-                used += (int)Mathf.Ceil(TextInventoryLayout.MeasureItemWidth(entry.Name, entry.Count));
+                for (int i = 0; i < line.Count; i++)
+                {
+                    used += (int)Mathf.Ceil(TextInventoryLayout.MeasureItemWidth(line[i].Name, line[i].Count));
+                    if (i < line.Count - 1)
+                        used += (int)Mathf.Ceil(TextInventoryLayout.SpacingWidth);
+                }
             }
             return (used, total);
         }
@@ -104,10 +110,23 @@ namespace ClinetCSharp
         [Signal]
         public delegate void ItemRightClickedEventHandler(uint itemId, uint count);
 
+        public override void _Notification(int what)
+        {
+            if (what == NotificationMouseExit)
+            {
+                _dragTargetIndex = -1;
+                QueueRedraw();
+            }
+        }
+
         public override bool _CanDropData(Vector2 atPosition, Variant data)
         {
             if (data.VariantType != Variant.Type.Object || data.AsGodotObject() is not TextInventoryItem)
+            {
+                _dragTargetIndex = -1;
+                QueueRedraw();
                 return false;
+            }
 
             _dragTargetIndex = CalculateInsertIndex(atPosition);
             QueueRedraw();
@@ -145,7 +164,8 @@ namespace ClinetCSharp
             for (int i = 0; i < _items.Count; i++)
             {
                 var item = _items[i];
-                if (position.Y < item.Position.Y + item.Size.Y / 2)
+                var center = item.Position + item.Size / 2;
+                if (position.Y < center.Y || (position.Y < center.Y + item.Size.Y / 2 && position.X < center.X))
                     return i;
             }
             return _items.Count;
