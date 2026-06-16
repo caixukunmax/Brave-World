@@ -4,46 +4,44 @@ namespace ClinetCSharp
 {
     public partial class InventoryUI
     {
+        private Label _capacityLabel;
+        private TextInventoryContainer _inventoryContainer;
+
         private void BuildContent()
         {
             _content.AddChild(new HSeparator());
 
-            _grid = new GridContainer
+            _capacityLabel = new Label
             {
-                Columns = 5,
-                SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
-                SizeFlagsVertical = Control.SizeFlags.ExpandFill,
+                Text = "0 / 300",
+                HorizontalAlignment = HorizontalAlignment.Right,
             };
-            _content.AddChild(_grid);
+            _capacityLabel.AddThemeFontSizeOverride("font_size", 12);
+            _capacityLabel.AddThemeColorOverride("font_color", new Color(0.7f, 0.7f, 0.7f));
+            _content.AddChild(_capacityLabel);
+
+            _inventoryContainer = new TextInventoryContainer
+            {
+                LineWidth = 30,
+                LineCount = 10,
+                FontSize = 16,
+                CustomMinimumSize = new Vector2(480, 260),
+            };
+            _inventoryContainer.ItemRightClicked += OnItemRightClicked;
+            _content.AddChild(_inventoryContainer);
         }
 
-        private Button BuildItemButton(InventoryManager.ItemSlot slot)
+        private void UpdateCapacityLabel()
         {
-            var button = new Button
-            {
-                CustomMinimumSize = new Vector2(70, 70),
-                Text = $"{slot.Name}\nX{slot.Count}",
-                ClipText = true,
-            };
+            var (used, total) = _inventoryContainer.GetCapacity();
+            _capacityLabel.Text = $"{used} / {total}";
 
-            button.AddThemeColorOverride("font_color", Colors.White);
-            button.AddThemeColorOverride("font_hover_color", Colors.Yellow);
-
-            uint itemId = slot.ItemId;
-            uint count = slot.Count;
-            button.Pressed += () => OnItemClicked(itemId, count);
-            return button;
-        }
-
-        private Button BuildEmptySlotButton()
-        {
-            var button = new Button
-            {
-                CustomMinimumSize = new Vector2(70, 70),
-                Disabled = true,
-            };
-            button.AddThemeColorOverride("font_disabled_color", new Color(0.5f, 0.5f, 0.5f, 0.3f));
-            return button;
+            if (used >= total)
+                _capacityLabel.AddThemeColorOverride("font_color", new Color(1f, 0.4f, 0.4f));
+            else if (used >= total * 0.8f)
+                _capacityLabel.AddThemeColorOverride("font_color", new Color(1f, 0.7f, 0.2f));
+            else
+                _capacityLabel.AddThemeColorOverride("font_color", new Color(0.7f, 0.7f, 0.7f));
         }
     }
 }
