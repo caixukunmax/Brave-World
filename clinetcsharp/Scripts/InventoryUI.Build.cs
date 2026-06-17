@@ -9,8 +9,6 @@ namespace ClinetCSharp
 
         private void BuildContent()
         {
-            _content.AddChild(new HSeparator());
-
             _capacityLabel = new Label
             {
                 Text = "0 / 300",
