@@ -6,7 +6,7 @@
     "minor_type": 403,
     "max_pile_num": 99,
     "quality": 0,
-    "icon": "",
+    "icon": "item_1001_xianbei.png",
     "icon_backgroud": "",
     "icon_mask": "",
     "desc": "恢复少量生命值",

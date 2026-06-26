@@ -6,8 +6,7 @@ namespace ClinetCSharp
     {
         private void OnInventoryChanged()
         {
-            if (Visible)
-                RefreshGrid();
+            RefreshGrid();
         }
 
         private void RefreshGrid()
@@ -26,7 +25,7 @@ namespace ClinetCSharp
             }
 
             foreach (var slot in inventoryManager.Items)
-                _grid.AddChild(BuildItemButton(slot));
+                _grid.AddChild(BuildItemButton(slot, inventoryManager));
 
             int emptySlotCount = DefaultMaxSlots - (inventoryManager.Items?.Count ?? 0);
             FillEmptySlots(emptySlotCount);

@@ -9,6 +9,7 @@ namespace ClinetCSharp
         {
             SkillDataUtil.Load();
             TerrainConfigUtil.Load();
+            GmCommandDescUtil.Load();
             GD.Print("[NetworkManager] _ready() initializing...");
             _tcp = new StreamPeerTcp();
             GD.Print("[NetworkManager] Initialized");

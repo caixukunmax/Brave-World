@@ -21,13 +21,14 @@ namespace ClinetCSharp
             public string Name = "";
         }
 
-        // 物品配置：id → { name, desc, max_pile, quality }
+        // 物品配置：id → { name, desc, max_pile, quality, icon }
         private class ItemConfig
         {
             public string Name = "";
             public string Desc = "";
             public int MaxPile = 99;
             public int Quality = 0;
+            public string Icon = "";
         }
 
         public List<ItemSlot> Items { get; private set; } = new List<ItemSlot>();
@@ -94,6 +95,7 @@ namespace ClinetCSharp
                     Desc = dict.ContainsKey("desc") ? dict["desc"].AsString() : "",
                     MaxPile = dict.ContainsKey("max_pile_num") ? dict["max_pile_num"].AsInt32() : 99,
                     Quality = dict.ContainsKey("quality") ? dict["quality"].AsInt32() : 0,
+                    Icon = dict.ContainsKey("icon") ? dict["icon"].AsString() : "",
                 };
             }
             GD.Print($"[InventoryManager] Loaded {_itemConfig.Count} item configs from Luban table");
@@ -185,6 +187,20 @@ namespace ClinetCSharp
             if (_itemConfig.TryGetValue(itemId, out var cfg))
                 return cfg.Name;
             return $"物品{itemId}";
+        }
+
+        public string GetItemIcon(uint itemId)
+        {
+            if (_itemConfig.TryGetValue(itemId, out var cfg))
+                return cfg.Icon;
+            return string.Empty;
+        }
+
+        public int GetItemQuality(uint itemId)
+        {
+            if (_itemConfig.TryGetValue(itemId, out var cfg))
+                return cfg.Quality;
+            return 0;
         }
     }
 }

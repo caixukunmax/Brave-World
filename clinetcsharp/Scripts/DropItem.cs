@@ -1,6 +1,5 @@
 using Godot;
 using System.Collections.Generic;
-using Protocol;
 
 namespace ClinetCSharp
 {
@@ -19,12 +18,7 @@ namespace ClinetCSharp
         public int GridX { get; private set; }
         public int GridY { get; private set; }
 
-        // 品质颜色
-        private static readonly Color CommonColor = new(1f, 1f, 1f);       // 白
-        private static readonly Color UncommonColor = new(0.1f, 1f, 0.1f); // 绿
-        private static readonly Color RareColor = new(0.1f, 0.5f, 1f);     // 蓝
-        private static readonly Color EpicColor = new(0.6f, 0.2f, 1f);     // 紫
-        private static readonly Color LegendaryColor = new(1f, 0.5f, 0f);  // 橙
+        private Sprite2D _sprite;
 
         public void Setup(long dropId, int itemId, int count, int x, int y, int gridSize)
         {
@@ -36,6 +30,19 @@ namespace ClinetCSharp
             _gridSize = gridSize;
             _boxSize = gridSize * 0.4f;
             Position = UiUtils.GridToWorld(x, y, _gridSize);
+
+            SetupIcon();
+        }
+
+        private void SetupIcon()
+        {
+            _sprite = new Sprite2D();
+            _sprite.Texture = ItemIconCatalog.GetIcon((uint)ItemId);
+            // 让图标大小与原来的品质方块大致匹配
+            float textureSize = _sprite.Texture.GetSize().X;
+            float scale = _boxSize / textureSize;
+            _sprite.Scale = new Vector2(scale, scale);
+            AddChild(_sprite);
         }
 
         public override void _Process(double delta)
@@ -53,12 +60,16 @@ namespace ClinetCSharp
             // 底部光晕
             DrawCircle(center, _boxSize * 0.6f, new Color(1, 1, 1, 0.15f));
 
-            // 品质颜色方块
-            var color = GetQualityColor(ItemId);
+            // 品质边框
+            var quality = GetNodeInventoryQuality();
+            var color = ItemIconCatalog.GetQualityColor(quality);
             float half = _boxSize / 2f;
             var rect = new Rect2(center.X - half, center.Y - half, _boxSize, _boxSize);
-            DrawRect(rect, color);
-            DrawRect(rect, Colors.White, false, 1.5f);
+            DrawRect(rect, color, false, 1.5f);
+
+            // 同步子节点 Sprite2D 的浮动偏移
+            if (_sprite != null)
+                _sprite.Position = center;
 
             // 数量文本（>1 时显示）
             if (Count > 1)
@@ -68,12 +79,13 @@ namespace ClinetCSharp
             }
         }
 
-        private static Color GetQualityColor(int itemId)
+        private int GetNodeInventoryQuality()
         {
-            // 简单品质判断：按 ID 范围
-            if (itemId >= 2000) return LegendaryColor;  // 传说（武器）
-            if (itemId >= 1002) return UncommonColor;    // 优秀（附魔石）
-            return CommonColor;                          // 普通（药水）
+            var tree = Engine.GetMainLoop() as SceneTree;
+            var node = tree?.GetFirstNodeInGroup("inventory_manager");
+            if (node is InventoryManager mgr)
+                return mgr.GetItemQuality((uint)ItemId);
+            return 0;
         }
     }
 }

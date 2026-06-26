@@ -54,6 +54,7 @@
 - **本项目特殊**：怪物 AI 新增能力时，必须先区分 `Overworld/Combat` 高层模式；禁止把战斗态追击、贴身、脱战分支继续堆进 `patrol/patrol_chase` 这类非战斗 AI。
 - **本项目特殊**：所有会修改游戏核心状态（`WorldState`、移动预占、`CombatManager`/`MonsterManager` 内集合、`PlayerSessionManager` 在线状态）的代码必须通过 `IGameLoopScheduler` 入队，在单一逻辑线程串行执行；禁止直接在多线程 handler/tick/callback 中修改这些状态。
 - **本项目特殊**：Godot `CanvasItem` shader 的 `fragment()` 中**禁止使用 `return`**，否则会导致未定义行为（在某些设备上直接不渲染/输出透明）。分支逻辑统一用 `if-else-if-else` 链；同时避免把无地形颜色的格子背景设为透明，防止网格线看不清。
+- **本项目特殊**：服务器高频 tick（如 `MonsterTick`、`CombatTick`）等热路径禁止输出 `LogInformation` 级别日志，避免刷屏和 IO 压力；如需定位问题，应使用 `LogDebug` 并在调试配置中临时开启。
 
 **层级三：认知级免疫（Memory / Skill 沉淀）——【重点执行项】**
 - **判断是否需要写入 Memory（记忆）**：如果这是一个认知盲区、架构原则或业务陷阱，立即将其写入记忆文件。

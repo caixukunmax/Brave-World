@@ -9,6 +9,7 @@ namespace ClinetCSharp
             _content.AddThemeConstantOverride("separation", 4);
 
             BuildCommandBar();
+            BuildSuggestionMenu();
             BuildGroupScroll();
             BuildInlineCommandEditor();
             BuildInlineGroupEditor();
@@ -28,8 +29,20 @@ namespace ClinetCSharp
                 SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
                 CustomMinimumSize = new Vector2(0, 32),
             };
+            _cmdEdit.TextChanged += OnCmdTextChanged;
             _cmdEdit.TextSubmitted += (_) => OnExecPressed();
+            _cmdEdit.GuiInput += OnCmdEditGuiInput;
+            _cmdEdit.FocusExited += () => _cmdHint?.Hide();
             commandBox.AddChild(_cmdEdit);
+
+            _cmdHint = new Label
+            {
+                Visible = false,
+                TopLevel = true,
+                Modulate = new Color(1, 1, 1, 0.45f),
+                MouseFilter = Control.MouseFilterEnum.Ignore,
+            };
+            AddChild(_cmdHint);
 
             var executeButton = new Button
             {
@@ -40,6 +53,31 @@ namespace ClinetCSharp
             commandBox.AddChild(executeButton);
 
             _content.AddChild(commandBox);
+        }
+
+        private void BuildSuggestionMenu()
+        {
+            _suggestPanel = new VBoxContainer
+            {
+                Visible = false,
+                SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+            };
+            _suggestPanel.AddThemeConstantOverride("separation", 1);
+            _content.AddChild(_suggestPanel);
+        }
+
+        private void BuildSuggestionButton(Suggestion suggestion, int index)
+        {
+            var button = new Button
+            {
+                Text = suggestion.DisplayText,
+                Alignment = HorizontalAlignment.Left,
+                CustomMinimumSize = new Vector2(0, 26),
+                FocusMode = Control.FocusModeEnum.None,
+            };
+            int capturedIndex = index;
+            button.Pressed += () => OnSuggestionSelected(capturedIndex);
+            _suggestPanel.AddChild(button);
         }
 
         private void BuildGroupScroll()
@@ -335,8 +373,10 @@ namespace ClinetCSharp
 
             button.Pressed += () =>
             {
+                _suppressSuggestionUpdate = true;
                 _cmdEdit.Text = command.Cmd;
                 _cmdEdit.GrabFocus();
+                _cmdEdit.CaretColumn = _cmdEdit.Text.Length;
             };
 
             button.GuiInput += (@event) =>

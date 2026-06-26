@@ -82,4 +82,12 @@
 
 	<table name="TbTerrainConfig" value="TerrainConfig" mode="map" input="common/TbTerrainConfig.xlsx"/>
 
+	<!-- GM命令说明（客户端专用） -->
+	<bean name="GmCommandDescBean">
+		<var name="name" type="string" comment="GM命令名"/>
+		<var name="description" type="string" comment="命令说明"/>
+		<var name="param_hint" type="string" comment="参数提示，例如 buffid"/>
+	</bean>
+	<table name="TbGmCommandDesc" value="GmCommandDescBean" mode="map" input="common/TbGmCommandDesc_new.xlsx"/>
+
 </module>

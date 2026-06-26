@@ -1,0 +1,64 @@
+🔴 高优先级（建议尽快处理）
+1. 服务端线程安全与并发架构
+多个核心模块在并发访问下存在隐患，可能是未来线上不稳定的主要根因：
+
+EventBus、PlayerSessionManager._onlinePlayers、CombatManager 内集合、MonsterManager._monsters 都是普通 Dictionary，被多个线程同时读写。
+WorldState._reservedCells 用了 ConcurrentDictionary<string, HashSet<...>>，但 HashSet 本身非线程安全。
+大量 async Task 方法没有实际 await，靠 Directory.Build.props 里的 CS1998 抑制警告。
+建议：要么全部改为 ConcurrentDictionary/锁，要么把状态变更统一路由到单线程调度器。
+
+2. Gateway 单通道 head-of-line 阻塞
+GatewayService.ProcessActionsAsync 把所有连接状态变更和业务包处理放在同一个 Channel 里串行执行。一旦某个处理器触发 DB 或重逻辑，会阻塞心跳、发包、新连接。
+
+建议：拆成两个 Channel：一个严格串行处理连接状态，另一个可并发处理业务逻辑。
+
+3. 服务端缺少空间索引
+IsOccupied、HasEnemyAt、FindEntityCombatPositions、技能选目标、怪物仇恨都在全量扫描玩家/怪物/NPC 列表。
+
+建议：在 WorldState 增加：
+
+Dictionary<long, string> _entityToMap：实体→地图 O(1)
+每个地图维护 Dictionary<(int x, int y), HashSet<long>>：格子→实体 O(1)
+4. 构建脚本脆弱 & protoc 逐文件调用
+protocols/scripts/build_proto.ts 对每个 .proto 单独调一次 protoc，慢且容易状态不一致。
+GameServer.GameLogic.csproj 不在 GameServer.sln 里，build.ps1 需要手动预编译。
+build_proto.ts 报错时只 warn 不退出，CI 可能带着坏 proto 通过。
+5. 客户端 main.tscn 预实例化所有 UI 面板
+DebugPanel、CharacterPanel、InventoryUI、SkillPanel 等全部在启动时就创建并隐藏。
+
+建议：改为 PackedScene 按需实例化，只保留 HUD。
+
+6. 客户端资源过大
+assets/map_entity/box/sprite.png 4.7 MB
+assets/box.zip 4.7 MB 重复
+没有启用 mipmaps 和 size_limit
+🟡 中优先级（值得专项优化）
+7. 战斗/怪物 Tick 高频分配
+CombatManager.Tick 是 1556 行的 god method，每次 tick 新建 List/HashSet/Dictionary。
+MonsterManager 每次 tick 对所有怪物 GroupBy(MapName).ToList()。
+热路径大量 LogInformation，例如每 500ms 打印一次所有在线玩家坐标。
+建议：池化集合、按活跃地图子集迭代、热路径日志降级为 LogDebug 并加 IsEnabled 判断。
+
+8. 配置表管线
+Luban 只生成 JSON，C# bean 类 LubanBeans.cs 是手写的，容易与表结构漂移。
+MapDataProvider 把每个 cell 先 JsonSerializer.Serialize 成 string 再 Deserialize，双重解析。
+地图数据在仓库里存了三份：tables/datas/maps/*、servercsharp/data/maps/*、clinetcsharp/maps/*。
+建议：Luban 生成 C# bean、直接解析为值类型数组、只保留一份源数据。
+
+9. 客户端常见 Godot 反模式
+MonsterManager 用 Dictionary<uint, Vector2I> + Values.Any(p => p == gridPos) 做 O(n) 查询。
+GridManager.IsWalkable() 热路径里每次 GetTree().GetFirstNodeInGroup()。
+每个实体创建 4 个 RichTextLabel，其实没有 BBCode 需求，可换成 Label 或池化。
+10. CI/CD 缺口
+GitHub Actions 只跑 Windows，不构建 Godot 客户端，不跑 protolint，不检查生成代码新鲜度，不缓存 NuGet。
+🟢 低优先级 / 长期工程
+11. 协议与序列化
+生成代码在客户端和服务端各存一份，可改为共享类库。
+可考虑 protobuf-net 或源生成器降低 ToByteArray() 分配。
+message_id.proto ID 混乱，建议加 CI 校验。
+12. 测试覆盖
+热路径（移动、战斗 tick、Gateway、怪物 AI）几乎无测试。
+建议引入 ITimeProvider fake clock，加 BenchmarkDotNet 热点测试。
+13. 渲染与导出设置
+project.godot 用 Forward Plus 做纯 2D 网格游戏，可换 Compatibility/Mobile。
+缺少 stretch/VSync/Max FPS 设置，没有 export_presets.cfg。

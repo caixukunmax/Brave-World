@@ -33,9 +33,16 @@ namespace ClinetCSharp
             long dropId = (long)notify.DropId;
             if (_drops.TryGetValue(dropId, out var drop))
             {
-                // 播放拾取浮动文字
-                ShowPickupFloatingText(drop.ItemId, notify.Count);
-                RemoveDropItem(dropId);
+                var player = GetTree()?.GetFirstNodeInGroup("player") as Node2D;
+                if (player != null)
+                {
+                    PlayPickupFlyAnimation(drop, player.GlobalPosition, notify.Count, dropId);
+                }
+                else
+                {
+                    ShowPickupFloatingText(drop.ItemId, notify.Count);
+                    RemoveDropItem(dropId);
+                }
             }
         }
 
@@ -102,6 +109,33 @@ namespace ClinetCSharp
             var ft = new FloatingText();
             ft.Setup(text, new Color(0.1f, 1f, 0.1f));
             AddChild(ft);
+        }
+
+        private void PlayPickupFlyAnimation(DropItem drop, Vector2 targetPos, uint count, long dropId)
+        {
+            var flyer = new Sprite2D
+            {
+                Texture = ItemIconCatalog.GetIcon((uint)drop.ItemId),
+                GlobalPosition = drop.GlobalPosition,
+                Scale = new Vector2(0.5f, 0.5f),
+            };
+            AddChild(flyer);
+
+            // 立即隐藏原地面掉落物，但等飞行动画结束后再真正移除
+            drop.Visible = false;
+
+            var tween = CreateTween();
+            tween.SetTrans(Tween.TransitionType.Quad);
+            tween.SetEase(Tween.EaseType.Out);
+            tween.TweenProperty(flyer, "global_position", targetPos, 0.35f);
+            tween.Parallel().TweenProperty(flyer, "scale", new Vector2(0.2f, 0.2f), 0.35f);
+
+            tween.Finished += () =>
+            {
+                ShowPickupFloatingText(drop.ItemId, count);
+                RemoveDropItem(dropId);
+                flyer.QueueFree();
+            };
         }
     }
 }

@@ -28,6 +28,18 @@ namespace ClinetCSharp
         private GmCommand _menuCmd;
         private GmGroup _menuGroup;
 
+        private class Suggestion
+        {
+            public string DisplayText;
+            public string InsertText;
+        }
+
+        private VBoxContainer _suggestPanel;
+        private readonly System.Collections.Generic.List<Suggestion> _suggestItems = new();
+        private bool _suppressSuggestionUpdate;
+
+        private Label _cmdHint;
+
         protected override void OnPanelInitialized()
         {
             SetToggleKey(Key.F2);
@@ -58,6 +70,8 @@ namespace ClinetCSharp
 
         protected override void OnClosed()
         {
+            _suggestPanel?.Hide();
+            _cmdHint?.Hide();
             Visible = false;
         }
 

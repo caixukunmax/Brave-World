@@ -256,6 +256,15 @@ function main(): void {
     success('Terrain config → clinetcsharp/data/terrain_config.json');
   }
 
+  // 将 GM 命令说明 JSON 复制到客户端 data 目录
+  const GM_COMMAND_DESC_JSON_SRC = path.join(JSON_DATA_DIR, 'common_tbgmcommanddesc.json');
+  const GM_COMMAND_DESC_JSON_DST = path.join(CLIENT_DATA_DIR, 'gm_command_desc.json');
+  if (fs.existsSync(GM_COMMAND_DESC_JSON_SRC)) {
+    fs.mkdirSync(CLIENT_DATA_DIR, { recursive: true });
+    fs.copyFileSync(GM_COMMAND_DESC_JSON_SRC, GM_COMMAND_DESC_JSON_DST);
+    success('GM command desc config → clinetcsharp/data/gm_command_desc.json');
+  }
+
   // 将生成的 JSON 同步到服务端 bin 目录（运行时读取位置）
   const BIN_DATA_DIR = path.resolve(ROOT_DIR, 'servercsharp/src/GameServer/bin/Debug/net8.0/data/tables');
   if (fs.existsSync(BIN_DATA_DIR)) {

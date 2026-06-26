@@ -9,6 +9,7 @@ namespace ClinetCSharp
         {
             public string Label;
             public string Cmd;
+            public string Description;
         }
 
         private class GmGroup
@@ -34,6 +35,7 @@ namespace ClinetCSharp
                     {
                         ["label"] = cmd.Label,
                         ["cmd"] = cmd.Cmd,
+                        ["description"] = cmd.Description,
                     });
                 }
                 groupsArray.Add(new Godot.Collections.Dictionary
@@ -86,6 +88,7 @@ namespace ClinetCSharp
                         {
                             Label = cd.ContainsKey("label") ? cd["label"].AsString() : "",
                             Cmd = cd.ContainsKey("cmd") ? cd["cmd"].AsString() : "",
+                            Description = cd.ContainsKey("description") ? cd["description"].AsString() : "",
                         });
                     }
                 }
@@ -152,12 +155,13 @@ namespace ClinetCSharp
             return group;
         }
 
-        private void AddCommandData(GmGroup group, string label, string cmd)
+        private void AddCommandData(GmGroup group, string label, string cmd, string description = "")
         {
             group.Commands.Add(new GmCommand
             {
                 Label = label,
                 Cmd = cmd,
+                Description = description,
             });
         }
     }
