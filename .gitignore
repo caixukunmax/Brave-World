@@ -53,3 +53,12 @@ appsettings.*.json
 /*.py
 maptab_*
 .worktrees/
+
+# Debug/test artifacts
+*.bak
+session_*.zip
+*test*.gdshader
+新建文本文档.txt
+
+# Godot import files (generated)
+*.import

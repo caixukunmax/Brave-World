@@ -125,11 +125,7 @@ public class MonsterManager : IMonsterRegistry
             {
                 var mapName = group.Key;
                 var players = GetOnlinePlayers(mapName);
-                if (players.Count > 0)
-                {
-                    _logger.LogInformation("[MonsterTick] map={Map} players={Count} coords=[{Coords}]",
-                        mapName, players.Count, string.Join(", ", players.Values.Select(p => $"{p.RoleName}({p.GridX},{p.GridY})")));
-                }
+                // 高频 tick 不再打印玩家坐标，避免刷屏；如需调试可用日志级别开关或断点
                 var movedMonsters = new List<(long id, int fx, int fy, int tx, int ty, MonsterState state, int durationMs)>();
                 var cancelledMonsters = new List<(long id, int rollbackX, int rollbackY)>();
 
