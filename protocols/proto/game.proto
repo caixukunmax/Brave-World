@@ -328,6 +328,22 @@ message DropItemResponse {
 }
 
 /**
+ * 背包排序请求
+ */
+message InventoryReorderRequest {
+  repeated uint32 ordered_item_ids = 1;  // 客户端期望的道具顺序
+}
+
+/**
+ * 背包排序响应
+ */
+message InventoryReorderResponse {
+  common.ErrorCode code = 1;
+  string message = 2;
+  repeated ItemInfo items = 3;   // 排序后的完整背包
+}
+
+/**
  * ==================== GM 系统 ====================
  */
 
