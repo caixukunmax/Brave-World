@@ -46,6 +46,7 @@ namespace ClinetCSharp
                 _network.UseItemResponse += OnUseItemResponse;
                 _network.DropItemResponse += OnDropItemResponse;
                 _network.DropPickupNotify += OnDropPickupNotify;
+                _network.InventoryReorderResponse += OnInventoryReorderResponse;
 
                 if (_network.CachedItems.Count > 0)
                 {
@@ -63,6 +64,7 @@ namespace ClinetCSharp
                 _network.UseItemResponse -= OnUseItemResponse;
                 _network.DropItemResponse -= OnDropItemResponse;
                 _network.DropPickupNotify -= OnDropPickupNotify;
+                _network.InventoryReorderResponse -= OnInventoryReorderResponse;
             }
         }
 
@@ -172,6 +174,15 @@ namespace ClinetCSharp
             _network.SendPacket(MessageId.GameDropItemReq, req);
         }
 
+        public void SendReorderItems(List<uint> orderedItemIds)
+        {
+            if (_network == null || !_network.IsServerConnected()) return;
+            var req = new Game.InventoryReorderRequest();
+            foreach (var id in orderedItemIds)
+                req.OrderedItemIds.Add(id);
+            _network.SendPacket(MessageId.GameInventoryReorderReq, req);
+        }
+
         private void OnUseItemResponse(Game.UseItemResponse rsp)
         {
             if (rsp.Code == Common.ErrorCode.Success)
@@ -182,6 +193,20 @@ namespace ClinetCSharp
         {
             if (rsp.Code == Common.ErrorCode.Success)
                 UpdateFromProto(rsp.Items);
+        }
+
+        private void OnInventoryReorderResponse(Game.InventoryReorderResponse rsp)
+        {
+            if (rsp.Code == Common.ErrorCode.Success)
+            {
+                UpdateFromProto(rsp.Items);
+            }
+            else
+            {
+                GD.PushWarning($"[InventoryManager] reorder failed: {rsp.Message}");
+                // The caller (TextInventoryContainer) is responsible for rolling back its local preview on failure.
+                EmitSignal(SignalName.InventoryChanged);
+            }
         }
 
         private void OnDropPickupNotify(Game.DropPickupNotify notify)
