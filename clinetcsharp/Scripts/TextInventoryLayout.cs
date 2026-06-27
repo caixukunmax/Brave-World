@@ -27,7 +27,7 @@ namespace ClinetCSharp
             return name.Length * ChineseCharWidth + MultiplierWidth + digits * DigitWidth;
         }
 
-        public static List<List<ItemEntry>> Reflow(List<ItemEntry> items, float lineWidth)
+        public static List<List<ItemEntry>> Reflow(List<ItemEntry> items, float lineWidth, float spacingWidth = SpacingWidth)
         {
             var lines = new List<List<ItemEntry>>();
             var currentLine = new List<ItemEntry>();
@@ -40,7 +40,7 @@ namespace ClinetCSharp
                     throw new InvalidOperationException($"Item '{item.Name}' is too wide for the inventory panel.");
 
                 if (currentLine.Count > 0)
-                    itemWidth += SpacingWidth;
+                    itemWidth += spacingWidth;
 
                 if (currentWidth + itemWidth > lineWidth)
                 {
@@ -60,11 +60,11 @@ namespace ClinetCSharp
             return lines;
         }
 
-        public static bool CanFit(List<ItemEntry> items, float lineWidth, int lineCount)
+        public static bool CanFit(List<ItemEntry> items, float lineWidth, int lineCount, float spacingWidth = SpacingWidth)
         {
             try
             {
-                var lines = Reflow(items, lineWidth);
+                var lines = Reflow(items, lineWidth, spacingWidth);
                 return lines.Count <= lineCount;
             }
             catch (InvalidOperationException)

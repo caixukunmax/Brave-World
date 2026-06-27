@@ -27,7 +27,8 @@ public interface IGameLogicFactory
         MapDataProvider mapData,
         IMonsterAiService monsterAi,
         WorldState worldState,
-        EventBus eventBus);
+        EventBus eventBus,
+        IDropService dropService);
 
     /// <summary>绑定死亡回调到战斗服务</summary>
     void BindDeathHandler(ICombatService combatService, MapService mapService, MapDataProvider mapData, PlayerSessionManager session, INetworkSender network);
@@ -37,6 +38,12 @@ public interface IGameLogicFactory
 
     /// <summary>绑定升级服务到怪物死亡回调</summary>
     void BindLevelUpService(ICombatService combatService, IMonsterAiService monsterAi, MapService mapService, PlayerSessionManager session, INetworkSender network);
+
+    /// <summary>创建掉落管理器（尚未绑定到怪物死亡回调）</summary>
+    IDropService CreateDropManager(PlayerSessionManager session, INetworkSender network);
+
+    /// <summary>绑定掉落管理器：设置网络广播回调并接入怪物死亡事件</summary>
+    void BindDropManager(IDropService dropService, IMonsterAiService monsterAi, MapService mapService);
 
     /// <summary>初始化 NPC 并返回 NPC 管理器</summary>
     INpcManager InitNpcs(WorldState worldState);

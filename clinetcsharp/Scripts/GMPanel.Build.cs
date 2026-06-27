@@ -130,6 +130,16 @@ namespace ClinetCSharp
             addGroupButton.Pressed += OnAddGroupPressed;
             toolbar.AddChild(addGroupButton);
 
+            var giveTestItemsButton = new Button
+            {
+                Text = "一键获取测试道具",
+                CustomMinimumSize = new Vector2(0, 28),
+                SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+                TooltipText = "向背包添加全部测试道具（默认每种10个）",
+            };
+            giveTestItemsButton.Pressed += () => ExecuteGmCommand("addtestitems,10");
+            toolbar.AddChild(giveTestItemsButton);
+
             _content.AddChild(toolbar);
         }
 

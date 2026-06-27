@@ -2,7 +2,9 @@ using GameServer.Common;
 using GameServer.Common.Models;
 using GameServer.Database.Models;
 using GameServer.Database.Repositories;
+using GameServer.GameLogic.Inventory;
 using GameServer.Services.Core;
+using GameServer.Tables;
 using PGame = global::Game;
 
 namespace GameServer.Services.Player;
@@ -54,13 +56,10 @@ public static class PlayerProtoMapper
         return info;
     }
 
-    public static async Task<List<PGame.ItemInfo>> BuildItemsProto(InventoryRepository inventory, long roleId)
+    public static async Task<List<PGame.ItemInfo>> BuildItemsProto(InventoryRepository inventory, long roleId, LubanTableLoader tables)
     {
         var dbItems = await inventory.GetByRole(roleId);
-        var result = new List<PGame.ItemInfo>();
-        foreach (var item in dbItems)
-            result.Add(new PGame.ItemInfo { ItemId = (uint)item.ItemId, Count = (uint)item.Count });
-        return result;
+        return InventoryHelper.BuildItemsProto(dbItems, tables);
     }
 
     public static async Task<PGame.ChestInfo> BuildChestsProto(long roleId, int mapId)

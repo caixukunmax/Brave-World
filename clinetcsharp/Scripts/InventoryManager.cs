@@ -44,6 +44,7 @@ namespace ClinetCSharp
             {
                 _network.UseItemResponse += OnUseItemResponse;
                 _network.DropItemResponse += OnDropItemResponse;
+                _network.DropPickupNotify += OnDropPickupNotify;
 
                 if (_network.CachedItems.Count > 0)
                 {
@@ -60,6 +61,7 @@ namespace ClinetCSharp
             {
                 _network.UseItemResponse -= OnUseItemResponse;
                 _network.DropItemResponse -= OnDropItemResponse;
+                _network.DropPickupNotify -= OnDropPickupNotify;
             }
         }
 
@@ -178,6 +180,19 @@ namespace ClinetCSharp
         {
             if (rsp.Code == Common.ErrorCode.Success)
                 UpdateFromProto(rsp.Items);
+        }
+
+        private void OnDropPickupNotify(Game.DropPickupNotify notify)
+        {
+            // 只有自己是拾取者时才更新背包（服务端广播给全地图玩家）
+            if (notify.PickerId != _network.AccountId || notify.ActualCount == 0)
+                return;
+
+            var items = new Google.Protobuf.Collections.RepeatedField<Game.ItemInfo>
+            {
+                new Game.ItemInfo { ItemId = notify.ItemId, Count = notify.ActualCount }
+            };
+            AddOrUpdateItemsFromProto(items);
         }
 
         public string GetItemName(uint itemId)

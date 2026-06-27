@@ -23,6 +23,7 @@ public class HotReloader
     public IGameLogicFactory? Factory => _factory;
     public ICombatService? CombatService { get; private set; }
     public IMonsterAiService? MonsterService { get; private set; }
+    public IDropService? DropService { get; private set; }
     public INpcManager? NpcManager { get; set; }
 
     public HotReloader(ILoggerFactory loggerFactory, LubanTableLoader tables, string? dllPath = null)
@@ -65,11 +66,13 @@ public class HotReloader
     {
         CombatService = factory.CreateCombatService(logger, network, mapData);
         MonsterService = factory.CreateMonsterAiService(mapData, mapService, network);
+        DropService = factory.CreateDropManager(playerSession, network);
         playerSession.CombatService = CombatService;
-        factory.RegisterMessageHandlers(handlerRegistry, playerSession, network, mapData, MonsterService, worldState, eventBus);
+        factory.RegisterMessageHandlers(handlerRegistry, playerSession, network, mapData, MonsterService, worldState, eventBus, DropService);
         factory.BindDeathHandler(CombatService, mapService, mapData, playerSession, network);
         factory.BindMonsterRegistry(CombatService, MonsterService);
         factory.BindLevelUpService(CombatService, MonsterService, mapService, playerSession, network);
+        factory.BindDropManager(DropService, MonsterService, mapService);
         _logger.LogInformation("[HotReload] Services created and handlers registered");
     }
 

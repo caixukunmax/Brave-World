@@ -18,13 +18,15 @@ public class EnterGameHandler : IMessageHandler
     private readonly PlayerSessionManager _session;
     private readonly INetworkSender _network;
     private readonly IMonsterAiService _monsterAi;
+    private readonly IDropService _dropService;
     private readonly LubanTableLoader _tables;
 
-    public EnterGameHandler(PlayerSessionManager session, INetworkSender network, IMonsterAiService monsterAi, LubanTableLoader tables)
+    public EnterGameHandler(PlayerSessionManager session, INetworkSender network, IMonsterAiService monsterAi, IDropService dropService, LubanTableLoader tables)
     {
         _session = session;
         _network = network;
         _monsterAi = monsterAi;
+        _dropService = dropService;
         _tables = tables;
     }
 
@@ -109,7 +111,7 @@ public class EnterGameHandler : IMessageHandler
         };
         rsp.RoleInfo = PlayerProtoMapper.BuildRoleInfo(role, now);
 
-        var items = await PlayerProtoMapper.BuildItemsProto(_session.Inventory, roleId);
+        var items = await PlayerProtoMapper.BuildItemsProto(_session.Inventory, roleId, _tables);
         foreach (var item in items)
             rsp.Items.Add(item);
 
@@ -155,6 +157,10 @@ public class EnterGameHandler : IMessageHandler
                 });
             }
         }
+
+        // 推送掉落物列表
+        var drops = _dropService.GetDrops(mapName);
+        notify.Drops.AddRange(drops);
 
         // 推送地形数据（只同步非普通地形，减少数据量）
         var terrainData = _session.MapService.GetMapTerrainData(mapName);

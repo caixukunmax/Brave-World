@@ -6,12 +6,15 @@ using GameServer.Services.Core;
 using GameServer.Services.Map;
 using GameServer.Services.Map.Combat;
 using GameServer.Services.Map.Combat.Actions;
+using GameServer.Services.Map.Drop;
 using GameServer.Services.Monster;
 using GameServer.Services.Player;
 using GameServer.GameLogic.Npc;
 using GameServer.Services.World;
 using GameServer.Tables;
 using Microsoft.Extensions.Logging;
+using PGame = global::Game;
+using PProtocol = global::Protocol;
 
 namespace GameServer.GameLogic;
 
@@ -69,7 +72,8 @@ public class GameLogicFactory : IGameLogicFactory
         MapDataProvider mapData,
         IMonsterAiService monsterAi,
         WorldState worldState,
-        EventBus eventBus)
+        EventBus eventBus,
+        IDropService dropService)
     {
         // 构建依赖解析表
         var dependencies = new Dictionary<Type, Func<object>>
@@ -82,6 +86,7 @@ public class GameLogicFactory : IGameLogicFactory
             [typeof(IWorldState)] = () => worldState,
             [typeof(EventBus)] = () => eventBus,
             [typeof(LubanTableLoader)] = () => Tables,
+            [typeof(IDropService)] = () => dropService,
         };
 
         // 扫描当前程序集中所有 IMessageHandler 实现
@@ -183,6 +188,68 @@ public class GameLogicFactory : IGameLogicFactory
             session, Tables, network, mapService);
 
         monsterAdapter.Inner.OnMonsterDeath = levelUpService.OnMonsterDeath;
+    }
+
+    public IDropService CreateDropManager(PlayerSessionManager session, INetworkSender network)
+    {
+        return new DropManager(
+            _loggerFactory.CreateLogger<DropManager>(),
+            Tables,
+            session);
+    }
+
+    public void BindDropManager(IDropService dropService, IMonsterAiService monsterAi, MapService mapService)
+    {
+        if (dropService is not DropManager dropManager) return;
+        if (monsterAi is not MonsterAiServiceAdapter monsterAdapter) return;
+
+        // 网络广播回调
+        dropManager.OnDropsSpawned += (drops, mapName) =>
+        {
+            var notify = new PGame.DropSpawnNotify();
+            foreach (var d in drops)
+            {
+                notify.Drops.Add(new PGame.DropItemInfo
+                {
+                    DropId = (ulong)d.DropId,
+                    ItemId = (uint)d.ItemId,
+                    Count = (uint)d.Count,
+                    X = d.X,
+                    Y = d.Y,
+                    OwnerId = (ulong)d.OwnerId,
+                });
+            }
+            mapService.BroadcastToMap(mapName, (int)PProtocol.MessageId.GameDropSpawnNotify, notify.ToByteArray());
+        };
+
+        dropManager.OnDropPickedUp += (dropId, playerId, itemId, added, remaining, mapName) =>
+        {
+            var notify = new PGame.DropPickupNotify
+            {
+                DropId = (ulong)dropId,
+                PickerId = (ulong)playerId,
+                ItemId = (uint)itemId,
+                ActualCount = (uint)added,
+                RemainingCount = (uint)remaining,
+            };
+            mapService.BroadcastToMap(mapName, (int)PProtocol.MessageId.GameDropPickupNotify, notify.ToByteArray());
+        };
+
+        dropManager.OnDropsRemoved += (dropIds, mapName) =>
+        {
+            var notify = new PGame.DropRemoveNotify();
+            foreach (var id in dropIds)
+                notify.DropIds.Add((ulong)id);
+            mapService.BroadcastToMap(mapName, (int)PProtocol.MessageId.GameDropRemoveNotify, notify.ToByteArray());
+        };
+
+        // 接入怪物死亡回调：先生成掉落物，再保留原有经验等处理
+        var existing = monsterAdapter.Inner.OnMonsterDeath;
+        monsterAdapter.Inner.OnMonsterDeath = (instanceId, attackerId, monsterId, mapName, x, y) =>
+        {
+            existing?.Invoke(instanceId, attackerId, monsterId, mapName, x, y);
+            dropManager.GenerateDrops(monsterId, mapName, x, y, attackerId);
+        };
     }
 
     public INpcManager InitNpcs(WorldState worldState)

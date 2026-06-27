@@ -33,10 +33,44 @@ namespace ClinetCSharp
             long dropId = (long)notify.DropId;
             if (_drops.TryGetValue(dropId, out var drop))
             {
-                // 播放拾取浮动文字
-                ShowPickupFloatingText(drop.ItemId, notify.Count);
+                // 播放拾取浮动文字（按实际进入背包数量）
+                ShowPickupFloatingText(drop.ItemId, notify.ActualCount);
                 RemoveDropItem(dropId);
             }
+
+            // 若自己是拾取者且有剩余，提示背包已满
+            var network = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
+            if (notify.RemainingCount > 0 && network != null && notify.PickerId == network.AccountId)
+            {
+                var invManager = GetTree()?.GetFirstNodeInGroup("inventory_manager") as InventoryManager;
+                string itemName = invManager?.GetItemName(notify.ItemId) ?? $"Item#{notify.ItemId}";
+                ShowInventoryFullToast(itemName, notify.RemainingCount);
+            }
+        }
+
+        private void ShowInventoryFullToast(string itemName, uint remainingCount)
+        {
+            var network = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
+            if (network == null) return;
+
+            var toast = new Label
+            {
+                Text = $"背包空间不足，剩余 {remainingCount} 个{itemName}无法拾取",
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Modulate = new Color(1f, 0.4f, 0.4f),
+            };
+            toast.AddThemeFontSizeOverride("font_size", 14);
+            toast.Position = new Vector2(0, -80);
+
+            var canvas = new CanvasLayer { Layer = 200 };
+            canvas.AddChild(toast);
+            network.AddChild(canvas);
+
+            // 2 秒后淡出移除
+            var tween = CreateTween();
+            tween.SetEase(Tween.EaseType.Out);
+            tween.TweenProperty(toast, "modulate:a", 0.0, 1.0).SetDelay(1.0);
+            tween.TweenCallback(Callable.From(() => canvas.QueueFree()));
         }
 
         /// <summary>处理掉落物消失通知</summary>

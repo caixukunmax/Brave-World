@@ -10,6 +10,8 @@ namespace ClinetCSharp
         [Export] public int LineCount = 10;
         [Export] public int FontSize = 16;
         [Export] public float LineSpacing = 8f;
+        [Export] public float ItemSpacing = 8f;
+        [Export] public bool DrawDebugBorder { get; set; }
 
         private List<TextInventoryLayout.ItemEntry> _entries = new();
         private List<TextInventoryItem> _items = new();
@@ -32,14 +34,14 @@ namespace ClinetCSharp
             try
             {
                 int used = 0;
-                var lines = TextInventoryLayout.Reflow(_entries, LineWidth);
+                var lines = TextInventoryLayout.Reflow(_entries, LineWidth, ItemSpacing / FontSize);
                 foreach (var line in lines)
                 {
                     for (int i = 0; i < line.Count; i++)
                     {
                         used += (int)Mathf.Ceil(TextInventoryLayout.MeasureItemWidth(line[i].Name, line[i].Count));
                         if (i < line.Count - 1)
-                            used += (int)Mathf.Ceil(TextInventoryLayout.SpacingWidth);
+                            used += (int)Mathf.Ceil(ItemSpacing / FontSize);
                     }
                 }
                 return (used, total);
@@ -78,7 +80,7 @@ namespace ClinetCSharp
             float yOffset = 0f;
             int itemIndex = 0;
 
-            var lines = TextInventoryLayout.Reflow(_entries, LineWidth);
+            var lines = TextInventoryLayout.Reflow(_entries, LineWidth, ItemSpacing / FontSize);
             foreach (var line in lines)
             {
                 float xOffset = 0f;
@@ -86,7 +88,7 @@ namespace ClinetCSharp
                 {
                     var item = _items[itemIndex];
                     float itemWidth = TextInventoryLayout.MeasureItemWidth(item.ItemName, item.ItemCount) * xUnit;
-                    float spacing = i > 0 ? GetSpacingPixels() : 0f;
+                    float spacing = i > 0 ? ItemSpacing : 0f;
 
                     xOffset += spacing;
                     item.Position = new Vector2(xOffset, yOffset);
@@ -98,13 +100,14 @@ namespace ClinetCSharp
             }
         }
 
-        private float GetSpacingPixels()
-        {
-            return FontSize * 0.5f;
-        }
 
         public override void _Draw()
         {
+            if (DrawDebugBorder)
+            {
+                DrawRect(new Rect2(Vector2.Zero, Size), new Color(0.7f, 0.85f, 1f, 0.5f), false, 1f);
+            }
+
             if (_items.Count == 0)
             {
                 var font = GetThemeDefaultFont();

@@ -31,6 +31,8 @@ namespace ClinetCSharp
         [Export] public float ResizeEdgeZone { get; set; } = 8.0f;
         [Export] public bool EnableDrag { get; set; } = true;
         [Export] public bool EnableResize { get; set; } = true;
+        [Export] public bool EnableHorizontalResize { get; set; } = true;
+        [Export] public bool EnableVerticalResize { get; set; } = true;
         [Export] public bool EnableMinimize { get; set; } = true;
         [Export] public bool EnableClose { get; set; } = true;
         [Export] public bool ClampToScreen { get; set; } = true;
@@ -201,14 +203,12 @@ namespace ClinetCSharp
                 var hovered = viewport?.GuiGetHoveredControl();
                 ReleaseFocusedTransientDragControlOnMousePress(viewport, hovered);
 
-                // 输入隔离：鼠标在本面板上时，消费事件防止穿透到游戏世界，并请求焦点
-                // 但交互控件（Button/SpinBox 等）需要接收事件才能工作，不消费
+                // 输入隔离：只在真正开始面板拖拽/缩放时消费事件，避免阻断背包道具等
+                // GUI 控件的 _GetDragData / _GuiInput。面板背景本身有 MouseFilter=Stop，
+                // 未开始面板操作时事件由 GUI 系统自然吸收，不会穿透到 _UnhandledInput。
                 bool mouseOverPanel = hovered != null && (hovered == this || IsAncestorOf(hovered));
                 if (mouseOverPanel)
                 {
-                    bool isInteractive = UiUtils.IsInteractiveControl(hovered);
-                    if (!isInteractive)
-                        GetViewport().SetInputAsHandled();
                     PanelManager.Instance?.RequestFocus(this);
                 }
 
@@ -219,6 +219,7 @@ namespace ClinetCSharp
 
                 if (onTitleBar && !onButton && !IsAnyDragging)
                 {
+                    viewport?.SetInputAsHandled();
                     _dragging = true;
                     IsAnyDragging = true;
                     _dragOffset = mb.GlobalPosition - GlobalPosition;
@@ -231,6 +232,7 @@ namespace ClinetCSharp
                     var edge = DetectEdgeAtMouse();
                     if (edge != ResizeEdge.None)
                     {
+                        viewport?.SetInputAsHandled();
                         _detectedEdge = edge;
                         StartResize();
                     }
@@ -345,15 +347,22 @@ namespace ClinetCSharp
             bool onTop = mouse.Y < rect.Position.Y + ResizeEdgeZone;
             bool onBottom = mouse.Y > rect.End.Y - ResizeEdgeZone;
 
-            if (onTop && onLeft) return ResizeEdge.TopLeft;
-            if (onTop && onRight) return ResizeEdge.TopRight;
-            if (onBottom && onLeft) return ResizeEdge.BottomLeft;
-            if (onBottom && onRight) return ResizeEdge.BottomRight;
-            if (onLeft) return ResizeEdge.Left;
-            if (onRight) return ResizeEdge.Right;
-            if (onTop) return ResizeEdge.Top;
-            if (onBottom) return ResizeEdge.Bottom;
-            return ResizeEdge.None;
+            var edge = ResizeEdge.None;
+            if (onTop && onLeft) edge = ResizeEdge.TopLeft;
+            else if (onTop && onRight) edge = ResizeEdge.TopRight;
+            else if (onBottom && onLeft) edge = ResizeEdge.BottomLeft;
+            else if (onBottom && onRight) edge = ResizeEdge.BottomRight;
+            else if (onLeft) edge = ResizeEdge.Left;
+            else if (onRight) edge = ResizeEdge.Right;
+            else if (onTop) edge = ResizeEdge.Top;
+            else if (onBottom) edge = ResizeEdge.Bottom;
+
+            if (!EnableHorizontalResize && edge is ResizeEdge.Left or ResizeEdge.Right or ResizeEdge.TopLeft or ResizeEdge.TopRight or ResizeEdge.BottomLeft or ResizeEdge.BottomRight)
+                return ResizeEdge.None;
+            if (!EnableVerticalResize && edge is ResizeEdge.Top or ResizeEdge.Bottom or ResizeEdge.TopLeft or ResizeEdge.TopRight or ResizeEdge.BottomLeft or ResizeEdge.BottomRight)
+                return ResizeEdge.None;
+
+            return edge;
         }
 
         private void DetectResizeEdge()
@@ -394,37 +403,46 @@ namespace ClinetCSharp
             float h = _resizeStartSize.Y;
 
             var e = _detectedEdge;
-            if (e == ResizeEdge.Left || e == ResizeEdge.TopLeft || e == ResizeEdge.BottomLeft)
-            {
-                x = _resizeStartPos.X + delta.X;
-                w = _resizeStartSize.X - delta.X;
-            }
-            if (e == ResizeEdge.Right || e == ResizeEdge.TopRight || e == ResizeEdge.BottomRight)
-            {
-                w = _resizeStartSize.X + delta.X;
-            }
-            if (e == ResizeEdge.Top || e == ResizeEdge.TopLeft || e == ResizeEdge.TopRight)
-            {
-                y = _resizeStartPos.Y + delta.Y;
-                h = _resizeStartSize.Y - delta.Y;
-            }
-            if (e == ResizeEdge.Bottom || e == ResizeEdge.BottomLeft || e == ResizeEdge.BottomRight)
-            {
-                h = _resizeStartSize.Y + delta.Y;
-            }
-
-            // 最小尺寸限制
-            if (w < MinWidth)
+            if (EnableHorizontalResize)
             {
                 if (e == ResizeEdge.Left || e == ResizeEdge.TopLeft || e == ResizeEdge.BottomLeft)
-                    x = _resizeStartPos.X + _resizeStartSize.X - MinWidth;
-                w = MinWidth;
+                {
+                    x = _resizeStartPos.X + delta.X;
+                    w = _resizeStartSize.X - delta.X;
+                }
+                if (e == ResizeEdge.Right || e == ResizeEdge.TopRight || e == ResizeEdge.BottomRight)
+                {
+                    w = _resizeStartSize.X + delta.X;
+                }
+
+                // 最小尺寸限制（水平）
+                if (w < MinWidth)
+                {
+                    if (e == ResizeEdge.Left || e == ResizeEdge.TopLeft || e == ResizeEdge.BottomLeft)
+                        x = _resizeStartPos.X + _resizeStartSize.X - MinWidth;
+                    w = MinWidth;
+                }
             }
-            if (h < MinHeight)
+
+            if (EnableVerticalResize)
             {
                 if (e == ResizeEdge.Top || e == ResizeEdge.TopLeft || e == ResizeEdge.TopRight)
-                    y = _resizeStartPos.Y + _resizeStartSize.Y - MinHeight;
-                h = MinHeight;
+                {
+                    y = _resizeStartPos.Y + delta.Y;
+                    h = _resizeStartSize.Y - delta.Y;
+                }
+                if (e == ResizeEdge.Bottom || e == ResizeEdge.BottomLeft || e == ResizeEdge.BottomRight)
+                {
+                    h = _resizeStartSize.Y + delta.Y;
+                }
+
+                // 最小尺寸限制（垂直）
+                if (h < MinHeight)
+                {
+                    if (e == ResizeEdge.Top || e == ResizeEdge.TopLeft || e == ResizeEdge.TopRight)
+                        y = _resizeStartPos.Y + _resizeStartSize.Y - MinHeight;
+                    h = MinHeight;
+                }
             }
 
             GlobalPosition = new Vector2(x, y);
