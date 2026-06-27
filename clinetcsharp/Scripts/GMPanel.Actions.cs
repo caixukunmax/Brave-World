@@ -17,6 +17,15 @@ namespace ClinetCSharp
             if (commandLine == "")
                 return;
 
+            ExecuteGmCommand(commandLine);
+            _cmdEdit.Text = "";
+        }
+
+        private void ExecuteGmCommand(string commandLine)
+        {
+            if (commandLine == "")
+                return;
+
             if (_network == null || !_network.IsServerConnected())
             {
                 AppendLog("[color=red]未连接服务器[/color]");
@@ -31,7 +40,6 @@ namespace ClinetCSharp
 
             _network.SendPacket(MessageId.GameGmReq, request);
             AppendLog($"[color=cyan]> {commandLine}[/color]");
-            _cmdEdit.Text = "";
         }
 
         private void OnGmResponse(Game.GmCommandResponse response)

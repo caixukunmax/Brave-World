@@ -1,7 +1,9 @@
 using GameServer.Common.Models;
 using GameServer.Common.Net;
 using GameServer.Database.Models;
+using GameServer.GameLogic.Inventory;
 using GameServer.Services.Core;
+using GameServer.Tables;
 using Google.Protobuf;
 using Microsoft.Extensions.Logging;
 using PCommon = global::Common;
@@ -13,8 +15,13 @@ namespace GameServer.Services.Player.Handlers;
 public class OpenChestHandler : IMessageHandler
 {
     private readonly PlayerSessionManager _session;
+    private readonly LubanTableLoader _tables;
 
-    public OpenChestHandler(PlayerSessionManager session) => _session = session;
+    public OpenChestHandler(PlayerSessionManager session, LubanTableLoader tables)
+    {
+        _session = session;
+        _tables = tables;
+    }
 
     public async Task<byte[]?> HandleAsync(MessageContext ctx, byte[] data)
     {
@@ -55,15 +62,32 @@ public class OpenChestHandler : IMessageHandler
             return new PGame.OpenChestResponse { Code = PCommon.ErrorCode.InvalidRequest, Message = "chest already opened" }.ToByteArray();
 
         var rewards = RewardParser.Parse("");
-        foreach (var item in rewards)
-            await _session.Inventory.AddItem(roleId, item.ItemId, item.Count);
+        var dbItems = await _session.Inventory.GetByRole(roleId);
+        var actualRewards = new List<(int itemId, int count)>();
+
+        foreach (var reward in rewards)
+        {
+            var (added, remaining) = InventoryHelper.CalculatePickupCapacity(dbItems, _tables, reward.ItemId, reward.Count);
+            if (added > 0)
+            {
+                await _session.Inventory.AddItem(roleId, reward.ItemId, added);
+                actualRewards.Add((reward.ItemId, added));
+
+                // 更新内存中的聚合数据，供后续奖励计算更准确
+                var existing = dbItems.FirstOrDefault(i => i.ItemId == reward.ItemId);
+                if (existing != null)
+                    existing.Count += added;
+                else
+                    dbItems.Add(new InventoryItem { RoleId = roleId, ItemId = reward.ItemId, Count = added });
+            }
+        }
 
         await _session.Chests.MarkOpened(roleId, instanceId);
-        _session.Logger.LogInformation("OpenChest: roleId={RoleId} instanceId={InstanceId}", roleId, instanceId);
+        _session.Logger.LogInformation("OpenChest: roleId={RoleId} instanceId={InstanceId} rewards={RewardCount}", roleId, instanceId, actualRewards.Count);
 
         var rsp = new PGame.OpenChestResponse { Code = PCommon.ErrorCode.Success, Message = "" };
-        foreach (var r in rewards)
-            rsp.Items.Add(new PGame.ItemInfo { ItemId = (uint)r.ItemId, Count = (uint)r.Count });
+        foreach (var r in actualRewards)
+            rsp.Items.Add(new PGame.ItemInfo { ItemId = (uint)r.itemId, Count = (uint)r.count });
         return rsp.ToByteArray();
     }
 

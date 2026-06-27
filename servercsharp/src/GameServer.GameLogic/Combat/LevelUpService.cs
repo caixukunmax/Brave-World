@@ -131,7 +131,7 @@ public class LevelUpService
     /// <summary>
     /// 怪物死亡回调 — 给击杀者加经验
     /// </summary>
-    public void OnMonsterDeath(long monsterInstanceId, long attackerId, int monsterId)
+    public void OnMonsterDeath(long monsterInstanceId, long attackerId, int monsterId, string mapName, int x, int y)
     {
         int expReward = _tables.GetMonsterExp(monsterId);
         if (expReward <= 0) return;

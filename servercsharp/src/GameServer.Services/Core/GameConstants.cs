@@ -80,4 +80,10 @@ public static class GameConstants
 
     // ---- 玩家池 ----
     public const int PoolCount = 1; // 单进程无需分片
+
+    // ---- 文字背包 ----
+    public const int InventoryLineWidth = 30;
+    public const int InventoryLineCount = 10;
+    public const int InventoryTotalCapacity = InventoryLineWidth * InventoryLineCount;
+    public const float InventorySpacingWidth = 0.5f;
 }

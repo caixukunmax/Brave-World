@@ -29,6 +29,11 @@ namespace ClinetCSharp
             AddSectionSeparator(tabContainer);
             AddTabTitle(tabContainer, "怪物死亡效果", 12, HorizontalAlignment.Left);
             BuildDeathEffectSection(tabContainer);
+
+            // ---- 背包调试配置 ----
+            AddSectionSeparator(tabContainer);
+            AddTabTitle(tabContainer, "背包", 12, HorizontalAlignment.Left);
+            BuildInventorySection(tabContainer);
         }
 
         private void BuildDeathEffectSection(Container parent)
@@ -61,6 +66,152 @@ namespace ClinetCSharp
             _bounceDurationSlider.ValueChanged += OnBounceDurationChanged;
             _bounceOvershootRatioSlider.ValueChanged += OnBounceOvershootRatioChanged;
             _bounceOvershootThresholdSlider.ValueChanged += OnBounceOvershootThresholdChanged;
+        }
+
+        private void BuildInventorySection(Container parent)
+        {
+            (_backpackPaddingHSlider, _backpackPaddingHValue) = CreateSliderRow(parent, "左右边距(px)", 0, 50, InventoryUI.BackpackPaddingH, 1f);
+            (_backpackPaddingTopSlider, _backpackPaddingTopValue) = CreateSliderRow(parent, "上边距(px)", 0, 50, InventoryUI.BackpackPaddingTop, 1f);
+            (_backpackContentWidthSlider, _backpackContentWidthValue) = CreateSliderRow(parent, "背包区总宽(px)", 200, 800, InventoryUI.BackpackContentWidth, InventoryUI.InventoryFontSize);
+            (_backpackAreaHeightSlider, _backpackAreaHeightValue) = CreateSliderRow(parent, "背包区总高(px)", 50, 600, InventoryUI.BackpackAreaHeight, 1f);
+            (_backpackItemSpacingSlider, _backpackItemSpacingValue) = CreateSliderRow(parent, "道具间距(px)", 0, 32, InventoryUI.BackpackItemSpacing, 1f);
+
+            _lockHorizontalResizeCheck = CreateCheckRow(parent, "锁定水平缩放", InventoryUI.LockHorizontalResize);
+            _lockVerticalResizeCheck = CreateCheckRow(parent, "锁定垂直缩放", InventoryUI.LockVerticalResize);
+            _backpackDebugBorderCheck = CreateCheckRow(parent, "显示背包Debug边框", InventoryUI.DebugDrawItemBorder);
+            _backpackShowDimensionsCheck = CreateCheckRow(parent, "显示道具占用像素", InventoryUI.DebugShowItemDimensions);
+            (_backpackHoverCornerRadiusSlider, _backpackHoverCornerRadiusValue) = CreateSliderRow(parent, "悬停圆角(px)", 0, 16, InventoryUI.BackpackHoverCornerRadius, 1f);
+            (_backpackHoverBorderWidthSlider, _backpackHoverBorderWidthValue) = CreateSliderRow(parent, "悬停边框宽(px)", 1, 4, InventoryUI.BackpackHoverBoxBorderWidth, 1f);
+            BuildHoverColorRow(parent);
+
+            _backpackPaddingHSlider.ValueChanged += OnBackpackPaddingHChanged;
+            _backpackPaddingTopSlider.ValueChanged += OnBackpackPaddingTopChanged;
+            _backpackContentWidthSlider.ValueChanged += OnBackpackContentWidthChanged;
+            _backpackAreaHeightSlider.ValueChanged += OnBackpackAreaHeightChanged;
+            _backpackItemSpacingSlider.ValueChanged += OnBackpackItemSpacingChanged;
+            _lockHorizontalResizeCheck.Toggled += OnLockHorizontalResizeToggled;
+            _lockVerticalResizeCheck.Toggled += OnLockVerticalResizeToggled;
+            _backpackDebugBorderCheck.Toggled += OnBackpackDebugBorderToggled;
+            _backpackShowDimensionsCheck.Toggled += OnBackpackShowDimensionsToggled;
+            _backpackHoverCornerRadiusSlider.ValueChanged += OnBackpackHoverCornerRadiusChanged;
+            _backpackHoverBorderWidthSlider.ValueChanged += OnBackpackHoverBorderWidthChanged;
+            _backpackHoverColorPicker.ColorChanged += OnBackpackHoverColorChanged;
+        }
+
+        private CheckButton CreateCheckRow(Container parent, string label, bool initial)
+        {
+            var row = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+            var lbl = new Label { Text = label + ":", CustomMinimumSize = new Vector2(80, 0) };
+            lbl.Name = "_lbl";
+            row.AddChild(lbl);
+
+            var check = new CheckButton { ButtonPressed = initial, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+            row.AddChild(check);
+            parent.AddChild(row);
+            return check;
+        }
+
+        private void ApplyInventorySettings()
+        {
+            var inventory = Owner.GetTree()?.GetFirstNodeInGroup("inventory_ui") as InventoryUI;
+            inventory?.ApplyRuntimeConfig();
+            ScheduleSave();
+        }
+
+        private void OnBackpackPaddingHChanged(double value)
+        {
+            InventoryUI.BackpackPaddingH = (int)value;
+            _backpackPaddingHValue.Text = ((int)value).ToString();
+            ApplyInventorySettings();
+        }
+
+        private void OnBackpackPaddingTopChanged(double value)
+        {
+            InventoryUI.BackpackPaddingTop = (int)value;
+            _backpackPaddingTopValue.Text = ((int)value).ToString();
+            ApplyInventorySettings();
+        }
+
+        private void OnBackpackContentWidthChanged(double value)
+        {
+            InventoryUI.BackpackContentWidth = (int)value;
+            _backpackContentWidthValue.Text = ((int)value).ToString();
+            ApplyInventorySettings();
+        }
+
+        private void OnBackpackAreaHeightChanged(double value)
+        {
+            InventoryUI.BackpackAreaHeight = (int)value;
+            _backpackAreaHeightValue.Text = ((int)value).ToString();
+            ApplyInventorySettings();
+        }
+
+        private void OnBackpackItemSpacingChanged(double value)
+        {
+            InventoryUI.BackpackItemSpacing = (int)value;
+            _backpackItemSpacingValue.Text = ((int)value).ToString();
+            ApplyInventorySettings();
+        }
+
+        private void OnLockHorizontalResizeToggled(bool pressed)
+        {
+            InventoryUI.LockHorizontalResize = pressed;
+            ApplyInventorySettings();
+        }
+
+        private void OnLockVerticalResizeToggled(bool pressed)
+        {
+            InventoryUI.LockVerticalResize = pressed;
+            ApplyInventorySettings();
+        }
+
+        private void OnBackpackDebugBorderToggled(bool pressed)
+        {
+            InventoryUI.DebugDrawItemBorder = pressed;
+            ApplyInventorySettings();
+        }
+
+        private void OnBackpackShowDimensionsToggled(bool pressed)
+        {
+            InventoryUI.DebugShowItemDimensions = pressed;
+            ApplyInventorySettings();
+        }
+
+        private void OnBackpackHoverCornerRadiusChanged(double value)
+        {
+            InventoryUI.BackpackHoverCornerRadius = (int)value;
+            _backpackHoverCornerRadiusValue.Text = ((int)value).ToString();
+            ApplyInventorySettings();
+        }
+
+        private void OnBackpackHoverBorderWidthChanged(double value)
+        {
+            InventoryUI.BackpackHoverBoxBorderWidth = (int)value;
+            _backpackHoverBorderWidthValue.Text = ((int)value).ToString();
+            ApplyInventorySettings();
+        }
+
+        private void BuildHoverColorRow(Container parent)
+        {
+            var row = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+            var lbl = new Label { Text = "悬停框颜色:", CustomMinimumSize = new Vector2(80, 0) };
+            lbl.Name = "_lbl";
+            row.AddChild(lbl);
+
+            _backpackHoverColorPicker = new ColorPickerButton
+            {
+                CustomMinimumSize = new Vector2(60, 24),
+                Color = InventoryUI.BackpackHoverBoxColor,
+                SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+            };
+            row.AddChild(_backpackHoverColorPicker);
+            parent.AddChild(row);
+        }
+
+        private void OnBackpackHoverColorChanged(Color color)
+        {
+            InventoryUI.BackpackHoverBoxColor = color;
+            ApplyInventorySettings();
         }
 
         private void OnDeathEffectModeChanged(long index)

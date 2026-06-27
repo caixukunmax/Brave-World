@@ -203,10 +203,15 @@ public class MoveConfirmHandler : IMessageHandler
 public class MoveCompleteHandler : IMessageHandler
 {
     private readonly PlayerSessionManager _session;
+    private readonly IDropService _dropService;
 
-    public MoveCompleteHandler(PlayerSessionManager session) => _session = session;
+    public MoveCompleteHandler(PlayerSessionManager session, IDropService dropService)
+    {
+        _session = session;
+        _dropService = dropService;
+    }
 
-    public Task<byte[]?> HandleAsync(MessageContext ctx, byte[] data)
+    public async Task<byte[]?> HandleAsync(MessageContext ctx, byte[] data)
     {
         var claims = ctx.Claims!;
         var req = PGame.MoveCompleteRequest.Parser.ParseFrom(data);
@@ -220,7 +225,14 @@ public class MoveCompleteHandler : IMessageHandler
             player.GridY = req.TargetY;
         }
 
-        return Task.FromResult<byte[]?>(null);
+        // 移动到目标格后尝试自动拾取掉落物
+        var mapName = _session.MapService.World.GetEntityMapName(claims.AccountId);
+        if (!string.IsNullOrEmpty(mapName))
+        {
+            await _dropService.TryAutoPickup(claims.AccountId, mapName, (int)req.TargetX, (int)req.TargetY);
+        }
+
+        return null;
     }
 }
 

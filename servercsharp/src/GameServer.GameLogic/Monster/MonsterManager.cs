@@ -28,8 +28,8 @@ public class MonsterManager : IMonsterRegistry
     private readonly Dictionary<string, IBehaviorHandler> _handlers;
     private readonly Dictionary<CombatBehaviorType, ICombatBehaviorHandler> _combatBehaviors;
 
-    /// <summary>怪物死亡回调：(monsterInstanceId, attackerId, monsterId) => void</summary>
-    public Action<long, long, int>? OnMonsterDeath { get; set; }
+    /// <summary>怪物死亡回调：(monsterInstanceId, attackerId, monsterId, mapName, x, y) => void</summary>
+    public Action<long, long, int, string, int, int>? OnMonsterDeath { get; set; }
 
     /// <summary>战斗管理器引用（用于追击超时后断开关系）</summary>
     public CombatManager? CombatManager { get; set; }
@@ -365,7 +365,7 @@ public class MonsterManager : IMonsterRegistry
                 });
             }
 
-            OnMonsterDeath?.Invoke(instanceId, attackerId, m.MonsterId);
+            OnMonsterDeath?.Invoke(instanceId, attackerId, m.MonsterId, m.MapName, m.X, m.Y);
         }
     }
 

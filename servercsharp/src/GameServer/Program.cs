@@ -226,6 +226,7 @@ public class GameServerHostedService : IHostedService
         // 6. 启动游戏 tick 定时器（定时器线程仅负责唤醒，实际逻辑投递到 GameLoopScheduler）
         _ = MonsterTickLoop(hotReloader, gameLoop, _cts.Token);
         _ = CombatTickLoop(hotReloader, mapService, gameLoop, _cts.Token);
+        _ = DropTickLoop(hotReloader, gameLoop, _cts.Token);
         _ = PlayerAutoSaveLoop(playerSession, _cts.Token);
         _ = HotReloadCommandLoop(hotReloader, _logger, network, mapData, mapService, handlerRegistry, playerSession, router, worldState, eventBus, _cts.Token);
         _logger.LogInformation("Game tick loops started");
@@ -296,6 +297,17 @@ public class GameServerHostedService : IHostedService
                     mapService.TickOutOfCombatBuffs(maps);
                 });
             }
+        }
+    }
+
+    private static async Task DropTickLoop(HotReloader hotReloader, IGameLoopScheduler gameLoop, CancellationToken ct)
+    {
+        using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(GameConstants.CombatTickMs));
+        while (await timer.WaitForNextTickAsync(ct))
+        {
+            var dropService = hotReloader.DropService;
+            if (dropService != null)
+                gameLoop.Enqueue(() => dropService.Tick(0.1f));
         }
     }
 

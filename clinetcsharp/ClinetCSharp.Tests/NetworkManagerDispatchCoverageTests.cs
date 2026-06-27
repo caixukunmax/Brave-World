@@ -35,6 +35,14 @@ public class NetworkManagerDispatchCoverageTests
         "GameBuffUpdateNotify",
         "GameCombatStartNotify",
         "GameCombatEndNotify",
+        "GameCastStartNotify",
+        "GameCastResultNotify",
+        "GameCombatEventNotify",
+        "GameProjectileSpawnNotify",
+        "GameProjectileHitNotify",
+        "GameDisengageNotify",
+        "GameMonsterDeathNotify",
+        "GameMonsterRespawnNotify",
         "GamePlayerDeathNotify",
         "GameLevelUpNotify",
         "GameRoleAttrNotify",
@@ -45,6 +53,7 @@ public class NetworkManagerDispatchCoverageTests
         "GameEquipSkillRsp",
         "GameUnequipSkillRsp",
         "GameSetPreferredSkillRsp",
+        "GameCastRsp",
         "GameChangeJobRsp",
     };
 

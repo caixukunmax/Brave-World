@@ -888,7 +888,9 @@ message DropPickupNotify {
   uint64 drop_id = 1;       // 被拾取的掉落物 ID
   uint64 picker_id = 2;     // 拾取者 ID
   uint32 item_id = 3;       // 物品 ID
-  uint32 count = 4;         // 数量
+  uint32 count = 4;         // 原掉落数量
+  uint32 actual_count = 5;  // 实际进入背包数量
+  uint32 remaining_count = 6; // 因背包满剩余数量
 }
 
 /**

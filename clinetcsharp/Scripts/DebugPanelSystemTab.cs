@@ -29,6 +29,27 @@ namespace ClinetCSharp
         private HSlider _deathGrayDelaySlider = null!;
         private Label _deathGrayDelayValue = null!;
 
+        // 背包配置
+        private HSlider _backpackPaddingHSlider = null!;
+        private Label _backpackPaddingHValue = null!;
+        private HSlider _backpackPaddingTopSlider = null!;
+        private Label _backpackPaddingTopValue = null!;
+        private HSlider _backpackContentWidthSlider = null!;
+        private Label _backpackContentWidthValue = null!;
+        private HSlider _backpackAreaHeightSlider = null!;
+        private Label _backpackAreaHeightValue = null!;
+        private HSlider _backpackItemSpacingSlider = null!;
+        private Label _backpackItemSpacingValue = null!;
+        private CheckButton _lockHorizontalResizeCheck = null!;
+        private CheckButton _lockVerticalResizeCheck = null!;
+        private CheckButton _backpackDebugBorderCheck = null!;
+        private CheckButton _backpackShowDimensionsCheck = null!;
+        private HSlider _backpackHoverCornerRadiusSlider = null!;
+        private Label _backpackHoverCornerRadiusValue = null!;
+        private HSlider _backpackHoverBorderWidthSlider = null!;
+        private Label _backpackHoverBorderWidthValue = null!;
+        private ColorPickerButton _backpackHoverColorPicker = null!;
+
         public DebugPanelSystemTab(DebugPanel owner) : base(owner) { }
 
         public override string TabKey => "system";
@@ -48,6 +69,19 @@ namespace ClinetCSharp
             if (_bounceDurationSlider != null) _bounceDurationSlider.ValueChanged -= OnBounceDurationChanged;
             if (_bounceOvershootRatioSlider != null) _bounceOvershootRatioSlider.ValueChanged -= OnBounceOvershootRatioChanged;
             if (_bounceOvershootThresholdSlider != null) _bounceOvershootThresholdSlider.ValueChanged -= OnBounceOvershootThresholdChanged;
+
+            if (_backpackPaddingHSlider != null) _backpackPaddingHSlider.ValueChanged -= OnBackpackPaddingHChanged;
+            if (_backpackPaddingTopSlider != null) _backpackPaddingTopSlider.ValueChanged -= OnBackpackPaddingTopChanged;
+            if (_backpackContentWidthSlider != null) _backpackContentWidthSlider.ValueChanged -= OnBackpackContentWidthChanged;
+            if (_backpackAreaHeightSlider != null) _backpackAreaHeightSlider.ValueChanged -= OnBackpackAreaHeightChanged;
+            if (_backpackItemSpacingSlider != null) _backpackItemSpacingSlider.ValueChanged -= OnBackpackItemSpacingChanged;
+            if (_lockHorizontalResizeCheck != null) _lockHorizontalResizeCheck.Toggled -= OnLockHorizontalResizeToggled;
+            if (_lockVerticalResizeCheck != null) _lockVerticalResizeCheck.Toggled -= OnLockVerticalResizeToggled;
+            if (_backpackDebugBorderCheck != null) _backpackDebugBorderCheck.Toggled -= OnBackpackDebugBorderToggled;
+            if (_backpackShowDimensionsCheck != null) _backpackShowDimensionsCheck.Toggled -= OnBackpackShowDimensionsToggled;
+            if (_backpackHoverCornerRadiusSlider != null) _backpackHoverCornerRadiusSlider.ValueChanged -= OnBackpackHoverCornerRadiusChanged;
+            if (_backpackHoverBorderWidthSlider != null) _backpackHoverBorderWidthSlider.ValueChanged -= OnBackpackHoverBorderWidthChanged;
+            if (_backpackHoverColorPicker != null) _backpackHoverColorPicker.ColorChanged -= OnBackpackHoverColorChanged;
         }
 
         public (int checkRatio, int dualStart, int dualEnd) GetMoveSystemValues()

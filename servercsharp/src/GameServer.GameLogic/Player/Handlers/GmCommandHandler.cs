@@ -4,6 +4,7 @@ using GameServer.Common.Config;
 using GameServer.Common.Models;
 using GameServer.Common.Net;
 using GameServer.Database.Models;
+using GameServer.GameLogic.Inventory;
 using GameServer.Services.Map.Combat;
 using GameServer.Services.Core;
 using GameServer.Tables;
@@ -48,9 +49,57 @@ public class GmCommandHandler : IMessageHandler
             if (itemId == 0)
                 return new PGame.GmCommandResponse { Code = PCommon.ErrorCode.InvalidRequest, Message = "usage: additem,itemId,count" }.ToByteArray();
 
-            await _session.Inventory.AddItem(player.RoleId, itemId, count);
-            var rsp = new PGame.GmCommandResponse { Code = PCommon.ErrorCode.Success, Message = $"added {count}x {itemId}" };
-            var items = await PlayerProtoMapper.BuildItemsProto(_session.Inventory, player.RoleId);
+            var cfg = _tables.GetItem(itemId);
+            if (cfg == null)
+                return new PGame.GmCommandResponse { Code = PCommon.ErrorCode.NotFound, Message = $"item {itemId} not found" }.ToByteArray();
+
+            var dbItems = await _session.Inventory.GetByRole(player.RoleId);
+            var (added, remaining) = InventoryHelper.CalculatePickupCapacity(dbItems, _tables, itemId, count);
+
+            if (added > 0)
+                await _session.Inventory.AddItem(player.RoleId, itemId, added);
+
+            string msg;
+            if (remaining > 0)
+                msg = $"added {added}x {itemId}, {remaining} remaining (inventory full)";
+            else
+                msg = $"added {added}x {itemId}";
+
+            var rsp = new PGame.GmCommandResponse { Code = PCommon.ErrorCode.Success, Message = msg };
+            var items = await PlayerProtoMapper.BuildItemsProto(_session.Inventory, player.RoleId, _tables);
+            foreach (var item in items) rsp.Items.Add(item);
+            return rsp.ToByteArray();
+        }
+
+        if (cmd == "addtestitems")
+        {
+            var count = parts.Length > 1 ? Math.Max(1, int.Parse(parts[1])) : 10;
+            var testItemIds = new[] { 1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008, 1009, 1010, 1011, 1012, 1013, 1014, 1015, 1016, 2001 };
+
+            int totalAdded = 0;
+            int totalRemaining = 0;
+            foreach (var itemId in testItemIds)
+            {
+                var cfg = _tables.GetItem(itemId);
+                if (cfg == null)
+                    continue;
+
+                var dbItems = await _session.Inventory.GetByRole(player.RoleId);
+                var (added, remaining) = InventoryHelper.CalculatePickupCapacity(dbItems, _tables, itemId, count);
+
+                if (added > 0)
+                    await _session.Inventory.AddItem(player.RoleId, itemId, added);
+
+                totalAdded += added;
+                totalRemaining += remaining;
+            }
+
+            string msg = totalRemaining > 0
+                ? $"added {totalAdded} test items, {totalRemaining} remaining (inventory full)"
+                : $"added {totalAdded} test items";
+
+            var rsp = new PGame.GmCommandResponse { Code = PCommon.ErrorCode.Success, Message = msg };
+            var items = await PlayerProtoMapper.BuildItemsProto(_session.Inventory, player.RoleId, _tables);
             foreach (var item in items) rsp.Items.Add(item);
             return rsp.ToByteArray();
         }

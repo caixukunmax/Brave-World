@@ -1,5 +1,6 @@
 using GameServer.Common.Net;
 using GameServer.Services.Core;
+using GameServer.Tables;
 using Google.Protobuf;
 using PCommon = global::Common;
 using PGame = global::Game;
@@ -10,8 +11,13 @@ namespace GameServer.Services.Player.Handlers;
 public class DropItemHandler : IMessageHandler
 {
     private readonly PlayerSessionManager _session;
+    private readonly LubanTableLoader _tables;
 
-    public DropItemHandler(PlayerSessionManager session) => _session = session;
+    public DropItemHandler(PlayerSessionManager session, LubanTableLoader tables)
+    {
+        _session = session;
+        _tables = tables;
+    }
 
     public async Task<byte[]?> HandleAsync(MessageContext ctx, byte[] data)
     {
@@ -30,7 +36,7 @@ public class DropItemHandler : IMessageHandler
             return new PGame.DropItemResponse { Code = PCommon.ErrorCode.NotFound, Message = "item not enough" }.ToByteArray();
 
         var rsp = new PGame.DropItemResponse { Code = PCommon.ErrorCode.Success, Message = "" };
-        var items = await PlayerProtoMapper.BuildItemsProto(_session.Inventory, player.RoleId);
+        var items = await PlayerProtoMapper.BuildItemsProto(_session.Inventory, player.RoleId, _tables);
         foreach (var item in items) rsp.Items.Add(item);
         return rsp.ToByteArray();
     }

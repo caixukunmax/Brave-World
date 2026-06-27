@@ -1,15 +1,17 @@
 using System.Linq;
+using GameServer.GameLogic.Inventory;
 using GameServer.Services.Core;
 using GameServer.Services.Player;
 using GameServer.Tables;
 using Microsoft.Extensions.Logging;
+using PGame = global::Game;
 
 namespace GameServer.Services.Map.Drop;
 
 /// <summary>
 /// 掉落物管理器 — 生成、拾取、超时清理
 /// </summary>
-public class DropManager
+public class DropManager : IDropService
 {
     private readonly ILogger<DropManager> _logger;
     private readonly LubanTableLoader _tables;
@@ -32,7 +34,8 @@ public class DropManager
     /// <summary>掉落物生成回调（供网络广播用）</summary>
     public Action<List<DropItemEntity>, string>? OnDropsSpawned;
     /// <summary>掉落物拾取回调（供网络广播用）</summary>
-    public Action<long, long, int, int, string>? OnDropPickedUp;
+    /// 参数：dropId, pickerId, itemId, actualCount, remainingCount, mapName
+    public Action<long, long, int, int, int, string>? OnDropPickedUp;
     /// <summary>掉落物消失回调（供网络广播用）</summary>
     public Action<List<long>, string>? OnDropsRemoved;
 
@@ -117,42 +120,52 @@ public class DropManager
     /// <summary>
     /// 尝试拾取掉落物
     /// </summary>
-    /// <returns>(成功, itemId, count)</returns>
-    public (bool ok, int itemId, int count) TryPickup(long playerId, string mapName, long dropId)
+    /// <returns>(成功, itemId, added, remaining)</returns>
+    public async Task<(bool ok, int itemId, int added, int remaining)> TryPickup(long playerId, string mapName, long dropId)
     {
-        if (!_dropById.TryGetValue(dropId, out var drop)) return (false, 0, 0);
-        if (drop.MapName != mapName) return (false, 0, 0);
+        if (!_dropById.TryGetValue(dropId, out var drop)) return (false, 0, 0, 0);
+        if (drop.MapName != mapName) return (false, 0, 0, 0);
 
         // 归属检查
         if (drop.OwnerId != 0 && drop.OwnerId != playerId && drop.OwnerLockTime > 0)
         {
             _logger.LogDebug("[Drop] pickup blocked: dropId={DropId} owner={Owner} player={Player} lockTime={Lock}",
                 dropId, drop.OwnerId, playerId, drop.OwnerLockTime);
-            return (false, 0, 0);
+            return (false, 0, 0, 0);
         }
 
-        // 添加物品到背包
+        int added = 0;
+        int remaining = drop.Count;
+
+        // 添加物品到背包（按容量部分拾取）
         if (_session.TryGetPlayer(playerId, out var role))
         {
-            _ = _session.Inventory.AddItem(role.RoleId, drop.ItemId, drop.Count);
+            var dbItems = await _session.Inventory.GetByRole(role.RoleId);
+            var (add, rem) = InventoryHelper.CalculatePickupCapacity(dbItems, _tables, drop.ItemId, drop.Count);
+            added = add;
+            remaining = rem;
+
+            if (added > 0)
+                await _session.Inventory.AddItem(role.RoleId, drop.ItemId, added);
         }
 
-        // 移除掉落物
-        RemoveDrop(drop);
+        // 只有实际放入物品时才移除掉落物
+        if (added > 0)
+            RemoveDrop(drop);
 
-        _logger.LogInformation("[Drop] picked up: dropId={DropId} item={ItemId}x{Count} by player={Player}",
-            dropId, drop.ItemId, drop.Count, playerId);
+        _logger.LogInformation("[Drop] picked up: dropId={DropId} item={ItemId} requested={Count} added={Added} remaining={Remaining} by player={Player}",
+            dropId, drop.ItemId, drop.Count, added, remaining, playerId);
 
         // 触发拾取回调
-        OnDropPickedUp?.Invoke(dropId, playerId, drop.ItemId, drop.Count, mapName);
+        OnDropPickedUp?.Invoke(dropId, playerId, drop.ItemId, added, remaining, mapName);
 
-        return (true, drop.ItemId, drop.Count);
+        return (added > 0, drop.ItemId, added, remaining);
     }
 
     /// <summary>
     /// 检查玩家所在格子是否有可拾取的掉落物，自动拾取
     /// </summary>
-    public void TryAutoPickup(long playerId, string mapName, int x, int y)
+    public async Task TryAutoPickup(long playerId, string mapName, int x, int y)
     {
         if (!_drops.TryGetValue(mapName, out var list)) return;
 
@@ -160,7 +173,7 @@ public class DropManager
         var toPickup = list.Where(d => d.X == x && d.Y == y).ToList();
         foreach (var drop in toPickup)
         {
-            TryPickup(playerId, mapName, drop.DropId);
+            await TryPickup(playerId, mapName, drop.DropId);
         }
     }
 
@@ -221,6 +234,27 @@ public class DropManager
     {
         if (!_drops.TryGetValue(mapName, out var list)) return new();
         return list.ToList();
+    }
+
+    /// <summary>获取地图上所有掉落物的协议表示（IDropService 实现）。</summary>
+    List<PGame.DropItemInfo> IDropService.GetDrops(string mapName)
+    {
+        var result = new List<PGame.DropItemInfo>();
+        if (!_drops.TryGetValue(mapName, out var list)) return result;
+
+        foreach (var d in list)
+        {
+            result.Add(new PGame.DropItemInfo
+            {
+                DropId = (ulong)d.DropId,
+                ItemId = (uint)d.ItemId,
+                Count = (uint)d.Count,
+                X = d.X,
+                Y = d.Y,
+                OwnerId = (ulong)d.OwnerId,
+            });
+        }
+        return result;
     }
 
     // ---- 内部 ----

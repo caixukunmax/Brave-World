@@ -8,32 +8,21 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="GodotSharp" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="xunit" />
     <PackageReference Include="xunit.runner.visualstudio" />
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Include="..\Scripts\GridOverlayAntiAliasSoftnessPolicy.cs"
-             Link="GridOverlayAntiAliasSoftnessPolicy.cs"
-             Condition="Exists('..\Scripts\GridOverlayAntiAliasSoftnessPolicy.cs')" />
-    <Compile Include="..\Scripts\RoleControlCenterXResolver.cs"
-             Link="RoleControlCenterXResolver.cs"
-             Condition="Exists('..\Scripts\RoleControlCenterXResolver.cs')" />
-    <Compile Include="..\Scripts\DebugPanelTransientFocusPolicy.cs"
-             Link="DebugPanelTransientFocusPolicy.cs"
-             Condition="Exists('..\Scripts\DebugPanelTransientFocusPolicy.cs')" />
-    <Compile Include="..\Scripts\DebugPanelEntityStyleSyncPolicy.cs"
-             Link="DebugPanelEntityStyleSyncPolicy.cs"
-             Condition="Exists('..\Scripts\DebugPanelEntityStyleSyncPolicy.cs')" />
-    <Compile Include="..\Scripts\DebugPanelSliderValueFormatter.cs"
-             Link="DebugPanelSliderValueFormatter.cs"
-             Condition="Exists('..\Scripts\DebugPanelSliderValueFormatter.cs')" />
-    <Compile Include="..\Scripts\DebugPanelLengthScalePolicy.cs"
-             Link="DebugPanelLengthScalePolicy.cs"
-             Condition="Exists('..\Scripts\DebugPanelLengthScalePolicy.cs')" />
-    <Compile Include="..\Scripts\PlayerRoleInfoPositionSyncPolicy.cs"
-             Link="PlayerRoleInfoPositionSyncPolicy.cs"
-             Condition="Exists('..\Scripts\PlayerRoleInfoPositionSyncPolicy.cs')" />
+    <Compile Include="..\Scripts\GridOverlayAntiAliasSoftnessPolicy.cs" Link="GridOverlayAntiAliasSoftnessPolicy.cs" Condition="Exists('..\Scripts\GridOverlayAntiAliasSoftnessPolicy.cs')" />
+    <Compile Include="..\Scripts\RoleControlCenterXResolver.cs" Link="RoleControlCenterXResolver.cs" Condition="Exists('..\Scripts\RoleControlCenterXResolver.cs')" />
+    <Compile Include="..\Scripts\DebugPanelTransientFocusPolicy.cs" Link="DebugPanelTransientFocusPolicy.cs" Condition="Exists('..\Scripts\DebugPanelTransientFocusPolicy.cs')" />
+    <Compile Include="..\Scripts\DebugPanelEntityStyleSyncPolicy.cs" Link="DebugPanelEntityStyleSyncPolicy.cs" Condition="Exists('..\Scripts\DebugPanelEntityStyleSyncPolicy.cs')" />
+    <Compile Include="..\Scripts\DebugPanelSliderValueFormatter.cs" Link="DebugPanelSliderValueFormatter.cs" Condition="Exists('..\Scripts\DebugPanelSliderValueFormatter.cs')" />
+    <Compile Include="..\Scripts\DebugPanelLengthScalePolicy.cs" Link="DebugPanelLengthScalePolicy.cs" Condition="Exists('..\Scripts\DebugPanelLengthScalePolicy.cs')" />
+    <Compile Include="..\Scripts\PlayerRoleInfoPositionSyncPolicy.cs" Link="PlayerRoleInfoPositionSyncPolicy.cs" Condition="Exists('..\Scripts\PlayerRoleInfoPositionSyncPolicy.cs')" />
+    <Compile Include="..\Scripts\TextInventoryLayout.cs" Link="TextInventoryLayout.cs" Condition="Exists('..\Scripts\TextInventoryLayout.cs')" />
+    <Compile Include="..\Scripts\ItemIconCatalog.cs" Link="ItemIconCatalog.cs" Condition="Exists('..\Scripts\ItemIconCatalog.cs')" />
   </ItemGroup>
 </Project>
