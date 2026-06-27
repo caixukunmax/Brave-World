@@ -81,6 +81,8 @@ namespace ClinetCSharp
             _backpackDebugBorderCheck = CreateCheckRow(parent, "显示背包Debug边框", InventoryUI.DebugDrawItemBorder);
             _backpackShowDimensionsCheck = CreateCheckRow(parent, "显示道具占用像素", InventoryUI.DebugShowItemDimensions);
             (_backpackHoverCornerRadiusSlider, _backpackHoverCornerRadiusValue) = CreateSliderRow(parent, "悬停圆角(px)", 0, 16, InventoryUI.BackpackHoverCornerRadius, 1f);
+            (_backpackReorderDurationSlider, _backpackReorderDurationValue) =
+                CreateSliderRow(parent, "重排动画时长(s)", 0.0f, 0.5f, InventoryUI.BackpackReorderAnimationDuration, 0.01f);
             (_backpackHoverBorderWidthSlider, _backpackHoverBorderWidthValue) = CreateSliderRow(parent, "悬停边框宽(px)", 1, 4, InventoryUI.BackpackHoverBoxBorderWidth, 1f);
             BuildHoverColorRow(parent);
 
@@ -94,6 +96,7 @@ namespace ClinetCSharp
             _backpackDebugBorderCheck.Toggled += OnBackpackDebugBorderToggled;
             _backpackShowDimensionsCheck.Toggled += OnBackpackShowDimensionsToggled;
             _backpackHoverCornerRadiusSlider.ValueChanged += OnBackpackHoverCornerRadiusChanged;
+            _backpackReorderDurationSlider.ValueChanged += OnBackpackReorderDurationChanged;
             _backpackHoverBorderWidthSlider.ValueChanged += OnBackpackHoverBorderWidthChanged;
             _backpackHoverColorPicker.ColorChanged += OnBackpackHoverColorChanged;
         }
@@ -188,6 +191,13 @@ namespace ClinetCSharp
         {
             InventoryUI.BackpackHoverBoxBorderWidth = (int)value;
             _backpackHoverBorderWidthValue.Text = ((int)value).ToString();
+            ApplyInventorySettings();
+        }
+
+        private void OnBackpackReorderDurationChanged(double value)
+        {
+            InventoryUI.BackpackReorderAnimationDuration = (float)value;
+            _backpackReorderDurationValue.Text = value.ToString("F2");
             ApplyInventorySettings();
         }
 

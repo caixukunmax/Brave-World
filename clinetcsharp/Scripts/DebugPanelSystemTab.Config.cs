@@ -28,6 +28,7 @@ namespace ClinetCSharp
             cfg.SetValue("system_tab", "backpack_debug_border", InventoryUI.DebugDrawItemBorder);
             cfg.SetValue("system_tab", "backpack_show_item_dimensions", InventoryUI.DebugShowItemDimensions);
             cfg.SetValue("system_tab", "backpack_hover_corner_radius", InventoryUI.BackpackHoverCornerRadius);
+            cfg.SetValue("system_tab", "backpack_reorder_duration", InventoryUI.BackpackReorderAnimationDuration);
             cfg.SetValue("system_tab", "backpack_hover_border_width", InventoryUI.BackpackHoverBoxBorderWidth);
             cfg.SetValue("system_tab", "backpack_hover_box_color", InventoryUI.BackpackHoverBoxColor);
         }
@@ -89,6 +90,7 @@ namespace ClinetCSharp
             InventoryUI.DebugDrawItemBorder = (bool)cfg.GetValue("system_tab", "backpack_debug_border", true);
             InventoryUI.DebugShowItemDimensions = (bool)cfg.GetValue("system_tab", "backpack_show_item_dimensions", false);
             InventoryUI.BackpackHoverCornerRadius = (int)(double)cfg.GetValue("system_tab", "backpack_hover_corner_radius", 8.0);
+            InventoryUI.BackpackReorderAnimationDuration = (float)(double)cfg.GetValue("system_tab", "backpack_reorder_duration", 0.15);
             InventoryUI.BackpackHoverBoxBorderWidth = (int)(double)cfg.GetValue("system_tab", "backpack_hover_border_width", 2.0);
             InventoryUI.BackpackHoverBoxColor = (Color)cfg.GetValue("system_tab", "backpack_hover_box_color", Colors.White);
 
@@ -137,6 +139,11 @@ namespace ClinetCSharp
             _backpackHoverCornerRadiusSlider.Value = InventoryUI.BackpackHoverCornerRadius;
             _backpackHoverCornerRadiusSlider.SetBlockSignals(false);
             _backpackHoverCornerRadiusValue.Text = InventoryUI.BackpackHoverCornerRadius.ToString();
+
+            _backpackReorderDurationSlider.SetBlockSignals(true);
+            _backpackReorderDurationSlider.Value = InventoryUI.BackpackReorderAnimationDuration;
+            _backpackReorderDurationSlider.SetBlockSignals(false);
+            _backpackReorderDurationValue.Text = InventoryUI.BackpackReorderAnimationDuration.ToString("F2");
 
             _backpackHoverBorderWidthSlider.SetBlockSignals(true);
             _backpackHoverBorderWidthSlider.Value = InventoryUI.BackpackHoverBoxBorderWidth;
@@ -237,6 +244,11 @@ namespace ClinetCSharp
             _backpackHoverCornerRadiusSlider.Value = InventoryUI.BackpackHoverCornerRadius;
             _backpackHoverCornerRadiusSlider.SetBlockSignals(false);
             _backpackHoverCornerRadiusValue.Text = InventoryUI.BackpackHoverCornerRadius.ToString();
+
+            _backpackReorderDurationSlider.SetBlockSignals(true);
+            _backpackReorderDurationSlider.Value = InventoryUI.BackpackReorderAnimationDuration;
+            _backpackReorderDurationSlider.SetBlockSignals(false);
+            _backpackReorderDurationValue.Text = InventoryUI.BackpackReorderAnimationDuration.ToString("F2");
 
             _backpackHoverBorderWidthSlider.SetBlockSignals(true);
             _backpackHoverBorderWidthSlider.Value = InventoryUI.BackpackHoverBoxBorderWidth;

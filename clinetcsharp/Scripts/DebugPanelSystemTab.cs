@@ -47,6 +47,8 @@ namespace ClinetCSharp
         private HSlider _backpackHoverCornerRadiusSlider = null!;
         private Label _backpackHoverCornerRadiusValue = null!;
         private HSlider _backpackHoverBorderWidthSlider = null!;
+        private HSlider _backpackReorderDurationSlider = null!;
+        private Label _backpackReorderDurationValue = null!;
         private Label _backpackHoverBorderWidthValue = null!;
         private ColorPickerButton _backpackHoverColorPicker = null!;
 
@@ -81,6 +83,7 @@ namespace ClinetCSharp
             if (_backpackShowDimensionsCheck != null) _backpackShowDimensionsCheck.Toggled -= OnBackpackShowDimensionsToggled;
             if (_backpackHoverCornerRadiusSlider != null) _backpackHoverCornerRadiusSlider.ValueChanged -= OnBackpackHoverCornerRadiusChanged;
             if (_backpackHoverBorderWidthSlider != null) _backpackHoverBorderWidthSlider.ValueChanged -= OnBackpackHoverBorderWidthChanged;
+            if (_backpackReorderDurationSlider != null) _backpackReorderDurationSlider.ValueChanged -= OnBackpackReorderDurationChanged;
             if (_backpackHoverColorPicker != null) _backpackHoverColorPicker.ColorChanged -= OnBackpackHoverColorChanged;
         }
 
