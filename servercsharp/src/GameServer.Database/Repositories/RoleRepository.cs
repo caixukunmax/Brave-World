@@ -56,6 +56,13 @@ public class RoleRepository
         await _col.UpdateOneAsync(filter, update);
     }
 
+    public async Task UpdateInventoryOrder(long roleId, List<int> order)
+    {
+        var filter = Builders<Role>.Filter.Eq(r => r.RoleId, roleId);
+        var update = Builders<Role>.Update.Set(r => r.InventoryOrder, order);
+        await _col.UpdateOneAsync(filter, update);
+    }
+
     public async Task<bool> CheckNameExists(int serverId, string roleName)
     {
         var filter = Builders<Role>.Filter.And(
