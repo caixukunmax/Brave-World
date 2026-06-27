@@ -122,11 +122,6 @@ namespace ClinetCSharp
                 return;
             }
 
-            if (_dragTargetIndex >= 0 && _dragTargetIndex <= _items.Count)
-            {
-                float y = GetInsertY(_dragTargetIndex);
-                DrawLine(new Vector2(0, y), new Vector2(Size.X, y), Colors.Yellow, 2f);
-            }
         }
 
         private float GetInsertY(int index)
