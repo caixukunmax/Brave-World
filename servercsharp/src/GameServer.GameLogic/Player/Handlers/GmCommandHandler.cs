@@ -57,7 +57,14 @@ public class GmCommandHandler : IMessageHandler
             var (added, remaining) = InventoryHelper.CalculatePickupCapacity(dbItems, _tables, itemId, count);
 
             if (added > 0)
-                await _session.Inventory.AddItem(player.RoleId, itemId, added);
+            {
+                var isNew = await _session.Inventory.AddItem(player.RoleId, itemId, added);
+                if (isNew)
+                {
+                    InventoryOrderHelper.AppendItem(player.InventoryOrder, itemId);
+                    await _session.Roles.UpdateInventoryOrder(player.RoleId, player.InventoryOrder);
+                }
+            }
 
             string msg;
             if (remaining > 0)
@@ -78,6 +85,7 @@ public class GmCommandHandler : IMessageHandler
 
             int totalAdded = 0;
             int totalRemaining = 0;
+            var newItemIds = new List<int>();
             foreach (var itemId in testItemIds)
             {
                 var cfg = _tables.GetItem(itemId);
@@ -88,11 +96,20 @@ public class GmCommandHandler : IMessageHandler
                 var (added, remaining) = InventoryHelper.CalculatePickupCapacity(dbItems, _tables, itemId, count);
 
                 if (added > 0)
-                    await _session.Inventory.AddItem(player.RoleId, itemId, added);
+                {
+                    var isNew = await _session.Inventory.AddItem(player.RoleId, itemId, added);
+                    if (isNew)
+                        newItemIds.Add(itemId);
+                }
 
                 totalAdded += added;
                 totalRemaining += remaining;
             }
+
+            foreach (var itemId in newItemIds)
+                InventoryOrderHelper.AppendItem(player.InventoryOrder, itemId);
+            if (newItemIds.Count > 0)
+                await _session.Roles.UpdateInventoryOrder(player.RoleId, player.InventoryOrder);
 
             string msg = totalRemaining > 0
                 ? $"added {totalAdded} test items, {totalRemaining} remaining (inventory full)"

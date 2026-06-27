@@ -64,13 +64,14 @@ public class OpenChestHandler : IMessageHandler
         var rewards = RewardParser.Parse("");
         var dbItems = await _session.Inventory.GetByRole(roleId);
         var actualRewards = new List<(int itemId, int count)>();
+        var newItemIds = new List<int>();
 
         foreach (var reward in rewards)
         {
             var (added, remaining) = InventoryHelper.CalculatePickupCapacity(dbItems, _tables, reward.ItemId, reward.Count);
             if (added > 0)
             {
-                await _session.Inventory.AddItem(roleId, reward.ItemId, added);
+                var isNew = await _session.Inventory.AddItem(roleId, reward.ItemId, added);
                 actualRewards.Add((reward.ItemId, added));
 
                 // 更新内存中的聚合数据，供后续奖励计算更准确
@@ -79,8 +80,16 @@ public class OpenChestHandler : IMessageHandler
                     existing.Count += added;
                 else
                     dbItems.Add(new InventoryItem { RoleId = roleId, ItemId = reward.ItemId, Count = added });
+
+                if (isNew)
+                    newItemIds.Add(reward.ItemId);
             }
         }
+
+        foreach (var itemId in newItemIds)
+            InventoryOrderHelper.AppendItem(player.InventoryOrder, itemId);
+        if (newItemIds.Count > 0)
+            await _session.Roles.UpdateInventoryOrder(player.RoleId, player.InventoryOrder);
 
         await _session.Chests.MarkOpened(roleId, instanceId);
         _session.Logger.LogInformation("OpenChest: roleId={RoleId} instanceId={InstanceId} rewards={RewardCount}", roleId, instanceId, actualRewards.Count);

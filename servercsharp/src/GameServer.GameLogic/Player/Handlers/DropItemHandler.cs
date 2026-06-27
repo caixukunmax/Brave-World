@@ -1,4 +1,5 @@
 using GameServer.Common.Net;
+using GameServer.GameLogic.Inventory;
 using GameServer.Services.Core;
 using GameServer.Tables;
 using Google.Protobuf;
@@ -31,9 +32,16 @@ public class DropItemHandler : IMessageHandler
         if (itemId == 0 || count == 0)
             return MakeError(PCommon.ErrorCode.InvalidRequest);
 
-        var ok = await _session.Inventory.RemoveItem(player.RoleId, itemId, count);
-        if (!ok)
+        var (success, deleted) = await _session.Inventory.RemoveItem(player.RoleId, itemId, count);
+        if (!success)
             return new PGame.DropItemResponse { Code = PCommon.ErrorCode.NotFound, Message = "item not enough" }.ToByteArray();
+
+        // 若该 item_id 已完全移除，同步清理 inventory_order
+        if (deleted)
+        {
+            InventoryOrderHelper.RemoveItem(player.InventoryOrder, itemId);
+            await _session.Roles.UpdateInventoryOrder(player.RoleId, player.InventoryOrder);
+        }
 
         var rsp = new PGame.DropItemResponse { Code = PCommon.ErrorCode.Success, Message = "" };
         var items = await PlayerProtoMapper.BuildItemsProto(_session.Inventory, player, _tables);

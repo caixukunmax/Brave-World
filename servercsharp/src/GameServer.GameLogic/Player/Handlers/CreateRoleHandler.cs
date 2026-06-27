@@ -2,6 +2,7 @@ using GameServer.Common.Config;
 using GameServer.Common.Net;
 using GameServer.Common.Security;
 using GameServer.Database.Models;
+using GameServer.GameLogic.Inventory;
 using GameServer.Services.Core;
 using GameServer.Tables;
 using Google.Protobuf;
@@ -98,6 +99,10 @@ public class CreateRoleHandler : IMessageHandler
         var initItems = PlayerProtoMapper.ParseInitItems(GameConstants.InitItems);
         foreach (var item in initItems)
             await _session.Inventory.AddItem(roleId, item.ItemId, item.Count);
+
+        foreach (var item in initItems)
+            InventoryOrderHelper.AppendItem(roleData.InventoryOrder, item.ItemId);
+        await _session.Roles.UpdateInventoryOrder(roleData.RoleId, roleData.InventoryOrder);
 
         var rsp = new PGame.CreateRoleResponse
         {

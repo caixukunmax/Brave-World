@@ -1,5 +1,6 @@
 using GameServer.Common.Net;
 using GameServer.Database.Models;
+using GameServer.GameLogic.Inventory;
 using GameServer.Services.Core;
 using GameServer.Services.Map.Combat;
 using GameServer.Tables;
@@ -43,9 +44,16 @@ public class UseItemHandler : IMessageHandler
             return MakeError(PCommon.ErrorCode.NotFound, "item config not found");
 
         // 扣除物品
-        var ok = await _session.Inventory.RemoveItem(player.RoleId, itemId, count);
-        if (!ok)
+        var (success, deleted) = await _session.Inventory.RemoveItem(player.RoleId, itemId, count);
+        if (!success)
             return new PGame.UseItemResponse { Code = PCommon.ErrorCode.NotFound, Message = "item not enough" }.ToByteArray();
+
+        // 若该 item_id 已完全移除，同步清理 inventory_order
+        if (deleted)
+        {
+            InventoryOrderHelper.RemoveItem(player.InventoryOrder, itemId);
+            await _session.Roles.UpdateInventoryOrder(player.RoleId, player.InventoryOrder);
+        }
 
         // 执行物品效果
         ApplyItemEffect(player, itemCfg, count);

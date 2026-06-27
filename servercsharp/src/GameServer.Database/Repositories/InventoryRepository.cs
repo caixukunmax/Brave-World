@@ -17,7 +17,10 @@ public class InventoryRepository
         return await _col.Find(Builders<InventoryItem>.Filter.Eq(i => i.RoleId, roleId)).ToListAsync();
     }
 
-    public async Task AddItem(long roleId, int itemId, int count)
+    /// <summary>
+    /// 添加物品。返回 true 表示新插入了一条文档（此前该 item_id 不存在），false 表示更新了已有文档。
+    /// </summary>
+    public async Task<bool> AddItem(long roleId, int itemId, int count)
     {
         var filter = Builders<InventoryItem>.Filter.And(
             Builders<InventoryItem>.Filter.Eq(i => i.RoleId, roleId),
@@ -28,6 +31,7 @@ public class InventoryRepository
         {
             var newCount = existing.Count + count;
             await _col.UpdateOneAsync(filter, Builders<InventoryItem>.Update.Set(i => i.Count, newCount));
+            return false;
         }
         else
         {
@@ -37,22 +41,33 @@ public class InventoryRepository
                 ItemId = itemId,
                 Count = count,
             });
+            return true;
         }
     }
 
-    public async Task<bool> RemoveItem(long roleId, int itemId, int count)
+    /// <summary>
+    /// 移除物品。
+    /// Success：物品存在且数量足够扣除请求数量。
+    /// Deleted：扣除后数量归零，文档已被删除。
+    /// </summary>
+    public async Task<(bool Success, bool Deleted)> RemoveItem(long roleId, int itemId, int count)
     {
         var filter = Builders<InventoryItem>.Filter.And(
             Builders<InventoryItem>.Filter.Eq(i => i.RoleId, roleId),
             Builders<InventoryItem>.Filter.Eq(i => i.ItemId, itemId));
         var existing = await _col.Find(filter).FirstOrDefaultAsync();
-        if (existing == null) return false;
+        if (existing == null) return (false, false);
 
         var newCount = existing.Count - count;
         if (newCount <= 0)
+        {
             await _col.DeleteOneAsync(filter);
+            return (true, true);
+        }
         else
+        {
             await _col.UpdateOneAsync(filter, Builders<InventoryItem>.Update.Set(i => i.Count, newCount));
-        return true;
+            return (true, false);
+        }
     }
 }

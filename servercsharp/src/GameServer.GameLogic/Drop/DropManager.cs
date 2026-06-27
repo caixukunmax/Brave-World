@@ -136,6 +136,7 @@ public class DropManager : IDropService
 
         int added = 0;
         int remaining = drop.Count;
+        bool isNewItem = false;
 
         // 添加物品到背包（按容量部分拾取）
         if (_session.TryGetPlayer(playerId, out var role))
@@ -146,7 +147,14 @@ public class DropManager : IDropService
             remaining = rem;
 
             if (added > 0)
-                await _session.Inventory.AddItem(role.RoleId, drop.ItemId, added);
+            {
+                isNewItem = await _session.Inventory.AddItem(role.RoleId, drop.ItemId, added);
+                if (isNewItem)
+                {
+                    InventoryOrderHelper.AppendItem(role.InventoryOrder, drop.ItemId);
+                    await _session.Roles.UpdateInventoryOrder(role.RoleId, role.InventoryOrder);
+                }
+            }
         }
 
         // 只有实际放入物品时才移除掉落物
