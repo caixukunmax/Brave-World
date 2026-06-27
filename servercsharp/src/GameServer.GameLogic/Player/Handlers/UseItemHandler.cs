@@ -71,7 +71,7 @@ public class UseItemHandler : IMessageHandler
             (int)global::Protocol.MessageId.GameRoleAttrNotify, roleInfo.ToByteArray());
 
         var rsp = new PGame.UseItemResponse { Code = PCommon.ErrorCode.Success, Message = "" };
-        var items = await PlayerProtoMapper.BuildItemsProto(_session.Inventory, player.RoleId, _tables);
+        var items = await PlayerProtoMapper.BuildItemsProto(_session.Inventory, player, _tables);
         foreach (var item in items) rsp.Items.Add(item);
         return rsp.ToByteArray();
     }

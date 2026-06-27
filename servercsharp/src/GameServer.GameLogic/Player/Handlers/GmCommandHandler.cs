@@ -66,7 +66,7 @@ public class GmCommandHandler : IMessageHandler
                 msg = $"added {added}x {itemId}";
 
             var rsp = new PGame.GmCommandResponse { Code = PCommon.ErrorCode.Success, Message = msg };
-            var items = await PlayerProtoMapper.BuildItemsProto(_session.Inventory, player.RoleId, _tables);
+            var items = await PlayerProtoMapper.BuildItemsProto(_session.Inventory, player, _tables);
             foreach (var item in items) rsp.Items.Add(item);
             return rsp.ToByteArray();
         }
@@ -99,7 +99,7 @@ public class GmCommandHandler : IMessageHandler
                 : $"added {totalAdded} test items";
 
             var rsp = new PGame.GmCommandResponse { Code = PCommon.ErrorCode.Success, Message = msg };
-            var items = await PlayerProtoMapper.BuildItemsProto(_session.Inventory, player.RoleId, _tables);
+            var items = await PlayerProtoMapper.BuildItemsProto(_session.Inventory, player, _tables);
             foreach (var item in items) rsp.Items.Add(item);
             return rsp.ToByteArray();
         }

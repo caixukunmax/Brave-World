@@ -49,6 +49,15 @@ public static class InventoryHelper
     }
 
     /// <summary>
+    /// 将数据库聚合数据转换为 Protobuf ItemInfo 列表（先按 order 排序，再按 max_pile_num 拆分）。
+    /// </summary>
+    public static List<PGame.ItemInfo> BuildItemsProto(List<InventoryItem> dbItems, LubanTableLoader tables, List<int> order)
+    {
+        var orderedItems = InventoryOrderHelper.ApplyOrder(dbItems, order);
+        return BuildItemsProto(orderedItems, tables);
+    }
+
+    /// <summary>
     /// 从仓库读取并转换。
     /// </summary>
     public static async Task<List<PGame.ItemInfo>> BuildItemsProto(InventoryRepository inventory, long roleId, LubanTableLoader tables)

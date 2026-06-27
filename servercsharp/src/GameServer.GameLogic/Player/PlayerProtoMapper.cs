@@ -56,10 +56,10 @@ public static class PlayerProtoMapper
         return info;
     }
 
-    public static async Task<List<PGame.ItemInfo>> BuildItemsProto(InventoryRepository inventory, long roleId, LubanTableLoader tables)
+    public static async Task<List<PGame.ItemInfo>> BuildItemsProto(InventoryRepository inventory, Role role, LubanTableLoader tables)
     {
-        var dbItems = await inventory.GetByRole(roleId);
-        return InventoryHelper.BuildItemsProto(dbItems, tables);
+        var dbItems = await inventory.GetByRole(role.RoleId);
+        return InventoryHelper.BuildItemsProto(dbItems, tables, role.InventoryOrder);
     }
 
     public static async Task<PGame.ChestInfo> BuildChestsProto(long roleId, int mapId)

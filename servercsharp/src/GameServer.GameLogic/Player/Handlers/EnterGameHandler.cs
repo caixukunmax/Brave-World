@@ -111,7 +111,7 @@ public class EnterGameHandler : IMessageHandler
         };
         rsp.RoleInfo = PlayerProtoMapper.BuildRoleInfo(role, now);
 
-        var items = await PlayerProtoMapper.BuildItemsProto(_session.Inventory, roleId, _tables);
+        var items = await PlayerProtoMapper.BuildItemsProto(_session.Inventory, role, _tables);
         foreach (var item in items)
             rsp.Items.Add(item);
 
