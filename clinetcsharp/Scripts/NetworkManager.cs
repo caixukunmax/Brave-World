@@ -51,6 +51,7 @@ namespace ClinetCSharp
         public event Action<Game.GmCommandResponse> GmResponse;
         public event Action<Game.UseItemResponse> UseItemResponse;
         public event Action<Game.DropItemResponse> DropItemResponse;
+        public event Action<Game.InventoryReorderResponse> InventoryReorderResponse;
         public event Action<Game.PlayerDeathNotify> PlayerDeathNotify;
         public event Action<Game.EquipSkillResponse> EquipSkillResponse;
         public event Action<Game.UnequipSkillResponse> UnequipSkillResponse;

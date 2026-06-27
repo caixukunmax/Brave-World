@@ -127,6 +127,9 @@ namespace ClinetCSharp
                     case MessageId.GameDropItemRsp:
                         HandleDropItemResponse(data);
                         break;
+                    case MessageId.GameInventoryReorderRsp:
+                        HandleInventoryReorderResponse(data);
+                        break;
                     case MessageId.GameGmRsp:
                         HandleGmResponse(data);
                         break;
@@ -154,6 +157,12 @@ namespace ClinetCSharp
             {
                 GD.PushError($"[NetworkManager] DispatchMessage failed for msgId={msgId}: {e.Message}");
             }
+        }
+
+        private void HandleInventoryReorderResponse(ByteString data)
+        {
+            var rsp = Game.InventoryReorderResponse.Parser.ParseFrom(data);
+            InventoryReorderResponse?.Invoke(rsp);
         }
     }
 }
