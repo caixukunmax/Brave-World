@@ -73,6 +73,8 @@ namespace ClinetCSharp
                 ShowDimensionTooltip();
             else if (what == NotificationMouseExit)
                 HideDimensionTooltip();
+            else if (what == NotificationDragEnd)
+                Modulate = new Color(1, 1, 1, 1f);
         }
 
         public override void _Draw()
@@ -200,6 +202,7 @@ namespace ClinetCSharp
         public override Variant _GetDragData(Vector2 atPosition)
         {
             SetDragPreview(CreateDragPreview());
+            Modulate = new Color(1, 1, 1, 0.5f);
             return this;
         }
 

@@ -24,6 +24,7 @@ namespace ClinetCSharp
         public static int BackpackHoverCornerRadius { get; set; } = 8;
         public static int BackpackHoverBoxBorderWidth { get; set; } = 2;
         public static Color BackpackHoverBoxColor { get; set; } = Colors.White;
+        public static float BackpackReorderAnimationDuration { get; set; } = 0.15f;
 
         protected override void OnPanelInitialized()
         {
