@@ -28,5 +28,10 @@
     "name": "learnskill",
     "description": "学习技能",
     "param_hint": "skillid"
+  },
+  {
+    "name": "addtestitems",
+    "description": "添加测试道具",
+    "param_hint": "数量"
   }
 ]

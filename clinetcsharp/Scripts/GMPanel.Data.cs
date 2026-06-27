@@ -107,6 +107,7 @@ namespace ClinetCSharp
             AddCommandData(itemGroup, "矿石x10", "additem,1002,10");
             AddCommandData(itemGroup, "矿石x100", "additem,1002,100");
             AddCommandData(itemGroup, "金币券x1", "additem,2001,1");
+            AddCommandData(itemGroup, "测试道具x10", "addtestitems,10");
 
             var moveGroup = AddGroupData("移动");
             AddCommandData(moveGroup, "回出生点", "teleport,25,25");
