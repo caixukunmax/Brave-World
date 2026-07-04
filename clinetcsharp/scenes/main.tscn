@@ -1,4 +1,4 @@
-[gd_scene load_steps=23 format=3]
+[gd_scene load_steps=24 format=3]
 
 [ext_resource type="Script" path="res://Scripts/GridManager.cs" id="1_grid"]
 [ext_resource type="Script" path="res://Scripts/Player.cs" id="2_player"]
@@ -22,6 +22,7 @@
 [ext_resource type="PackedScene" path="res://scenes/skill_bar.tscn" id="21_skillbar"]
 [ext_resource type="Script" path="res://Scripts/FunctionButtonBar.cs" id="22_fnbar"]
 [ext_resource type="PackedScene" path="res://scenes/buff_bar.tscn" id="23_buffbar"]
+[ext_resource type="Script" path="res://Scripts/MapDecorationManager.cs" id="24_decmgr"]
 
 [node name="Main" type="Node2D"]
 
@@ -37,6 +38,9 @@ mouse_filter = 2
 [node name="GridManager" type="Node2D" parent="." groups=["grid_manager"]]
 script = ExtResource("1_grid")
 grid_size = 111
+
+[node name="MapDecorationManager" type="Node" parent="." groups=["map_decoration_manager"]]
+script = ExtResource("24_decmgr")
 
 [node name="Player" type="Node2D" parent="." groups=["player"]]
 script = ExtResource("2_player")

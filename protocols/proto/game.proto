@@ -696,6 +696,7 @@ message TileInfo {
   int32 x = 1;                // 格子 X
   int32 y = 2;                // 格子 Y
   int32 terrain_type = 3;     // 地形类型 (0=普通, 1=水域...)
+  int32 decoration_type = 4;  // 装饰类型 (0=无, 1=房舍...)
 }
 
 /**

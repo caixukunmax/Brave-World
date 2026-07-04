@@ -88,6 +88,7 @@ public class MapDataProvider
     public void LoadMap(string mapName, int offsetX, int offsetY, int width, int height, string[] cells)
     {
         var terrainType = new int[width, height];
+        var decorationType = new int[width, height];
         for (int y = 0; y < height; y++)
         {
             for (int x = 0; x < width; x++)
@@ -100,10 +101,11 @@ public class MapDataProvider
                         ? null
                         : System.Text.Json.JsonSerializer.Deserialize<MapCellJson>(cellJson);
                     terrainType[x, y] = cell?.terrain ?? 0;
+                    decorationType[x, y] = cell?.decoration ?? 0;
                 }
             }
         }
-        _maps[mapName] = new MapData(mapName, offsetX, offsetY, width, height, terrainType);
+        _maps[mapName] = new MapData(mapName, offsetX, offsetY, width, height, terrainType, decorationType);
     }
 
     /// <summary>解析 map.json 文件，返回扁平化 cell JSON 字符串数组</summary>
@@ -173,9 +175,31 @@ public class MapDataProvider
         int localX = x - map.OffsetX;
         int localY = y - map.OffsetY;
         if (localX < 0 || localX >= map.Width || localY < 0 || localY >= map.Height) return false;
+
+        // 装饰摆件阻塞检查（房舍=1 阻塞移动）
+        if (IsBlockedByDecoration(map, localX, localY))
+            return false;
+
         int terrain = map.TerrainType[localX, localY];
         var cfg = _tables?.TerrainConfigs.GetValueOrDefault(terrain);
         return cfg?.Walkable ?? true;
+    }
+
+    public bool IsBlockedByDecoration(string mapName, int x, int y)
+    {
+        mapName = ResolveMapName(mapName);
+        if (!_maps.TryGetValue(mapName, out var map)) return false;
+        int localX = x - map.OffsetX;
+        int localY = y - map.OffsetY;
+        if (localX < 0 || localX >= map.Width || localY < 0 || localY >= map.Height) return false;
+        return IsBlockedByDecoration(map, localX, localY);
+    }
+
+    private static bool IsBlockedByDecoration(MapData map, int localX, int localY)
+    {
+        int decoration = map.DecorationType[localX, localY];
+        // 一期硬编码：1=房舍 阻塞移动
+        return decoration == 1;
     }
 
     public int GetTerrainType(string mapName, int x, int y)
@@ -186,6 +210,30 @@ public class MapDataProvider
         int localY = y - map.OffsetY;
         if (localX < 0 || localX >= map.Width || localY < 0 || localY >= map.Height) return 0;
         return map.TerrainType[localX, localY];
+    }
+
+    public int GetDecorationType(string mapName, int x, int y)
+    {
+        mapName = ResolveMapName(mapName);
+        if (!_maps.TryGetValue(mapName, out var map)) return 0;
+        int localX = x - map.OffsetX;
+        int localY = y - map.OffsetY;
+        if (localX < 0 || localX >= map.Width || localY < 0 || localY >= map.Height) return 0;
+        return map.DecorationType[localX, localY];
+    }
+
+    /// <summary>获取地图装饰数据（用于进入/切地图时同步给客户端）</summary>
+    public (int width, int height, int[,] decorationTypes)? GetMapDecorationData(string mapName)
+    {
+        mapName = ResolveMapName(mapName);
+        if (!_maps.TryGetValue(mapName, out var map)) return null;
+
+        var decorationTypes = new int[map.Width, map.Height];
+        for (int x = 0; x < map.Width; x++)
+            for (int y = 0; y < map.Height; y++)
+                decorationTypes[x, y] = map.DecorationType[x, y];
+
+        return (map.Width, map.Height, decorationTypes);
     }
 
     public (int x, int y)? FindNearestWalkable(string mapName, int x, int y, int maxRadius = 10)
@@ -231,7 +279,7 @@ public class MapDataProvider
 
     public Dictionary<string, MapRegistryEntry> GetAllRegistryEntries() => _registry;
 
-    public record MapData(string Name, int OffsetX, int OffsetY, int Width, int Height, int[,] TerrainType);
+    public record MapData(string Name, int OffsetX, int OffsetY, int Width, int Height, int[,] TerrainType, int[,] DecorationType);
 }
 
 /// <summary>map_registry.json 中的条目</summary>
@@ -274,4 +322,5 @@ public class MapCellJson
     public int terrain { get; set; }
     public int height { get; set; }
     public string? custom { get; set; }
+    public int decoration { get; set; }
 }

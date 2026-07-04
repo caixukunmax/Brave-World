@@ -34,6 +34,9 @@ namespace ClinetCSharp
             TerrainConfig = TerrainConfigUtil.Get(TerrainType);
         }
 
+        // 装饰类型: 0=无, 1=房舍, 后续扩展
+        public int DecorationType { get; set; } = 0;
+
         // 扩展数据
         public string CustomData { get; set; } = "";    // 自定义数据字符串 (可用于标记特殊属性)
 
@@ -56,7 +59,7 @@ namespace ClinetCSharp
         /// </summary>
         public Dictionary ToDict()
         {
-            return new Dictionary
+            var dict = new Dictionary
             {
                 ["x"] = Pos.X,
                 ["y"] = Pos.Y,
@@ -64,6 +67,9 @@ namespace ClinetCSharp
                 ["height"] = Height,
                 ["custom"] = CustomData
             };
+            if (DecorationType != 0)
+                dict["decoration"] = DecorationType;
+            return dict;
         }
 
         /// <summary>
@@ -83,6 +89,8 @@ namespace ClinetCSharp
                 Height = (int)dict["height"];
             if (dict.ContainsKey("custom"))
                 CustomData = (string)dict["custom"];
+            if (dict.ContainsKey("decoration"))
+                DecorationType = (int)dict["decoration"];
 
             RefreshTerrainConfig();
         }
@@ -171,6 +179,7 @@ namespace ClinetCSharp
         {
             other.TerrainType = TerrainType;
             other.Height = Height;
+            other.DecorationType = DecorationType;
             other.CustomData = CustomData;
             other.TerrainConfig = TerrainConfig;
             // 注意：不复制 Uid，UID 是格子的唯一身份标识

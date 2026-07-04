@@ -130,13 +130,15 @@ public class ChangeMapHandler : IMessageHandler
                 for (int x = 0; x < width; x++)
                 {
                     int terrain = terrainTypes[x, y];
-                    if (terrain != 0)
+                    int decoration = _session.MapService.GetDecorationType(targetMap, x, y);
+                    if (terrain != 0 || decoration != 0)
                     {
                         notify.Tiles.Add(new PGame.TileInfo
                         {
                             X = x,
                             Y = y,
                             TerrainType = terrain,
+                            DecorationType = decoration,
                         });
                     }
                 }

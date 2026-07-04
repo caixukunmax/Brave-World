@@ -48,16 +48,22 @@ namespace ClinetCSharp
                 foreach (var tile in notify.Tiles)
                 {
                     var cell = gridMgr.GetCell(new Vector2I((int)tile.X, (int)tile.Y));
-                    if (cell != null && cell.TerrainType != tile.TerrainType)
+                    if (cell == null) continue;
+
+                    if (cell.TerrainType != tile.TerrainType)
                     {
                         cell.TerrainType = (int)tile.TerrainType;
                         cell.RefreshTerrainConfig();
+                    }
+                    if (cell.DecorationType != tile.DecorationType)
+                    {
+                        cell.DecorationType = (int)tile.DecorationType;
                     }
                 }
                 GD.Print($"[MapManager] Synced {notify.Tiles.Count} terrain tiles from server");
                 gridMgr.QueueRedraw();
             }
-            
+
             SpawnMapEntities();
         }
 
@@ -141,6 +147,15 @@ namespace ClinetCSharp
             {
                 dropMgr.OnMapInfoSyncDrops(nm.Drops);
                 GD.Print($"[MapManager] Spawned {nm.Drops.Count} drops");
+            }
+
+            // 生成装饰摆件
+            var decMgr = GetTree()?.GetFirstNodeInGroup("map_decoration_manager") as MapDecorationManager;
+            if (decMgr != null && gridMgr != null)
+            {
+                decMgr.GridSize = gridSize;
+                decMgr.SpawnDecorations(gridMgr.GridData);
+                GD.Print("[MapManager] Spawned decorations from grid data");
             }
         }
 

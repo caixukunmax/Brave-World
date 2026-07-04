@@ -308,6 +308,18 @@ namespace ClinetCSharp
             }
 
             UpdateTerrainMask();
+            SyncDecorations();
+        }
+
+        /// <summary>
+        /// 通知 MapDecorationManager 根据当前 GridData 刷新装饰摆件。
+        /// </summary>
+        public void SyncDecorations()
+        {
+            var decMgr = GetTree()?.GetFirstNodeInGroup("map_decoration_manager") as MapDecorationManager;
+            if (decMgr == null) return;
+            decMgr.GridSize = GridSize;
+            decMgr.SpawnDecorations(GridData);
         }
 
         private void CreateDefaultGridData()
@@ -547,6 +559,14 @@ namespace ClinetCSharp
                 return false;
             }
             var cell = GridData[gridPos];
+            if (cell.DecorationType != 0 && DecorationConfigUtil.BlocksMovement(cell.DecorationType))
+            {
+#if DEBUG
+                GD.Print($"[IsWalkable] {gridPos} 被装饰摆件阻挡: decoration={cell.DecorationType}");
+#endif
+                return false;
+            }
+
             var walkable = cell.TerrainConfig?.Walkable ?? true;
 #if DEBUG
             if (!walkable)
@@ -1171,6 +1191,7 @@ namespace ClinetCSharp
                 _gridShaderOverlay?.UpdateTerrainMask(null, 0, 0);
                 UpdateTerrainMask();
                 SyncBackgroundSize();
+                SyncDecorations();
                 QueueRedraw();
                 var afterStats = GetTerrainStats();
                 #if DEBUG

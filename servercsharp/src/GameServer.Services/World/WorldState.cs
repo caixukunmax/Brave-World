@@ -116,6 +116,12 @@ public class WorldState : IWorldState
     public int GetTerrainType(string mapName, int x, int y)
         => _mapData.GetTerrainType(mapName, x, y);
 
+    public int GetDecorationType(string mapName, int x, int y)
+        => _mapData.GetDecorationType(mapName, x, y);
+
+    public (int width, int height, int[,] decorationTypes)? GetMapDecorationData(string mapName)
+        => _mapData.GetMapDecorationData(mapName);
+
     public bool IsOccupied(string mapName, int x, int y)
     {
         if (!_maps.TryGetValue(mapName, out var map)) return false;

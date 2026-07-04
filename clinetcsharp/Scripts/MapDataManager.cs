@@ -18,7 +18,12 @@ namespace ClinetCSharp
         /// <summary>
         /// 当前地图数据格式版本号。
         /// </summary>
-        public const int CurrentMapVersion = 2;
+        public const int CurrentMapVersion = 3;
+
+        /// <summary>
+        /// 最小支持的地图数据格式版本号。
+        /// </summary>
+        public const int MinSupportedMapVersion = 2;
 
         /// <summary>
         /// 创建默认地图数据 (50x50, 全部为普通地形)，返回稀疏字典。
@@ -118,10 +123,14 @@ namespace ClinetCSharp
             }
 
             int version = root.GetValueOrDefault("version", 0).AsInt32();
+            if (version < MinSupportedMapVersion)
+            {
+                GD.PushError($"地图 JSON 版本过低: {jsonPath}, version={version}, expected>={MinSupportedMapVersion}");
+                return new System.Collections.Generic.Dictionary<Vector2I, GridCell>();
+            }
             if (version < CurrentMapVersion)
             {
-                GD.PushError($"地图 JSON 版本过低: {jsonPath}, version={version}, expected>={CurrentMapVersion}");
-                return new System.Collections.Generic.Dictionary<Vector2I, GridCell>();
+                GD.Print($"[MapDataManager] 地图 JSON 版本较旧，将自动兼容: {jsonPath}, version={version}");
             }
 
             displayName = root.GetValueOrDefault("display_name", mapName).AsString();
@@ -168,6 +177,7 @@ namespace ClinetCSharp
                     cell.Uid = uid;
                     cell.TerrainType = cellDict.GetValueOrDefault("terrain", 0).AsInt32();
                     cell.Height = cellDict.GetValueOrDefault("height", 0).AsInt32();
+                    cell.DecorationType = cellDict.GetValueOrDefault("decoration", 0).AsInt32();
                     cell.CustomData = cellDict.GetValueOrDefault("custom", "").AsString();
                     cell.RefreshTerrainConfig();
 
@@ -281,6 +291,8 @@ namespace ClinetCSharp
                     ["height"] = cell.Height,
                     ["custom"] = cell.CustomData ?? ""
                 };
+                if (cell.DecorationType != 0)
+                    cellDict["decoration"] = cell.DecorationType;
                 cells[cell.Uid] = cellDict;
             }
 
@@ -495,10 +507,10 @@ namespace ClinetCSharp
             }
 
             int version = root.GetValueOrDefault("version", 0).AsInt32();
-            if (version < CurrentMapVersion)
+            if (version < MinSupportedMapVersion)
             {
                 result["valid"] = false;
-                ((Array)result["errors"]).Add($"版本过低: {version}, 需要 >= {CurrentMapVersion}");
+                ((Array)result["errors"]).Add($"版本过低: {version}, 需要 >= {MinSupportedMapVersion}");
             }
 
             if (!root.ContainsKey("cells"))
