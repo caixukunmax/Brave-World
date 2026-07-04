@@ -281,18 +281,24 @@ namespace ClinetCSharp
                 GridData = loadedData;
                 MapBounds = loadedBounds;
                 RecalculateMapBounds();
-                GD.Print($"[GridManager] 加载地图: {CurrentMapName} 格子数={GridData.Count}, bounds={MapBounds}");
+            #if DEBUG
+            GD.Print($"[GridManager] 加载地图: {CurrentMapName} 格子数={GridData.Count}, bounds={MapBounds}");
+            #endif
             }
             else if (FileAccess.FileExists(MapDataManager.MapsFolder + CurrentMapName + "/" + MapDataManager.JsonFilename))
             {
                 // JSON 存在但 cells 为空：保持声明的 bounds
                 MapBounds = loadedBounds;
+                #if DEBUG
                 GD.Print($"[GridManager] 加载地图: {CurrentMapName} 格子数=0, bounds={MapBounds}");
+                #endif
             }
             else
             {
                 // 创建默认地图
-                GD.Print("[GridManager] 创建默认地图数据");
+                #if DEBUG
+            GD.Print("[GridManager] 创建默认地图数据");
+            #endif
                 CreateDefaultGridData();
                 // 保存默认地图
                 if (!MapDataManager.MapExists(CurrentMapName))
@@ -603,7 +609,9 @@ namespace ClinetCSharp
 
             if (newGridSize != GridSize)
             {
-                GD.Print($"[GridManager] 响应式调整: 视口={viewportSize}, 新格子大小={newGridSize}");
+            #if DEBUG
+            GD.Print($"[GridManager] 响应式调整: 视口={viewportSize}, 新格子大小={newGridSize}");
+            #endif
                 SetGridSize(newGridSize);
 
                 // 调整相机确保覆盖目标格子数
@@ -828,7 +836,9 @@ namespace ClinetCSharp
             }
 
             GridSize = newSize;
+#if DEBUG
             GD.Print($"[GridManager] GridSize set to: {GridSize}");
+#endif
             QueueRedraw();
 
             // 作为单一数据源，自动同步玩家、怪物和NPC
@@ -904,7 +914,9 @@ namespace ClinetCSharp
         {
             if (_gridShaderOverlay == null || GridData.Count == 0)
             {
+#if DEBUG
                 GD.Print($"[GridManager] UpdateTerrainMask: 跳过, _gridShaderOverlay=null?{_gridShaderOverlay==null}, GridData.Count={GridData.Count}");
+#endif
                 return;
             }
 
@@ -983,7 +995,9 @@ namespace ClinetCSharp
             }
             _gridShaderOverlay.UpdateTerrainMask(_terrainMaskTexture, bounds.Size.X, bounds.Size.Y);
             _gridShaderOverlay.UpdateOutsideMapColor(ShowOutsideMapGray ? OutsideMapColor : Colors.Transparent);
+#if DEBUG
             GD.Print($"[GridManager] UpdateTerrainMask: 已更新 terrain_mask {bounds.Size.X}x{bounds.Size.Y}, bounds={bounds}");
+#endif
         }
 
         public void SetShowGridCoords(bool show)
@@ -1078,7 +1092,9 @@ namespace ClinetCSharp
                 return Error.AlreadyExists;
             }
 
+#if DEBUG
             GD.Print($"[GridManager.ExtendMap] 实际新增 {addedCount} 个格子");
+#endif
             RecalculateMapBounds();
             SaveMapBoundsToConfig();
             SaveCurrentMap();
@@ -1090,7 +1106,9 @@ namespace ClinetCSharp
             SyncBackgroundSize();
             QueueRedraw();
 
+#if DEBUG
             GD.Print($"[GridManager.ExtendMap] 已新增 {addedCount} 个格子, 当前格子数={GridData.Count}, bounds={MapBounds}");
+#endif
             return Error.Ok;
         }
 
@@ -1105,7 +1123,9 @@ namespace ClinetCSharp
                 return Error.InvalidParameter;
             }
 
+#if DEBUG
             GD.Print($"[GridManager.ExtendMap] 当前格子数={GridData.Count}, 选区={selectionBounds}");
+#endif
 
             var cells = new List<Vector2I>();
             for (int y = selectionBounds.Position.Y; y < selectionBounds.Position.Y + selectionBounds.Size.Y; y++)
@@ -1126,13 +1146,19 @@ namespace ClinetCSharp
 
         public bool LoadMap(string mapName)
         {
+#if DEBUG
             GD.Print($"[GridManager] LoadMap: 请求加载 '{mapName}'");
+#endif
             // 诊断：替换前统计 terrain 分布
             var beforeStats = GetTerrainStats();
+#if DEBUG
             GD.Print($"[GridManager] LoadMap: 替换前 terrain 分布={beforeStats}");
+#endif
 
             var loadedData = MapDataManager.LoadMapFromJson(mapName, out var loadedBounds, out _, out _);
+#if DEBUG
             GD.Print($"[GridManager] LoadMap: loadedData.Count={loadedData.Count}");
+#endif
             if (loadedData.Count > 0 || FileAccess.FileExists(MapDataManager.MapsFolder + mapName + "/" + MapDataManager.JsonFilename))
             {
                 GridData = loadedData;
@@ -1147,7 +1173,9 @@ namespace ClinetCSharp
                 SyncBackgroundSize();
                 QueueRedraw();
                 var afterStats = GetTerrainStats();
-                GD.Print($"[GridManager] LoadMap: 成功加载 '{mapName}' 格子数={GridData.Count}, bounds={MapBounds}, 替换后 terrain 分布={afterStats}");
+                #if DEBUG
+            GD.Print($"[GridManager] LoadMap: 成功加载 '{mapName}' 格子数={GridData.Count}, bounds={MapBounds}, 替换后 terrain 分布={afterStats}");
+            #endif
                 return true;
             }
             GD.PrintErr($"[GridManager] LoadMap: 地图 '{mapName}' 不存在");

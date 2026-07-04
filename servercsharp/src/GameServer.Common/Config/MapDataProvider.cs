@@ -24,7 +24,9 @@ public class MapDataProvider
         var registryPath = Path.Combine(dataDir, "map_registry.json");
         if (!File.Exists(registryPath))
         {
+#if DEBUG
             Console.WriteLine($"[MapDataProvider] map_registry.json not found: {registryPath}");
+#endif
             return 0;
         }
 
@@ -40,7 +42,9 @@ public class MapDataProvider
             var jsonPath = Path.Combine(dataDir, "maps", entry.map_name, "map.json");
             if (!File.Exists(jsonPath))
             {
+#if DEBUG
                 Console.WriteLine($"[MapDataProvider] JSON not found: {jsonPath}, skipping {entry.map_name}");
+#endif
                 continue;
             }
 
@@ -48,7 +52,9 @@ public class MapDataProvider
             if (cells == null) continue;
 
             LoadMap(entry.map_name, offsetX, offsetY, width, height, cells);
+#if DEBUG
             Console.WriteLine($"[MapDataProvider] Loaded: {entry.map_name} ({width}x{height}) offset=({offsetX},{offsetY}) spawn=({entry.spawn_x},{entry.spawn_y})");
+#endif
             loaded++;
         }
 
@@ -114,7 +120,9 @@ public class MapDataProvider
 
         if (doc.version < 2)
         {
+#if DEBUG
             Console.WriteLine($"[MapDataProvider] 地图 JSON 版本过低: {jsonPath}, version={doc.version}");
+#endif
             return null;
         }
 
@@ -125,7 +133,9 @@ public class MapDataProvider
 
         if (width <= 0 || height <= 0)
         {
+#if DEBUG
             Console.WriteLine($"[MapDataProvider] 地图边界无效: {jsonPath}");
+#endif
             return null;
         }
 

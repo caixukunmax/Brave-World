@@ -101,7 +101,7 @@ public class DealDamageAction : ICombatAction
     }
 
     /// <summary>获取实体的 buff 属性修正值</summary>
-    private static int GetBuffAttrModifier(long entityId, string attrName, Dictionary<string, MapState>? maps, CombatManager? combatManager = null)
+    internal static int GetBuffAttrModifier(long entityId, string attrName, Dictionary<string, MapState>? maps, CombatManager? combatManager = null)
     {
         if (maps == null) return 0;
         foreach (var map in maps.Values)

@@ -28,7 +28,7 @@ public class HealAction : ICombatAction
 
         foreach (var targetId in targets)
         {
-            var (healAmount, htype) = CalcHeal(casterId, targetId, healType, coefficient, context.Maps);
+            var (healAmount, htype) = CalcHeal(casterId, targetId, healType, coefficient, context.Maps, context.CombatManager);
 
             var combatId = context.CombatManager?.GetCombatId(casterId) ?? 0;
             var cmLogger = context.CombatManager?.Logger;
@@ -57,22 +57,28 @@ public class HealAction : ICombatAction
     }
 
     private static (int healAmount, string healType) CalcHeal(long casterId, long targetId,
-        string healType, double coefficient, Dictionary<string, MapState>? maps)
+        string healType, double coefficient, Dictionary<string, MapState>? maps, CombatManager? combatManager = null)
     {
         int baseHeal = 10;
+
+        // 获取施法者的 buff 属性修正（治疗加成）
+        int casterBuffHeal = DealDamageAction.GetBuffAttrModifier(casterId, "heal", maps, combatManager);
+        int casterBuffHealPct = DealDamageAction.GetBuffAttrModifier(casterId, "heal_pct", maps, combatManager);
 
         if (healType == "physical")
         {
             int patk = DealDamageAction.GetEntityAttr(casterId, "patk", maps) ?? 10;
-            baseHeal = patk;
+            baseHeal = patk + casterBuffHeal;
         }
         else
         {
             int matk = DealDamageAction.GetEntityAttr(casterId, "matk", maps) ?? 10;
-            baseHeal = matk;
+            baseHeal = matk + casterBuffHeal;
         }
 
         int healAmount = (int)Math.Floor(baseHeal * coefficient);
+        // 应用百分比治疗加成
+        healAmount = (int)Math.Floor(healAmount * (1 + casterBuffHealPct / 100.0));
         if (healAmount < 1) healAmount = 1;
 
         return (healAmount, healType);
