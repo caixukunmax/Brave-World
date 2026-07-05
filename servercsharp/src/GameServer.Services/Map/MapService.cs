@@ -48,6 +48,8 @@ public class MapService
             ServerId = snapshot.ServerId,
             GridX = snapshot.GridX,
             GridY = snapshot.GridY,
+            SizeX = snapshot.SizeX > 0 ? snapshot.SizeX : 1,
+            SizeY = snapshot.SizeY > 0 ? snapshot.SizeY : 1,
             Level = snapshot.Level,
             Hp = snapshot.Hp,
             MaxHp = snapshot.MaxHp,
@@ -80,7 +82,7 @@ public class MapService
     // ---- 怪物 ----
 
     public void MonsterEnter(long instanceId, int monsterId, string mapName, string name, int x, int y,
-        int hp, int maxHp, int level, int patk, int matk, int pdef, int mdef)
+        int hp, int maxHp, int level, int patk, int matk, int pdef, int mdef, int sizeX = 1, int sizeY = 1)
     {
         _worldState.MonsterEnter(mapName, new MapMonsterState
         {
@@ -89,6 +91,8 @@ public class MapService
             Name = name,
             X = x,
             Y = y,
+            SizeX = sizeX > 0 ? sizeX : 1,
+            SizeY = sizeY > 0 ? sizeY : 1,
             Hp = hp,
             MaxHp = maxHp,
             Level = level,
@@ -125,6 +129,8 @@ public class MapService
 
     public bool IsWalkable(string mapName, int x, int y) => _worldState.IsWalkable(mapName, x, y);
     public (int x, int y)? FindNearestWalkable(string mapName, int x, int y) => _worldState.FindNearestWalkable(mapName, x, y);
+    public (int x, int y)? FindNearestWalkableForFootprint(string mapName, int x, int y, int sizeX, int sizeY)
+        => _worldState.FindNearestWalkableForFootprint(mapName, x, y, sizeX, sizeY);
     public bool IsOccupied(string mapName, int x, int y) => _worldState.IsOccupied(mapName, x, y);
     public int GetTerrainType(string mapName, int x, int y) => _worldState.GetTerrainType(mapName, x, y);
     public int GetDecorationType(string mapName, int x, int y) => _worldState.GetDecorationType(mapName, x, y);
@@ -369,6 +375,8 @@ public class PlayerSnapshot
     public int ServerId { get; set; }
     public int GridX { get; set; }
     public int GridY { get; set; }
+    public int SizeX { get; set; } = 1;
+    public int SizeY { get; set; } = 1;
     public int Level { get; set; }
     public string CurrentMap { get; set; } = "xinshoucun";
     public int Hp { get; set; }

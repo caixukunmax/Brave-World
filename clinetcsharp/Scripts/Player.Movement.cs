@@ -23,7 +23,7 @@ namespace ClinetCSharp
 
             if (!IsServerGridCorrectionActive() && !IsMoving)
             {
-                var targetPos = UiUtils.GridToWorld(_gridPos, GridSize);
+                var targetPos = GetWorldPositionForGridPos(_gridPos);
                 if (Position.DistanceTo(targetPos) > 0.5f)
                     Position = targetPos;
             }
@@ -32,7 +32,7 @@ namespace ClinetCSharp
             // 新 tween 覆盖旧 tween，实现两格之间的视觉无缝衔接
             if (IsMoving && _moveSentCount < MaxMoveQueue && !_bouncingBack && string.IsNullOrEmpty(CastingSkill))
             {
-                var currentTargetWorld = UiUtils.GridToWorld(_moveTargetPos, GridSize);
+                var currentTargetWorld = GetWorldPositionForGridPos(_moveTargetPos);
                 float remainingDist = Position.DistanceTo(currentTargetWorld);
                 if (remainingDist < GridSize * 0.20f)
                     TryStartHeldDirectionMove();
@@ -110,7 +110,7 @@ namespace ClinetCSharp
             _collisionMove = true;
             _moveSentCount++;
 
-            var targetWorldPos = UiUtils.GridToWorld(targetGridPos, GridSize);
+            var targetWorldPos = GetWorldPositionForGridPos(targetGridPos);
             StartMoveTween(targetWorldPos, MoveDuration);
             SendMoveStartRequest(_moveFromPos, targetGridPos);
             return true;
@@ -150,7 +150,7 @@ namespace ClinetCSharp
             ClearPendingServerGridCorrection();
             _gridPos = targetGridPos;
 
-            var targetWorldPos = UiUtils.GridToWorld(_gridPos, GridSize);
+            var targetWorldPos = GetWorldPositionForGridPos(_gridPos);
             float actualDist = Position.DistanceTo(targetWorldPos);
             float adjustedDuration = MoveDuration * Mathf.Max(0.5f, actualDist / GridSize);
             StartMoveTween(targetWorldPos, adjustedDuration);
@@ -188,7 +188,7 @@ namespace ClinetCSharp
                 _collisionMove = false;
             }
 
-            Position = UiUtils.GridToWorld(_gridPos, GridSize);
+            Position = GetWorldPositionForGridPos(_gridPos);
             SendMoveCompleteRequest(completedTarget);
             CheckAdjacentNpc();
 

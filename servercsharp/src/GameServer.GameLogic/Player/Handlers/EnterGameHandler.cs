@@ -6,6 +6,7 @@ using GameServer.Services.Map;
 using GameServer.Tables;
 using Google.Protobuf;
 using Microsoft.Extensions.Logging;
+using MongoDB.Driver;
 using PCommon = global::Common;
 using PGame = global::Game;
 using PProtocol = global::Protocol;
@@ -85,6 +86,22 @@ public class EnterGameHandler : IMessageHandler
         }
 
         var mapName = MapNameNormalizer.Normalize(role.CurrentMap);
+
+        // 按角色 footprint 校验出生点，若当前坐标无法容纳则修正到最近的合法锚点
+        int sizeX = role.GridSizeX > 0 ? role.GridSizeX : 1;
+        int sizeY = role.GridSizeY > 0 ? role.GridSizeY : 1;
+        var corrected = _session.MapService.FindNearestWalkableForFootprint(mapName, role.GridX, role.GridY, sizeX, sizeY);
+        if (corrected != null && (corrected.Value.x != role.GridX || corrected.Value.y != role.GridY))
+        {
+            _session.Logger.LogWarning("EnterGame: roleId={RoleId} spawn corrected from ({OldX},{OldY}) to ({NewX},{NewY}) footprint={SizeX}x{SizeY}",
+                roleId, role.GridX, role.GridY, corrected.Value.x, corrected.Value.y, sizeX, sizeY);
+            role.GridX = corrected.Value.x;
+            role.GridY = corrected.Value.y;
+            await _session.Roles.Update(roleId, u => u
+                .Set(r => r.GridX, role.GridX)
+                .Set(r => r.GridY, role.GridY));
+        }
+
         _session.MapService.PlayerEnter(new PlayerSnapshot
         {
             AccountId = claims.AccountId,
@@ -93,6 +110,8 @@ public class EnterGameHandler : IMessageHandler
             ServerId = claims.ServerId,
             GridX = role.GridX,
             GridY = role.GridY,
+            SizeX = sizeX,
+            SizeY = sizeY,
             Level = role.Level,
             CurrentMap = mapName,
             Hp = hp, MaxHp = hp, Mp = mp, MaxMp = mp,
@@ -133,6 +152,8 @@ public class EnterGameHandler : IMessageHandler
                 Y = m.Y,
                 Name = m.Name,
                 Level = (uint)m.Level,
+                SizeX = m.SizeX > 0 ? m.SizeX : 1,
+                SizeY = m.SizeY > 0 ? m.SizeY : 1,
             };
             info.Attrs.Add(new PGame.MonsterAttr { AttrKey = 1, AttrValue = m.Hp });
             info.Attrs.Add(new PGame.MonsterAttr { AttrKey = 2, AttrValue = m.Patk });
@@ -154,6 +175,8 @@ public class EnterGameHandler : IMessageHandler
                     NpcType = n.NpcType,
                     X = n.X,
                     Y = n.Y,
+                    SizeX = n.SizeX > 0 ? n.SizeX : 1,
+                    SizeY = n.SizeY > 0 ? n.SizeY : 1,
                 });
             }
         }
@@ -181,6 +204,9 @@ public class EnterGameHandler : IMessageHandler
                             Y = y,
                             TerrainType = terrain,
                             DecorationType = decoration,
+                            // 阶段 1：服务端地图数据暂不支持多格建筑，默认 1；客户端从 EntityProfile 读取真实占地
+                            SizeX = 1,
+                            SizeY = 1,
                         });
                     }
                 }

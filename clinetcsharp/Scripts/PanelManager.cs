@@ -41,6 +41,9 @@ namespace ClinetCSharp
             Instance = this;
             _uiCanvas = GetParent() as CanvasLayer;
 
+            // 确保 UI 输入策略单例存在（PanelManager 与所有 DraggablePanel 都依赖它）
+            EnsureUIInputPolicy();
+
             // 兜底：当 C# [Export] 属性因 Godot/C# 绑定问题未从 tscn 加载时，按路径手动加载
             DebugPanelScene ??= GD.Load<PackedScene>("res://scenes/debug_panel.tscn");
             GMPanelScene ??= GD.Load<PackedScene>("res://scenes/gm_panel.tscn");
@@ -61,6 +64,29 @@ namespace ClinetCSharp
             // 调试面板负责在初始化时应用 debug_panel_config.cfg 里的网格/相机/实体配置
             // 必须在启动时就实例化（保持隐藏），否则游戏一开始会缺少这些配置
             CallDeferred(MethodName.EnsureDebugPanelAtStartup);
+        }
+
+        private static UIInputPolicy _pendingUIInputPolicy;
+
+        private void EnsureUIInputPolicy()
+        {
+            if (UIInputPolicy.Instance != null) return;
+            if (_pendingUIInputPolicy != null && GodotObject.IsInstanceValid(_pendingUIInputPolicy)) return;
+
+            // 优先复用场景中已存在的节点
+            var existing = GetTree()?.GetFirstNodeInGroup("ui_input_policy") as UIInputPolicy;
+            if (existing != null) return;
+
+            var policy = new UIInputPolicy();
+            policy.Name = "UIInputPolicy";
+            policy.AddToGroup("ui_input_policy");
+            _pendingUIInputPolicy = policy;
+
+            // _Ready 期间父节点正在设置子节点，不能直接 AddChild，必须 deferred
+            if (_uiCanvas != null)
+                _uiCanvas.CallDeferred(MethodName.AddChild, policy);
+            else
+                CallDeferred(MethodName.AddChild, policy);
         }
 
         private void EnsureDebugPanelAtStartup()

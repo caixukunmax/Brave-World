@@ -158,7 +158,8 @@ namespace ClinetCSharp
                 Name = "ComponentContainer",
                 SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
             };
-            _componentContainer.AddThemeConstantOverride("separation", 8);
+            // 增大组件卡片间距，让每张卡片更独立
+            _componentContainer.AddThemeConstantOverride("separation", 12);
             section.AddChild(_componentContainer);
         }
 

@@ -108,6 +108,8 @@ public class MapPlayerState : CombatEntityState
     public int ServerId { get; set; }
     public int GridX { get; set; }
     public int GridY { get; set; }
+    public int SizeX { get; set; } = 1;
+    public int SizeY { get; set; } = 1;
     public int MpRegen { get => GetAttr((int)RoleAttrs.MpRegen); set => SetAttr((int)RoleAttrs.MpRegen, value); }
     public string Job { get; set; } = "";
     public int MoveSpeedMs { get; set; }
@@ -133,6 +135,8 @@ public class MapMonsterState : CombatEntityState
     public string Name { get; set; } = "";
     public int X { get; set; }
     public int Y { get; set; }
+    public int SizeX { get; set; } = 1;
+    public int SizeY { get; set; } = 1;
 }
 
 /// <summary>
@@ -146,6 +150,8 @@ public class MapNpcState : CombatEntityState
     public int NpcType { get; set; }
     public int X { get; set; }
     public int Y { get; set; }
+    public int SizeX { get; set; } = 1;
+    public int SizeY { get; set; } = 1;
 
     /// <summary>NPC 是否处于战斗状态（对话触发）</summary>
     public bool InCombat { get; set; } = false;

@@ -177,7 +177,7 @@ namespace ClinetCSharp
                     cell.Uid = uid;
                     cell.TerrainType = cellDict.GetValueOrDefault("terrain", 0).AsInt32();
                     cell.Height = cellDict.GetValueOrDefault("height", 0).AsInt32();
-                    cell.DecorationType = cellDict.GetValueOrDefault("decoration", 0).AsInt32();
+                    cell.DecorationType = GridCell.MigrateOldDecorationType(cellDict.GetValueOrDefault("decoration", 0).AsInt32());
                     cell.CustomData = cellDict.GetValueOrDefault("custom", "").AsString();
                     cell.RefreshTerrainConfig();
 

@@ -81,7 +81,13 @@ class Program
                 services.AddSingleton<MessageRouter>();
                 services.AddSingleton<EventBus>();
                 services.AddSingleton<IGameLoopScheduler, GameLoopScheduler>();
-                services.AddSingleton<MapDataProvider>();
+                services.AddSingleton<BuildingConfigProvider>();
+                services.AddSingleton<MapDataProvider>(sp =>
+                {
+                    var tables = sp.GetService<LubanTableLoader>();
+                    var buildings = sp.GetService<BuildingConfigProvider>();
+                    return new MapDataProvider(tables, buildings);
+                });
                 services.AddSingleton<WorldState>();
                 services.AddSingleton<CollisionDetector>();
 
@@ -144,10 +150,14 @@ public class GameServerHostedService : IHostedService
         await SeedServers(serverRepo);
         _logger.LogInformation("MongoDB connected and indexed");
 
-        // 2. 加载地图数据
-        var mapData = _sp.GetRequiredService<MapDataProvider>();
+        // 2. 加载建筑配置与地图数据
+        var buildingConfig = _sp.GetRequiredService<BuildingConfigProvider>();
         var config = _sp.GetRequiredService<IConfiguration>();
         var dataDir = RuntimeDataPathResolver.ResolveMapDataDir(_config["GameData:Dir"]);
+        var buildingsPath = Path.Combine(dataDir, "buildings.json");
+        buildingConfig.Load(buildingsPath);
+
+        var mapData = _sp.GetRequiredService<MapDataProvider>();
         var mapCount = mapData.LoadAllMaps(dataDir);
         _logger.LogInformation("Loaded {Count} maps from {Dir}", mapCount, dataDir);
 

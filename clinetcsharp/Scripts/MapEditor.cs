@@ -22,7 +22,6 @@ namespace ClinetCSharp
         public bool IsEditing { get; private set; } = false;
 
         // 进入编辑模式前的游戏状态快照（用于退出时恢复）
-        private bool _wasTreePaused;
         private bool _wasPlayerVisible;
         private bool _wasMonsterPatrolOverlayVisible;
         private bool _wasFunctionBarVisible;
@@ -46,16 +45,36 @@ namespace ClinetCSharp
 
         // 当前设置的属性（应用到选中格子）
         public int PaintTerrain { get; set; } = 0;
-        public int PaintDecoration { get; set; } = 1; // 默认房舍
+        public int PaintDecoration { get; set; } = BuildingType.GetConfigBaseId(BuildingType.House); // 默认房舍 build_cfg_id=10000
 
-        // 编辑器工具模式
+        // 编辑器工具模式（只保留刷地形和放置建筑）
         public enum EditorTool
         {
-            Select = 0,
-            PaintTerrain = 1,
-            PlaceDecoration = 2,
+            PaintTerrain = 0,
+            PlaceDecoration = 1,
         }
-        public EditorTool CurrentTool { get; set; } = EditorTool.Select;
+        public EditorTool CurrentTool { get; set; } = EditorTool.PaintTerrain;
+
+        // 刷地形子模式
+        public enum TerrainPaintMode
+        {
+            Brush = 0,
+            BoxSelect = 1,
+        }
+        public TerrainPaintMode CurrentTerrainPaintMode { get; set; } = TerrainPaintMode.Brush;
+
+        // 笔刷模式下最近涂刷的格子，用于去重
+        private Vector2I _lastBrushedGridPos = new Vector2I(int.MinValue, int.MinValue);
+
+        // 编辑期装饰摆件管理器（与游戏运行时管理器隔离）
+        private MapDecorationManager? _editDecorationManager;
+
+        // 摆件拖拽状态
+        private enum DragMode { None, FromPalette, MovePlaced }
+        private DragMode _dragMode = DragMode.None;
+        private int _dragDecorationType = 0;
+        private Vector2I _dragSourceGridPos = new Vector2I(-1, -1);
+        private Control? _dragGhost;
 
         // UI引用
         private Control _editorPanel;
@@ -65,9 +84,6 @@ namespace ClinetCSharp
         private PanelContainer _hoverTooltipPanel;
         private Label _hoverTooltipLabel;
         private float _hoverTooltipWidth = 200f;
-
-        // 按键配置（可由调试面板设置）
-        public bool RequireCtrlForSelection { get; set; } = true;  // 是否需要Ctrl键才能选中
 
         /// <summary>鼠标悬停提示框宽度（可由调试面板设置）</summary>
         public float HoverTooltipWidth
@@ -134,16 +150,16 @@ namespace ClinetCSharp
         }
 
         /// <summary>
-        /// 装饰编辑命令 — 记录一次装饰编辑操作中被修改格子的旧装饰值。
+        /// 装饰编辑命令 — 记录一次装饰编辑操作中被修改格子的旧装饰值与新装饰值。
+        /// 支持放置、移动、删除。
         /// </summary>
         private class DecorationEditCommand : EditCommand
         {
-            public int NewDecorationType;
-            public List<(Vector2I Pos, int OldDecorationType)> Changes = new();
+            public List<(Vector2I Pos, int OldDecorationType, int NewDecorationType)> Changes = new();
 
             public override void Undo(GridManager grid)
             {
-                foreach (var (pos, oldType) in Changes)
+                foreach (var (pos, oldType, _) in Changes)
                 {
                     if (!grid.IsInBounds(pos)) continue;
                     var cell = grid.GetCell(pos);
@@ -157,16 +173,16 @@ namespace ClinetCSharp
 
             public override void Redo(GridManager grid)
             {
-                foreach (var (pos, _) in Changes)
+                foreach (var (pos, _, newType) in Changes)
                 {
                     if (!grid.IsInBounds(pos)) continue;
                     var cell = grid.GetCell(pos);
                     if (cell == null) continue;
-                    cell.DecorationType = NewDecorationType;
+                    cell.DecorationType = newType;
                 }
                 grid.NotifyTerrainChanged();
                 grid.SyncDecorations();
-                GD.Print($"[MapEditor.Redo] 重做 {Changes.Count} 个格子的装饰为 {NewDecorationType}");
+                GD.Print($"[MapEditor.Redo] 重做 {Changes.Count} 个格子的装饰");
             }
         }
 
@@ -239,6 +255,80 @@ namespace ClinetCSharp
             }
         }
 
+        /// <summary>
+        /// 建筑图鉴列表项：显示颜色块 + 建筑名称，ButtonDown 时触发从面板拖拽。
+        /// </summary>
+        private partial class BuildingListItem : Button
+        {
+            private readonly MapEditor _editor;
+            private readonly int _decorationTypeId;
+            private readonly DecorationConfig _cfg;
+            public int DecorationTypeId => _decorationTypeId;
+            public DecorationConfig Config => _cfg;
+
+            public BuildingListItem(MapEditor editor, DecorationConfig cfg)
+            {
+                _editor = editor;
+                _cfg = cfg;
+                _decorationTypeId = cfg.Id;
+                CustomMinimumSize = new Vector2(0, 36);
+                MouseFilter = MouseFilterEnum.Stop;
+                ClipText = true;
+                TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
+                AddThemeFontSizeOverride("font_size", 12);
+                AddThemeColorOverride("font_color", new Color(0.9f, 0.9f, 0.9f));
+                SetDecorationStyle(_cfg);
+                ButtonDown += () => _editor.StartPaletteDrag(_decorationTypeId);
+                TooltipText = _cfg.DisplayName;
+            }
+
+            private void SetDecorationStyle(DecorationConfig cfg)
+            {
+                var iconColor = cfg.Color;
+                var normal = new StyleBoxFlat
+                {
+                    BgColor = new Color(0.15f, 0.15f, 0.15f, 0.8f),
+                    BorderColor = new Color(0.3f, 0.3f, 0.3f),
+                    BorderWidthBottom = 1,
+                    BorderWidthLeft = 1,
+                    BorderWidthRight = 1,
+                    BorderWidthTop = 1,
+                };
+                var hover = new StyleBoxFlat
+                {
+                    BgColor = new Color(0.25f, 0.25f, 0.25f, 0.9f),
+                    BorderColor = new Color(0.5f, 0.5f, 0.5f),
+                    BorderWidthBottom = 1,
+                    BorderWidthLeft = 1,
+                    BorderWidthRight = 1,
+                    BorderWidthTop = 1,
+                };
+                var pressed = new StyleBoxFlat
+                {
+                    BgColor = new Color(0.35f, 0.35f, 0.35f, 0.95f),
+                    BorderColor = Colors.White,
+                    BorderWidthBottom = 1,
+                    BorderWidthLeft = 1,
+                    BorderWidthRight = 1,
+                    BorderWidthTop = 1,
+                };
+                AddThemeStyleboxOverride("normal", normal);
+                AddThemeStyleboxOverride("hover", hover);
+                AddThemeStyleboxOverride("pressed", pressed);
+
+                // 用文本前缀加一个彩色标记来示意建筑颜色
+                Text = $"  {cfg.DisplayName}";
+            }
+
+            public override void _Draw()
+            {
+                base._Draw();
+                var iconRect = new Rect2(new Vector2(6, 8), new Vector2(20, 20));
+                DrawRect(iconRect, _cfg.Color, true);
+                DrawRect(iconRect, _cfg.BorderColor, false, 1.5f);
+            }
+        }
+
         // 选择历史（用于右键撤销选择）
         private List<System.Collections.Generic.Dictionary<Vector2I, bool>> _selectionHistory = new List<System.Collections.Generic.Dictionary<Vector2I, bool>>();  // 每次选择操作前保存选中状态
         public const int MaxSelectionHistory = 10;
@@ -260,12 +350,16 @@ namespace ClinetCSharp
             }
             GD.Print($"[MapEditor] 初始化完成 GridManager={(_gameGridManager != null ? "OK" : "NULL")} Camera={(Camera != null ? "OK" : "NULL")}");
 
+
             // 加入 map_editor 组，供调试面板通过 GetTree().GetFirstNodeInGroup 访问
             AddToGroup("map_editor");
 
             // 确保选区高亮绘制在 GridShaderOverlay 之上
             ZIndex = 10;
             ZAsRelative = false;
+
+            // 建筑配置变化时刷新建筑图鉴
+            DecorationConfigUtil.ProfilesChanged += OnDecorationProfilesChanged;
 
             // 自动化测试模式：检测到 --test-grid-visibility 参数时自动进入编辑模式
             foreach (var arg in OS.GetCmdlineArgs())
@@ -278,6 +372,19 @@ namespace ClinetCSharp
                     break;
                 }
             }
+        }
+
+        public override void _ExitTree()
+        {
+            UIInputPolicy.Instance?.UnregisterUiNode(this);
+            if (Camera is Node camNode)
+                UIInputPolicy.Instance?.UnregisterUiNode(camNode);
+            if (_editorPanel != null)
+                UIInputPolicy.Instance?.UnregisterUiNode(_editorPanel);
+            if (_editGridManager != null)
+                UIInputPolicy.Instance?.UnregisterUiNode(_editGridManager);
+            if (_editDecorationManager != null)
+                UIInputPolicy.Instance?.UnregisterUiNode(_editDecorationManager);
         }
 
         // 网格修复版本号，每次修改后递增，用于验证客户端加载的是最新代码
@@ -300,15 +407,10 @@ namespace ClinetCSharp
                                      $"颜色=({lineColor.R:F2},{lineColor.G:F2},{lineColor.B:F2},{lineColor.A:F2}) 柔化={aaSoftness:F1}x";
                 }
 
-                // 确保悬停提示框已创建并跟随鼠标
-                EnsureHoverTooltip();
-                UpdateHoverTooltipPosition();
-
                 // 鼠标悬停格子检测（鼠标不在 UI 上时才检测）
                 var isOverUi = UiUtils.IsMouseOverAnyUi(GetViewport());
                 if (!isOverUi && GridManager != null)
                 {
-                    // WorldToGrid 需要 GridManager 本地坐标
                     var mouseLocalPos = GridManager.ToLocal(GetGlobalMousePosition());
                     var gridPos = GridManager.WorldToGrid(mouseLocalPos);
 
@@ -322,6 +424,24 @@ namespace ClinetCSharp
                 {
                     _hoveredGridPos = new Vector2I(-1, -1);
                     UpdateHoverInfo();
+                }
+
+                // 刷地形笔刷模式：按住左键拖动时持续涂刷
+                if (CurrentTool == EditorTool.PaintTerrain && CurrentTerrainPaintMode == TerrainPaintMode.Brush
+                    && Input.IsMouseButtonPressed(MouseButton.Left) && !isOverUi)
+                {
+                    BrushTerrainAtMouse();
+                }
+
+                // 拖拽中：更新幽灵位置并轮询鼠标释放
+                if (_dragMode != DragMode.None)
+                {
+                    UpdateDragGhostPosition();
+                    if (!Input.IsMouseButtonPressed(MouseButton.Left))
+                    {
+                        bool overEditorPanel = IsMouseOverEditorPanel();
+                        EndDrag(overEditorPanel);
+                    }
                 }
             }
             else
@@ -358,17 +478,30 @@ namespace ClinetCSharp
                 return;
             }
 
-            // 全选 (Ctrl+A) — 只在按键按下事件触发，避免重复
+            // 全选 (Ctrl+A) — 只在刷地形框选模式下有效
             if (@event is InputEventKey { Pressed: true, Echo: false, Keycode: Key.A, CtrlPressed: true })
             {
-                SelectAll();
+                if (CurrentTool == EditorTool.PaintTerrain && CurrentTerrainPaintMode == TerrainPaintMode.BoxSelect)
+                    SelectAll();
                 return;
             }
 
-            // 删除选中格子 (Delete键) — 只在按键按下事件触发，避免重复
+            // Delete 键：只在放置建筑模式下删除悬停建筑
             if (@event is InputEventKey { Pressed: true, Echo: false, Keycode: Key.Delete })
             {
-                DeleteSelected();
+                if (CurrentTool == EditorTool.PlaceDecoration)
+                    DeleteSelectedDecorations();
+                return;
+            }
+
+            // Ctrl+Shift+B：在放建筑工具下打开 DebugPanel 建筑工坊
+            if (@event is InputEventKey { Pressed: true, Echo: false, Keycode: Key.B, CtrlPressed: true, ShiftPressed: true })
+            {
+                if (CurrentTool == EditorTool.PlaceDecoration)
+                {
+                    OnOpenDecorationWorkshop();
+                    GetViewport()?.SetInputAsHandled();
+                }
                 return;
             }
 
@@ -377,41 +510,41 @@ namespace ClinetCSharp
                 return;
 
             // 鼠标处理
-            // - 选择工具：左键+Ctrl 选中/多选；左键无Ctrl 留给相机拖动
-            // - 放置房舍工具：左键直接放置（点击或框选），不再触发相机拖拽
-            // - 右键: 撤销上一步选择
             if (@event is InputEventMouseButton mb)
             {
                 if (mb.ButtonIndex == MouseButton.Left)
                 {
                     if (mb.Pressed)
                     {
-                        if (CurrentTool == EditorTool.PlaceDecoration)
+                        if (CurrentTool == EditorTool.PaintTerrain)
                         {
-                            StartSelection(mb);
-                            GetViewport()?.SetInputAsHandled();
+                            if (CurrentTerrainPaintMode == TerrainPaintMode.BoxSelect)
+                            {
+                                StartSelection(mb);
+                            }
+                            else
+                            {
+                                // 笔刷模式：立即刷当前格子，并标记开始涂刷
+                                _lastBrushedGridPos = new Vector2I(int.MinValue, int.MinValue);
+                                BrushTerrainAtMouse();
+                            }
                         }
-                        else if (!RequireCtrlForSelection || mb.CtrlPressed)
-                        {
-                            StartSelection(mb);
-                        }
-                        // 不需要Ctrl时不处理，留给相机拖动
+                        // 放置建筑模式下：
+                        // - 点击已放置建筑：由 MapDecoration._Input 处理并触发移动拖拽
+                        // - 点击空白地图：留给相机控制器拖动视野
                     }
                     else
                     {
                         if (IsSelecting)
                         {
                             EndSelection();
-                            if (CurrentTool == EditorTool.PlaceDecoration)
-                            {
-                                ApplyDecorationToSelection(PaintDecoration);
-                            }
                         }
+                        _lastBrushedGridPos = new Vector2I(int.MinValue, int.MinValue);
                     }
                 }
                 else if (mb.ButtonIndex == MouseButton.Right)
                 {
-                    if (mb.Pressed)
+                    if (mb.Pressed && CurrentTool == EditorTool.PaintTerrain)
                     {
                         // 右键：如果选区包含越界格子，弹出开辟菜单；否则撤销选择
                         if (HasOutOfBoundsSelection())
@@ -424,8 +557,7 @@ namespace ClinetCSharp
 
             if (@event is InputEventMouseMotion mm)
             {
-                // 选择工具或放置工具下，正在选择时都更新选区
-                if (IsSelecting && (CurrentTool == EditorTool.PlaceDecoration || !RequireCtrlForSelection || mm.CtrlPressed))
+                if (IsSelecting && CurrentTool == EditorTool.PaintTerrain && CurrentTerrainPaintMode == TerrainPaintMode.BoxSelect)
                 {
                     UpdateSelection(mm);
                 }
@@ -486,6 +618,39 @@ namespace ClinetCSharp
                         bool inBounds = GridManager.IsInBounds(gridPos);
                         DrawRect(rect, inBounds ? new Color(1, 0, 0, 0.3f) : new Color(1, 0.5f, 0, 0.4f), true);
                     }
+                }
+            }
+
+            // 绘制建筑拖拽 footprint 预览
+            if (CurrentTool == EditorTool.PlaceDecoration && _dragMode != DragMode.None && _editGridManager != null)
+            {
+                var mouseLocalPos = _editGridManager.ToLocal(GetGlobalMousePosition());
+                var dropAnchor = _editGridManager.WorldToGrid(mouseLocalPos);
+                var (sx, sy) = GetDecorationSize(_dragDecorationType);
+                var footprint = GetFootprintCells(dropAnchor, sx, sy);
+                bool valid = true;
+                var occupied = GetOccupiedFootprintCells(_dragSourceGridPos, sx, sy);
+                foreach (var pos in footprint)
+                {
+                    if (!_editGridManager.IsInBounds(pos)) { valid = false; break; }
+                    if (occupied.Contains(pos)) continue;
+                    var cell = _editGridManager.GetCell(pos);
+                    if (cell != null && cell.DecorationType != 0) { valid = false; break; }
+                }
+
+                var previewColor = valid ? new Color(0, 1, 0, 0.25f) : new Color(1, 0, 0, 0.35f);
+                var borderColor = valid ? new Color(0, 1, 0, 0.8f) : new Color(1, 0, 0, 0.9f);
+                float lineWidth = Camera != null ? Mathf.Max(2.0f / Camera.Zoom.X, 1.0f) : 2.0f;
+                foreach (var pos in footprint)
+                {
+                    var gridLocalPos = GridManager.GridToWorld(pos);
+                    var editorLocalPos = ToLocal(GridManager.ToGlobal(gridLocalPos));
+                    var rect = new Rect2(
+                        editorLocalPos - new Vector2(GridManager.GridSize / 2.0f, GridManager.GridSize / 2.0f),
+                        new Vector2(GridManager.GridSize, GridManager.GridSize)
+                    );
+                    DrawRect(rect, previewColor, true);
+                    DrawRect(rect, borderColor, false, lineWidth);
                 }
             }
         }
@@ -571,21 +736,17 @@ namespace ClinetCSharp
             GD.Print("[MapEditor] 进入编辑模式 — 冻结游戏状态，重新加载地图数据");
 
             // 1. 保存游戏状态快照
-            _wasTreePaused = GetTree().Paused;
             _wasPlayerVisible = Player?.Visible ?? false;
 
             var patrolOverlay = GetTree().GetFirstNodeInGroup("monster_patrol_overlay") as MonsterPatrolOverlay;
             _wasMonsterPatrolOverlayVisible = patrolOverlay?.OverlayEnabled ?? false;
 
-            // 2. 暂停游戏树（冻结所有 _Process/_PhysicsProcess）
-            GetTree().Paused = true;
-            // 地图编辑器自身和相机控制器需要在 Pause 时继续处理输入
-            ProcessMode = ProcessModeEnum.Always;
+            // 2. 暂停游戏树（冻结所有 _Process/_PhysicsProcess），
+            //    并通过 UIInputPolicy 保证编辑器相关节点仍可处理输入
+            UIInputPolicy.Instance?.RegisterUiNode(this);
             if (Camera is Node camNode)
-                camNode.ProcessMode = ProcessModeEnum.Always;
-            // 编辑器面板及其子节点也需要保持响应
-            if (_editorPanel != null)
-                SetProcessModeRecursive(_editorPanel, ProcessModeEnum.Always);
+                UIInputPolicy.Instance?.RegisterUiNode(camNode);
+            UIInputPolicy.Instance?.PauseGame();
 
             // 3. 隐藏玩家、所有怪物实例、所有NPC实例、巡逻覆盖层、宝箱、掉落物
             if (Player != null)
@@ -694,12 +855,27 @@ namespace ClinetCSharp
                 _gameGridManager.GetParent()?.AddChild(_editGridManager);
                 _editGridManager.GlobalPosition = _gameGridManager.GlobalPosition;
 
-                // 树被暂停时，编辑用 GridManager 仍需运行 _Process 以响应 zoom/线宽变化
-                _editGridManager.ProcessMode = ProcessModeEnum.Always;
+                // 编辑用 GridManager 需在暂停时继续运行 _Process 以响应 zoom/线宽变化
+                UIInputPolicy.Instance?.RegisterUiNode(_editGridManager);
 
                 // 显式加载地图数据（防御性：确保 _Ready() 加载成功，若失败则再次尝试）
                 var loaded = _editGridManager.LoadMap(_editGridManager.CurrentMapName);
                 GD.Print($"[MapEditor] 创建独立编辑 GridManager: {_editGridManager.CurrentMapName} {_editGridManager.MapWidth}x{_editGridManager.MapHeight}, LoadMap={loaded}");
+
+                // 创建编辑期装饰摆件管理器，与游戏运行时管理器隔离
+                _editDecorationManager = new MapDecorationManager();
+                _editDecorationManager.Name = "EditDecorationManager";
+                _editDecorationManager.AddToGroup("edit_decoration_manager");
+                _editDecorationManager.SpawnEditable = true;
+                _editDecorationManager.GridSize = _editGridManager.GridSize;
+                _editGridManager.AddChild(_editDecorationManager);
+                _editDecorationManager.SpawnDecorations(_editGridManager.GridData);
+
+                // 编辑期装饰管理器也需在暂停时继续处理
+                UIInputPolicy.Instance?.RegisterUiNode(_editDecorationManager);
+
+                // 订阅摆件拖动请求
+                MapDecoration.DecorationDragRequested += OnDecorationDragRequested;
             }
 
             // 5. 清空编辑历史
@@ -735,15 +911,26 @@ namespace ClinetCSharp
                     ShowToast($"保存失败: {err}", Colors.Red);
                 }
 
+                // 取消订阅并清理编辑期装饰管理器
+                MapDecoration.DecorationDragRequested -= OnDecorationDragRequested;
+                EndDrag(true); // 强制取消未完成的拖拽
+                if (_editDecorationManager != null && IsInstanceValid(_editDecorationManager))
+                {
+                    UIInputPolicy.Instance?.UnregisterUiNode(_editDecorationManager);
+                    _editDecorationManager.QueueFree();
+                    _editDecorationManager = null;
+                }
+
+                UIInputPolicy.Instance?.UnregisterUiNode(_editGridManager);
                 _editGridManager.QueueFree();
                 _editGridManager = null;
             }
 
-            // 1. 恢复游戏树运行，恢复 ProcessMode
-            GetTree().Paused = _wasTreePaused;
-            ProcessMode = ProcessModeEnum.Inherit;
+            // 1. 恢复游戏树运行，并恢复 UIInputPolicy 管理的 ProcessMode
+            UIInputPolicy.Instance?.ResumeGame();
+            UIInputPolicy.Instance?.UnregisterUiNode(this);
             if (Camera is Node camNode)
-                camNode.ProcessMode = ProcessModeEnum.Inherit;
+                UIInputPolicy.Instance?.UnregisterUiNode(camNode);
 
             // 2. 恢复玩家、所有怪物实例、所有NPC实例、巡逻覆盖层显示
             if (Player != null)
@@ -799,35 +986,6 @@ namespace ClinetCSharp
             HideEditorUi();
         }
 
-        private void SetProcessModeRecursive(Node node, ProcessModeEnum mode)
-        {
-            node.ProcessMode = mode;
-            foreach (var child in node.GetChildren())
-                SetProcessModeRecursive(child, mode);
-        }
-
-        private void ShowEditorUi()
-        {
-            if (_editorPanel == null)
-                CreateEditorPanel();
-            if (_editorPanel != null)
-            {
-                _editorPanel.Visible = true;
-                _editorPanel.MouseFilter = Control.MouseFilterEnum.Stop;
-
-                // 编辑器 UI 已初始化
-            }
-        }
-
-        private void HideEditorUi()
-        {
-            if (_editorPanel != null)
-            {
-                _editorPanel.Visible = false;
-                _editorPanel.MouseFilter = Control.MouseFilterEnum.Ignore;
-            }
-        }
-
         private void CreateEditorPanel()
         {
             var canvasLayer = new CanvasLayer();
@@ -836,8 +994,8 @@ namespace ClinetCSharp
 
             _editorPanel = new Control();
             _editorPanel.SetAnchorsPreset(Control.LayoutPreset.TopRight);
-            _editorPanel.Size = new Vector2(300, 700);
-            _editorPanel.Position = new Vector2(-320, 10);
+            _editorPanel.Size = new Vector2(280, 620);
+            _editorPanel.Position = new Vector2(-300, 10);
             canvasLayer.AddChild(_editorPanel);
 
             var panel = new Panel();
@@ -848,33 +1006,28 @@ namespace ClinetCSharp
             vbox.Name = "VBoxContainer";
             vbox.SetAnchorsPreset(Control.LayoutPreset.FullRect);
             vbox.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-            vbox.AddThemeConstantOverride("separation", 4);
+            vbox.AddThemeConstantOverride("separation", 3);
             _editorPanel.AddChild(vbox);
 
-            // 版本号诊断信息（放在最顶部，确保可见）
-            var diagLabel = new Label();
-            diagLabel.Name = "DiagLabel";
-            diagLabel.Text = $"[修复版本 {GridFixVersion}]";
-            diagLabel.AddThemeColorOverride("font_color", Colors.Yellow);
-            diagLabel.AddThemeFontSizeOverride("font_size", 14);
-            vbox.AddChild(diagLabel);
-            vbox.AddChild(new HSeparator());
-
-            // 标题（合并当前地图名）
+            // 标题
             var title = new Label();
             title.Name = "EditorTitle";
             title.Text = $"🗺️ 地图编辑器 - {GridManager?.CurrentMapName ?? "--"}";
             title.HorizontalAlignment = HorizontalAlignment.Center;
-            title.AddThemeFontSizeOverride("font_size", 15);
+            title.AddThemeFontSizeOverride("font_size", 14);
             vbox.AddChild(title);
 
-            // === 地图管理区域 ===
-            var mapMgmtLabel = new Label();
-            mapMgmtLabel.Text = "📁 地图管理";
-            mapMgmtLabel.AddThemeFontSizeOverride("font_size", 12);
-            vbox.AddChild(mapMgmtLabel);
+            // 版本号诊断信息
+            var diagLabel = new Label();
+            diagLabel.Name = "DiagLabel";
+            diagLabel.Text = $"[修复版本 {GridFixVersion}]";
+            diagLabel.AddThemeColorOverride("font_color", Colors.Yellow);
+            diagLabel.AddThemeFontSizeOverride("font_size", 11);
+            vbox.AddChild(diagLabel);
 
-            // 地图选择行
+            vbox.AddChild(new HSeparator());
+
+            // === 地图管理 ===
             var mapSelectHbox = new HBoxContainer();
             mapSelectHbox.Name = "MapSelectHbox";
             vbox.AddChild(mapSelectHbox);
@@ -890,7 +1043,6 @@ namespace ClinetCSharp
             switchBtn.Pressed += OnSwitchMap;
             mapSelectHbox.AddChild(switchBtn);
 
-            // 操作按钮行
             var mapActionHbox = new HBoxContainer();
             vbox.AddChild(mapActionHbox);
 
@@ -912,114 +1064,35 @@ namespace ClinetCSharp
             renameMapBtn.Pressed += OnRenameMapClicked;
             mapActionHbox.AddChild(renameMapBtn);
 
-            // === 地图管理区域结束 ===
+            vbox.AddChild(new HSeparator());
 
-            // 地形类型（动态加载自 TerrainConfigUtil）
-            var terrainRow = new HBoxContainer();
-            terrainRow.Name = "TerrainRow";
-            vbox.AddChild(terrainRow);
+            // === 工具切换 ===
+            var toolToggleRow = new HBoxContainer();
+            vbox.AddChild(toolToggleRow);
 
-            var terrainLabel = new Label();
-            terrainLabel.Text = "地形类型:";
-            terrainLabel.AddThemeFontSizeOverride("font_size", 12);
-            terrainLabel.CustomMinimumSize = new Vector2(60, 0);
-            terrainRow.AddChild(terrainLabel);
+            _terrainToolToggle = new Button();
+            _terrainToolToggle.Text = "刷地形";
+            _terrainToolToggle.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+            _terrainToolToggle.ToggleMode = true;
+            _terrainToolToggle.Pressed += () => OnToolToggled(EditorTool.PaintTerrain);
+            toolToggleRow.AddChild(_terrainToolToggle);
 
-            var terrainOption = new OptionButton();
-            terrainOption.Name = "TerrainOption";
-            terrainOption.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-            foreach (var kvp in TerrainConfigUtil.Configs)
-                terrainOption.AddItem(kvp.Value.Name, kvp.Key);
-            terrainOption.ItemSelected += OnTerrainSelected;
-            // 同步当前 PaintTerrain 到 UI 选中项
-            for (int i = 0; i < terrainOption.ItemCount; i++)
-            {
-                if (terrainOption.GetItemId(i) == PaintTerrain)
-                {
-                    terrainOption.Select(i);
-                    break;
-                }
-            }
-            terrainRow.AddChild(terrainOption);
+            _buildingToolToggle = new Button();
+            _buildingToolToggle.Text = "放建筑";
+            _buildingToolToggle.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+            _buildingToolToggle.ToggleMode = true;
+            _buildingToolToggle.Pressed += () => OnToolToggled(EditorTool.PlaceDecoration);
+            toolToggleRow.AddChild(_buildingToolToggle);
 
-            // 工具模式
-            var toolRow = new HBoxContainer();
-            toolRow.Name = "ToolRow";
-            vbox.AddChild(toolRow);
+            // === 动态工具内容区 ===
+            _toolContentContainer = new VBoxContainer();
+            _toolContentContainer.Name = "ToolContentContainer";
+            _toolContentContainer.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+            vbox.AddChild(_toolContentContainer);
 
-            var toolLabel = new Label();
-            toolLabel.Text = "工具模式:";
-            toolLabel.AddThemeFontSizeOverride("font_size", 12);
-            toolLabel.CustomMinimumSize = new Vector2(60, 0);
-            toolRow.AddChild(toolLabel);
+            vbox.AddChild(new HSeparator());
 
-            var toolOption = new OptionButton();
-            toolOption.Name = "ToolOption";
-            toolOption.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-            toolOption.AddItem("选择", (int)EditorTool.Select);
-            toolOption.AddItem("刷地形", (int)EditorTool.PaintTerrain);
-            toolOption.AddItem("放置房舍", (int)EditorTool.PlaceDecoration);
-            toolOption.ItemSelected += OnToolSelected;
-            toolRow.AddChild(toolOption);
-
-            // 装饰类型（一期只有房舍）
-            var decorationRow = new HBoxContainer();
-            decorationRow.Name = "DecorationRow";
-            vbox.AddChild(decorationRow);
-
-            var decorationLabel = new Label();
-            decorationLabel.Text = "装饰类型:";
-            decorationLabel.AddThemeFontSizeOverride("font_size", 12);
-            decorationLabel.CustomMinimumSize = new Vector2(60, 0);
-            decorationRow.AddChild(decorationLabel);
-
-            var decorationOption = new OptionButton();
-            decorationOption.Name = "DecorationOption";
-            decorationOption.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-            foreach (var kvp in DecorationConfigUtil.Configs)
-            {
-                if (kvp.Key == 0) continue; // 跳过“无”
-                decorationOption.AddItem(kvp.Value.DisplayName, kvp.Key);
-            }
-            decorationOption.ItemSelected += OnDecorationSelected;
-            // 同步当前 PaintDecoration 到 UI 选中项
-            for (int i = 0; i < decorationOption.ItemCount; i++)
-            {
-                if (decorationOption.GetItemId(i) == PaintDecoration)
-                {
-                    decorationOption.Select(i);
-                    break;
-                }
-            }
-            decorationRow.AddChild(decorationOption);
-
-            // 装饰操作按钮
-            var decorActionRow = new HBoxContainer();
-            decorActionRow.Name = "DecorActionRow";
-            vbox.AddChild(decorActionRow);
-
-            var placeDecorBtn = new Button();
-            placeDecorBtn.Text = "放置到选中";
-            placeDecorBtn.CustomMinimumSize = new Vector2(0, 26);
-            placeDecorBtn.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-            placeDecorBtn.Pressed += () => ApplyDecorationToSelection(PaintDecoration);
-            decorActionRow.AddChild(placeDecorBtn);
-
-            var deleteDecorBtn = new Button();
-            deleteDecorBtn.Text = "删除摆件";
-            deleteDecorBtn.CustomMinimumSize = new Vector2(0, 26);
-            deleteDecorBtn.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-            deleteDecorBtn.Pressed += DeleteSelectedDecorations;
-            decorActionRow.AddChild(deleteDecorBtn);
-
-            // 应用按钮
-            var applyBtn = new Button();
-            applyBtn.Text = "✓ 应用到选中";
-            applyBtn.CustomMinimumSize = new Vector2(0, 26);
-            applyBtn.Pressed += ApplyToSelection;
-            vbox.AddChild(applyBtn);
-
-            // 撤销/重做 + 快速操作合并为一行
+            // === 撤销/重做 ===
             var actionHbox = new HBoxContainer();
             vbox.AddChild(actionHbox);
 
@@ -1038,33 +1111,9 @@ namespace ClinetCSharp
             redoBtn.Pressed += Redo;
             actionHbox.AddChild(redoBtn);
 
-            var selectAllBtn = new Button();
-            selectAllBtn.Text = "全选";
-            selectAllBtn.CustomMinimumSize = new Vector2(0, 26);
-            selectAllBtn.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-            selectAllBtn.Pressed += SelectAll;
-            actionHbox.AddChild(selectAllBtn);
+            vbox.AddChild(new HSeparator());
 
-            var clearBtn = new Button();
-            clearBtn.Text = "清空";
-            clearBtn.CustomMinimumSize = new Vector2(0, 26);
-            clearBtn.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-            clearBtn.Pressed += ClearSelection;
-            actionHbox.AddChild(clearBtn);
-
-            var invertBtn = new Button();
-            invertBtn.Text = "反选";
-            invertBtn.CustomMinimumSize = new Vector2(0, 26);
-            invertBtn.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-            invertBtn.Pressed += InvertSelection;
-            actionHbox.AddChild(invertBtn);
-
-            // 显示设置
-            var displayLabel = new Label();
-            displayLabel.Text = "显示设置:";
-            displayLabel.AddThemeFontSizeOverride("font_size", 12);
-            vbox.AddChild(displayLabel);
-
+            // === 显示设置 ===
             var showUidToggle = new CheckButton();
             showUidToggle.Name = "ShowUidToggle";
             showUidToggle.Text = "显示格子UID";
@@ -1072,12 +1121,9 @@ namespace ClinetCSharp
             showUidToggle.Toggled += OnShowUidToggled;
             vbox.AddChild(showUidToggle);
 
-            // 文件操作
-            var fileLabel = new Label();
-            fileLabel.Text = "文件操作:";
-            fileLabel.AddThemeFontSizeOverride("font_size", 12);
-            vbox.AddChild(fileLabel);
+            vbox.AddChild(new HSeparator());
 
+            // === 文件操作 ===
             var fileHbox = new HBoxContainer();
             vbox.AddChild(fileHbox);
 
@@ -1111,14 +1157,211 @@ namespace ClinetCSharp
 
             // 提示
             var hint = new Label();
-            hint.Text = "提示: 选择工具下 Ctrl+左键选中/多选, 左键无Ctrl拖动视野; 放置房舍工具下左键直接放置; 右键撤销选择, 框选地图外后右键可开辟, Delete根据工具删除摆件或设为墙";
+            hint.Text = "提示: 刷地形工具下左键点/拖直接刷，框选模式需先框选再应用；放建筑工具下从列表按住房舍拖到地图放置，拖动已放置建筑换位，Delete/删除按钮移除悬停建筑；右键地图外格子可开辟地图";
             hint.AddThemeColorOverride("font_color", Colors.Gray);
             hint.AddThemeFontSizeOverride("font_size", 10);
             hint.AutowrapMode = TextServer.AutowrapMode.Word;
             vbox.AddChild(hint);
 
+            RefreshToolContent();
             _editorPanel.Visible = false;
+
+            // 编辑器面板由 UIInputPolicy 统一管理，确保游戏暂停时仍可交互
+            UIInputPolicy.Instance?.RegisterUiNode(_editorPanel);
         }
+
+        private Button? _terrainToolToggle;
+        private Button? _buildingToolToggle;
+        private VBoxContainer? _toolContentContainer;
+        private bool _isRefreshingToolContent;
+
+        private void OnToolToggled(EditorTool tool)
+        {
+            if (CurrentTool == tool) return;
+            CurrentTool = tool;
+            RefreshToolContent();
+        }
+
+        internal void RefreshToolContent()
+        {
+            if (_toolContentContainer == null || _isRefreshingToolContent) return;
+            _isRefreshingToolContent = true;
+            try
+            {
+                foreach (var child in _toolContentContainer.GetChildren())
+                    child.QueueFree();
+                _toolContentContainer.QueueSort();
+
+                _terrainToolToggle?.SetPressedNoSignal(CurrentTool == EditorTool.PaintTerrain);
+                _buildingToolToggle?.SetPressedNoSignal(CurrentTool == EditorTool.PlaceDecoration);
+
+                if (CurrentTool == EditorTool.PaintTerrain)
+                    CreateTerrainToolContent(_toolContentContainer);
+                else
+                    CreateBuildingToolContent(_toolContentContainer);
+            }
+            finally
+            {
+                _isRefreshingToolContent = false;
+            }
+        }
+
+        private void CreateTerrainToolContent(VBoxContainer parent)
+        {
+            // 地形选择
+            var terrainRow = new HBoxContainer();
+            terrainRow.Name = "TerrainRow";
+            parent.AddChild(terrainRow);
+
+            var terrainLabel = new Label();
+            terrainLabel.Text = "地形:";
+            terrainLabel.AddThemeFontSizeOverride("font_size", 12);
+            terrainLabel.CustomMinimumSize = new Vector2(40, 0);
+            terrainRow.AddChild(terrainLabel);
+
+            var terrainOption = new OptionButton();
+            terrainOption.Name = "TerrainOption";
+            terrainOption.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+            foreach (var kvp in TerrainConfigUtil.Configs)
+                terrainOption.AddItem(kvp.Value.Name, kvp.Key);
+            terrainOption.ItemSelected += OnTerrainSelected;
+            for (int i = 0; i < terrainOption.ItemCount; i++)
+            {
+                if (terrainOption.GetItemId(i) == PaintTerrain)
+                {
+                    terrainOption.Select(i);
+                    break;
+                }
+            }
+            terrainRow.AddChild(terrainOption);
+
+            // 模式切换
+            var modeRow = new HBoxContainer();
+            parent.AddChild(modeRow);
+
+            var modeLabel = new Label();
+            modeLabel.Text = "模式:";
+            modeLabel.AddThemeFontSizeOverride("font_size", 12);
+            modeLabel.CustomMinimumSize = new Vector2(40, 0);
+            modeRow.AddChild(modeLabel);
+
+            var brushBtn = new Button();
+            brushBtn.Text = "笔刷";
+            brushBtn.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+            brushBtn.ToggleMode = true;
+            brushBtn.ButtonPressed = CurrentTerrainPaintMode == TerrainPaintMode.Brush;
+            brushBtn.Pressed += () => OnTerrainPaintModeChanged(TerrainPaintMode.Brush);
+            modeRow.AddChild(brushBtn);
+
+            var boxBtn = new Button();
+            boxBtn.Text = "框选";
+            boxBtn.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+            boxBtn.ToggleMode = true;
+            boxBtn.ButtonPressed = CurrentTerrainPaintMode == TerrainPaintMode.BoxSelect;
+            boxBtn.Pressed += () => OnTerrainPaintModeChanged(TerrainPaintMode.BoxSelect);
+            modeRow.AddChild(boxBtn);
+
+            // 应用按钮（只在框选模式显示）
+            var applyBtn = new Button();
+            applyBtn.Name = "TerrainApplyBtn";
+            applyBtn.Text = "✓ 应用到选中";
+            applyBtn.CustomMinimumSize = new Vector2(0, 26);
+            applyBtn.Visible = CurrentTerrainPaintMode == TerrainPaintMode.BoxSelect;
+            applyBtn.Pressed += ApplyToSelection;
+            parent.AddChild(applyBtn);
+        }
+
+        private void CreateBuildingToolContent(VBoxContainer parent)
+        {
+            // 搜索 + 删除
+            var headerRow = new HBoxContainer();
+            headerRow.Name = "BuildingHeaderRow";
+            parent.AddChild(headerRow);
+
+            var searchEdit = new LineEdit();
+            searchEdit.Name = "BuildingSearchEdit";
+            searchEdit.PlaceholderText = "搜索建筑...";
+            searchEdit.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+            searchEdit.TextChanged += OnBuildingSearchTextChanged;
+            headerRow.AddChild(searchEdit);
+
+            var deleteDecorBtn = new Button();
+            deleteDecorBtn.Text = "删除";
+            deleteDecorBtn.CustomMinimumSize = new Vector2(50, 26);
+            deleteDecorBtn.Pressed += DeleteSelectedDecorations;
+            headerRow.AddChild(deleteDecorBtn);
+
+            var openWorkshopBtn = new Button();
+            openWorkshopBtn.Text = "建筑工坊";
+            openWorkshopBtn.CustomMinimumSize = new Vector2(70, 26);
+            openWorkshopBtn.Pressed += OnOpenDecorationWorkshop;
+            headerRow.AddChild(openWorkshopBtn);
+
+            // 建筑列表
+            var scroll = new ScrollContainer();
+            scroll.Name = "BuildingListScroll";
+            scroll.CustomMinimumSize = new Vector2(0, 180);
+            scroll.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+            parent.AddChild(scroll);
+
+            var listBox = new VBoxContainer();
+            listBox.Name = "BuildingListBox";
+            listBox.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+            scroll.AddChild(listBox);
+
+            // 注意：不要在这里调用 DecorationConfigUtil.RefreshFromProfileManager()，
+            // 因为它会触发 ProfilesChanged -> OnDecorationProfilesChanged -> RefreshToolContent，
+            // 形成无限循环。Configs 在 EntityProfileManager 加载时已同步，后续外部变更
+            // 通过 ProfilesChanged 事件自动刷新。
+            var decorationConfigs = new System.Collections.Generic.List<DecorationConfig>();
+            foreach (var kvp in DecorationConfigUtil.Configs)
+            {
+                if (kvp.Key != 0)
+                    decorationConfigs.Add(kvp.Value);
+            }
+
+            GD.Print($"[MapEditor] 创建建筑列表，共 {decorationConfigs.Count} 个配置");
+
+            foreach (var cfg in decorationConfigs)
+            {
+                var item = new BuildingListItem(this, cfg);
+                item.Name = $"BuildingItem_{cfg.Id}";
+                listBox.AddChild(item);
+            }
+        }
+
+        private void OnTerrainPaintModeChanged(TerrainPaintMode mode)
+        {
+            CurrentTerrainPaintMode = mode;
+            SelectedCells.Clear();
+            IsSelecting = false;
+            QueueRedraw();
+            RefreshToolContent();
+        }
+
+        private void ShowEditorUi()
+        {
+            if (_editorPanel == null)
+                CreateEditorPanel();
+            if (_editorPanel != null)
+            {
+                _editorPanel.Visible = true;
+                _editorPanel.MouseFilter = Control.MouseFilterEnum.Stop;
+
+                // 编辑器 UI 已初始化
+            }
+        }
+
+        private void HideEditorUi()
+        {
+            if (_editorPanel != null)
+            {
+                _editorPanel.Visible = false;
+                _editorPanel.MouseFilter = Control.MouseFilterEnum.Ignore;
+            }
+        }
+
+
 
         // ============ 选中系统 ============
 
@@ -1217,6 +1460,251 @@ namespace ClinetCSharp
             QueueRedraw();
         }
 
+        // ============ 摆件拖拽系统 ============
+
+        private void OnDecorationDragRequested(MapDecoration dec)
+        {
+            if (!IsEditing || CurrentTool != EditorTool.PlaceDecoration || _editGridManager == null)
+                return;
+            if (_dragMode != DragMode.None)
+                return;
+
+            StartMoveDrag(dec);
+        }
+
+        private void StartPaletteDrag(int decorationType)
+        {
+            if (_dragMode != DragMode.None || _editGridManager == null)
+                return;
+
+            _dragMode = DragMode.FromPalette;
+            _dragDecorationType = decorationType;
+            _dragSourceGridPos = new Vector2I(-1, -1);
+
+            CreateDragGhost(decorationType);
+            UpdateDragGhostPosition();
+            GD.Print($"[MapEditor] 开始从面板拖拽装饰 type={decorationType}");
+        }
+
+        private void StartMoveDrag(MapDecoration dec)
+        {
+            if (_dragMode != DragMode.None || _editGridManager == null)
+                return;
+
+            _dragMode = DragMode.MovePlaced;
+            _dragDecorationType = dec.BuildCfgId;
+            _dragSourceGridPos = dec.GridPos;
+
+            CreateDragGhost(dec.BuildCfgId);
+            UpdateDragGhostPosition();
+            GD.Print($"[MapEditor] 开始移动已放置装饰 pos={dec.GridPos}");
+        }
+
+        private void CreateDragGhost(int decorationTypeId)
+        {
+            if (_editorPanel == null) return;
+
+            var cfg = DecorationConfigUtil.Get(decorationTypeId);
+            var (sizeX, sizeY) = (Mathf.Max(1, cfg.SizeX), Mathf.Max(1, cfg.SizeY));
+            var ghost = new Control();
+            ghost.CustomMinimumSize = new Vector2(48 * sizeX, 48 * sizeY);
+            ghost.Size = new Vector2(48 * sizeX, 48 * sizeY);
+            ghost.MouseFilter = Control.MouseFilterEnum.Ignore;
+            ghost.ZIndex = 200;
+            ghost.ZAsRelative = false;
+
+            var bg = new ColorRect();
+            bg.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+            bg.Color = new Color(cfg.Color.R, cfg.Color.G, cfg.Color.B, 0.7f);
+            ghost.AddChild(bg);
+
+            // 绘制 footprint 内部网格线，直观显示多格占地
+            if (sizeX > 1 || sizeY > 1)
+            {
+                var gridLines = new Control();
+                gridLines.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+                gridLines.MouseFilter = Control.MouseFilterEnum.Ignore;
+                gridLines.Draw += () => DrawGhostGridLines(gridLines, sizeX, sizeY);
+                ghost.AddChild(gridLines);
+            }
+
+            var label = new Label();
+            label.SetAnchorsPreset(Control.LayoutPreset.Center);
+            label.Text = cfg.DisplayName;
+            label.HorizontalAlignment = HorizontalAlignment.Center;
+            label.AddThemeFontSizeOverride("font_size", 10);
+            ghost.AddChild(label);
+
+            var canvasLayer = _editorPanel.GetParent() as CanvasLayer;
+            canvasLayer?.AddChild(ghost);
+            _dragGhost = ghost;
+            UpdateDragGhostPosition();
+        }
+
+        private void DrawGhostGridLines(Control control, int sizeX, int sizeY)
+        {
+            var size = control.Size;
+            var cellW = size.X / sizeX;
+            var cellH = size.Y / sizeY;
+            var lineColor = new Color(1, 1, 1, 0.5f);
+            for (int x = 1; x < sizeX; x++)
+                control.DrawLine(new Vector2(x * cellW, 0), new Vector2(x * cellW, size.Y), lineColor, 1f);
+            for (int y = 1; y < sizeY; y++)
+                control.DrawLine(new Vector2(0, y * cellH), new Vector2(size.X, y * cellH), lineColor, 1f);
+        }
+
+        private void UpdateDragGhostPosition()
+        {
+            if (_dragGhost == null) return;
+            var mousePos = GetViewport()?.GetMousePosition() ?? Vector2.Zero;
+            _dragGhost.Position = mousePos - _dragGhost.Size / 2.0f;
+        }
+
+        private void EndDrag(bool cancel)
+        {
+            if (_dragMode == DragMode.None)
+                return;
+
+            GD.Print($"[MapEditor.EndDrag] cancel={cancel} mode={_dragMode}");
+            if (!cancel && _editGridManager != null)
+            {
+                var mouseLocalPos = _editGridManager.ToLocal(GetGlobalMousePosition());
+                var gridPos = _editGridManager.WorldToGrid(mouseLocalPos);
+                GD.Print($"[MapEditor.EndDrag] drop gridPos={gridPos}");
+                TryDropAt(gridPos);
+            }
+
+            if (_dragGhost != null && IsInstanceValid(_dragGhost))
+            {
+                _dragGhost.QueueFree();
+                _dragGhost = null;
+            }
+
+            _dragMode = DragMode.None;
+            _dragDecorationType = 0;
+            _dragSourceGridPos = new Vector2I(-1, -1);
+        }
+
+        private void TryDropAt(Vector2I gridPos)
+        {
+            GD.Print($"[MapEditor.TryDropAt] gridPos={gridPos} mode={_dragMode} type={_dragDecorationType}");
+            if (_editGridManager == null)
+            {
+                GD.Print("[MapEditor.TryDropAt] _editGridManager is null");
+                return;
+            }
+
+            var (sizeX, sizeY) = GetDecorationSize(_dragDecorationType);
+            var footprint = GetFootprintCells(gridPos, sizeX, sizeY);
+
+            // 检查 footprint 是否全部在地图范围内
+            foreach (var pos in footprint)
+            {
+                if (!_editGridManager.IsInBounds(pos))
+                {
+                    GD.Print($"[MapEditor.Drop] 目标 footprint 包含越界格子 {pos}，取消放置");
+                    ShowToast("目标位置超出地图范围", Colors.Yellow);
+                    return;
+                }
+            }
+
+            // 检查 footprint 内是否有其他装饰（移动时排除自身原 footprint）
+            var occupiedCells = GetOccupiedFootprintCells(_dragSourceGridPos, sizeX, sizeY);
+            foreach (var pos in footprint)
+            {
+                if (occupiedCells.Contains(pos))
+                    continue;
+                var cell = _editGridManager.GetCell(pos);
+                if (cell != null && cell.DecorationType != 0)
+                {
+                    GD.Print($"[MapEditor.Drop] 目标 footprint 内格子 {pos} 已有装饰，取消放置");
+                    ShowToast("目标位置已有装饰", Colors.Yellow);
+                    return;
+                }
+            }
+
+            DecorationEditCommand? cmd = null;
+
+            if (_dragMode == DragMode.FromPalette)
+            {
+                cmd = CreateDragDecorationCommand((gridPos, 0, _dragDecorationType));
+                _editGridManager.GetCell(gridPos).DecorationType = _dragDecorationType;
+                GD.Print($"[MapEditor.Drop] 从面板放置装饰 type={_dragDecorationType} pos={gridPos} size={sizeX}x{sizeY}");
+            }
+            else if (_dragMode == DragMode.MovePlaced)
+            {
+                if (gridPos == _dragSourceGridPos)
+                {
+                    GD.Print("[MapEditor.Drop] 移动到原位置，无需修改");
+                    return;
+                }
+
+                var sourceCell = _editGridManager.GetCell(_dragSourceGridPos);
+                if (sourceCell == null)
+                    return;
+                var targetCell = _editGridManager.GetCell(gridPos);
+                if (targetCell == null)
+                    return;
+
+                cmd = CreateDragDecorationCommand(
+                    (_dragSourceGridPos, sourceCell.DecorationType, 0),
+                    (gridPos, targetCell.DecorationType, _dragDecorationType)
+                );
+                sourceCell.DecorationType = 0;
+                targetCell.DecorationType = _dragDecorationType;
+                GD.Print($"[MapEditor.Drop] 移动装饰 {_dragSourceGridPos} -> {gridPos} size={sizeX}x{sizeY}");
+            }
+
+            if (cmd != null && cmd.Changes.Count > 0)
+            {
+                _undoStack.Add(cmd);
+                if (_undoStack.Count > MaxUndoSteps)
+                    _undoStack.RemoveAt(0);
+                _redoStack.Clear();
+            }
+
+            _editGridManager.NotifyTerrainChanged();
+            _editGridManager.SyncDecorations();
+        }
+
+        /// <summary>获取建筑 footprint 包含的所有格子（锚点为左上角）</summary>
+        private System.Collections.Generic.List<Vector2I> GetFootprintCells(Vector2I anchor, int sizeX, int sizeY)
+        {
+            var cells = new System.Collections.Generic.List<Vector2I>();
+            sizeX = Mathf.Max(1, sizeX);
+            sizeY = Mathf.Max(1, sizeY);
+            for (int dy = 0; dy < sizeY; dy++)
+                for (int dx = 0; dx < sizeX; dx++)
+                    cells.Add(new Vector2I(anchor.X + dx, anchor.Y + dy));
+            return cells;
+        }
+
+        /// <summary>获取指定锚点建筑的占地格子集合（用于移动时排除自身）</summary>
+        private System.Collections.Generic.HashSet<Vector2I> GetOccupiedFootprintCells(Vector2I anchor, int sizeX, int sizeY)
+        {
+            var set = new System.Collections.Generic.HashSet<Vector2I>();
+            if (anchor.X < 0 || anchor.Y < 0)
+                return set;
+            foreach (var pos in GetFootprintCells(anchor, sizeX, sizeY))
+                set.Add(pos);
+            return set;
+        }
+
+        /// <summary>读取装饰配置中的占地大小</summary>
+        private (int sizeX, int sizeY) GetDecorationSize(int decorationType)
+        {
+            var cfg = DecorationConfigUtil.Get(decorationType);
+            return (Mathf.Max(1, cfg.SizeX), Mathf.Max(1, cfg.SizeY));
+        }
+
+        private bool IsMouseOverEditorPanel()
+        {
+            if (_editorPanel == null || !_editorPanel.Visible)
+                return false;
+            var mousePos = GetViewport()?.GetMousePosition() ?? Vector2.Zero;
+            return _editorPanel.GetGlobalRect().HasPoint(mousePos);
+        }
+
         private bool SelectionEquals(System.Collections.Generic.Dictionary<Vector2I, bool> a, System.Collections.Generic.Dictionary<Vector2I, bool> b)
         {
             if (a.Count != b.Count)
@@ -1266,111 +1754,46 @@ namespace ClinetCSharp
             QueueRedraw();
         }
 
-        private void DeleteSelected()
-        {
-            if (SelectedCells.Count == 0 || GridManager == null)
-                return;
-
-            if (CurrentTool == EditorTool.PlaceDecoration)
-            {
-                DeleteSelectedDecorations();
-                return;
-            }
-
-            // 在修改前记录撤销命令
-            var cmd = CreateUndoCommand(9);
-            if (cmd.Changes.Count == 0) return;
-
-            _undoStack.Add(cmd);
-            if (_undoStack.Count > MaxUndoSteps)
-                _undoStack.RemoveAt(0);
-            _redoStack.Clear();
-
-            foreach (var (pos, oldTerrain) in cmd.Changes)
-            {
-                var cell = GridManager.GetCell(pos);
-                if (cell == null) continue;
-                // Delete 键将格子设为地形墙（不可行走的灰色障碍）
-                cell.TerrainType = 9;
-                cell.TerrainConfig = TerrainConfigUtil.Get(9);
-                GD.Print($"[MapEditor.Delete] pos=({pos.X},{pos.Y}) old={oldTerrain} new=9(wall)");
-            }
-
-            GridManager.NotifyTerrainChanged();
-            GD.Print("[MapEditor] 将 " + cmd.Changes.Count + " 个格子设为地形墙");
-        }
-
         private void DeleteSelectedDecorations()
         {
-            if (SelectedCells.Count == 0 || GridManager == null)
+            DeleteHoveredDecoration();
+        }
+
+        private void DeleteHoveredDecoration()
+        {
+            if (_editGridManager == null || _hoveredGridPos == new Vector2I(-1, -1))
+                return;
+            if (!_editGridManager.IsInBounds(_hoveredGridPos))
                 return;
 
-            var cmd = CreateDecorationUndoCommand(0);
-            if (cmd.Changes.Count == 0)
-            {
-                GD.Print("[MapEditor.DeleteDecoration] 选中的格子中没有装饰摆件");
-                return;
-            }
+            // 通过装饰管理器找到悬停位置所属建筑（支持多格 footprint）
+            var decMgr = _editDecorationManager;
+            if (decMgr == null) return;
 
+            var dec = decMgr.GetDecorationAt(_hoveredGridPos);
+            if (dec == null)
+                return;
+
+            var anchor = new Vector2I(dec.GridX, dec.GridY);
+            var cell = _editGridManager.GetCell(anchor);
+            if (cell == null || cell.DecorationType == 0)
+                return;
+
+            var cmd = CreateDragDecorationCommand((anchor, cell.DecorationType, 0));
             _undoStack.Add(cmd);
             if (_undoStack.Count > MaxUndoSteps)
                 _undoStack.RemoveAt(0);
             _redoStack.Clear();
 
-            foreach (var (pos, _) in cmd.Changes)
-            {
-                var cell = GridManager.GetCell(pos);
-                if (cell == null) continue;
-                cell.DecorationType = 0;
-                GD.Print($"[MapEditor.DeleteDecoration] pos=({pos.X},{pos.Y}) 删除装饰");
-            }
-
-            GridManager.NotifyTerrainChanged();
-            GridManager.SyncDecorations();
-            GD.Print("[MapEditor] 删除 " + cmd.Changes.Count + " 个格子的装饰摆件");
+            cell.DecorationType = 0;
+            _editGridManager.NotifyTerrainChanged();
+            _editGridManager.SyncDecorations();
+            GD.Print($"[MapEditor.DeleteHoveredDecoration] anchor={anchor} type={cell.DecorationType}");
         }
 
         private void UpdateSelectionLabel()
         {
             // 已选中计数已从右侧边栏移除，此方法保留以避免大面积改动调用点
-        }
-
-        /// <summary>
-        /// 更新鼠标悬停提示框的内容和显隐
-        /// </summary>
-        private void UpdateHoverInfo()
-        {
-            EnsureHoverTooltip();
-
-            var grid = GridManager;
-            if (grid == null || _hoveredGridPos == new Vector2I(-1, -1) || !grid.IsInBounds(_hoveredGridPos))
-            {
-                _hoverTooltipPanel.Visible = false;
-                return;
-            }
-
-            var cell = grid.GetCell(_hoveredGridPos);
-            if (cell == null)
-            {
-                _hoverTooltipPanel.Visible = false;
-                return;
-            }
-
-            var terrainName = cell.GetTerrainName();
-            var walkable = cell.TerrainConfig?.Walkable ?? true;
-            var walkableStr = walkable ? "✓ 可行走" : "✗ 不可行走";
-            var decorationStr = cell.DecorationType != 0
-                ? $"\n  装饰: {DecorationConfigUtil.GetDisplayName(cell.DecorationType)} ({cell.DecorationType})"
-                : "";
-
-            _hoverTooltipLabel.Text = $"鼠标悬停: ({cell.Pos.X},{cell.Pos.Y})\n" +
-                                      $"  UID: {cell.Uid}\n" +
-                                      $"  地形: {terrainName} ({cell.TerrainType})\n" +
-                                      $"  高度: {cell.Height}" +
-                                      decorationStr +
-                                      $"\n  {walkableStr}";
-            _hoverTooltipPanel.Visible = true;
-            UpdateHoverTooltipPosition();
         }
 
         /// <summary>
@@ -1394,7 +1817,7 @@ namespace ClinetCSharp
 
             var styleBox = new StyleBoxFlat
             {
-                BgColor = new Color(0.1f, 0.1f, 0.1f, 0.85f),
+                BgColor = new Color(0.1f, 0.1f, 0.1f, 0.9f),
                 BorderColor = new Color(0.4f, 0.4f, 0.4f, 0.9f),
                 BorderWidthLeft = 1,
                 BorderWidthTop = 1,
@@ -1413,6 +1836,7 @@ namespace ClinetCSharp
 
             _hoverTooltipLabel = new Label();
             _hoverTooltipLabel.Name = "HoverTooltipLabel";
+            _hoverTooltipLabel.MouseFilter = Control.MouseFilterEnum.Ignore;
             _hoverTooltipLabel.AddThemeFontSizeOverride("font_size", 12);
             _hoverTooltipLabel.AddThemeColorOverride("font_color", new Color(0.85f, 0.95f, 1.0f));
             _hoverTooltipLabel.AutowrapMode = TextServer.AutowrapMode.Word;
@@ -1448,6 +1872,44 @@ namespace ClinetCSharp
             _hoverTooltipPanel.Position = pos;
         }
 
+        /// <summary>
+        /// 更新鼠标悬停提示框的内容和显隐
+        /// </summary>
+        private void UpdateHoverInfo()
+        {
+            EnsureHoverTooltip();
+
+            var grid = GridManager;
+            if (grid == null || _hoveredGridPos == new Vector2I(-1, -1) || !grid.IsInBounds(_hoveredGridPos))
+            {
+                _hoverTooltipPanel.Visible = false;
+                return;
+            }
+
+            var cell = grid.GetCell(_hoveredGridPos);
+            if (cell == null)
+            {
+                _hoverTooltipPanel.Visible = false;
+                return;
+            }
+
+            var terrainName = cell.GetTerrainName();
+            var walkable = cell.TerrainConfig?.Walkable ?? true;
+            var walkableStr = walkable ? "✓ 可行走" : "✗ 不可行走";
+            var decorationStr = cell.DecorationType != 0
+                ? $"\n  建筑: {DecorationConfigUtil.GetDisplayName(cell.DecorationType)} ({cell.DecorationType})"
+                : "";
+
+            _hoverTooltipLabel.Text = $"鼠标悬停: ({cell.Pos.X},{cell.Pos.Y})\n" +
+                                      $"  UID: {cell.Uid}\n" +
+                                      $"  地形: {terrainName} ({cell.TerrainType})\n" +
+                                      $"  高度: {cell.Height}" +
+                                      decorationStr +
+                                      $"\n  {walkableStr}";
+            _hoverTooltipPanel.Visible = true;
+            UpdateHoverTooltipPosition();
+        }
+
         // ============ 属性应用 ============
 
         private void ApplyToSelection()
@@ -1477,38 +1939,12 @@ namespace ClinetCSharp
             GD.Print("[MapEditor] 已应用地形到 " + cmd.Changes.Count + " 个格子");
         }
 
-        private void ApplyDecorationToSelection(int decorationType)
-        {
-            if (SelectedCells.Count == 0 || GridManager == null)
-                return;
-
-            var cmd = CreateDecorationUndoCommand(decorationType);
-            if (cmd.Changes.Count == 0) return;
-
-            _undoStack.Add(cmd);
-            if (_undoStack.Count > MaxUndoSteps)
-                _undoStack.RemoveAt(0);
-            _redoStack.Clear();
-
-            foreach (var (pos, _) in cmd.Changes)
-            {
-                var cell = GridManager.GetCell(pos);
-                if (cell == null) continue;
-                cell.DecorationType = decorationType;
-                GD.Print($"[MapEditor.ApplyDecoration] pos=({pos.X},{pos.Y}) decoration={decorationType}");
-            }
-
-            GridManager.NotifyTerrainChanged();
-            GridManager.SyncDecorations();
-            GD.Print("[MapEditor] 已应用装饰到 " + cmd.Changes.Count + " 个格子");
-        }
-
         /// <summary>
         /// 创建装饰撤销命令 — 记录当前选中格子中将被修改的格子及其旧装饰值。
         /// </summary>
         private DecorationEditCommand CreateDecorationUndoCommand(int newDecorationType)
         {
-            var cmd = new DecorationEditCommand { NewDecorationType = newDecorationType };
+            var cmd = new DecorationEditCommand();
             if (GridManager == null) return cmd;
 
             foreach (var pos in SelectedCells.Keys)
@@ -1517,16 +1953,58 @@ namespace ClinetCSharp
                 var cell = GridManager.GetCell(pos);
                 if (cell == null) continue;
                 if (cell.DecorationType == newDecorationType) continue;
-                cmd.Changes.Add((pos, cell.DecorationType));
+                cmd.Changes.Add((pos, cell.DecorationType, newDecorationType));
             }
             return cmd;
+        }
+
+        /// <summary>
+        /// 创建放置/移动装饰撤销命令。
+        /// </summary>
+        private DecorationEditCommand CreateDragDecorationCommand(params (Vector2I Pos, int OldType, int NewType)[] changes)
+        {
+            var cmd = new DecorationEditCommand();
+            foreach (var change in changes)
+            {
+                if (change.OldType != change.NewType)
+                    cmd.Changes.Add(change);
+            }
+            return cmd;
+        }
+
+
+        // ============ 地形笔刷 ============
+
+        private void BrushTerrainAtMouse()
+        {
+            if (_editGridManager == null) return;
+            var mouseLocalPos = _editGridManager.ToLocal(GetGlobalMousePosition());
+            var gridPos = _editGridManager.WorldToGrid(mouseLocalPos);
+            if (!_editGridManager.IsInBounds(gridPos)) return;
+            if (gridPos == _lastBrushedGridPos) return;
+
+            _lastBrushedGridPos = gridPos;
+            var cell = _editGridManager.GetCell(gridPos);
+            if (cell == null || cell.TerrainType == PaintTerrain) return;
+
+            var cmd = new TerrainEditCommand { NewTerrainType = PaintTerrain };
+            cmd.Changes.Add((gridPos, cell.TerrainType));
+            _undoStack.Add(cmd);
+            if (_undoStack.Count > MaxUndoSteps)
+                _undoStack.RemoveAt(0);
+            _redoStack.Clear();
+
+            cell.TerrainType = PaintTerrain;
+            cell.TerrainConfig = TerrainConfigUtil.Get(PaintTerrain);
+            _editGridManager.NotifyTerrainChanged();
+            GD.Print($"[MapEditor.Brush] pos={gridPos} terrain={PaintTerrain}");
         }
 
         // ============ UI回调 ============
 
         private void OnTerrainSelected(long index)
         {
-            var terrainOption = _editorPanel?.GetNodeOrNull<OptionButton>("VBoxContainer/TerrainRow/TerrainOption");
+            var terrainOption = _editorPanel?.GetNodeOrNull<OptionButton>("VBoxContainer/ToolContentContainer/TerrainRow/TerrainOption");
             if (terrainOption != null)
             {
                 PaintTerrain = terrainOption.GetItemId((int)index);
@@ -1538,45 +2016,57 @@ namespace ClinetCSharp
             }
         }
 
-        private void OnToolSelected(long index)
-        {
-            CurrentTool = (EditorTool)index;
-            GD.Print($"[MapEditor] 切换工具: {CurrentTool}");
-
-            // 同步 UI 状态
-            var terrainRow = _editorPanel?.GetNodeOrNull<Control>("VBoxContainer/TerrainRow");
-            if (terrainRow != null)
-                terrainRow.Visible = CurrentTool == EditorTool.PaintTerrain;
-
-            var decorationRow = _editorPanel?.GetNodeOrNull<Control>("VBoxContainer/DecorationRow");
-            if (decorationRow != null)
-                decorationRow.Visible = CurrentTool == EditorTool.PlaceDecoration;
-
-            var decorActionRow = _editorPanel?.GetNodeOrNull<Control>("VBoxContainer/DecorActionRow");
-            if (decorActionRow != null)
-                decorActionRow.Visible = CurrentTool == EditorTool.PlaceDecoration;
-        }
-
-        private void OnDecorationSelected(long index)
-        {
-            var decorationOption = _editorPanel?.GetNodeOrNull<OptionButton>("VBoxContainer/DecorationRow/DecorationOption");
-            if (decorationOption != null)
-            {
-                PaintDecoration = decorationOption.GetItemId((int)index);
-                GD.Print($"[MapEditor] 选择装饰: index={index}, id={PaintDecoration}");
-            }
-            else
-            {
-                PaintDecoration = (int)index;
-            }
-        }
-
         private void OnShowUidToggled(bool pressed)
         {
             var grid = GridManager;
             if (grid == null) return;
             grid.SetShowCellUids(pressed);
             GD.Print($"[MapEditor] 显示格子UID: {pressed}");
+        }
+
+        private void OnBuildingSearchTextChanged(string text)
+        {
+            var listBox = _editorPanel?.GetNodeOrNull<VBoxContainer>("VBoxContainer/ToolContentContainer/BuildingListScroll/BuildingListBox");
+            if (listBox == null) return;
+
+            var filter = text?.Trim().ToLowerInvariant() ?? "";
+            foreach (var child in listBox.GetChildren())
+            {
+                if (child is not BuildingListItem item) continue;
+                var cfg = item.Config;
+                var match = string.IsNullOrEmpty(filter)
+                    || cfg.DisplayName.ToLowerInvariant().Contains(filter)
+                    || cfg.Name.ToLowerInvariant().Contains(filter)
+                    || (!string.IsNullOrEmpty(cfg.PinyinName) && cfg.PinyinName.ToLowerInvariant().Contains(filter));
+                item.Visible = match;
+            }
+
+            listBox.QueueSort();
+        }
+
+        private void OnDecorationProfilesChanged()
+        {
+            if (IsEditing && CurrentTool == EditorTool.PlaceDecoration)
+                RefreshToolContent();
+        }
+
+        private void OnOpenDecorationWorkshop()
+        {
+            var debugPanel = GetTree()?.GetFirstNodeInGroup("debug_panel") as DebugPanel;
+            if (debugPanel == null)
+            {
+                ShowToast("未找到调试面板", Colors.Yellow);
+                return;
+            }
+            debugPanel.SelectDecorationTab();
+        }
+
+        /// <summary>进入地图编辑模式并切换到放建筑工具</summary>
+        public void EnterPlaceDecorationMode()
+        {
+            SetEditMode(true);
+            CurrentTool = EditorTool.PlaceDecoration;
+            RefreshToolContent();
         }
 
         // ============ 选择历史系统（右键撤销） ============

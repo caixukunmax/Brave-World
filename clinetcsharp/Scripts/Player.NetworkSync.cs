@@ -161,7 +161,7 @@ namespace ClinetCSharp
 
             _gridPos = new Vector2I(notify.SpawnX, notify.SpawnY);
             _moveFromPos = _gridPos;
-            Position = UiUtils.GridToWorld(_gridPos, GridSize);
+            Position = GetWorldPositionForGridPos(_gridPos);
 
             HealthBarFillPercent = 1.0f;
             if (notify.MaxHp > 0)

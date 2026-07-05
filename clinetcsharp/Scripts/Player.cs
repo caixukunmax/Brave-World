@@ -88,7 +88,7 @@ namespace ClinetCSharp
 
             _gridPos = new Vector2I(x, y);
             _moveFromPos = _gridPos;
-            Position = UiUtils.GridToWorld(_gridPos, GridSize);
+            Position = GetWorldPositionForGridPos(_gridPos);
         }
     }
 }

@@ -36,6 +36,8 @@ public class MonsterRuntimeState
     public string MapName { get; set; } = "";
     public int X { get; set; }
     public int Y { get; set; }
+    public int SizeX { get; set; } = 1;
+    public int SizeY { get; set; } = 1;
     public int SpawnX { get; set; }
     public int SpawnY { get; set; }
     public int AiId { get; set; }

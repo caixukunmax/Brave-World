@@ -32,7 +32,7 @@ namespace ClinetCSharp
             _gridPos = serverGridPos;
             _moveFromPos = serverGridPos;
 
-            var targetWorldPos = UiUtils.GridToWorld(serverGridPos, GridSize);
+            var targetWorldPos = GetWorldPositionForGridPos(serverGridPos);
             float distance = Position.DistanceTo(targetWorldPos);
             float duration = PlayerRoleInfoPositionSyncPolicy.ResolveServerGridCorrectionDuration(distance, GridSize);
 

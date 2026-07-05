@@ -43,18 +43,21 @@ namespace ClinetCSharp
             _entityTab = new DebugPanelEntityTab(this);
             _systemTab = new DebugPanelSystemTab(this);
             _uiTab = new DebugPanelUITab(this);
-            _tabs = new DebugPanelTab[] { _mapTab, _entityTab, _systemTab, _uiTab };
+            _decorationTab = new DebugPanelDecorationTab(this);
+            _tabs = new DebugPanelTab[] { _mapTab, _entityTab, _systemTab, _uiTab, _decorationTab };
 
             var tabContainer = GetNode<TabContainer>("VBoxContainer/Content/ScrollContainer/TabContainer");
             var mapTab = tabContainer.GetNode<VBoxContainer>("地图");
             var entityTab = tabContainer.GetNode<VBoxContainer>("实体");
             var systemTab = tabContainer.GetNode<VBoxContainer>("系统");
             var uiTab = tabContainer.GetNode<VBoxContainer>("UI");
+            var decorationTab = tabContainer.GetNode<VBoxContainer>("建筑");
 
             _mapTab.BuildUI(mapTab);
             _entityTab.BuildUI(entityTab);
             _systemTab.BuildUI(systemTab);
             _uiTab.BuildUI(uiTab);
+            _decorationTab.BuildUI(decorationTab);
 
             foreach (var tab in _tabs)
                 tab.ConnectSignals();
@@ -96,6 +99,7 @@ namespace ClinetCSharp
         public override void _Input(InputEvent @event)
         {
             base._Input(@event);
+
             SliderValueInput.HandleInput(@event);
 
             if (_activeLineEdit != null &&
@@ -120,6 +124,28 @@ namespace ClinetCSharp
             {
                 Toggle();
                 GetViewport().SetInputAsHandled();
+                return;
+            }
+
+            // Ctrl+Shift+B：在建筑工坊页签下进入地图编辑器放建筑
+            if (@event is InputEventKey keyEvent2 &&
+                keyEvent2.Pressed &&
+                keyEvent2.Keycode == Key.B &&
+                keyEvent2.CtrlPressed &&
+                keyEvent2.ShiftPressed &&
+                _tabContainer != null &&
+                _tabs != null &&
+                _tabContainer.CurrentTab >= 0 &&
+                _tabContainer.CurrentTab < _tabs.Length &&
+                ReferenceEquals(_tabs[_tabContainer.CurrentTab], _decorationTab))
+            {
+                var mapEditor = GetTree()?.GetFirstNodeInGroup("map_editor") as MapEditor;
+                if (mapEditor != null)
+                {
+                    mapEditor.EnterPlaceDecorationMode();
+                    Visible = false;
+                    GetViewport().SetInputAsHandled();
+                }
             }
         }
 

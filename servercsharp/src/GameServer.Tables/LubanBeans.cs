@@ -291,3 +291,12 @@ public class TerrainConfigRow
     [JsonPropertyName("color_a")] public float ColorA { get; set; }
     [JsonPropertyName("particle_effect")] public string ParticleEffect { get; set; } = "";
 }
+
+// ---- ChestConfig ----
+
+public class ChestConfigRow
+{
+    [JsonPropertyName("id")] public int Id { get; set; }
+    [JsonPropertyName("name")] public string Name { get; set; } = "";
+    [JsonPropertyName("rewards")] public string Rewards { get; set; } = "";
+}

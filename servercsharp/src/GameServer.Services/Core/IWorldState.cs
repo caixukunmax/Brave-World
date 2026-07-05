@@ -25,6 +25,10 @@ public interface IWorldState
     /// <summary>查找最近的可行走格子</summary>
     (int x, int y)? FindNearestWalkable(string mapName, int x, int y);
 
+    /// <summary>查找最近的、能容纳指定 footprint 的锚点位置</summary>
+    (int x, int y)? FindNearestWalkableForFootprint(string mapName, int x, int y, int sizeX, int sizeY,
+        int maxRadius = 10, bool requireVacant = true, long excludedEntityId = 0);
+
     /// <summary>检查格子是否被实体占据</summary>
     bool IsOccupied(string mapName, int x, int y);
 

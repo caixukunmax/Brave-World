@@ -66,7 +66,14 @@ namespace ClinetCSharp
         public int FontSize { get; set; } = 0; // 0 = 自动
 
         // ========== 外观 — 计算属性（只读） ==========
-        public int VisualOuterSize => Mathf.Clamp(Mathf.RoundToInt(GridSize * VisualSizeScale), 10, GridSize);
+        public int VisualOuterSize
+        {
+            get
+            {
+                int baseSize = Mathf.Min(GridSize * Mathf.Max(1, GridSizeX), GridSize * Mathf.Max(1, GridSizeY));
+                return Mathf.Clamp(Mathf.RoundToInt(baseSize * VisualSizeScale), 10, baseSize);
+            }
+        }
         public int BorderWidth => Mathf.Clamp(Mathf.RoundToInt(GridSize * BorderWidthScale), 1, Mathf.Max(1, VisualOuterSize / 2));
         public int VisualSize => Mathf.Max(2, VisualOuterSize - BorderWidth * 2);
 
@@ -124,6 +131,39 @@ namespace ClinetCSharp
         // ========== 格子坐标 ==========
         public Vector2I GridPos => GetGridPos();
         protected virtual Vector2I GetGridPos() => Vector2I.Zero;
+
+        // ========== 占地大小（格子数） ==========
+        public int GridSizeX { get; set; } = 1;
+        public int GridSizeY { get; set; } = 1;
+
+        /// <summary>占地范围的左上角格子坐标（GridPos 表示占地中心）</summary>
+        public Vector2I GridAnchor => new(
+            GridPos.X - (GridSizeX - 1) / 2,
+            GridPos.Y - (GridSizeY - 1) / 2);
+
+        /// <summary>把占地中心格子坐标转成世界坐标（渲染中心）</summary>
+        public Vector2 GetWorldPositionForGridPos(Vector2I gridPos)
+        {
+            int sizeX = Mathf.Max(1, GridSizeX);
+            int sizeY = Mathf.Max(1, GridSizeY);
+            var anchor = new Vector2I(
+                gridPos.X - (sizeX - 1) / 2,
+                gridPos.Y - (sizeY - 1) / 2);
+            return GetWorldPositionForGridAnchor(anchor);
+        }
+
+        /// <summary>把占地左上角格子坐标转成世界坐标（渲染中心）</summary>
+        public Vector2 GetWorldPositionForGridAnchor(Vector2I anchor)
+        {
+            int sizeX = Mathf.Max(1, GridSizeX);
+            int sizeY = Mathf.Max(1, GridSizeY);
+            return new Vector2(
+                anchor.X * GridSize + GridSize * sizeX / 2.0f,
+                anchor.Y * GridSize + GridSize * sizeY / 2.0f);
+        }
+
+        /// <summary>占地大小变化后的回调，子类可重写以更新渲染位置</summary>
+        public virtual void OnGridSizeChanged() { }
 
         // ========== 移动基础 ==========
         protected Tween _currentTween;
@@ -259,20 +299,24 @@ namespace ClinetCSharp
         public static event System.Action<EntityBase> EntityClicked;
 
         /// <summary>检测鼠标点击是否命中实体，子类 override _Input 时应调用此方法</summary>
-        protected void CheckEntityClick(InputEvent @event)
+        /// <returns>命中并触发 EntityClicked 时返回 true</returns>
+        protected bool CheckEntityClick(InputEvent @event)
         {
             if (@event is InputEventMouseButton mb && mb.ButtonIndex == MouseButton.Left && mb.Pressed)
             {
                 // GetGlobalMousePosition 返回世界坐标，ToLocal 转为本地坐标
                 var worldMouse = GetGlobalMousePosition();
                 var localMouse = ToLocal(worldMouse);
-                float half = VisualOuterSize / 2.0f;
-                var rect = new Rect2(new Vector2(-half, -half), new Vector2(VisualOuterSize, VisualOuterSize));
+                float halfW = GridSize * Mathf.Max(1, GridSizeX) / 2.0f;
+                float halfH = GridSize * Mathf.Max(1, GridSizeY) / 2.0f;
+                var rect = new Rect2(new Vector2(-halfW, -halfH), new Vector2(halfW * 2, halfH * 2));
                 if (rect.HasPoint(localMouse))
                 {
                     EntityClicked?.Invoke(this);
+                    return true;
                 }
             }
+            return false;
         }
 
         // ========== 绘制 ==========
@@ -482,17 +526,18 @@ namespace ClinetCSharp
         public virtual void SetGridSize(int size)
         {
             GridSize = size;
-            Position = UiUtils.GridToWorld(GridPos, GridSize);
+            Position = GetWorldPositionForGridPos(GridPos);
             UpdateRichLabelFontSize();
             QueueRedraw();
         }
 
         public virtual bool HitTest(Vector2 worldPos)
         {
-            float half = VisualOuterSize / 2.0f;
-            var worldCenter = UiUtils.GridToWorld(GridPos, GridSize);
-            return Mathf.Abs(worldPos.X - worldCenter.X) < half &&
-                   Mathf.Abs(worldPos.Y - worldCenter.Y) < half;
+            float halfW = GridSize * Mathf.Max(1, GridSizeX) / 2.0f;
+            float halfH = GridSize * Mathf.Max(1, GridSizeY) / 2.0f;
+            var worldCenter = GetWorldPositionForGridPos(GridPos);
+            return Mathf.Abs(worldPos.X - worldCenter.X) < halfW &&
+                   Mathf.Abs(worldPos.Y - worldCenter.Y) < halfH;
         }
 
         public virtual void ApplyStyle(EntityStyleConfig cfg)
@@ -546,7 +591,7 @@ namespace ClinetCSharp
             _currentTween = CreateTween();
             _currentTween.SetTrans(Tween.TransitionType.Quad);
             _currentTween.SetEase(Tween.EaseType.Out);
-            _currentTween.TweenProperty(this, "position", UiUtils.GridToWorld(targetGridPos, GridSize), duration);
+            _currentTween.TweenProperty(this, "position", GetWorldPositionForGridPos(targetGridPos), duration);
             _currentTween.Finished += () => { IsMoving = false; _currentTween = null; };
         }
 
@@ -555,7 +600,7 @@ namespace ClinetCSharp
             _currentTween?.Kill();
             _currentTween = null;
             IsMoving = false;
-            Position = UiUtils.GridToWorld(pos, GridSize);
+            Position = GetWorldPositionForGridPos(pos);
             QueueRedraw();
         }
 
@@ -608,7 +653,7 @@ namespace ClinetCSharp
 
             if (targetGridPos.HasValue)
             {
-                var targetWorld = UiUtils.GridToWorld(targetGridPos.Value, GridSize);
+                var targetWorld = GetWorldPositionForGridPos(targetGridPos.Value);
                 dir = (targetWorld - originalPos).Normalized();
             }
             else
@@ -634,7 +679,7 @@ namespace ClinetCSharp
         {
             _currentTween?.Kill();
             IsMoving = true;
-            var originWorld = UiUtils.GridToWorld(originPos, GridSize);
+            var originWorld = GetWorldPositionForGridPos(originPos);
             _currentTween = CreateTween();
             _currentTween.SetTrans(Tween.TransitionType.Cubic);
             _currentTween.SetEase(Tween.EaseType.In);

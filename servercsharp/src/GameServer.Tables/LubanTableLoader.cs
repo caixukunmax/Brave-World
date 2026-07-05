@@ -25,6 +25,7 @@ public class LubanTableLoader
     public Dictionary<int, DropGroupRow> DropGroups { get; private set; } = new();
     public Dictionary<int, TerrainConfigRow> TerrainConfigs { get; private set; } = new();
     public Dictionary<int, ItemRow> Items { get; private set; } = new();
+    public Dictionary<int, ChestConfigRow> ChestConfigs { get; private set; } = new();
 
     // 反向索引: mapName → mapId
     private Dictionary<string, int> _mapNameToId = new();
@@ -62,6 +63,7 @@ public class LubanTableLoader
         DropGroups = LoadTable<DropGroupRow>(dataDir, "common_tbdropgroup.json", opts);
         Items = LoadTable<ItemRow>(dataDir, "item_tbitem.json", opts);
         TerrainConfigs = LoadTable<TerrainConfigRow>(dataDir, "common_tbterrainconfig.json", opts);
+        ChestConfigs = LoadTable<ChestConfigRow>(dataDir, "common_tbchestconfig.json", opts);
 
         // 建立地图名→ID 反向索引
         _mapNameToId = MapConfigs.Values.ToDictionary(m => m.MapName, m => m.Id);

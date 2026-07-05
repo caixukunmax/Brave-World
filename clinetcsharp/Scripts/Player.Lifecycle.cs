@@ -10,7 +10,7 @@ namespace ClinetCSharp
             ProfileId = 1;
             EnsureRenderComponents();
 
-            Position = UiUtils.GridToWorld(_gridPos, GridSize);
+            Position = GetWorldPositionForGridPos(_gridPos);
             for (int i = 0; i < LabelCount; i++)
                 _labelOffsets[i] = DefaultOffsets[i];
 

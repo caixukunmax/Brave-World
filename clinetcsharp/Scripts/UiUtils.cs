@@ -33,17 +33,25 @@ namespace ClinetCSharp
 
         /// <summary>
         /// 统一输入门控：判断鼠标是否在任何 UI 面板/控件上。
-        /// 所有非 UI 的 _Input 处理器都应先调用此方法，避免鼠标事件穿透到游戏层。
-        ///
-        /// 原理：GuiGetHoveredControl() 返回 Godot GUI 系统中鼠标下的最顶层 Control，
-        /// 它会正确处理 CanvasLayer 层级和 MouseFilter。只要任何 Control（Panel、Button 等）
-        /// 挡在鼠标位置，就应阻止游戏世界层处理该事件。
-        /// MouseFilter=Ignore 的控件不会被 GuiGetHoveredControl() 返回。
+        /// 新版实现委托给 UIInputPolicy；如果单例尚未就绪，则退回到 viewport 检测。
         /// </summary>
         public static bool IsMouseOverAnyUi(Viewport viewport)
         {
+            var policy = UIInputPolicy.Instance;
+            if (policy != null)
+                return policy.IsMouseOverInteractiveUi();
+
+            // 兼容兜底：UIInputPolicy 初始化前按原逻辑判断
             if (viewport == null) return false;
             return viewport.GuiGetHoveredControl() != null;
+        }
+
+        /// <summary>
+        /// 判断鼠标是否位于交互式 UI 上（优先使用 UIInputPolicy 的统一策略）。
+        /// </summary>
+        public static bool IsMouseOverInteractiveUi(Viewport viewport)
+        {
+            return IsMouseOverAnyUi(viewport);
         }
 
         /// <summary>

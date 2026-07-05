@@ -50,9 +50,11 @@ public class ChangeMapHandler : IMessageHandler
         // 离开旧地图
         _session.MapService.PlayerLeave(claims.AccountId, currentMap);
 
-        // 获取目标地图出生点
+        // 获取目标地图出生点，并按角色 footprint 校验/修正
         var (spawnX, spawnY) = _mapData.GetSpawnPoint(targetMap);
-        var walkable = _mapData.FindNearestWalkable(targetMap, spawnX, spawnY);
+        int sizeX = role.GridSizeX > 0 ? role.GridSizeX : 1;
+        int sizeY = role.GridSizeY > 0 ? role.GridSizeY : 1;
+        var walkable = _session.MapService.FindNearestWalkableForFootprint(targetMap, spawnX, spawnY, sizeX, sizeY);
         if (walkable != null) { spawnX = walkable.Value.x; spawnY = walkable.Value.y; }
 
         // 按当前等级计算属性，避免切图后属性被重置为 Lv1
@@ -74,6 +76,8 @@ public class ChangeMapHandler : IMessageHandler
             ServerId = claims.ServerId,
             GridX = spawnX,
             GridY = spawnY,
+            SizeX = sizeX,
+            SizeY = sizeY,
             Level = role.Level,
             CurrentMap = targetMap,
             Hp = enterHp, MaxHp = hp, Mp = enterMp, MaxMp = mp,
@@ -95,6 +99,8 @@ public class ChangeMapHandler : IMessageHandler
                 Y = m.Y,
                 Name = m.Name,
                 Level = (uint)m.Level,
+                SizeX = m.SizeX > 0 ? m.SizeX : 1,
+                SizeY = m.SizeY > 0 ? m.SizeY : 1,
             };
             info.Attrs.Add(new PGame.MonsterAttr { AttrKey = 1, AttrValue = m.Hp });
             info.Attrs.Add(new PGame.MonsterAttr { AttrKey = 2, AttrValue = m.Patk });
@@ -116,6 +122,8 @@ public class ChangeMapHandler : IMessageHandler
                     NpcType = n.NpcType,
                     X = n.X,
                     Y = n.Y,
+                    SizeX = n.SizeX > 0 ? n.SizeX : 1,
+                    SizeY = n.SizeY > 0 ? n.SizeY : 1,
                 });
             }
         }

@@ -11,7 +11,7 @@ namespace ClinetCSharp
             StopMoveCheckpointTimer();
             _currentTween?.Kill();
 
-            var originWorld = UiUtils.GridToWorld(originPos, GridSize);
+            var originWorld = GetWorldPositionForGridPos(originPos);
 
             _bouncingBack = true;
             _currentTween = CreateTween();
@@ -25,7 +25,7 @@ namespace ClinetCSharp
             if (ratio < BounceBackOvershootThreshold)
             {
                 // 走得不多时：轻微 overshoot 然后弹回（更有"撞到东西"的感觉）
-                var targetWorld = UiUtils.GridToWorld(_moveTargetPos, GridSize);
+                var targetWorld = GetWorldPositionForGridPos(_moveTargetPos);
                 var dir = targetWorld - originWorld;
                 if (dir.Length() > 0.001f)
                 {
@@ -84,7 +84,7 @@ namespace ClinetCSharp
             if (!IsMoving)
             {
                 _gridPos = rollbackPos;
-                Position = UiUtils.GridToWorld(rollbackPos, GridSize);
+                Position = GetWorldPositionForGridPos(rollbackPos);
                 return;
             }
 
@@ -96,8 +96,8 @@ namespace ClinetCSharp
             StopMoveCheckpointTimer();
             _currentTween?.Kill();
 
-            var fromWorld = UiUtils.GridToWorld(fromPos, GridSize);
-            var toWorld = UiUtils.GridToWorld(targetPos, GridSize);
+            var fromWorld = GetWorldPositionForGridPos(fromPos);
+            var toWorld = GetWorldPositionForGridPos(targetPos);
             var bumpPos = fromWorld + ((toWorld - fromWorld) * 0.3f);
 
             IsMoving = true;
@@ -126,7 +126,7 @@ namespace ClinetCSharp
             _currentTween = null;
             StopMoveCheckpointTimer();
 
-            var targetWorld = UiUtils.GridToWorld(pos, GridSize);
+            var targetWorld = GetWorldPositionForGridPos(pos);
             var dist = Position.DistanceTo(targetWorld);
 
             if (dist > 1.0f)
@@ -142,7 +142,7 @@ namespace ClinetCSharp
                     IsMoving = false;
                     _bouncingBack = false;
                     _gridPos = pos;
-                    Position = UiUtils.GridToWorld(pos, GridSize);
+                    Position = GetWorldPositionForGridPos(pos);
                     _currentTween = null;
                 };
                 IsMoving = true;

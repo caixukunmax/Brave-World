@@ -97,6 +97,33 @@ namespace ClinetCSharp
             _nextId = _profiles.Count > 0 ? _profiles.Keys.Max() + 1 : 1;
         }
 
+        private void MigrateBuildingProfileIds()
+        {
+            // 旧默认建筑 ID 10/11/12 → 新建筑配置 ID
+            var migrationMap = new Dictionary<int, int>
+            {
+                [10] = BuildingType.GetConfigBaseId(BuildingType.House),      // 房舍
+                [11] = BuildingType.GetConfigBaseId(BuildingType.Shop) + 1,   // 商店子配置
+                [12] = BuildingType.GetConfigBaseId(BuildingType.Shop) + 2,   // 商店子配置
+            };
+
+            foreach (var (oldId, newId) in migrationMap)
+            {
+                if (!_profiles.ContainsKey(oldId))
+                    continue;
+
+                var profile = _profiles[oldId];
+                _profiles.Remove(oldId);
+
+                if (_profiles.ContainsKey(newId))
+                    continue;
+
+                profile.Id = newId;
+                _profiles[newId] = profile;
+                GD.Print($"[EntityProfileManager] Migrated decoration profile {oldId} → {newId}");
+            }
+        }
+
         private void LoadNewFormat(ConfigFile config)
         {
             _profiles.Clear();
@@ -156,6 +183,7 @@ namespace ClinetCSharp
                 _profiles[id] = profile;
             }
 
+            MigrateBuildingProfileIds();
             EnsureDefaultProfiles();
             GD.Print($"[EntityProfileManager] Loaded {_profiles.Count} profiles (new format)");
         }

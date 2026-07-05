@@ -89,7 +89,7 @@ namespace ClinetCSharp
 
         public override void _Input(InputEvent @event)
         {
-            // 拖拽结束：必须在 _input 处理（即使鼠标在 UI 上也要释放，防止状态卡住）
+            // 拖拽结束：必须在 _Input 处理（即使鼠标在 UI 上释放也要结束，防止状态卡住）
             if (@event is InputEventMouseButton mb && !mb.Pressed)
             {
                 // 编辑模式下：左键/中键释放时结束拖拽
@@ -104,29 +104,32 @@ namespace ClinetCSharp
                     return;
                 }
             }
-
-            // 滚轮缩放（自由视角模式 或 地图编辑模式下始终可用）
-            if ((FreeLookMode || IsEditorMode) && @event is InputEventMouseButton mouseBtn && mouseBtn.Pressed)
-            {
-                if (mouseBtn.ButtonIndex == MouseButton.WheelUp)
-                {
-                    ZoomAtMouse(ZoomSpeed);
-                    return;
-                }
-                if (mouseBtn.ButtonIndex == MouseButton.WheelDown)
-                {
-                    ZoomAtMouse(-ZoomSpeed);
-                    return;
-                }
-            }
         }
 
         public override void _UnhandledInput(InputEvent @event)
         {
-            // 拖拽开始：只在 _unhandled_input 处理，这样 GUI 控件（面板标题栏等）
-            // 有机会先消费事件，防止相机和面板同时拖拽
+            // 拖拽开始与滚轮缩放都只在 _UnhandledInput 处理，
+            // 这样 GUI 控件（面板标题栏、按钮、滚动容器）先在 _GuiInput 层消费事件，
+            // 不会与相机/地图操作冲突。
             if (@event is InputEventMouseButton mb)
             {
+                // 滚轮缩放（自由视角模式 或 地图编辑模式下始终可用）
+                if ((FreeLookMode || IsEditorMode) && mb.Pressed)
+                {
+                    if (mb.ButtonIndex == MouseButton.WheelUp)
+                    {
+                        ZoomAtMouse(ZoomSpeed);
+                        GetViewport()?.SetInputAsHandled();
+                        return;
+                    }
+                    if (mb.ButtonIndex == MouseButton.WheelDown)
+                    {
+                        ZoomAtMouse(-ZoomSpeed);
+                        GetViewport()?.SetInputAsHandled();
+                        return;
+                    }
+                }
+
                 // 编辑模式下：中键始终拖动视野；左键仅在未按住Ctrl时拖动视野
                 if (IsEditorMode)
                 {

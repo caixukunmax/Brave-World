@@ -208,7 +208,9 @@ namespace ClinetCSharp
                 }
 
                 var npc = new Npc();
-                npc.Setup(n.NpcInstanceId, n.NpcName, n.NpcType, n.X, n.Y, gridSize);
+                npc.Setup(n.NpcInstanceId, n.NpcName, n.NpcType, n.X, n.Y, gridSize, 1,
+                    n.SizeX > 0 ? (int)n.SizeX : 1,
+                    n.SizeY > 0 ? (int)n.SizeY : 1);
                 ApplyDefaultStyle(npc);
                 npc.ProfileId = 3;
                 AddChild(npc);
@@ -237,7 +239,12 @@ namespace ClinetCSharp
 
         public Npc GetNpcAt(Vector2I gridPos)
         {
-            return _npcByPos.TryGetValue(gridPos, out var npc) ? npc : null;
+            foreach (var npc in _npcs)
+            {
+                if (IsInFootprint(gridPos, npc.GridX, npc.GridY, npc.GridSizeX, npc.GridSizeY))
+                    return npc;
+            }
+            return null;
         }
 
         /// <summary>
@@ -256,7 +263,15 @@ namespace ClinetCSharp
 
         public bool IsBlockedByNpc(Vector2I gridPos)
         {
-            return _npcByPos.ContainsKey(gridPos);
+            return GetNpcAt(gridPos) != null;
+        }
+
+        private static bool IsInFootprint(Vector2I pos, int anchorX, int anchorY, int sizeX, int sizeY)
+        {
+            sizeX = Mathf.Max(1, sizeX);
+            sizeY = Mathf.Max(1, sizeY);
+            return pos.X >= anchorX && pos.X < anchorX + sizeX &&
+                   pos.Y >= anchorY && pos.Y < anchorY + sizeY;
         }
 
         /// <summary>

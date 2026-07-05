@@ -90,9 +90,21 @@ namespace ClinetCSharp
             if (dict.ContainsKey("custom"))
                 CustomData = (string)dict["custom"];
             if (dict.ContainsKey("decoration"))
-                DecorationType = (int)dict["decoration"];
+                DecorationType = MigrateOldDecorationType((int)dict["decoration"]);
 
             RefreshTerrainConfig();
+        }
+
+        /// <summary>兼容旧地图 decoration 字段：10/11/12 → 新的 build_cfg_id</summary>
+        internal static int MigrateOldDecorationType(int oldValue)
+        {
+            return oldValue switch
+            {
+                10 => BuildingType.GetConfigBaseId(BuildingType.House),     // 房舍
+                11 => BuildingType.GetConfigBaseId(BuildingType.Shop) + 1,  // 商店子配置
+                12 => BuildingType.GetConfigBaseId(BuildingType.Shop) + 2,  // 商店子配置
+                _ => oldValue,
+            };
         }
 
         /// <summary>

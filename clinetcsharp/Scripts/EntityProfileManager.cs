@@ -16,6 +16,9 @@ namespace ClinetCSharp
         private Dictionary<int, EntityProfile> _profiles = new();
         private int _nextId = 1;
 
+        /// <summary>建筑配置 ID 按建筑类型的自增计数器：type → next sequence</summary>
+        private readonly Dictionary<int, int> _buildingConfigCounters = new();
+
         internal const string ConfigPath = "res://debug_panel_config.cfg";
         internal const int ConfigVersion = 4; // v4 = 定点整数序列化
 
@@ -31,6 +34,12 @@ namespace ClinetCSharp
             EnsureDefaultProfiles();
             LoadConfig();
             NormalizeBuiltInProfiles();
+
+            // 同步到 DecorationConfigUtil 兼容层，保证旧接口（如 MapEditor 建筑列表）能读到数据。
+            // NetworkManager._Ready 调用 DecorationConfigUtil.Load 时，本单例可能尚未初始化，
+            // 因此必须在加载完成后主动刷新一次。
+            DecorationConfigUtil.RefreshFromProfileManager();
+
             // 延迟绑定 ProfileId，等场景中的实体都 Ready 后再执行
             CallDeferred(nameof(AssignDefaultProfileIds));
         }
@@ -78,7 +87,13 @@ namespace ClinetCSharp
             return profile;
         }
 
-        public bool IsDefaultProfile(int id) => id >= 1 && id <= 3;
+        public bool IsDefaultProfile(int id)
+        {
+            // 玩家/怪物/NPC 默认 1-3；建筑默认配置 10000、20000
+            return (id >= 1 && id <= 3)
+                || id == BuildingType.GetConfigBaseId(BuildingType.House)
+                || id == BuildingType.GetConfigBaseId(BuildingType.Shop);
+        }
 
         public bool DeleteProfile(int id)
         {
@@ -98,6 +113,72 @@ namespace ClinetCSharp
             return profile;
         }
 
+        /// <summary>从模板克隆一个新的建筑配置，ID 落在建筑类型对应区间</summary>
+        public EntityProfile CreateBuildingProfileFromTemplate(int templateId, string newName)
+        {
+            var template = GetProfile(templateId);
+            if (template == null)
+                return null;
+
+            int buildingType = template.GetData<BuildingTypeData>("building_type")?.Type ?? BuildingType.House;
+            int newId = GetNextBuildingConfigId(buildingType);
+            var profile = template.Clone(newId, newName);
+            profile.EntityType = "decoration";
+            _profiles[profile.Id] = profile;
+            return profile;
+        }
+
+        /// <summary>注册一个已构造好的 Profile（用于外部克隆后注册）</summary>
+        public void RegisterProfile(EntityProfile profile)
+        {
+            if (profile == null) return;
+            _profiles[profile.Id] = profile;
+            if (profile.Id >= _nextId)
+                _nextId = profile.Id + 1;
+
+            if (profile.EntityType == "decoration")
+            {
+                int type = BuildingType.GetTypeFromConfigId(profile.Id);
+                if (BuildingType.IsValid(type))
+                {
+                    int seq = profile.Id - BuildingType.GetConfigBaseId(type) + 1;
+                    if (_buildingConfigCounters.TryGetValue(type, out var existing))
+                        _buildingConfigCounters[type] = Mathf.Max(existing, seq);
+                    else
+                        _buildingConfigCounters[type] = seq;
+                }
+            }
+        }
+
+        /// <summary>获取下一个可用的 Profile ID</summary>
+        public int GetNextId() => _nextId++;
+
+        /// <summary>获取下一个可用的建筑配置 ID（按建筑类型在对应区间自增）</summary>
+        public int GetNextBuildingConfigId(int buildingType)
+        {
+            if (!BuildingType.IsValid(buildingType))
+                buildingType = BuildingType.House;
+
+            if (!_buildingConfigCounters.TryGetValue(buildingType, out var seq))
+            {
+                int baseId = BuildingType.GetConfigBaseId(buildingType);
+                seq = 0;
+                foreach (var id in _profiles.Keys)
+                {
+                    if (id >= baseId && id < baseId + BuildingType.ConfigIdMultiplier)
+                        seq = Mathf.Max(seq, id - baseId + 1);
+                }
+            }
+
+            int result = BuildingType.GetConfigBaseId(buildingType) + seq;
+            _buildingConfigCounters[buildingType] = seq + 1;
+
+            if (result >= _nextId)
+                _nextId = result + 1;
+
+            return result;
+        }
+
         #endregion
 
         #region Built-in Profile Normalization
@@ -106,6 +187,17 @@ namespace ClinetCSharp
         {
             foreach (var profile in _profiles.Values)
             {
+                // 默认房舍强制 2x2，与服务器 buildings.json 保持一致
+                if (profile.EntityType == "decoration" && profile.Id == BuildingType.GetConfigBaseId(BuildingType.House))
+                {
+                    var app = profile.GetData<AppearanceData>("appearance");
+                    if (app != null)
+                    {
+                        app.SizeX = 2;
+                        app.SizeY = 2;
+                    }
+                }
+
                 if (profile.EntityType == "monster")
                 {
                     var labels = profile.GetData<LabelGroupData>("labels");
@@ -149,6 +241,19 @@ namespace ClinetCSharp
                 _profiles[2] = EntityProfile.CreateMonsterDefault(2);
             if (!_profiles.ContainsKey(3))
                 _profiles[3] = EntityProfile.CreateNpcDefault(3);
+
+            // 默认建筑 Profiles
+            // 房舍 build_cfg_id 从 10000 开始，商店从 20000 开始
+            if (!_profiles.ContainsKey(BuildingType.GetConfigBaseId(BuildingType.House)))
+                _profiles[BuildingType.GetConfigBaseId(BuildingType.House)] = EntityProfile.CreateDecorationDefault(
+                    BuildingType.GetConfigBaseId(BuildingType.House), "House", "房舍", BuildingType.House,
+                    new Color(0.545f, 0.353f, 0.169f, 0.9f),
+                    new Color(0.4f, 0.2f, 0.1f), true);
+            if (!_profiles.ContainsKey(BuildingType.GetConfigBaseId(BuildingType.Shop)))
+                _profiles[BuildingType.GetConfigBaseId(BuildingType.Shop)] = EntityProfile.CreateDecorationDefault(
+                    BuildingType.GetConfigBaseId(BuildingType.Shop), "Shop", "商店", BuildingType.Shop,
+                    new Color(0.2f, 0.4f, 0.6f, 0.9f),
+                    new Color(0.1f, 0.3f, 0.5f), true);
 
             _nextId = Mathf.Max(_nextId, _profiles.Keys.Max() + 1);
         }
@@ -258,6 +363,9 @@ namespace ClinetCSharp
                 entity.CornerRadius = app.CornerRadius;
                 entity.BgOpacity = app.BgOpacity;
                 entity.FontSize = app.FontSize;
+                entity.GridSizeX = app.SizeX > 0 ? app.SizeX : 1;
+                entity.GridSizeY = app.SizeY > 0 ? app.SizeY : 1;
+                entity.OnGridSizeChanged();
                 entity.BorderColor = app.BorderColor;
                 entity.BgColor = app.BgColor;
                 entity.TextColor = app.TextColor;
@@ -380,6 +488,16 @@ namespace ClinetCSharp
                 }
             }
 
+            // Obstacle (Decoration specific)
+            if (entity is MapDecoration dec)
+            {
+                var obstacle = profile.GetData<ObstacleData>("obstacle");
+                if (obstacle != null && !profile.IsComponentDisabled("obstacle"))
+                    dec.BlockMovement = obstacle.BlockMovement;
+                else
+                    dec.BlockMovement = false;
+            }
+
             entity.QueueRedraw();
         }
 
@@ -420,6 +538,14 @@ namespace ClinetCSharp
                 if (node is EntityBase entity && entity.ProfileId == profileId)
                 { ApplyProfile(entity, profileId); applied++; }
             }
+
+            // Decoration: 通过 group 遍历，按 ProfileId 匹配
+            foreach (var node in tree.GetNodesInGroup("decoration"))
+            {
+                if (node is EntityBase entity && entity.ProfileId == profileId)
+                { ApplyProfile(entity, profileId); applied++; }
+            }
+
             GD.Print($"[ProfileMgr] ApplyProfileToAll: profileId={profileId}, type={entityType}, applied={applied} entities");
         }
 

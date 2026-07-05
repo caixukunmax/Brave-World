@@ -195,7 +195,9 @@ namespace ClinetCSharp
             {
                 _vis[i].Toggled += OnToggleChanged;
                 _names[i].TextChanged += OnTextChanged;
+                _names[i].FocusExited += OnFocusExited;
                 _texts[i].TextChanged += OnTextChanged;
+                _texts[i].FocusExited += OnFocusExited;
                 _useGlobalFontChecks[i].Toggled += OnToggleChanged;
                 _fontSizeSliders[i].ValueChanged += OnValueChanged;
                 _offsetXSliders[i].ValueChanged += OnValueChanged;
@@ -218,7 +220,9 @@ namespace ClinetCSharp
             {
                 _vis[i].Toggled -= OnToggleChanged;
                 _names[i].TextChanged -= OnTextChanged;
+                _names[i].FocusExited -= OnFocusExited;
                 _texts[i].TextChanged -= OnTextChanged;
+                _texts[i].FocusExited -= OnFocusExited;
                 _useGlobalFontChecks[i].Toggled -= OnToggleChanged;
                 _fontSizeSliders[i].ValueChanged -= OnValueChanged;
                 _offsetXSliders[i].ValueChanged -= OnValueChanged;
@@ -336,6 +340,11 @@ namespace ClinetCSharp
         }
 
         private void OnTextChanged(string _)
+        {
+            _onChanged?.Invoke();
+        }
+
+        private void OnFocusExited()
         {
             _onChanged?.Invoke();
         }

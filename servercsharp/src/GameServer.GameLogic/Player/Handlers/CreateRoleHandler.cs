@@ -140,6 +140,8 @@ public class CreateRoleHandler : IMessageHandler
                     NpcType = n.NpcType,
                     X = n.X,
                     Y = n.Y,
+                    SizeX = n.SizeX > 0 ? n.SizeX : 1,
+                    SizeY = n.SizeY > 0 ? n.SizeY : 1,
                 });
             }
         }

@@ -126,9 +126,11 @@ public class GmCommandHandler : IMessageHandler
             var tx = parts.Length > 1 ? int.Parse(parts[1]) : 0;
             var ty = parts.Length > 2 ? int.Parse(parts[2]) : 0;
             var mapName = player.CurrentMap;
-            var walkable = _session.MapService.FindNearestWalkable(mapName, tx, ty);
+            int sizeX = player.GridSizeX > 0 ? player.GridSizeX : 1;
+            int sizeY = player.GridSizeY > 0 ? player.GridSizeY : 1;
+            var walkable = _session.MapService.FindNearestWalkableForFootprint(mapName, tx, ty, sizeX, sizeY);
             if (walkable == null)
-                return new PGame.GmCommandResponse { Code = PCommon.ErrorCode.Forbidden, Message = $"no walkable cell near ({tx},{ty})" }.ToByteArray();
+                return new PGame.GmCommandResponse { Code = PCommon.ErrorCode.Forbidden, Message = $"no walkable cell near ({tx},{ty}) for footprint {sizeX}x{sizeY}" }.ToByteArray();
 
             player.GridX = walkable.Value.x;
             player.GridY = walkable.Value.y;
@@ -305,10 +307,12 @@ public class GmCommandHandler : IMessageHandler
                 };
             }
 
-            // 4. 传送到出生点
+            // 4. 传送到出生点（按 footprint 校验）
             var currentMap = player.CurrentMap;
             var (spawnX, spawnY) = _mapData.GetSpawnPoint(currentMap);
-            var walkable = _mapData.FindNearestWalkable(currentMap, spawnX, spawnY);
+            int sizeX = player.GridSizeX > 0 ? player.GridSizeX : 1;
+            int sizeY = player.GridSizeY > 0 ? player.GridSizeY : 1;
+            var walkable = _session.MapService.FindNearestWalkableForFootprint(currentMap, spawnX, spawnY, sizeX, sizeY);
             if (walkable != null) { spawnX = walkable.Value.x; spawnY = walkable.Value.y; }
             player.GridX = spawnX;
             player.GridY = spawnY;

@@ -298,7 +298,10 @@ namespace ClinetCSharp
         private void OnComponentChanged()
         {
             if (_isRefreshing)
+            {
+                GD.Print($"[EntityTab] OnComponentChanged skipped: _isRefreshing=true");
                 return;
+            }
 
             var profileManager = EntityProfileManager.Instance;
             var profile = profileManager?.GetProfile(_currentProfileId);
@@ -310,6 +313,9 @@ namespace ClinetCSharp
 
             foreach (var kv in _activeComponents)
                 profile.SetData(kv.Key, kv.Value.SyncToData());
+
+            var labels = profile.GetData<LabelGroupData>("labels");
+            GD.Print($"[EntityTab] OnComponentChanged: profileId={_currentProfileId}, label0={labels?.ContentPreview[0] ?? "<null>"}");
 
             profileManager.ApplyProfileToAll(_currentProfileId);
             SyncPreviewEntity();
@@ -365,8 +371,10 @@ namespace ClinetCSharp
             if (component == null)
                 return;
 
-            string displayName = ResolveComponentDisplayName(componentName);
-            var container = new CollapsibleContainer(displayName);
+            var meta = ComponentRegistry.GetComponentMeta(componentName);
+            var container = new CollapsibleContainer(meta.DisplayName);
+            container.SetAccentColor(meta.AccentColor);
+            container.SetHeaderIcon(meta.Icon);
 
             bool isDisabled = profile.IsComponentDisabled(componentName);
             if (isDisabled)

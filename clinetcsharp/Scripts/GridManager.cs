@@ -313,13 +313,16 @@ namespace ClinetCSharp
 
         /// <summary>
         /// 通知 MapDecorationManager 根据当前 GridData 刷新装饰摆件。
+        /// 编辑模式下优先使用 edit_decoration_manager 组中的管理器。
         /// </summary>
         public void SyncDecorations()
         {
-            var decMgr = GetTree()?.GetFirstNodeInGroup("map_decoration_manager") as MapDecorationManager;
+            var decMgr = GetTree()?.GetFirstNodeInGroup("edit_decoration_manager") as MapDecorationManager
+                ?? GetTree()?.GetFirstNodeInGroup("map_decoration_manager") as MapDecorationManager;
             if (decMgr == null) return;
             decMgr.GridSize = GridSize;
             decMgr.SpawnDecorations(GridData);
+            RebuildBlockedByDecoration();
         }
 
         private void CreateDefaultGridData()
@@ -521,10 +524,44 @@ namespace ClinetCSharp
 
         // 被宝箱占据的格子（未开的宝箱阻挡移动）
         private HashSet<Vector2I> _blockedByChest = new();
+        // 被建筑 footprint 阻塞的格子（由 decoration 锚点展开）
+        private HashSet<Vector2I> _blockedByDecoration = new();
 
         public void BlockCell(Vector2I pos) => _blockedByChest.Add(pos);
         public void UnblockCell(Vector2I pos) => _blockedByChest.Remove(pos);
         public bool IsBlockedByChest(Vector2I pos) => _blockedByChest.Contains(pos);
+
+        /// <summary>
+        /// 根据当前 GridData 中的 decoration 锚点重新计算 footprint 阻塞集合。
+        /// 多格建筑只会在锚点格子保存 decoration，但占地范围内所有格子都应被阻塞。
+        /// </summary>
+        public void RebuildBlockedByDecoration()
+        {
+            _blockedByDecoration.Clear();
+            foreach (var cell in GridData.Values)
+            {
+                if (cell.DecorationType == 0) continue;
+                if (!BlocksMovementByProfile(cell.DecorationType)) continue;
+
+                var (sizeX, sizeY) = GetDecorationSize(cell.DecorationType);
+                for (int dy = 0; dy < sizeY; dy++)
+                {
+                    for (int dx = 0; dx < sizeX; dx++)
+                    {
+                        var pos = new Vector2I(cell.Pos.X + dx, cell.Pos.Y + dy);
+                        if (GridData.ContainsKey(pos))
+                            _blockedByDecoration.Add(pos);
+                    }
+                }
+            }
+        }
+
+        private static (int sizeX, int sizeY) GetDecorationSize(int profileId)
+        {
+            var profile = EntityProfileManager.Instance?.GetProfile(profileId);
+            var app = profile?.GetData<AppearanceData>("appearance");
+            return (app?.SizeX > 0 ? app.SizeX : 1, app?.SizeY > 0 ? app.SizeY : 1);
+        }
 
         public bool IsWalkable(Vector2I gridPos)
         {
@@ -559,10 +596,10 @@ namespace ClinetCSharp
                 return false;
             }
             var cell = GridData[gridPos];
-            if (cell.DecorationType != 0 && DecorationConfigUtil.BlocksMovement(cell.DecorationType))
+            if (_blockedByDecoration.Contains(gridPos))
             {
 #if DEBUG
-                GD.Print($"[IsWalkable] {gridPos} 被装饰摆件阻挡: decoration={cell.DecorationType}");
+                GD.Print($"[IsWalkable] {gridPos} 被装饰摆件 footprint 阻挡");
 #endif
                 return false;
             }
@@ -579,6 +616,25 @@ namespace ClinetCSharp
             }
 #endif
             return walkable;
+        }
+
+        /// <summary>
+        /// 通过 EntityProfileManager 判断指定 Decoration Profile 是否阻塞移动。
+        /// </summary>
+        private static bool BlocksMovementByProfile(int profileId)
+        {
+            // 兼容旧 decoration type（1=房舍，2=商店），转换为 build_cfg_id
+            if (profileId == BuildingType.House)
+                profileId = BuildingType.GetConfigBaseId(BuildingType.House);
+            else if (profileId == BuildingType.Shop)
+                profileId = BuildingType.GetConfigBaseId(BuildingType.Shop);
+
+            var profile = EntityProfileManager.Instance?.GetProfile(profileId);
+            if (profile == null || profile.EntityType != "decoration")
+                return false;
+
+            var obstacle = profile.GetData<ObstacleData>("obstacle");
+            return obstacle != null && obstacle.BlockMovement && !profile.IsComponentDisabled("obstacle");
         }
 
         public bool IsCellVisible(Vector2I gridPos)

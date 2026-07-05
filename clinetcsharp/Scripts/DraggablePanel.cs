@@ -5,7 +5,11 @@ namespace ClinetCSharp
 {
     /// <summary>
     /// 可拖拽面板基类 — 封装标题栏拖拽、8方向resize、最小化、关闭、位置保存防抖。
-    /// 输入优先级：_Input + SetInputAsHandled() → 相机 _UnhandledInput 永远收不到面板事件。
+    ///
+    /// 输入层级：
+    ///   - GUI 控件（按钮、滑条、滚动容器）先在 _GuiInput 层消费事件。
+    ///   - 标题栏拖拽/缩放只在 _Input 中开始，且仅在鼠标确实位于面板区域时 SetInputAsHandled。
+    ///   - 相机会拖拽/滚轮缩放放在 _UnhandledInput，因此 GUI 未消费的事件不会穿透到世界层。
     ///
     /// 约定场景结构：
     ///   PanelName (PanelContainer, script=子类)
@@ -117,6 +121,7 @@ namespace ClinetCSharp
             _normalHeight = Size.Y;
             OnPanelReady();
             CallDeferred(MethodName.RegisterWithManager);
+            CallDeferred(MethodName.RegisterWithInputPolicy);
         }
 
         private void RegisterWithManager()
@@ -128,9 +133,15 @@ namespace ClinetCSharp
                 pm.RegisterToggleKey(_toggleKey, this);
         }
 
+        private void RegisterWithInputPolicy()
+        {
+            UIInputPolicy.Instance?.RegisterUiNode(this);
+        }
+
         public override void _ExitTree()
         {
             PanelManager.Instance?.Unregister(this);
+            UIInputPolicy.Instance?.UnregisterUiNode(this);
             _saveDebounceCts?.Cancel();
             _saveDebounceCts?.Dispose();
         }
@@ -212,7 +223,7 @@ namespace ClinetCSharp
                     PanelManager.Instance?.RequestFocus(this);
                 }
 
-                // 标题栏拖拽开始
+                // 标题栏拖拽开始（按钮点击由 Godot GUI 系统处理，不在此处兜底）
                 bool onTitleBar = EnableDrag && _titleBar != null && hovered != null &&
                     (hovered == _titleBar || _titleBar.IsAncestorOf(hovered));
                 bool onButton = hovered is Button && _titleBarHBox != null && _titleBarHBox.IsAncestorOf(hovered);

@@ -49,7 +49,7 @@ namespace ClinetCSharp
 
         public string[] LabelNames = { "名字", "品质", "状态", "预留" };
 
-        public void Setup(uint instanceId, uint monsterId, int x, int y, string name, uint level, int gridSize, int uiConfigId = 1)
+        public void Setup(uint instanceId, uint monsterId, int x, int y, string name, uint level, int gridSize, int uiConfigId = 1, int sizeX = 1, int sizeY = 1)
         {
             AddToGroup("monster");
             _instanceId = instanceId;
@@ -60,7 +60,9 @@ namespace ClinetCSharp
             Level = level;
             _gridSize = gridSize;
             UiConfigId = uiConfigId;
-            Position = UiUtils.GridToWorld(x, y, _gridSize);
+            GridSizeX = sizeX > 0 ? sizeX : 1;
+            GridSizeY = sizeY > 0 ? sizeY : 1;
+            Position = GetWorldPositionForGridPos(new Vector2I(x, y));
 
             BorderColor = new Color(0.9f, 0.3f, 0.3f);
             BgColor = new Color(0.8f, 0.2f, 0.2f);
@@ -85,9 +87,11 @@ namespace ClinetCSharp
             int gridSize,
             Google.Protobuf.Collections.RepeatedField<Game.MonsterAttr> attrs,
             int uiConfigId = 0,
-            string quality = "")
+            string quality = "",
+            int sizeX = 1,
+            int sizeY = 1)
         {
-            Setup(instanceId, monsterId, x, y, name, level, gridSize, uiConfigId);
+            Setup(instanceId, monsterId, x, y, name, level, gridSize, uiConfigId, sizeX, sizeY);
 
             MonsterQuality = string.IsNullOrWhiteSpace(quality) ? "普通" : quality;
             MonsterAttrs = new Godot.Collections.Array();
@@ -196,7 +200,7 @@ namespace ClinetCSharp
         {
             _currentTween?.Kill();
             IsMoving = true;
-            var originWorld = UiUtils.GridToWorld(originPos, GridSize);
+            var originWorld = GetWorldPositionForGridPos(originPos);
             _currentTween = CreateTween();
 
             float d = duration < 0 ? BounceBackDuration : duration;
@@ -208,7 +212,7 @@ namespace ClinetCSharp
             if (_pendingGridPos.HasValue && ratio < BounceBackOvershootThreshold)
             {
                 // 走得不多时：轻微 overshoot 然后弹回（更有"撞到东西"的感觉）
-                var targetWorld = UiUtils.GridToWorld(_pendingGridPos.Value, GridSize);
+                var targetWorld = GetWorldPositionForGridPos(_pendingGridPos.Value);
                 var dir = targetWorld - originWorld;
                 if (dir.Length() > 0.001f)
                 {

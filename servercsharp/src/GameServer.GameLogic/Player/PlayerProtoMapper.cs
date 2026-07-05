@@ -37,6 +37,8 @@ public static class PlayerProtoMapper
             CurrentMap = MapNameNormalizer.Normalize(role.CurrentMap),
             GridX = role.GridX,
             GridY = role.GridY,
+            SizeX = role.GridSizeX > 0 ? role.GridSizeX : 1,
+            SizeY = role.GridSizeY > 0 ? role.GridSizeY : 1,
         };
 
         info.Attrs.Add(new PGame.AttrItem { Key = RoleAttrs.Hp, Value = role.Hp });

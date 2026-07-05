@@ -16,6 +16,8 @@ public class MovementReservation
     public int FromY { get; set; }
     public int TargetX { get; set; }
     public int TargetY { get; set; }
+    public int SizeX { get; set; } = 1;
+    public int SizeY { get; set; } = 1;
     public long StartTimeMs { get; set; }   // Environment.TickCount64
     public int DurationMs { get; set; }
     public int CheckRatio { get; set; }
@@ -52,10 +54,10 @@ public class WorldState : IWorldState
     private readonly ConcurrentDictionary<(string mapName, int x, int y), long> _reservedCells = new();
 
     /// <summary>
-    /// 实体位置索引：entityId → (mapName, x, y)。
+    /// 实体位置索引：entityId → (mapName, anchorX, anchorY, sizeX, sizeY)。
     /// 与 MapState.Players/Monsters/Npcs 同步维护，用于 O(1) 定位实体。
     /// </summary>
-    private readonly Dictionary<long, (string mapName, int x, int y)> _entityLocations = new();
+    private readonly Dictionary<long, (string mapName, int x, int y, int sizeX, int sizeY)> _entityLocations = new();
 
     public WorldState(MapDataProvider mapData, ILogger<WorldState> logger)
     {
@@ -82,6 +84,13 @@ public class WorldState : IWorldState
         if (_entityLocations.TryGetValue(entityId, out var loc))
             return (loc.mapName, (loc.x, loc.y));
         return (null, null);
+    }
+
+    public (int sizeX, int sizeY) GetEntitySize(long entityId)
+    {
+        if (_entityLocations.TryGetValue(entityId, out var loc))
+            return (Math.Max(1, loc.sizeX), Math.Max(1, loc.sizeY));
+        return (1, 1);
     }
 
     public string GetEntityName(long entityId)
@@ -112,6 +121,43 @@ public class WorldState : IWorldState
 
     public (int x, int y)? FindNearestWalkable(string mapName, int x, int y)
         => _mapData.FindNearestWalkable(mapName, x, y);
+
+    /// <summary>
+    /// 查找最近的、能容纳指定 footprint 的锚点位置。
+    /// 优先保证地形可行走；若 requireVacant 为 true，还会排除被其他实体占据或预约的格子。
+    /// </summary>
+    public (int x, int y)? FindNearestWalkableForFootprint(string mapName, int x, int y, int sizeX, int sizeY,
+        int maxRadius = 10, bool requireVacant = true, long excludedEntityId = 0)
+    {
+        sizeX = Math.Max(1, sizeX);
+        sizeY = Math.Max(1, sizeY);
+
+        var candidate = _mapData.FindNearestWalkableForFootprint(mapName, x, y, sizeX, sizeY, maxRadius);
+        if (candidate == null) return null;
+
+        // 地形可行走的最近点若已被占用，尝试继续向外找一个既空旷又可行走的位置
+        if (requireVacant && IsFootprintOccupiedByOther(mapName, candidate.Value.x, candidate.Value.y, sizeX, sizeY, excludedEntityId))
+        {
+            for (int r = 1; r <= maxRadius; r++)
+            {
+                for (int dx = -r; dx <= r; dx++)
+                {
+                    for (int dy = -r; dy <= r; dy++)
+                    {
+                        if (Math.Abs(dx) != r && Math.Abs(dy) != r) continue;
+                        int ax = x + dx;
+                        int ay = y + dy;
+                        if (!_mapData.IsWalkable(mapName, ax, ay)) continue;
+                        if (!IsFootprintWalkable(mapName, ax, ay, sizeX, sizeY)) continue;
+                        if (!IsFootprintOccupiedByOther(mapName, ax, ay, sizeX, sizeY, excludedEntityId))
+                            return (ax, ay);
+                    }
+                }
+            }
+            return null;
+        }
+        return candidate;
+    }
 
     public int GetTerrainType(string mapName, int x, int y)
         => _mapData.GetTerrainType(mapName, x, y);
@@ -157,17 +203,29 @@ public class WorldState : IWorldState
 
     // ---- 空间索引维护 ----
 
-    private void AddEntityToSpatialIndex(long entityId, string mapName, int x, int y)
+    private void AddEntityToSpatialIndex(long entityId, string mapName, int anchorX, int anchorY, int sizeX, int sizeY)
     {
         if (!_maps.TryGetValue(mapName, out var map)) return;
 
-        _entityLocations[entityId] = (mapName, x, y);
-        if (!map.GridEntities.TryGetValue((x, y), out var set))
+        sizeX = Math.Max(1, sizeX);
+        sizeY = Math.Max(1, sizeY);
+        _entityLocations[entityId] = (mapName, anchorX, anchorY, sizeX, sizeY);
+
+        for (int dy = 0; dy < sizeY; dy++)
         {
-            set = new HashSet<long>();
-            map.GridEntities[(x, y)] = set;
+            for (int dx = 0; dx < sizeX; dx++)
+            {
+                int gx = anchorX + dx;
+                int gy = anchorY + dy;
+                var key = (gx, gy);
+                if (!map.GridEntities.TryGetValue(key, out var set))
+                {
+                    set = new HashSet<long>();
+                    map.GridEntities[key] = set;
+                }
+                set.Add(entityId);
+            }
         }
-        set.Add(entityId);
     }
 
     private void RemoveEntityFromSpatialIndex(long entityId)
@@ -176,19 +234,55 @@ public class WorldState : IWorldState
             return;
         _entityLocations.Remove(entityId);
 
-        if (_maps.TryGetValue(loc.mapName, out var map) &&
-            map.GridEntities.TryGetValue((loc.x, loc.y), out var set))
+        if (!_maps.TryGetValue(loc.mapName, out var map))
+            return;
+
+        int sizeX = Math.Max(1, loc.sizeX);
+        int sizeY = Math.Max(1, loc.sizeY);
+        for (int dy = 0; dy < sizeY; dy++)
         {
-            set.Remove(entityId);
-            if (set.Count == 0)
-                map.GridEntities.Remove((loc.x, loc.y));
+            for (int dx = 0; dx < sizeX; dx++)
+            {
+                int gx = loc.x + dx;
+                int gy = loc.y + dy;
+                var key = (gx, gy);
+                if (map.GridEntities.TryGetValue(key, out var set))
+                {
+                    set.Remove(entityId);
+                    if (set.Count == 0)
+                        map.GridEntities.Remove(key);
+                }
+            }
         }
     }
 
-    private void MoveEntityInSpatialIndex(long entityId, string mapName, int newX, int newY)
+    private void MoveEntityInSpatialIndex(long entityId, string mapName, int newAnchorX, int newAnchorY)
     {
+        if (!_entityLocations.TryGetValue(entityId, out var loc))
+        {
+            // 无历史 footprint，按 1×1 处理
+            AddEntityToSpatialIndex(entityId, mapName, newAnchorX, newAnchorY, 1, 1);
+            return;
+        }
         RemoveEntityFromSpatialIndex(entityId);
-        AddEntityToSpatialIndex(entityId, mapName, newX, newY);
+        AddEntityToSpatialIndex(entityId, mapName, newAnchorX, newAnchorY, loc.sizeX, loc.sizeY);
+    }
+
+    /// <summary>获取实体当前占用的所有格子（基于空间索引）</summary>
+    public List<(int x, int y)> GetEntityFootprint(long entityId)
+    {
+        var result = new List<(int x, int y)>();
+        if (!_entityLocations.TryGetValue(entityId, out var loc))
+            return result;
+        if (!_maps.TryGetValue(loc.mapName, out var map))
+            return result;
+
+        int sizeX = Math.Max(1, loc.sizeX);
+        int sizeY = Math.Max(1, loc.sizeY);
+        for (int dy = 0; dy < sizeY; dy++)
+            for (int dx = 0; dx < sizeX; dx++)
+                result.Add((loc.x + dx, loc.y + dy));
+        return result;
     }
 
     // ---- 可变操作 ----
@@ -201,7 +295,7 @@ public class WorldState : IWorldState
             _maps[mapName] = map;
         }
         map.Players[player.AccountId] = player;
-        AddEntityToSpatialIndex(player.AccountId, mapName, player.GridX, player.GridY);
+        AddEntityToSpatialIndex(player.AccountId, mapName, player.GridX, player.GridY, player.SizeX, player.SizeY);
     }
 
     public void PlayerMove(long accountId, string mapName, int x, int y)
@@ -237,7 +331,7 @@ public class WorldState : IWorldState
             _maps[mapName] = map;
         }
         map.Monsters[monster.InstanceId] = monster;
-        AddEntityToSpatialIndex(monster.InstanceId, mapName, monster.X, monster.Y);
+        AddEntityToSpatialIndex(monster.InstanceId, mapName, monster.X, monster.Y, monster.SizeX, monster.SizeY);
     }
 
     public void MonsterMove(long instanceId, string mapName, int x, int y)
@@ -264,32 +358,147 @@ public class WorldState : IWorldState
             _maps[mapName] = map;
         }
         map.Npcs[npc.InstanceId] = npc;
-        AddEntityToSpatialIndex(npc.InstanceId, mapName, npc.X, npc.Y);
+        AddEntityToSpatialIndex(npc.InstanceId, mapName, npc.X, npc.Y, npc.SizeX, npc.SizeY);
     }
 
     // ---- 移动预占系统 ----
 
+    private static IEnumerable<(int x, int y)> GetFootprintCells(int anchorX, int anchorY, int sizeX, int sizeY)
+    {
+        sizeX = Math.Max(1, sizeX);
+        sizeY = Math.Max(1, sizeY);
+        for (int dy = 0; dy < sizeY; dy++)
+            for (int dx = 0; dx < sizeX; dx++)
+                yield return (anchorX + dx, anchorY + dy);
+    }
+
+    private bool IsFootprintWalkable(string mapName, int anchorX, int anchorY, int sizeX, int sizeY)
+    {
+        foreach (var (x, y) in GetFootprintCells(anchorX, anchorY, sizeX, sizeY))
+        {
+            if (!_mapData.IsWalkable(mapName, x, y))
+                return false;
+        }
+        return true;
+    }
+
+    /// <summary>检查 footprint 内是否有其他玩家/怪物/NPC（不含 excludedId）</summary>
+    private bool IsFootprintOccupiedByOther(string mapName, int anchorX, int anchorY, int sizeX, int sizeY, long excludedId)
+    {
+        if (!_maps.TryGetValue(mapName, out var map))
+            return false;
+
+        foreach (var (x, y) in GetFootprintCells(anchorX, anchorY, sizeX, sizeY))
+        {
+            if (!map.GridEntities.TryGetValue((x, y), out var occupants))
+                continue;
+            foreach (var id in occupants)
+            {
+                if (id == excludedId) continue;
+                if (map.Players.ContainsKey(id) || map.Monsters.ContainsKey(id) || map.Npcs.ContainsKey(id))
+                    return true;
+            }
+        }
+        return false;
+    }
+
+    /// <summary>检查 footprint 内是否有其他实体的预约（不含 excludedId）</summary>
+    private bool IsFootprintReservedByOther(string mapName, int anchorX, int anchorY, int sizeX, int sizeY, long excludedId)
+    {
+        foreach (var (x, y) in GetFootprintCells(anchorX, anchorY, sizeX, sizeY))
+        {
+            if (_reservedCells.TryGetValue((mapName, x, y), out var occupant) && occupant != excludedId)
+                return true;
+        }
+        return false;
+    }
+
+    private (int sizeX, int sizeY) GetMovingEntitySize(long entityId)
+    {
+        return GetEntitySize(entityId);
+    }
+
     public bool TryReserveMove(long entityId, string mapName, int fromX, int fromY, int targetX, int targetY,
         int durationMs, int checkRatio, int dualStartRatio, int dualEndRatio)
     {
-        // 取消旧预约，避免同一实体同时占用多格
-        if (_moveReservations.TryRemove(entityId, out var oldRes))
-            _reservedCells.TryRemove((oldRes.MapName, oldRes.TargetX, oldRes.TargetY), out _);
+        var (sizeX, sizeY) = GetMovingEntitySize(entityId);
 
-        // 检查目标格是否被其他实体预定
-        if (_reservedCells.ContainsKey((mapName, targetX, targetY)))
+        // 取消旧预约
+        if (_moveReservations.TryRemove(entityId, out var oldRes))
+            RemoveReservedCells(oldRes);
+
+        // 检查新 footprint 内所有格子可行走
+        if (!IsFootprintWalkable(mapName, targetX, targetY, sizeX, sizeY))
             return false;
 
-        // 检查目标格是否有其他玩家/怪物/NPC（不含自己）
-        if (_maps.TryGetValue(mapName, out var map) &&
-            map.GridEntities.TryGetValue((targetX, targetY), out var occupants))
+        // 检查新 footprint 是否被其他实体占据
+        if (IsFootprintOccupiedByOther(mapName, targetX, targetY, sizeX, sizeY, entityId))
+            return false;
+
+        // 检查新 footprint 是否被其他实体预约
+        if (IsFootprintReservedByOther(mapName, targetX, targetY, sizeX, sizeY, entityId))
+            return false;
+
+        var res = new MovementReservation
         {
-            foreach (var id in occupants)
+            EntityId = entityId,
+            MapName = mapName,
+            FromX = fromX,
+            FromY = fromY,
+            TargetX = targetX,
+            TargetY = targetY,
+            SizeX = sizeX,
+            SizeY = sizeY,
+            StartTimeMs = Environment.TickCount64,
+            DurationMs = durationMs,
+            CheckRatio = checkRatio,
+            DualStartRatio = dualStartRatio,
+            DualEndRatio = dualEndRatio,
+        };
+
+        _moveReservations[entityId] = res;
+        AddReservedCells(res);
+        return true;
+    }
+
+    private void AddReservedCells(MovementReservation res)
+    {
+        int sizeX = Math.Max(1, res.SizeX);
+        int sizeY = Math.Max(1, res.SizeY);
+        foreach (var (x, y) in GetFootprintCells(res.TargetX, res.TargetY, sizeX, sizeY))
+            _reservedCells[(res.MapName, x, y)] = res.EntityId;
+    }
+
+    private void RemoveReservedCells(MovementReservation res)
+    {
+        int sizeX = Math.Max(1, res.SizeX);
+        int sizeY = Math.Max(1, res.SizeY);
+        foreach (var (x, y) in GetFootprintCells(res.TargetX, res.TargetY, sizeX, sizeY))
+            _reservedCells.TryRemove((res.MapName, x, y), out _);
+    }
+
+    /// <summary>
+    /// 碰撞性移动预约：目标 footprint 内不能包含 NPC；不占用预约格。
+    /// </summary>
+    public bool TryReserveCollisionMove(long entityId, string mapName, int fromX, int fromY, int targetX, int targetY,
+        int durationMs, int checkRatio, int dualStartRatio, int dualEndRatio)
+    {
+        var (sizeX, sizeY) = GetMovingEntitySize(entityId);
+
+        // 取消旧普通/碰撞预约
+        if (_moveReservations.TryRemove(entityId, out var oldRes))
+            RemoveReservedCells(oldRes);
+
+        // NPC 阻挡碰撞性移动（NPC 不是敌人）
+        if (_maps.TryGetValue(mapName, out var map))
+        {
+            foreach (var (x, y) in GetFootprintCells(targetX, targetY, sizeX, sizeY))
             {
-                if (id == entityId) continue;
-                // 其他玩家、怪物、NPC 均阻挡移动
-                if (map.Players.ContainsKey(id) || map.Monsters.ContainsKey(id) || map.Npcs.ContainsKey(id))
-                    return false;
+                if (!map.GridEntities.TryGetValue((x, y), out var occupants))
+                    continue;
+                foreach (var id in occupants)
+                    if (map.Npcs.ContainsKey(id))
+                        return false;
             }
         }
 
@@ -301,46 +510,8 @@ public class WorldState : IWorldState
             FromY = fromY,
             TargetX = targetX,
             TargetY = targetY,
-            StartTimeMs = Environment.TickCount64,
-            DurationMs = durationMs,
-            CheckRatio = checkRatio,
-            DualStartRatio = dualStartRatio,
-            DualEndRatio = dualEndRatio,
-        };
-
-        _moveReservations[entityId] = res;
-        _reservedCells[(mapName, targetX, targetY)] = entityId;
-        return true;
-    }
-
-    /// <summary>
-    /// 碰撞性移动预约：不检查目标格是否被占，不占格
-    /// 但 NPC 格子仍然阻挡（NPC 不是敌人，不触发碰撞战斗）
-    /// </summary>
-    public bool TryReserveCollisionMove(long entityId, string mapName, int fromX, int fromY, int targetX, int targetY,
-        int durationMs, int checkRatio, int dualStartRatio, int dualEndRatio)
-    {
-        // NPC 阻挡碰撞性移动（NPC 不是敌人）
-        if (_maps.TryGetValue(mapName, out var map) &&
-            map.GridEntities.TryGetValue((targetX, targetY), out var collisionOccupants))
-        {
-            foreach (var id in collisionOccupants)
-                if (map.Npcs.ContainsKey(id))
-                    return false;
-        }
-
-        // 取消旧预约
-        if (_moveReservations.TryRemove(entityId, out var oldCollisionRes))
-            _reservedCells.TryRemove((oldCollisionRes.MapName, oldCollisionRes.TargetX, oldCollisionRes.TargetY), out _);
-
-        var res = new MovementReservation
-        {
-            EntityId = entityId,
-            MapName = mapName,
-            FromX = fromX,
-            FromY = fromY,
-            TargetX = targetX,
-            TargetY = targetY,
+            SizeX = sizeX,
+            SizeY = sizeY,
             StartTimeMs = Environment.TickCount64,
             DurationMs = durationMs,
             CheckRatio = checkRatio,
@@ -350,7 +521,7 @@ public class WorldState : IWorldState
         };
 
         _moveReservations[entityId] = res;
-        // 不加入 _reservedCells
+        // 碰撞预约不加入 _reservedCells
         return true;
     }
 
@@ -368,23 +539,16 @@ public class WorldState : IWorldState
         if (!_moveReservations.TryGetValue(entityId, out var res))
             return ConfirmResult.Failed;
 
+        int sizeX = Math.Max(1, res.SizeX);
+        int sizeY = Math.Max(1, res.SizeY);
+
         if (!res.CollisionPending)
         {
-            // 普通预约：原有逻辑
-            if (_maps.TryGetValue(res.MapName, out var map))
+            // 普通预约：检查目标 footprint 是否与其他实体重叠
+            if (IsFootprintOccupiedByOther(res.MapName, res.TargetX, res.TargetY, sizeX, sizeY, entityId))
             {
-                foreach (var p in map.Players.Values)
-                    if (p.AccountId != entityId && p.GridX == res.TargetX && p.GridY == res.TargetY)
-                    {
-                        CancelMove(entityId);
-                        return ConfirmResult.Failed;
-                    }
-                foreach (var m in map.Monsters.Values)
-                    if (m.InstanceId != entityId && m.X == res.TargetX && m.Y == res.TargetY)
-                    {
-                        CancelMove(entityId);
-                        return ConfirmResult.Failed;
-                    }
+                CancelMove(entityId);
+                return ConfirmResult.Failed;
             }
 
             UpdateEntityPosition(entityId, res);
@@ -392,18 +556,8 @@ public class WorldState : IWorldState
             return ConfirmResult.Ok;
         }
 
-        // 碰撞预约：检查目标格是否有敌人
-        bool hasEnemy = false;
-        if (_maps.TryGetValue(res.MapName, out var collisionMap))
-        {
-            foreach (var p in collisionMap.Players.Values)
-                if (p.AccountId != entityId && p.GridX == res.TargetX && p.GridY == res.TargetY)
-                    { hasEnemy = true; break; }
-            if (!hasEnemy)
-                foreach (var m in collisionMap.Monsters.Values)
-                    if (m.InstanceId != entityId && m.X == res.TargetX && m.Y == res.TargetY)
-                        { hasEnemy = true; break; }
-        }
+        // 碰撞预约：检查目标 footprint 是否与敌人 footprint 重叠
+        bool hasEnemy = IsEnemyFootprintOverlapping(res.MapName, res.TargetX, res.TargetY, sizeX, sizeY, entityId);
 
         CancelMove(entityId);
 
@@ -411,6 +565,25 @@ public class WorldState : IWorldState
             return ConfirmResult.Collision;
 
         return ConfirmResult.Failed;
+    }
+
+    private bool IsEnemyFootprintOverlapping(string mapName, int anchorX, int anchorY, int sizeX, int sizeY, long excludeEntityId)
+    {
+        if (!_maps.TryGetValue(mapName, out var map))
+            return false;
+
+        foreach (var (x, y) in GetFootprintCells(anchorX, anchorY, sizeX, sizeY))
+        {
+            if (!map.GridEntities.TryGetValue((x, y), out var occupants))
+                continue;
+            foreach (var id in occupants)
+            {
+                if (id == excludeEntityId) continue;
+                if (map.Players.ContainsKey(id) || map.Monsters.ContainsKey(id))
+                    return true;
+            }
+        }
+        return false;
     }
 
     private void UpdateEntityPosition(long entityId, MovementReservation res)
@@ -426,6 +599,7 @@ public class WorldState : IWorldState
             m.X = res.TargetX;
             m.Y = res.TargetY;
         }
+        MoveEntityInSpatialIndex(entityId, res.MapName, res.TargetX, res.TargetY);
     }
 
     /// <summary>
@@ -465,7 +639,7 @@ public class WorldState : IWorldState
     private void CleanupReservation(long entityId, MovementReservation res)
     {
         _moveReservations.TryRemove(entityId, out _);
-        _reservedCells.TryRemove((res.MapName, res.TargetX, res.TargetY), out _);
+        RemoveReservedCells(res);
     }
 
     public MovementReservation? GetReservation(long entityId)
@@ -482,7 +656,7 @@ public class WorldState : IWorldState
 
     /// <summary>
     /// 获取实体的战斗位置（技能判定用）
-    /// 返回多位置时，取最短距离
+    /// 无移动预约时返回当前 footprint 所有格子；移动中返回旧/新 footprint 并集。
     /// </summary>
     public List<(string mapName, int x, int y)> GetCombatPositions(long entityId)
     {
@@ -492,9 +666,12 @@ public class WorldState : IWorldState
         if (authMap == null || authPos == null)
             return result;
 
+        var (sizeX, sizeY) = GetEntitySize(entityId);
+
         if (!_moveReservations.TryGetValue(entityId, out var res))
         {
-            result.Add((authMap, authPos.Value.x, authPos.Value.y));
+            foreach (var (x, y) in GetFootprintCells(authPos.Value.x, authPos.Value.y, sizeX, sizeY))
+                result.Add((authMap, x, y));
             return result;
         }
 
@@ -504,18 +681,25 @@ public class WorldState : IWorldState
         if (progress < res.DualStartRatio)
         {
             // 还在原格
-            result.Add((res.MapName, res.FromX, res.FromY));
+            foreach (var (x, y) in GetFootprintCells(res.FromX, res.FromY, sizeX, sizeY))
+                result.Add((res.MapName, x, y));
         }
         else if (progress >= res.DualEndRatio)
         {
             // 已完全在新格
-            result.Add((res.MapName, res.TargetX, res.TargetY));
+            foreach (var (x, y) in GetFootprintCells(res.TargetX, res.TargetY, sizeX, sizeY))
+                result.Add((res.MapName, x, y));
         }
         else
         {
-            // 双格区间
-            result.Add((res.MapName, res.FromX, res.FromY));
-            result.Add((res.MapName, res.TargetX, res.TargetY));
+            // 双格区间：旧 footprint + 新 footprint 并集
+            var set = new HashSet<(int x, int y)>();
+            foreach (var cell in GetFootprintCells(res.FromX, res.FromY, sizeX, sizeY))
+                set.Add(cell);
+            foreach (var cell in GetFootprintCells(res.TargetX, res.TargetY, sizeX, sizeY))
+                set.Add(cell);
+            foreach (var (x, y) in set)
+                result.Add((res.MapName, x, y));
         }
 
         return result;

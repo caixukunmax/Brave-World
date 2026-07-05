@@ -39,29 +39,30 @@ public class OpenChestHandler : IMessageHandler
             return MakeError(PCommon.ErrorCode.InvalidRequest);
 
         var mapChests = await _session.Chests.GetGmChestsByMapAndType(mapId, (int)MapEntityType.Chest);
-        int? chestX = null, chestY = null;
-        bool found = false;
+        GmChest? targetChest = null;
         foreach (var c in mapChests)
         {
             if (c.Id == instanceId)
             {
-                chestX = c.X;
-                chestY = c.Y;
-                found = true;
+                targetChest = c;
                 break;
             }
         }
-        if (!found)
+        if (targetChest == null)
             return MakeError(PCommon.ErrorCode.NotFound);
 
-        if (Math.Abs(player.GridX - chestX!.Value) + Math.Abs(player.GridY - chestY!.Value) > 1)
+        if (Math.Abs(player.GridX - targetChest.X) + Math.Abs(player.GridY - targetChest.Y) > 1)
             return MakeError(PCommon.ErrorCode.Forbidden);
 
         var roleId = player.RoleId;
         if (await _session.Chests.IsOpened(roleId, instanceId))
             return new PGame.OpenChestResponse { Code = PCommon.ErrorCode.InvalidRequest, Message = "chest already opened" }.ToByteArray();
 
-        var rewards = RewardParser.Parse("");
+        // 奖励来源优先级：1) 宝箱实例的 Rewards 字段 2) 宝箱配置表
+        var rewardsString = !string.IsNullOrEmpty(targetChest.Rewards)
+            ? targetChest.Rewards
+            : _tables.ChestConfigs.GetValueOrDefault(targetChest.ChestTypeId)?.Rewards ?? "";
+        var rewards = RewardParser.Parse(rewardsString);
         var dbItems = await _session.Inventory.GetByRole(roleId);
         var actualRewards = new List<(int itemId, int count)>();
         var newItemIds = new List<int>();

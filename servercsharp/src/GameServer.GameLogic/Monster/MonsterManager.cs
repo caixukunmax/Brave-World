@@ -79,7 +79,7 @@ public class MonsterManager : IMonsterRegistry
             {
                 _monsters[instanceId] = m;
                 _mapService.MonsterEnter(instanceId, m.MonsterId, mapName, m.Name, m.X, m.Y, m.Hp, m.MaxHp, m.Level,
-                    m.Patk, m.Matk, m.Pdef, m.Mdef);
+                    m.Patk, m.Matk, m.Pdef, m.Mdef, m.SizeX, m.SizeY);
                 _logger.LogInformation("[Monster] init: id={InstanceId} map={Map} pos=({X},{Y}) ai={Ai}", instanceId, mapName, m.X, m.Y, m.AiType);
             }
             nextId += mapMonsters.Count;
@@ -96,6 +96,8 @@ public class MonsterManager : IMonsterRegistry
         public string MapName { get; set; } = "";
         public int SpawnX { get; set; }
         public int SpawnY { get; set; }
+        public int SizeX { get; set; } = 1;
+        public int SizeY { get; set; } = 1;
         public int DeathX { get; set; }
         public int DeathY { get; set; }
         public int RespawnTimeSec { get; set; }
@@ -346,6 +348,8 @@ public class MonsterManager : IMonsterRegistry
                     MapName = m.MapName,
                     SpawnX = m.SpawnX,
                     SpawnY = m.SpawnY,
+                    SizeX = m.SizeX,
+                    SizeY = m.SizeY,
                     DeathX = m.X,
                     DeathY = m.Y,
                     RespawnTimeSec = m.RespawnTimeSec,
@@ -459,6 +463,8 @@ public class MonsterManager : IMonsterRegistry
                     Name = m.Name,
                     X = m.X,
                     Y = m.Y,
+                    SizeX = m.SizeX > 0 ? m.SizeX : 1,
+                    SizeY = m.SizeY > 0 ? m.SizeY : 1,
                     Hp = m.Hp,
                     MaxHp = m.MaxHp,
                     Level = m.Level,
@@ -516,13 +522,29 @@ public class MonsterManager : IMonsterRegistry
                 ReturnSpeedMultiplier = aiRow.ReturnSpeedMultiplier,
             } : new AiConfig { AiType = aiType };
 
+            // 怪物当前 Luban 表未配置 footprint，默认 1x1；后续若支持多格怪物，可从 monsterTemplate 读取
+            int sizeX = 1;
+            int sizeY = 1;
+
+            // 校验/修正出生点：保证 footprint 内均可行走
+            var corrected = _mapData.FindNearestWalkableForFootprint(mapName, spawn.X, spawn.Y, sizeX, sizeY);
+            int spawnX = corrected?.x ?? spawn.X;
+            int spawnY = corrected?.y ?? spawn.Y;
+            if (spawnX != spawn.X || spawnY != spawn.Y)
+            {
+                _logger.LogWarning("[Monster] init spawn corrected: id={Id} map={Map} from ({OldX},{OldY}) to ({NewX},{NewY}) footprint={SizeX}x{SizeY}",
+                    id, mapName, spawn.X, spawn.Y, spawnX, spawnY, sizeX, sizeY);
+            }
+
             monsters[id] = new MonsterRuntimeState
             {
                 InstanceId = id,
                 MonsterId = spawn.MonsterId,
                 Name = monsterTemplate.Name,
                 MapName = mapName,
-                X = spawn.X, Y = spawn.Y, SpawnX = spawn.X, SpawnY = spawn.Y,
+                X = spawnX, Y = spawnY, SpawnX = spawnX, SpawnY = spawnY,
+                SizeX = sizeX,
+                SizeY = sizeY,
                 AiType = aiType, AiConfig = aiCfg,
                 Hp = hp, MaxHp = maxHp, Level = monsterTemplate.Level,
                 Patk = patk, Matk = matk, Pdef = pdef, Mdef = mdef,
@@ -711,12 +733,26 @@ public class MonsterManager : IMonsterRegistry
     {
         var (rx, ry) = ResolveRespawnPosition(entry);
 
-        // 检查目标格是否可行走，不可行走则 fallback 到出生点
-        if (!_mapData.IsWalkable(entry.MapName, rx, ry))
+        int sizeX = entry.SizeX > 0 ? entry.SizeX : 1;
+        int sizeY = entry.SizeY > 0 ? entry.SizeY : 1;
+
+        // 按 footprint 校验复活点；若不可行走或被建筑覆盖，则 fallback 到出生点再校验
+        var corrected = _mapData.FindNearestWalkableForFootprint(entry.MapName, rx, ry, sizeX, sizeY);
+        if (corrected == null || corrected.Value.x != rx || corrected.Value.y != ry)
         {
-            _logger.LogWarning("[Monster] respawn target ({RX},{RY}) not walkable, fallback to spawn ({SX},{SY})", rx, ry, entry.SpawnX, entry.SpawnY);
-            rx = entry.SpawnX;
-            ry = entry.SpawnY;
+            _logger.LogWarning("[Monster] respawn target ({RX},{RY}) not walkable for footprint {SizeX}x{SizeY}, fallback to nearest",
+                rx, ry, sizeX, sizeY);
+            corrected = _mapData.FindNearestWalkableForFootprint(entry.MapName, entry.SpawnX, entry.SpawnY, sizeX, sizeY);
+            if (corrected != null)
+            {
+                rx = corrected.Value.x;
+                ry = corrected.Value.y;
+            }
+            else
+            {
+                rx = entry.SpawnX;
+                ry = entry.SpawnY;
+            }
         }
 
         var m = new MonsterRuntimeState
@@ -726,6 +762,8 @@ public class MonsterManager : IMonsterRegistry
             Name = entry.Name,
             MapName = entry.MapName,
             X = rx, Y = ry, SpawnX = entry.SpawnX, SpawnY = entry.SpawnY,
+            SizeX = sizeX,
+            SizeY = sizeY,
             AiType = entry.AiType, AiConfig = entry.AiConfig,
             Hp = entry.MaxHp, MaxHp = entry.MaxHp, Level = entry.Level,
             Patk = entry.Patk, Matk = entry.Matk, Pdef = entry.Pdef, Mdef = entry.Mdef,
@@ -738,7 +776,7 @@ public class MonsterManager : IMonsterRegistry
 
         _monsters[entry.InstanceId] = m;
         _mapService.MonsterEnter(entry.InstanceId, entry.MonsterId, entry.MapName, entry.Name, rx, ry, m.Hp, m.MaxHp, m.Level,
-            m.Patk, m.Matk, m.Pdef, m.Mdef);
+            m.Patk, m.Matk, m.Pdef, m.Mdef, m.SizeX, m.SizeY);
 
         _logger.LogInformation("[Monster] respawned: id={Id} map={Map} pos=({X},{Y}) type={Type}", entry.InstanceId, entry.MapName, rx, ry, entry.RespawnType);
 
@@ -751,6 +789,8 @@ public class MonsterManager : IMonsterRegistry
             Y = ry,
             Name = entry.Name,
             Level = (uint)entry.Level,
+            SizeX = m.SizeX,
+            SizeY = m.SizeY,
         };
         _mapService.BroadcastToMap(entry.MapName, (int)PProtocol.MessageId.GameMonsterRespawnNotify, notify.ToByteArray());
     }
@@ -764,6 +804,8 @@ public class MonsterManager : IMonsterRegistry
 
             case ERespawnType.RandomNearSpawn: // 出生点附近随机
                 int range = entry.RespawnRange;
+                int sizeX = entry.SizeX > 0 ? entry.SizeX : 1;
+                int sizeY = entry.SizeY > 0 ? entry.SizeY : 1;
                 if (range <= 0) return (entry.SpawnX, entry.SpawnY);
 
                 var candidates = new List<(int, int)>();
@@ -773,7 +815,7 @@ public class MonsterManager : IMonsterRegistry
                     {
                         int tx = entry.SpawnX + dx;
                         int ty = entry.SpawnY + dy;
-                        if (_mapData.IsWalkable(entry.MapName, tx, ty))
+                        if (_mapData.FindNearestWalkableForFootprint(entry.MapName, tx, ty, sizeX, sizeY) == (tx, ty))
                             candidates.Add((tx, ty));
                     }
                 }

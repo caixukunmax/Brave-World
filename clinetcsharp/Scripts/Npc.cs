@@ -25,7 +25,7 @@ namespace ClinetCSharp
         public int GridY => _gridY;
         public string NpcName { get; private set; } = "";
 
-        public void Setup(ulong instanceId, string name, int npcType, int x, int y, int gridSize, int uiConfigId = 1)
+        public void Setup(ulong instanceId, string name, int npcType, int x, int y, int gridSize, int uiConfigId = 1, int sizeX = 1, int sizeY = 1)
         {
             AddToGroup("npc");
             _instanceId = instanceId;
@@ -35,7 +35,9 @@ namespace ClinetCSharp
             _gridX = x;
             _gridY = y;
             _gridSize = gridSize;
-            Position = UiUtils.GridToWorld(x, y, _gridSize);
+            GridSizeX = sizeX > 0 ? sizeX : 1;
+            GridSizeY = sizeY > 0 ? sizeY : 1;
+            Position = GetWorldPositionForGridPos(new Vector2I(x, y));
 
             // 蓝色系主题
             BorderColor = new Color(0.3f, 0.5f, 0.9f);

@@ -33,6 +33,8 @@ public class Role
     [BsonElement("current_map")]     public string CurrentMap    { get; set; } = "新手村";
     [BsonElement("grid_x")]          public int    GridX         { get; set; }
     [BsonElement("grid_y")]          public int    GridY         { get; set; }
+    [BsonElement("grid_size_x")]     public int    GridSizeX     { get; set; } = 1;
+    [BsonElement("grid_size_y")]     public int    GridSizeY     { get; set; } = 1;
     [BsonElement("hp")]              public int    Hp            { get; set; }
     [BsonElement("max_hp")]          public int    MaxHp         { get; set; }
     [BsonElement("mp")]              public int    Mp            { get; set; }

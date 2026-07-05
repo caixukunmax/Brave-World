@@ -94,6 +94,8 @@ public class CombatChaseBehaviorTests
         public ConcurrentDictionary<long, MapMonsterState> GetMonstersOnMap(string mapName) => new();
         public bool IsWalkable(string mapName, int x, int y) => true;
         public (int x, int y)? FindNearestWalkable(string mapName, int x, int y) => (x, y);
+        public (int x, int y)? FindNearestWalkableForFootprint(string mapName, int x, int y, int sizeX, int sizeY,
+            int maxRadius = 10, bool requireVacant = true, long excludedEntityId = 0) => (x, y);
         public bool IsOccupied(string mapName, int x, int y) => false;
         public ConcurrentDictionary<string, MapState> GetAllMaps() => new();
     }

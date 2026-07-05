@@ -60,9 +60,11 @@ public class DeathResponder
         // 2. 离开地图（从旧位置移除）
         _mapService.PlayerLeave(entityId, currentMap);
 
-        // 3. 获取出生点
+        // 3. 获取出生点（按 footprint 校验）
         var (spawnX, spawnY) = _mapData.GetSpawnPoint(currentMap);
-        var walkable = _mapData.FindNearestWalkable(currentMap, spawnX, spawnY);
+        int sizeX = role.GridSizeX > 0 ? role.GridSizeX : 1;
+        int sizeY = role.GridSizeY > 0 ? role.GridSizeY : 1;
+        var walkable = _mapData.FindNearestWalkableForFootprint(currentMap, spawnX, spawnY, sizeX, sizeY);
         if (walkable != null) { spawnX = walkable.Value.x; spawnY = walkable.Value.y; }
 
         // 4. 恢复满血（按当前等级计算属性）
@@ -81,6 +83,8 @@ public class DeathResponder
             ServerId = role.ServerId,
             GridX = spawnX,
             GridY = spawnY,
+            SizeX = sizeX,
+            SizeY = sizeY,
             Level = role.Level,
             CurrentMap = currentMap,
             Hp = hp, MaxHp = hp, Mp = mp, MaxMp = mp,

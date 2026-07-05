@@ -32,27 +32,33 @@ public class CollisionDetector
         _logger.LogTrace("[Collision] CheckEntityCollision: entity={EntityId} isPlayer={IsPlayer} pos=({X},{Y}) map={Map}",
             entityId, isPlayer, x, y, mapName);
 
+        var selfPositions = _worldState.GetCombatPositions(entityId)
+            .Where(cp => cp.mapName == mapName)
+            .ToList();
+        if (selfPositions.Count == 0)
+            selfPositions = new List<(string, int, int)> { (mapName, x, y) };
+
         if (isPlayer)
         {
-            // 检查怪物碰撞 — 使用双格战斗位置
+            // 检查怪物碰撞 — 使用 footprint 战斗位置
             foreach (var (instanceId, m) in map.Monsters)
             {
                 if (instanceId == entityId) continue;
 
-                var combatPositions = _worldState.GetCombatPositions(instanceId)
+                var enemyPositions = _worldState.GetCombatPositions(instanceId)
                     .Where(cp => cp.mapName == mapName)
                     .ToList();
-                if (combatPositions.Count == 0)
-                    combatPositions = new List<(string, int, int)> { (mapName, m.X, m.Y) };
+                if (enemyPositions.Count == 0)
+                    enemyPositions = new List<(string, int, int)> { (mapName, m.X, m.Y) };
 
-                bool collides = combatPositions.Any(cp =>
-                    Math.Abs(cp.x - x) + Math.Abs(cp.y - y) <= 1);
+                bool collides = IsAdjacent(selfPositions, enemyPositions);
 
                 if (collides)
                 {
-                    _logger.LogWarning("[Collision] player={PlayerId} at ({PX},{PY}) collides monster={MonsterId} combatPositions={Positions}",
-                        entityId, x, y, instanceId,
-                        string.Join(";", combatPositions.Select(cp => $"({cp.x},{cp.y})")));
+                    _logger.LogWarning("[Collision] player={PlayerId} collides monster={MonsterId} self={Self} enemy={Enemy}",
+                        entityId, instanceId,
+                        string.Join(";", selfPositions.Select(cp => $"({cp.x},{cp.y})")),
+                        string.Join(";", enemyPositions.Select(cp => $"({cp.x},{cp.y})")));
                     _eventBus.Emit("CollisionDetected", (entityA: entityId, entityB: instanceId, mapName));
                 }
             }
@@ -60,39 +66,49 @@ public class CollisionDetector
             // 检查NPC碰撞（NPC不参与双格，用权威坐标）
             foreach (var (npcId, npc) in map.Npcs)
             {
-                int dist = Math.Abs(npc.X - x) + Math.Abs(npc.Y - y);
-                if (dist <= 1)
+                bool collides = selfPositions.Any(cp =>
+                    Math.Abs(cp.x - npc.X) + Math.Abs(cp.y - npc.Y) <= 1);
+                if (collides)
                 {
-                    _logger.LogInformation("[Collision] player={PlayerId} at ({PX},{PY}) adjacent to NPC={NpcId}({NpcName}) at ({NX},{NY})",
-                        entityId, x, y, npcId, npc.Name, npc.X, npc.Y);
+                    _logger.LogInformation("[Collision] player={PlayerId} adjacent to NPC={NpcId}({NpcName}) at ({NX},{NY})",
+                        entityId, npcId, npc.Name, npc.X, npc.Y);
                     _eventBus.Emit("NpcCollisionDetected", (playerId: entityId, npcInstanceId: npcId, mapName));
                 }
             }
         }
         else
         {
-            // 怪物检查玩家 — 使用双格战斗位置
+            // 怪物检查玩家 — 使用 footprint 战斗位置
             foreach (var (accountId, p) in map.Players)
             {
                 if (accountId == entityId) continue;
 
-                var combatPositions = _worldState.GetCombatPositions(accountId)
+                var enemyPositions = _worldState.GetCombatPositions(accountId)
                     .Where(cp => cp.mapName == mapName)
                     .ToList();
-                if (combatPositions.Count == 0)
-                    combatPositions = new List<(string, int, int)> { (mapName, p.GridX, p.GridY) };
+                if (enemyPositions.Count == 0)
+                    enemyPositions = new List<(string, int, int)> { (mapName, p.GridX, p.GridY) };
 
-                bool collides = combatPositions.Any(cp =>
-                    Math.Abs(cp.x - x) + Math.Abs(cp.y - y) <= 1);
+                bool collides = IsAdjacent(selfPositions, enemyPositions);
 
                 if (collides)
                 {
-                    _logger.LogWarning("[Collision] monster={MonsterId} at ({MX},{MY}) collides player={PlayerId} combatPositions={Positions}",
-                        entityId, x, y, accountId,
-                        string.Join(";", combatPositions.Select(cp => $"({cp.x},{cp.y})")));
+                    _logger.LogWarning("[Collision] monster={MonsterId} collides player={PlayerId} self={Self} enemy={Enemy}",
+                        entityId, accountId,
+                        string.Join(";", selfPositions.Select(cp => $"({cp.x},{cp.y})")),
+                        string.Join(";", enemyPositions.Select(cp => $"({cp.x},{cp.y})")));
                     _eventBus.Emit("CollisionDetected", (entityA: entityId, entityB: accountId, mapName));
                 }
             }
         }
+    }
+
+    private static bool IsAdjacent(List<(string mapName, int x, int y)> a, List<(string mapName, int x, int y)> b)
+    {
+        foreach (var pa in a)
+            foreach (var pb in b)
+                if (Math.Abs(pa.x - pb.x) + Math.Abs(pa.y - pb.y) <= 1)
+                    return true;
+        return false;
     }
 }

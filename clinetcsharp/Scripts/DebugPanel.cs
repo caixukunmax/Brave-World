@@ -52,6 +52,7 @@ namespace ClinetCSharp
         internal DebugPanelEntityTab _entityTab;
         internal DebugPanelSystemTab _systemTab;
         internal DebugPanelUITab _uiTab;
+        internal DebugPanelDecorationTab _decorationTab;
         #endregion
 
         #region State
@@ -91,6 +92,8 @@ namespace ClinetCSharp
             _activeLineEditApply = null;
         }
 
+
+
         internal void SelectTab(DebugPanelTab targetTab)
         {
             if (_tabContainer == null || _tabs == null || targetTab == null)
@@ -105,5 +108,24 @@ namespace ClinetCSharp
                 }
             }
         }
+
+        /// <summary>打开建筑工坊页签并显示 DebugPanel</summary>
+        internal void SelectDecorationTab()
+        {
+            if (!Visible)
+                Visible = true;
+            SelectTab(_decorationTab);
+            PanelManager.Instance?.RequestFocus(this);
+
+            // 注意：地图编辑器暂停游戏时，UIInputPolicy 会自动保证本面板继续处理输入，
+            // 此处不再手动修改 ProcessMode。
+        }
+
+        protected override void OnClosed()
+        {
+            base.OnClosed();
+        }
+
+
     }
 }

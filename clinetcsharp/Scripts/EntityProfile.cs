@@ -265,5 +265,46 @@ namespace ClinetCSharp
 
             return profile;
         }
+
+        /// <summary>创建默认建筑 Profile</summary>
+        public static EntityProfile CreateDecorationDefault(int id, string name, string displayName, int buildingType, Color bgColor, Color borderColor, bool blockMovement)
+        {
+            var profile = new EntityProfile
+            {
+                Id = id,
+                Name = name,
+                EntityType = "decoration",
+            };
+
+            // 房舍默认 2x2 占地，与服务器 buildings.json 保持一致；商店默认 1x1
+            int sizeX = buildingType == BuildingType.House ? 2 : 1;
+            int sizeY = buildingType == BuildingType.House ? 2 : 1;
+
+            profile.SetData("appearance", new AppearanceData
+            {
+                VisualSizeScale = 0.95f,
+                BorderWidthScale = 3.0f / 111.0f,
+                CornerRadius = 8.0f,
+                BgOpacity = bgColor.A,
+                FontSize = 0,
+                SizeX = sizeX,
+                SizeY = sizeY,
+                BorderColor = borderColor,
+                BgColor = new Color(bgColor.R, bgColor.G, bgColor.B, 1.0f),
+                TextColor = new Color(1, 1, 0.9f),
+            });
+
+            var labels = new LabelGroupData();
+            labels.ContentPreview[0] = displayName;
+            labels.Names[0] = "名称";
+            labels.Visible[0] = true;
+            labels.CenterX[0] = true;
+            profile.SetData("labels", labels);
+
+            profile.SetData("obstacle", new ObstacleData { BlockMovement = blockMovement });
+            profile.SetData("building_type", new BuildingTypeData { Type = buildingType });
+
+            return profile;
+        }
     }
 }

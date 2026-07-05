@@ -15,6 +15,8 @@ public class NpcDef
     public int X { get; set; }
     public int Y { get; set; }
     public int NpcType { get; set; }  // NPC类型枚举
+    public int SizeX { get; set; } = 1;
+    public int SizeY { get; set; } = 1;
 }
 
 /// <summary>
@@ -31,7 +33,7 @@ public class NpcManager : INpcManager
     /// </summary>
     private static readonly List<NpcDef> NpcDefs = new()
     {
-        new NpcDef { NpcId = 1, Name = "转职大师", MapName = "新手村", X = 25, Y = 24, NpcType = (int)NpcType.JobMaster },
+        new NpcDef { NpcId = 1, Name = "转职大师", MapName = "新手村", X = 25, Y = 24, NpcType = (int)NpcType.JobMaster, SizeX = 1, SizeY = 1 },
     };
 
     public NpcManager(WorldState worldState, ILogger<NpcManager> logger)
@@ -55,19 +57,32 @@ public class NpcManager : INpcManager
             }
             var instanceId = _nextNpcSeq++;
 
+            int sizeX = def.SizeX > 0 ? def.SizeX : 1;
+            int sizeY = def.SizeY > 0 ? def.SizeY : 1;
+            var corrected = _worldState.FindNearestWalkableForFootprint(def.MapName, def.X, def.Y, sizeX, sizeY, requireVacant: false);
+            int x = corrected?.x ?? def.X;
+            int y = corrected?.y ?? def.Y;
+            if (x != def.X || y != def.Y)
+            {
+                _logger.LogWarning("[Npc] spawn corrected: {Name} at {Map} from ({OldX},{OldY}) to ({NewX},{NewY}) footprint={SizeX}x{SizeY}",
+                    def.Name, def.MapName, def.X, def.Y, x, y, sizeX, sizeY);
+            }
+
             var npc = new MapNpcState
             {
                 InstanceId = instanceId,
                 NpcId = def.NpcId,
                 Name = def.Name,
                 NpcType = def.NpcType,
-                X = def.X,
-                Y = def.Y,
+                X = x,
+                Y = y,
+                SizeX = sizeX,
+                SizeY = sizeY,
             };
             _worldState.NpcEnter(def.MapName, npc);
 
             _logger.LogInformation("[Npc] Initialized NPC {Name} (type={Type}) at {Map} ({X},{Y}), instanceId={InstId}",
-                def.Name, def.NpcType, def.MapName, def.X, def.Y, instanceId);
+                def.Name, def.NpcType, def.MapName, x, y, instanceId);
         }
     }
 

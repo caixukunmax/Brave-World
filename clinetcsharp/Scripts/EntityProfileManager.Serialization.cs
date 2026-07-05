@@ -45,6 +45,8 @@ namespace ClinetCSharp
             {
                 case AppearanceData app:
                     config.SetValue(section, "visual_size_scale", ToFp(app.VisualSizeScale));
+                    config.SetValue(section, "size_x", app.SizeX);
+                    config.SetValue(section, "size_y", app.SizeY);
                     config.SetValue(section, "border_width_scale", ToFp(app.BorderWidthScale));
                     config.SetValue(section, "corner_radius", (double)app.CornerRadius);
                     config.SetValue(section, "bg_opacity", ToFp(app.BgOpacity));
@@ -136,6 +138,14 @@ namespace ClinetCSharp
                     config.SetValue(section, "offset_b_x", (double)npc.OffsetBX);
                     config.SetValue(section, "offset_b_y", (double)npc.OffsetBY);
                     break;
+
+                case ObstacleData obstacle:
+                    config.SetValue(section, "block_movement", obstacle.BlockMovement);
+                    break;
+
+                case BuildingTypeData buildingType:
+                    config.SetValue(section, "building_type", buildingType.Type);
+                    break;
             }
         }
 
@@ -154,6 +164,8 @@ namespace ClinetCSharp
                     return new AppearanceData
                     {
                         VisualSizeScale = FromFp(ReadFp(config, section, "visual_size_scale", 10000)),
+                        SizeX = (int)(double)config.GetValue(section, "size_x", 1),
+                        SizeY = (int)(double)config.GetValue(section, "size_y", 1),
                         BorderWidthScale = FromFp(ReadFp(config, section, "border_width_scale", 270)),
                         CornerRadius = (float)(double)config.GetValue(section, "corner_radius", 12.0),
                         BgOpacity = FromFp(ReadFp(config, section, "bg_opacity", 9000)),
@@ -268,10 +280,44 @@ namespace ClinetCSharp
                         OffsetBY = (float)(double)config.GetValue(section, "offset_b_y", -20),
                     };
 
+                case "obstacle":
+                    return new ObstacleData
+                    {
+                        BlockMovement = (bool)config.GetValue(section, "block_movement", true),
+                    };
+
+                case "building_type":
+                {
+                    var typeValue = config.GetValue(section, "building_type", BuildingType.House);
+                    int type = typeValue.VariantType switch
+                    {
+                        Variant.Type.Int => (int)typeValue,
+                        Variant.Type.Float => (int)(double)typeValue,
+                        Variant.Type.String => ParseLegacyBuildingType((string)typeValue),
+                        _ => BuildingType.House,
+                    };
+                    return new BuildingTypeData { Type = type };
+                }
+
                 default:
                     GD.PushWarning($"[EntityProfileManager] Unknown component type: {compName}");
                     return null;
             }
+        }
+
+        private static int ParseLegacyBuildingType(string value)
+        {
+            return value?.Trim() switch
+            {
+                "房舍" => BuildingType.House,
+                "商店" => BuildingType.Shop,
+                "民居" => BuildingType.House,
+                "军事" => BuildingType.Shop,
+                "装饰" => BuildingType.House,
+                "障碍" => BuildingType.House,
+                "资源" => BuildingType.Shop,
+                _ => int.TryParse(value, out int parsed) && BuildingType.IsValid(parsed) ? parsed : BuildingType.House,
+            };
         }
 
         #endregion

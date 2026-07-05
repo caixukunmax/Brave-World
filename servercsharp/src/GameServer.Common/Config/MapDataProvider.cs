@@ -12,10 +12,12 @@ public class MapDataProvider
     private readonly Dictionary<string, MapRegistryEntry> _registry = new();
     private readonly Dictionary<string, string> _mapNameAliases = new();
     private readonly LubanTableLoader? _tables;
+    private readonly BuildingConfigProvider? _buildingConfig;
 
-    public MapDataProvider(LubanTableLoader? tables = null)
+    public MapDataProvider(LubanTableLoader? tables = null, BuildingConfigProvider? buildingConfig = null)
     {
         _tables = tables;
+        _buildingConfig = buildingConfig;
     }
 
     /// <summary>加载地图注册表 + JSON 地形数据</summary>
@@ -105,7 +107,40 @@ public class MapDataProvider
                 }
             }
         }
-        _maps[mapName] = new MapData(mapName, offsetX, offsetY, width, height, terrainType, decorationType);
+        var blocked = ComputeBlockedCells(width, height, decorationType);
+        _maps[mapName] = new MapData(mapName, offsetX, offsetY, width, height, terrainType, decorationType, blocked);
+    }
+
+    /// <summary>
+    /// 根据 decoration 配置计算阻塞格子。装饰锚点格及其 footprint 内所有格子都会被阻塞。
+    /// </summary>
+    private bool[,] ComputeBlockedCells(int width, int height, int[,] decorationType)
+    {
+        var blocked = new bool[width, height];
+        if (_buildingConfig == null) return blocked;
+
+        for (int y = 0; y < height; y++)
+        {
+            for (int x = 0; x < width; x++)
+            {
+                int decoration = decorationType[x, y];
+                if (decoration == 0) continue;
+                if (!_buildingConfig.BlocksMovement(decoration)) continue;
+
+                var (sizeX, sizeY) = _buildingConfig.GetSize(decoration);
+                for (int dy = 0; dy < sizeY; dy++)
+                {
+                    for (int dx = 0; dx < sizeX; dx++)
+                    {
+                        int bx = x + dx;
+                        int by = y + dy;
+                        if (bx < width && by < height)
+                            blocked[bx, by] = true;
+                    }
+                }
+            }
+        }
+        return blocked;
     }
 
     /// <summary>解析 map.json 文件，返回扁平化 cell JSON 字符串数组</summary>
@@ -176,8 +211,8 @@ public class MapDataProvider
         int localY = y - map.OffsetY;
         if (localX < 0 || localX >= map.Width || localY < 0 || localY >= map.Height) return false;
 
-        // 装饰摆件阻塞检查（房舍=1 阻塞移动）
-        if (IsBlockedByDecoration(map, localX, localY))
+        // 装饰摆件阻塞检查（按建筑配置展开 footprint）
+        if (map.Blocked[localX, localY])
             return false;
 
         int terrain = map.TerrainType[localX, localY];
@@ -192,14 +227,7 @@ public class MapDataProvider
         int localX = x - map.OffsetX;
         int localY = y - map.OffsetY;
         if (localX < 0 || localX >= map.Width || localY < 0 || localY >= map.Height) return false;
-        return IsBlockedByDecoration(map, localX, localY);
-    }
-
-    private static bool IsBlockedByDecoration(MapData map, int localX, int localY)
-    {
-        int decoration = map.DecorationType[localX, localY];
-        // 一期硬编码：1=房舍 阻塞移动
-        return decoration == 1;
+        return map.Blocked[localX, localY];
     }
 
     public int GetTerrainType(string mapName, int x, int y)
@@ -236,6 +264,19 @@ public class MapDataProvider
         return (map.Width, map.Height, decorationTypes);
     }
 
+    /// <summary>获取地图中被建筑 footprint 阻塞的所有格子（调试用）</summary>
+    public List<(int x, int y)>? GetBlockedCells(string mapName)
+    {
+        mapName = ResolveMapName(mapName);
+        if (!_maps.TryGetValue(mapName, out var map)) return null;
+        var list = new List<(int x, int y)>();
+        for (int x = 0; x < map.Width; x++)
+            for (int y = 0; y < map.Height; y++)
+                if (map.Blocked[x, y])
+                    list.Add((x + map.OffsetX, y + map.OffsetY));
+        return list;
+    }
+
     public (int x, int y)? FindNearestWalkable(string mapName, int x, int y, int maxRadius = 10)
     {
         mapName = ResolveMapName(mapName);
@@ -253,6 +294,62 @@ public class MapDataProvider
             }
         }
         return null;
+    }
+
+    /// <summary>
+    /// 查找最近的、能容纳指定 footprint 的锚点位置。
+    /// 要求 footprint 内所有格子均可行走，且不会越界。
+    /// </summary>
+    public (int x, int y)? FindNearestWalkableForFootprint(string mapName, int x, int y, int sizeX, int sizeY, int maxRadius = 10)
+    {
+        mapName = ResolveMapName(mapName);
+        sizeX = Math.Max(1, sizeX);
+        sizeY = Math.Max(1, sizeY);
+
+        if (IsFootprintWalkable(mapName, x, y, sizeX, sizeY))
+            return (x, y);
+
+        for (int r = 1; r <= maxRadius; r++)
+        {
+            for (int dx = -r; dx <= r; dx++)
+            {
+                for (int dy = -r; dy <= r; dy++)
+                {
+                    if (Math.Abs(dx) != r && Math.Abs(dy) != r) continue;
+                    int ax = x + dx;
+                    int ay = y + dy;
+                    if (IsFootprintWalkable(mapName, ax, ay, sizeX, sizeY))
+                        return (ax, ay);
+                }
+            }
+        }
+        return null;
+    }
+
+    private bool IsFootprintWalkable(string mapName, int anchorX, int anchorY, int sizeX, int sizeY)
+    {
+        if (!_maps.TryGetValue(mapName, out var map)) return false;
+
+        int localX = anchorX - map.OffsetX;
+        int localY = anchorY - map.OffsetY;
+        if (localX < 0 || localY < 0 || localX + sizeX > map.Width || localY + sizeY > map.Height)
+            return false;
+
+        for (int dy = 0; dy < sizeY; dy++)
+        {
+            for (int dx = 0; dx < sizeX; dx++)
+            {
+                int cx = localX + dx;
+                int cy = localY + dy;
+                if (map.Blocked[cx, cy])
+                    return false;
+                int terrain = map.TerrainType[cx, cy];
+                var cfg = _tables?.TerrainConfigs.GetValueOrDefault(terrain);
+                if (!(cfg?.Walkable ?? true))
+                    return false;
+            }
+        }
+        return true;
     }
 
     public MapData? GetMap(string mapName)
@@ -279,7 +376,7 @@ public class MapDataProvider
 
     public Dictionary<string, MapRegistryEntry> GetAllRegistryEntries() => _registry;
 
-    public record MapData(string Name, int OffsetX, int OffsetY, int Width, int Height, int[,] TerrainType, int[,] DecorationType);
+    public record MapData(string Name, int OffsetX, int OffsetY, int Width, int Height, int[,] TerrainType, int[,] DecorationType, bool[,] Blocked);
 }
 
 /// <summary>map_registry.json 中的条目</summary>

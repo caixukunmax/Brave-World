@@ -1,0 +1,7 @@
+{
+  "1": { "sizeX": 1, "sizeY": 1, "blockMovement": true },
+  "10000": { "sizeX": 2, "sizeY": 2, "blockMovement": true },
+  "20000": { "sizeX": 1, "sizeY": 1, "blockMovement": false },
+  "20001": { "sizeX": 1, "sizeY": 1, "blockMovement": false },
+  "20002": { "sizeX": 1, "sizeY": 1, "blockMovement": false }
+}

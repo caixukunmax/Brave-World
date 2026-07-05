@@ -263,7 +263,9 @@ namespace ClinetCSharp
                     gridSize,
                     m.Attrs,
                     uiConfigId,
-                    quality
+                    quality,
+                    m.SizeX > 0 ? (int)m.SizeX : 1,
+                    m.SizeY > 0 ? (int)m.SizeY : 1
                 );
                 monster.MoveVisualCompleted += OnMonsterMoveVisualCompleted;
                 ApplyDefaultStyle(monster);
@@ -336,13 +338,11 @@ namespace ClinetCSharp
 
         public Monster GetMonsterAt(Vector2I gridPos)
         {
-            if (!_monsterPositions.Values.Any(p => p == gridPos) && !_monsterReservedPositions.Contains(gridPos))
-                return null;
             foreach (var m in _monsters)
             {
-                if (m.GridX == gridPos.X && m.GridY == gridPos.Y)
+                if (IsInFootprint(gridPos, m.GridX, m.GridY, m.GridSizeX, m.GridSizeY))
                     return m;
-                if (m.PendingGridPos.HasValue && m.PendingGridPos.Value == gridPos)
+                if (m.PendingGridPos.HasValue && IsInFootprint(gridPos, m.PendingGridPos.Value.X, m.PendingGridPos.Value.Y, m.GridSizeX, m.GridSizeY))
                     return m;
             }
             return null;
@@ -353,12 +353,12 @@ namespace ClinetCSharp
             var m = _monsters.Find(x => x.InstanceId == instanceId);
             if (m == null) return;
 
-            // 清理旧的预约位置，防止怪物改变移动目标时残留过期数据
+            // 清理旧的预约 footprint，防止怪物改变移动目标时残留过期数据
             if (m.PendingGridPos.HasValue)
-                _monsterReservedPositions.Remove(m.PendingGridPos.Value);
+                RemoveReservedFootprint(m.PendingGridPos.Value, m.GridSizeX, m.GridSizeY);
 
             _monsterPositions[instanceId] = from;
-            _monsterReservedPositions.Add(to);
+            AddReservedFootprint(to, m.GridSizeX, m.GridSizeY);
             m.CurrentState = state;
             float durationSec = durationMs > 0 ? durationMs / 1000.0f : 0.15f;
             m.MoveTo(to, durationSec);
@@ -366,7 +366,38 @@ namespace ClinetCSharp
 
         public bool IsBlockedByMonster(Vector2I gridPos)
         {
-            return _monsterPositions.Values.Any(p => p == gridPos) || _monsterReservedPositions.Contains(gridPos);
+            foreach (var m in _monsters)
+            {
+                if (IsInFootprint(gridPos, m.GridX, m.GridY, m.GridSizeX, m.GridSizeY))
+                    return true;
+            }
+            return _monsterReservedPositions.Contains(gridPos);
+        }
+
+        private static bool IsInFootprint(Vector2I pos, int anchorX, int anchorY, int sizeX, int sizeY)
+        {
+            sizeX = Mathf.Max(1, sizeX);
+            sizeY = Mathf.Max(1, sizeY);
+            return pos.X >= anchorX && pos.X < anchorX + sizeX &&
+                   pos.Y >= anchorY && pos.Y < anchorY + sizeY;
+        }
+
+        private void AddReservedFootprint(Vector2I anchor, int sizeX, int sizeY)
+        {
+            sizeX = Mathf.Max(1, sizeX);
+            sizeY = Mathf.Max(1, sizeY);
+            for (int dy = 0; dy < sizeY; dy++)
+                for (int dx = 0; dx < sizeX; dx++)
+                    _monsterReservedPositions.Add(new Vector2I(anchor.X + dx, anchor.Y + dy));
+        }
+
+        private void RemoveReservedFootprint(Vector2I anchor, int sizeX, int sizeY)
+        {
+            sizeX = Mathf.Max(1, sizeX);
+            sizeY = Mathf.Max(1, sizeY);
+            for (int dy = 0; dy < sizeY; dy++)
+                for (int dx = 0; dx < sizeX; dx++)
+                    _monsterReservedPositions.Remove(new Vector2I(anchor.X + dx, anchor.Y + dy));
         }
 
         private void OnCombatStateNotify(Game.CombatStateNotify notify)
@@ -478,7 +509,7 @@ namespace ClinetCSharp
 
             _monsterPositions.Remove(notify.InstanceId);
             if (m.PendingGridPos.HasValue)
-                _monsterReservedPositions.Remove(m.PendingGridPos.Value);
+                RemoveReservedFootprint(m.PendingGridPos.Value, m.GridSizeX, m.GridSizeY);
             _monsters.Remove(m);
 
             m.PlayDeathAnimation(DeathEffectMode, DeathFadeDuration, DeathGrayDelay, () =>
@@ -515,7 +546,8 @@ namespace ClinetCSharp
             }
 
             var monster = new Monster();
-            monster.Setup(notify.InstanceId, notify.MonsterId, notify.X, notify.Y, notify.Name, notify.Level, _gridSize, uiConfigId);
+            monster.Setup(notify.InstanceId, notify.MonsterId, notify.X, notify.Y, notify.Name, notify.Level, _gridSize, uiConfigId,
+                notify.SizeX > 0 ? notify.SizeX : 1, notify.SizeY > 0 ? notify.SizeY : 1);
             monster.MonsterQuality = quality;
             monster.RefreshDataBoundLabels();
             monster.MoveVisualCompleted += OnMonsterMoveVisualCompleted;
@@ -539,7 +571,7 @@ namespace ClinetCSharp
             var rollbackPos = new Vector2I(notify.RollbackX, notify.RollbackY);
             if (m.PendingGridPos.HasValue)
             {
-                _monsterReservedPositions.Remove(m.PendingGridPos.Value);
+                RemoveReservedFootprint(m.PendingGridPos.Value, m.GridSizeX, m.GridSizeY);
             }
             _monsterPositions[notify.InstanceId] = rollbackPos;
 
@@ -558,7 +590,7 @@ namespace ClinetCSharp
                 return;
 
             _monsterPositions[monster.InstanceId] = targetGridPos;
-            _monsterReservedPositions.Remove(targetGridPos);
+            RemoveReservedFootprint(targetGridPos, monster.GridSizeX, monster.GridSizeY);
         }
 
         private static bool IsCombatState(string state)

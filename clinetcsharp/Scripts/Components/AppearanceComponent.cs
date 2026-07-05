@@ -34,6 +34,12 @@ namespace ClinetCSharp
         private HSlider _fontSizeSlider;
         private Label _fontSizeValue;
 
+        // Size on grid
+        private HSlider _sizeXSlider;
+        private Label _sizeXValue;
+        private HSlider _sizeYSlider;
+        private Label _sizeYValue;
+
         // Colors
         private ColorPickerButton _borderColorPicker;
         private ColorPickerButton _bgColorPicker;
@@ -56,6 +62,8 @@ namespace ClinetCSharp
             (_cornerRadiusSlider, _cornerRadiusValue) = CreateSliderRow(parent, "圆角半径", 0.0f, 60.0f, 12.0f, 1f);
             (_bgOpacitySlider, _bgOpacityValue) = CreateSliderRow(parent, "背景不透明度", 0.0f, 1.0f, 0.9f, DebugPanelLengthScalePolicy.StepF);
             (_fontSizeSlider, _fontSizeValue) = CreateSliderRow(parent, "字体大小", 0, 48, 0, 1f);
+            (_sizeXSlider, _sizeXValue) = CreateSliderRow(parent, "占地宽度", 1, 4, 1, 1f);
+            (_sizeYSlider, _sizeYValue) = CreateSliderRow(parent, "占地高度", 1, 4, 1, 1f);
 
             // Colors
             var bcRow = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
@@ -86,6 +94,8 @@ namespace ClinetCSharp
             SetSliderSilent(_cornerRadiusSlider, d.CornerRadius, _cornerRadiusValue, d.CornerRadius.ToString("F0"));
             SetSliderSilent(_bgOpacitySlider, d.BgOpacity, _bgOpacityValue, d.BgOpacity.ToString(DebugPanelLengthScalePolicy.FormatStr));
             SetSliderSilent(_fontSizeSlider, d.FontSize, _fontSizeValue, ((int)d.FontSize).ToString());
+            SetSliderSilent(_sizeXSlider, d.SizeX, _sizeXValue, d.SizeX.ToString());
+            SetSliderSilent(_sizeYSlider, d.SizeY, _sizeYValue, d.SizeY.ToString());
 
             // Compute linked values
             _gridSize = (int)_sizeSlider.MaxValue; // approximate; real gridSize comes from entity
@@ -106,6 +116,8 @@ namespace ClinetCSharp
                 CornerRadius = (float)_cornerRadiusSlider.Value,
                 BgOpacity = EntityProfileManager.FromFp(EntityProfileManager.ToFpD(_bgOpacitySlider.Value)),
                 FontSize = (int)_fontSizeSlider.Value,
+                SizeX = Mathf.Max(1, (int)_sizeXSlider.Value),
+                SizeY = Mathf.Max(1, (int)_sizeYSlider.Value),
                 BorderColor = _borderColorPicker.Color,
                 BgColor = _bgColorPicker.Color,
                 TextColor = _textColorPicker.Color,
@@ -128,6 +140,8 @@ namespace ClinetCSharp
             _cornerRadiusSlider.ValueChanged += OnSimpleChanged;
             _bgOpacitySlider.ValueChanged += OnSimpleChanged;
             _fontSizeSlider.ValueChanged += OnSimpleChanged;
+            _sizeXSlider.ValueChanged += OnSimpleChanged;
+            _sizeYSlider.ValueChanged += OnSimpleChanged;
 
             // Colors
             _borderColorPicker.ColorChanged += OnColorChanged;
@@ -144,6 +158,8 @@ namespace ClinetCSharp
             _cornerRadiusSlider.ValueChanged -= OnSimpleChanged;
             _bgOpacitySlider.ValueChanged -= OnSimpleChanged;
             _fontSizeSlider.ValueChanged -= OnSimpleChanged;
+            _sizeXSlider.ValueChanged -= OnSimpleChanged;
+            _sizeYSlider.ValueChanged -= OnSimpleChanged;
             _borderColorPicker.ColorChanged -= OnColorChanged;
             _bgColorPicker.ColorChanged -= OnColorChanged;
             _textColorPicker.ColorChanged -= OnColorChanged;
@@ -161,6 +177,8 @@ namespace ClinetCSharp
             SetSliderSilent(_cornerRadiusSlider, entity.CornerRadius, _cornerRadiusValue, entity.CornerRadius.ToString("F0"));
             SetSliderSilent(_bgOpacitySlider, entity.BgOpacity, _bgOpacityValue, entity.BgOpacity.ToString(DebugPanelLengthScalePolicy.FormatStr));
             SetSliderSilent(_fontSizeSlider, entity.FontSize, _fontSizeValue, entity.FontSize.ToString());
+            SetSliderSilent(_sizeXSlider, entity.GridSizeX, _sizeXValue, entity.GridSizeX.ToString());
+            SetSliderSilent(_sizeYSlider, entity.GridSizeY, _sizeYValue, entity.GridSizeY.ToString());
 
             _borderColorPicker.Color = entity.BorderColor;
             _bgColorPicker.Color = entity.BgColor;

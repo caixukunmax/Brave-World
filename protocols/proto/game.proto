@@ -143,6 +143,8 @@ message FullRoleInfo {
   string current_map = 15;      // 当前地图
   int32 grid_x = 16;            // 格子X
   int32 grid_y = 17;            // 格子Y
+  int32 size_x = 25;            // 占地宽度（格子数，默认1）
+  int32 size_y = 26;            // 占地高度（格子数，默认1）
   float ui_panel_pos_x = 18;    // 综合面板位置X
   float ui_panel_pos_y = 19;    // 综合面板位置Y
   float ui_panel_width = 20;    // 综合面板宽度
@@ -508,6 +510,8 @@ message MonsterInfo {
   string name = 5;               // 怪物名称
   uint32 level = 6;              // 等级
   repeated MonsterAttr attrs = 7; // 属性列表
+  int32 size_x = 8;              // 占地宽度（格子数，默认1）
+  int32 size_y = 9;              // 占地高度（格子数，默认1）
 }
 
 /**
@@ -549,6 +553,8 @@ message MonsterRespawnNotify {
   int32 y = 4;                   // 复活位置 Y
   string name = 5;               // 怪物名称
   uint32 level = 6;              // 等级
+  int32 size_x = 7;              // 横向占地格数
+  int32 size_y = 8;              // 纵向占地格数
 }
 
 /**
@@ -561,6 +567,8 @@ message NpcInfo {
   int32  npc_type        = 3;   // NPC类型：1=转职大师
   int32  x               = 4;
   int32  y               = 5;
+  int32  size_x          = 6;   // 占地宽度（格子数，默认1）
+  int32  size_y          = 7;   // 占地高度（格子数，默认1）
 }
 
 /**
@@ -697,6 +705,8 @@ message TileInfo {
   int32 y = 2;                // 格子 Y
   int32 terrain_type = 3;     // 地形类型 (0=普通, 1=水域...)
   int32 decoration_type = 4;  // 装饰类型 (0=无, 1=房舍...)
+  int32 size_x = 5;           // 装饰占地宽度（格子数，默认1）
+  int32 size_y = 6;           // 装饰占地高度（格子数，默认1）
 }
 
 /**

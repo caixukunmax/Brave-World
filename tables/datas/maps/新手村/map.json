@@ -328,11 +328,13 @@
     },
     "10_21": {
       "custom": "",
+      "decoration": 10000,
       "height": 0,
       "terrain": 0
     },
     "10_22": {
       "custom": "",
+      "decoration": 1,
       "height": 0,
       "terrain": 0
     },
@@ -558,11 +560,13 @@
     },
     "11_18": {
       "custom": "",
+      "decoration": 20002,
       "height": 0,
       "terrain": 0
     },
     "11_19": {
       "custom": "",
+      "decoration": 20001,
       "height": 0,
       "terrain": 0
     },
@@ -573,6 +577,7 @@
     },
     "11_20": {
       "custom": "",
+      "decoration": 20001,
       "height": 0,
       "terrain": 0
     },
@@ -583,6 +588,7 @@
     },
     "11_22": {
       "custom": "",
+      "decoration": 20001,
       "height": 0,
       "terrain": 0
     },
@@ -1078,6 +1084,7 @@
     },
     "13_21": {
       "custom": "",
+      "decoration": 20002,
       "height": 0,
       "terrain": 0
     },
@@ -11588,6 +11595,7 @@
     },
     "6_23": {
       "custom": "",
+      "decoration": 20000,
       "height": 0,
       "terrain": 0
     },
@@ -12512,5 +12520,5 @@
     "x": 25,
     "y": 25
   },
-  "version": 2
+  "version": 3
 }

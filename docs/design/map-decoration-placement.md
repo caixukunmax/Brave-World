@@ -145,6 +145,57 @@ public partial class GridCell : RefCounted
 
 后续可扩展 `Width`、`Height`、`PrefabPath`、`SortOrder` 等字段。
 
+### 3.4 建筑类型、建筑配置 ID 与建筑 UID
+
+#### 3.4.1 概念分层
+
+| 层级 | 名称 | 代表对象 | ID 规则 | 说明 |
+|---|---|---|---|---|
+| L1 | 建筑类型（BuildingType） | 策划概念分类 | 小整数常量 | 房舍 = 1，商店 = 2 |
+| L2 | 建筑配置（BuildCfg） | `EntityProfile`（entityType = decoration） | `建筑类型 × 10000 + 自增序号` | 一套外观/标签/障碍属性，可被多个实例复用 |
+| L3 | 建筑实例（Instance） | `MapDecoration` | `建筑类型 × 100000 + 自增序号` | 地图上某个格子中的具体建筑 |
+
+#### 3.4.2 建筑配置 ID（build_cfg_id）
+
+- 由 `EntityProfileManager` 按建筑类型在对应区间内顺序分配：
+  - 房舍配置：`10000`、`10001`、`10002`…
+  - 商店配置：`20000`、`20001`、`20002`…
+- 默认配置：
+  - `10000` 房舍
+  - `20000` 商店
+- 同一个 `build_cfg_id` 可在地图上存在多个实例；修改配置后所有实例同步刷新。
+- 配置保存仍走 `debug_panel_config.cfg`。
+
+#### 3.4.3 建筑 UID
+
+地图中每创建一个 `MapDecoration` 实例，由 `MapDecorationManager` 分配唯一 UID：
+
+```csharp
+buildingUid = buildingType * 100000 + sequence
+```
+
+- `buildingType`：从实例引用的 `build_cfg_id` 反解出的建筑类型。
+- `sequence`：该类型在当前地图中的创建序号，从 0 开始自增。
+- 建筑 UID 仅在运行时/客户端本地有效，当前不写入 `map.json`；地图文件仍只保存 `decoration_type`（即 `build_cfg_id`）。
+
+#### 3.4.4 旧数据兼容
+
+- 旧 `map.json` 中 `decoration` 字段可能仍存 `10/11/12`（房舍/树木/草丛），读取时映射到新的 `build_cfg_id`：
+  - `10` → `10000`（房舍）
+  - `11`、`12` → `20001`、`20002`（商店类型下的装饰子配置，待后续细化）
+- 旧 `debug_panel_config.cfg` 中 Profile ID `10/11/12` 在加载时迁移到 `10000/20001/20002`。
+
+#### 3.4.5 建筑工坊页签展示
+
+`DebugPanelDecorationTab` 编辑对象是 L2 建筑配置，因此展示：
+
+- **当前**：下拉选择建筑配置（显示 `建筑名 (ID:build_cfg_id)`）。
+- **建筑名**：可编辑，对应 `EntityProfile.Name`，同时同步到 `labels.ContentPreview[0]`。
+- **类型ID**：只读，显示当前 `build_cfg_id`。
+- **建筑类型**：通过 `building_type` 组件选择（房舍 / 商店），决定新建配置时落在哪个 ID 区间。
+
+不再使用通用的"标识名/显示名"标签，避免与建筑类型概念混淆。
+
 ---
 
 ## 4. 客户端实现
