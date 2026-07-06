@@ -63,13 +63,20 @@ describe('cli', () => {
     assert.strictEqual(map.bounds.h, 30);
   });
 
-  it('rejects width or height above 50', () => {
+  it('rejects width or height above 50 without --allow-oversize', () => {
     assert.throws(() => {
       execSync(`node "${toolPath}" --name big --width 51 --height 30 --seed 1 --output-dir "${tmpDir}" --no-sync`, { encoding: 'utf8' });
-    }, /exceeds the maximum allowed size/);
+    }, /--allow-oversize/);
     assert.throws(() => {
       execSync(`node "${toolPath}" --name big --width 30 --height 51 --seed 1 --output-dir "${tmpDir}" --no-sync`, { encoding: 'utf8' });
-    }, /exceeds the maximum allowed size/);
+    }, /--allow-oversize/);
+  });
+
+  it('accepts width or height above 50 with --allow-oversize', () => {
+    execSync(`node "${toolPath}" --name oversized --width 100 --height 100 --seed 1 --allow-oversize --output-dir "${tmpDir}" --no-sync`, { encoding: 'utf8' });
+    const map = JSON.parse(fs.readFileSync(path.join(tmpDir, 'maps', 'oversized', 'map.json'), 'utf8'));
+    assert.strictEqual(map.bounds.w, 100);
+    assert.strictEqual(map.bounds.h, 100);
   });
 
   it('rejects malformed numeric size strings', () => {

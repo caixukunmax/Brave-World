@@ -38,15 +38,18 @@ function parseArgs(argv) {
   return args;
 }
 
-function parseSize(value, defaultValue, label) {
+function parseSize(value, defaultValue, label, allowOversize) {
   if (value === undefined) return defaultValue;
   const trimmed = value.trim();
   const n = parseInt(trimmed, 10);
   if (String(n) !== trimmed || !Number.isFinite(n) || n <= 0) {
     throw new Error(`Invalid ${label}: "${value}". Must be a positive integer.`);
   }
-  if (n > 50) {
-    throw new Error(`Map ${label} ${n} exceeds the maximum allowed size of 50.`);
+  if (n > 50 && !allowOversize) {
+    throw new Error(
+      `Map ${label} ${n} exceeds the default maximum size of 50. ` +
+      `To generate a map larger than 50, confirm with the user and pass --allow-oversize.`
+    );
   }
   return n;
 }
@@ -138,12 +141,13 @@ function main() {
   const args = parseArgs(process.argv);
 
   if (!args.name) {
-    console.error('Usage: node generate-map.js --name <name> [--description <desc>] [--count <n>] [--width <w>] [--height <h>] [--seed <n>] [--style <style>] [--water <ratio>] [--obstacle <ratio>] [--decoration <low|medium|high>] [--force] [--output-dir <dir>] [--blueprint <path>] [--no-sync] [--adjust]');
+    console.error('Usage: node generate-map.js --name <name> [--description <desc>] [--count <n>] [--width <w>] [--height <h>] [--seed <n>] [--style <style>] [--water <ratio>] [--obstacle <ratio>] [--decoration <low|medium|high>] [--force] [--output-dir <dir>] [--blueprint <path>] [--no-sync] [--adjust] [--allow-oversize]');
     process.exit(1);
   }
 
   const isAdjust = args.adjust === true || args.adjust === 'true';
   const outputDir = args['output-dir'] || path.join(__dirname, '..');
+  const allowOversize = args['allow-oversize'] === true || args['allow-oversize'] === 'true';
 
   let baseMapData = null;
   if (isAdjust) {
@@ -159,8 +163,8 @@ function main() {
   try {
     const defaultWidth = baseMapData ? baseMapData.bounds.w : DEFAULT_WIDTH;
     const defaultHeight = baseMapData ? baseMapData.bounds.h : DEFAULT_HEIGHT;
-    width = parseSize(args.width, defaultWidth, 'width');
-    height = parseSize(args.height, defaultHeight, 'height');
+    width = parseSize(args.width, defaultWidth, 'width', allowOversize);
+    height = parseSize(args.height, defaultHeight, 'height', allowOversize);
   } catch (err) {
     console.error(`Error: ${err.message}`);
     process.exit(1);

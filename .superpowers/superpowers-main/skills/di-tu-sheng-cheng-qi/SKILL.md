@@ -43,7 +43,7 @@ If user does not specify size, infer from description keywords:
 - medium: 小镇、森林、山谷、港口 → 30–45
 - large: 大陆、广袤、王国、平原 → 46–50
 
-Never exceed 50 unless the user explicitly requests a larger size.
+Never exceed 50 unless the user explicitly requests a larger size. Sizes above 50 require explicit user confirmation, and the CLI must be invoked with `--allow-oversize` after confirmation.
 
 ## AI Parsing Rules
 
@@ -52,7 +52,7 @@ Never exceed 50 unless the user explicitly requests a larger size.
 3. Extract spatial layout hints (e.g., "中央有湖", "北边是雪地") into a `map-blueprint.json`.
 4. Detect naming conflicts and choose next available `name_x`.
 5. For adjustment requests, verify the base map exists at `clinetcsharp/maps/<name>/map.json`. If it is missing, report the error and STOP; do not fall back to generating a new map.
-6. If the user explicitly requests a size above 50, keep the requested size but flag it in the form as `requires explicit override of the 50 cap`. Do not silently shrink it to 50; wait for the user to confirm the override or choose a size ≤ 50.
+6. If the user explicitly requests a size above 50, keep the requested size but flag it in the form as `requires explicit override of the 50 cap`. Do not silently shrink it to 50; wait for the user to confirm the override or choose a size ≤ 50. After confirmation, append `--allow-oversize` to the execution command.
 7. Generate the Markdown approval form.
 8. STOP and wait for user confirmation before running the tool.
 
@@ -84,6 +84,7 @@ node clinetcsharp/tools/generate-map.js --name <finalName> --description "<desc>
 ```
 
 - For adjustment mode, add `--adjust`.
+- For sizes above 50, add `--allow-oversize` (e.g., `--width 100 --height 100 --allow-oversize`).
 - The `--count` flag tells the CLI how many variants to generate. When `count > 1`, the tool will resolve naming conflicts and produce `<name>`, `<name>_1`, `<name>_2`, etc.
 
 ## Post-Execution
