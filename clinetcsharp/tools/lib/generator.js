@@ -47,4 +47,63 @@ function countTerrain(mapData) {
   return counts;
 }
 
-module.exports = { generateTerrain, countTerrain };
+function isWalkable(cell) {
+  const terrain = Object.values(config.terrains).find(t => t.id === cell.terrain);
+  return terrain?.walkable !== false;
+}
+
+function findLargestConnectedRegion(mapData) {
+  const visited = new Set();
+  let best = [];
+  for (const key of Object.keys(mapData.cells)) {
+    if (!isWalkable(mapData.cells[key]) || visited.has(key)) continue;
+    const region = [];
+    const stack = [key];
+    while (stack.length) {
+      const k = stack.pop();
+      if (visited.has(k)) continue;
+      visited.add(k);
+      region.push(k);
+      const [x, y] = k.split('_').map(Number);
+      for (const [dx, dy] of [[0, 1], [0, -1], [1, 0], [-1, 0]]) {
+        const nk = `${x + dx}_${y + dy}`;
+        if (mapData.cells[nk] && isWalkable(mapData.cells[nk]) && !visited.has(nk)) stack.push(nk);
+      }
+    }
+    if (region.length > best.length) best = region;
+  }
+  return best;
+}
+
+function ensureConnectivity(mapData) {
+  const largest = findLargestConnectedRegion(mapData);
+  const keep = new Set(largest);
+  for (const cell of Object.values(mapData.cells)) {
+    if (isWalkable(cell) && !keep.has(cell.uid)) {
+      cell.terrain = config.terrains.rock.id;
+    }
+  }
+}
+
+function placeSpawn(mapData) {
+  const region = findLargestConnectedRegion(mapData);
+  if (region.length === 0) {
+    mapData.spawn = { x: 0, y: 0 };
+    return;
+  }
+  const xs = region.map(k => Number(k.split('_')[0]));
+  const ys = region.map(k => Number(k.split('_')[1]));
+  const cx = Math.floor((Math.min(...xs) + Math.max(...xs)) / 2);
+  const cy = Math.floor((Math.min(...ys) + Math.max(...ys)) / 2);
+  let best = region[0];
+  let bestDist = Infinity;
+  for (const key of region) {
+    const [x, y] = key.split('_').map(Number);
+    const d = Math.abs(x - cx) + Math.abs(y - cy);
+    if (d < bestDist) { bestDist = d; best = key; }
+  }
+  const [sx, sy] = best.split('_').map(Number);
+  mapData.spawn = { x: sx, y: sy };
+}
+
+module.exports = { generateTerrain, countTerrain, isWalkable, ensureConnectivity, placeSpawn };

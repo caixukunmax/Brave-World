@@ -1,7 +1,7 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert');
 const { createMapData } = require('../lib/map-core');
-const { generateTerrain, countTerrain } = require('../lib/generator');
+const { generateTerrain, countTerrain, isWalkable, ensureConnectivity, placeSpawn } = require('../lib/generator');
 
 describe('generator terrain', () => {
   it('generates water according to ratio', () => {
@@ -20,3 +20,41 @@ describe('generator terrain', () => {
     assert.deepStrictEqual(m1.cells, m2.cells);
   });
 });
+
+describe('generator connectivity', () => {
+  it('places spawn on a walkable cell', () => {
+    const map = createMapData(40, 40, 'Conn');
+    generateTerrain(map, { style: 'forest', water: 0.3, obstacle: 0.15, seed: 7 });
+    ensureConnectivity(map);
+    placeSpawn(map);
+    const spawnCell = map.cells[`${map.spawn.x}_${map.spawn.y}`];
+    assert(isWalkable(spawnCell));
+  });
+
+  it('has a large connected walkable region', () => {
+    const map = createMapData(40, 40, 'Conn');
+    generateTerrain(map, { style: 'forest', water: 0.3, obstacle: 0.15, seed: 7 });
+    ensureConnectivity(map);
+    placeSpawn(map);
+    const reachable = floodReachable(map, map.spawn.x, map.spawn.y);
+    const totalWalkable = Object.values(map.cells).filter(isWalkable).length;
+    assert(reachable / totalWalkable >= 0.7, `reachable ratio ${reachable / totalWalkable}`);
+  });
+});
+
+function floodReachable(map, sx, sy) {
+  const key = `${sx}_${sy}`;
+  const visited = new Set();
+  const stack = [key];
+  while (stack.length) {
+    const k = stack.pop();
+    if (visited.has(k)) continue;
+    visited.add(k);
+    const [x, y] = k.split('_').map(Number);
+    for (const [dx, dy] of [[0, 1], [0, -1], [1, 0], [-1, 0]]) {
+      const nk = `${x + dx}_${y + dy}`;
+      if (map.cells[nk] && isWalkable(map.cells[nk]) && !visited.has(nk)) stack.push(nk);
+    }
+  }
+  return visited.size;
+}
