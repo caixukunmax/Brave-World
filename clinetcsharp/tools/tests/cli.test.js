@@ -124,15 +124,77 @@ describe('cli', () => {
     }, /Adjust mode cannot change map dimensions/);
   });
 
-  it('rolls back the map directory if form write fails after save', () => {
+  it('rolls back only the files written when the map directory already existed', () => {
     const mapDir = path.join(tmpDir, 'maps', 'rollback');
     fs.mkdirSync(mapDir, { recursive: true });
     fs.mkdirSync(path.join(mapDir, 'map-gen-form.md'), { recursive: true });
+    fs.writeFileSync(path.join(mapDir, 'extra-file.txt'), 'keep me');
 
     assert.throws(() => {
       execSync(`node "${toolPath}" --name rollback --width 10 --height 10 --seed 1 --output-dir "${tmpDir}" --no-sync`, { encoding: 'utf8' });
     }, /Error:/);
 
-    assert(!fs.existsSync(mapDir), 'map directory should be removed on rollback');
+    assert(fs.existsSync(mapDir), 'pre-existing map directory should remain');
+    assert(!fs.existsSync(path.join(mapDir, 'map.json')), 'map.json should be removed on rollback');
+    assert(fs.existsSync(path.join(mapDir, 'extra-file.txt')), 'unrelated pre-existing files should not be removed');
+  });
+
+  it('accepts string-typed bounds in adjust mode', () => {
+    fs.mkdirSync(path.join(tmpDir, 'maps', 'strbounds'), { recursive: true });
+    fs.writeFileSync(path.join(tmpDir, 'maps', 'strbounds', 'map.json'), JSON.stringify({
+      version: 3,
+      display_name: 'strbounds',
+      bounds: { x: 0, y: 0, w: '20', h: '20' },
+      spawn: { x: 10, y: 10 },
+      cells: Object.fromEntries(Array.from({ length: 20 * 20 }, (_, i) => {
+        const x = i % 20, y = Math.floor(i / 20);
+        return [`${x}_${y}`, { terrain: 0, height: 0, custom: '' }];
+      }))
+    }, null, 2));
+
+    const out = execSync(`node "${toolPath}" --name strbounds --adjust --width 20 --height 20 --seed 1 --style snow --output-dir "${tmpDir}" --no-sync`, { encoding: 'utf8' });
+    assert(out.includes('strbounds_1'));
+    assert(fs.existsSync(path.join(tmpDir, 'maps', 'strbounds_1', 'map.json')));
+  });
+
+  it('rejects water or obstacle ratios outside [0, 1]', () => {
+    assert.throws(() => {
+      execSync(`node "${toolPath}" --name badwater --width 10 --height 10 --water 1.5 --seed 1 --output-dir "${tmpDir}" --no-sync`, { encoding: 'utf8' });
+    }, /Invalid water/);
+    assert.throws(() => {
+      execSync(`node "${toolPath}" --name badobs --width 10 --height 10 --obstacle -0.1 --seed 1 --output-dir "${tmpDir}" --no-sync`, { encoding: 'utf8' });
+    }, /Invalid obstacle/);
+    assert.throws(() => {
+      execSync(`node "${toolPath}" --name badwater2 --width 10 --height 10 --water abc --seed 1 --output-dir "${tmpDir}" --no-sync`, { encoding: 'utf8' });
+    }, /Invalid water/);
+  });
+
+  it('populates size reason and layout summary in the form', () => {
+    fs.mkdirSync(path.join(tmpDir, 'maps', 'layoutbase'), { recursive: true });
+    const blueprintPath = path.join(tmpDir, 'maps', 'layoutbase', 'map-blueprint.json');
+    fs.writeFileSync(blueprintPath, JSON.stringify({
+      regions: [
+        { anchor: 'center', type: 'water', size: 'medium' },
+        { anchor: 'north', type: 'snow', size: 'small' }
+      ]
+    }));
+
+    execSync(`node "${toolPath}" --name layoutbase --description "forest with lake" --width 25 --height 25 --seed 1 --blueprint "${blueprintPath}" --output-dir "${tmpDir}" --no-sync`, { encoding: 'utf8' });
+
+    const formPath = path.join(tmpDir, 'maps', 'layoutbase', 'map-gen-form.md');
+    assert(fs.existsSync(formPath));
+    const form = fs.readFileSync(formPath, 'utf8');
+    assert(form.includes('User specified 25×25'), 'form should include explicit size reason');
+    assert(form.includes('center water (medium)'), 'form should include layout summary');
+    assert(form.includes('north snow (small)'), 'form should include all blueprint regions');
+  });
+
+  it('reports inferred size reason from description when size is not explicit', () => {
+    execSync(`node "${toolPath}" --name inferred --description "small forest" --seed 1 --output-dir "${tmpDir}" --no-sync`, { encoding: 'utf8' });
+
+    const formPath = path.join(tmpDir, 'maps', 'inferred', 'map-gen-form.md');
+    assert(fs.existsSync(formPath));
+    const form = fs.readFileSync(formPath, 'utf8');
+    assert(form.includes("Inferred 'small' from description:"), 'form should include inferred size reason');
   });
 });

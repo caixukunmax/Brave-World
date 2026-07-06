@@ -37,10 +37,6 @@ function updateRegistry(serverRoot, mapName, mapData) {
   }
 
   const registry = JSON.parse(fs.readFileSync(registryPath, 'utf8'));
-  if (registry.some(e => e.map_name === mapName)) {
-    return { skipped: false, reason: 'entry already exists' };
-  }
-
   const bounds = mapData && mapData.bounds ? mapData.bounds : {};
   const spawn = mapData && mapData.spawn ? mapData.spawn : {};
 
@@ -49,14 +45,21 @@ function updateRegistry(serverRoot, mapName, mapData) {
   const height = Number.isFinite(bounds.h) ? bounds.h :
                  Number.isFinite(bounds.height) ? bounds.height : DEFAULT_HEIGHT;
 
-  registry.push({
+  const entry = {
     map_name: mapName,
     display_name: (mapData && mapData.display_name) || mapName,
     width,
     height,
     spawn_x: Number.isFinite(spawn.x) ? spawn.x : DEFAULT_SPAWN_X,
     spawn_y: Number.isFinite(spawn.y) ? spawn.y : DEFAULT_SPAWN_Y
-  });
+  };
+
+  const existingIndex = registry.findIndex(e => e.map_name === mapName);
+  if (existingIndex >= 0) {
+    registry[existingIndex] = entry;
+  } else {
+    registry.push(entry);
+  }
 
   fs.writeFileSync(registryPath, JSON.stringify(registry, null, 2), 'utf8');
   return { skipped: false };

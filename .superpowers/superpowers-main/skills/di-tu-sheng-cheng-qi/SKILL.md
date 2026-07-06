@@ -87,6 +87,12 @@ node clinetcsharp/tools/generate-map.js --name <finalName> --description "<desc>
 - For sizes above 50, add `--allow-oversize` (e.g., `--width 100 --height 100 --allow-oversize`).
 - The `--count` flag tells the CLI how many variants to generate. When `count > 1`, the tool will resolve naming conflicts and produce `<name>`, `<name>_1`, `<name>_2`, etc.
 
+Example for an oversized map after explicit user confirmation:
+
+```bash
+node clinetcsharp/tools/generate-map.js --name <finalName> --description "<desc>" --width 100 --height 100 --allow-oversize --seed <seed> --style <style> --water <water> --obstacle <obstacle> --decoration <decoration>
+```
+
 ## Post-Execution
 
 1. Verify `clinetcsharp/maps/<name>/map.json` exists.

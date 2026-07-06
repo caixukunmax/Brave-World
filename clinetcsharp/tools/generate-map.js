@@ -13,6 +13,12 @@ const DEFAULT_HEIGHT = 30;
 const DEFAULT_STYLE = 'mixed';
 const DEFAULT_DECORATION = 'medium';
 
+const SIZE_KEYWORDS = {
+  small: ['房间', '小村庄', '密室', '小岛', 'room', 'small', 'tiny'],
+  medium: ['小镇', '森林', '山谷', '港口', 'town', 'forest', 'valley', 'harbor', 'medium'],
+  large: ['大陆', '广袤', '王国', '平原', 'continent', 'vast', 'kingdom', 'plain', 'large']
+};
+
 function cloneCells(cells) {
   const out = {};
   for (const [k, v] of Object.entries(cells)) {
@@ -54,6 +60,62 @@ function parseSize(value, defaultValue, label, allowOversize) {
   return n;
 }
 
+function parseRatio(value, label) {
+  if (value === undefined) return undefined;
+  const trimmed = value.trim();
+  const n = parseFloat(trimmed);
+  if (String(n) !== trimmed || !Number.isFinite(n) || n < 0 || n > 1) {
+    throw new Error(`Invalid ${label}: "${value}". Must be a number between 0 and 1.`);
+  }
+  return n;
+}
+
+function buildSizeReason(width, height, description, explicitSize) {
+  if (explicitSize) {
+    return `User specified ${width}×${height}`;
+  }
+  if (description) {
+    const lower = description.toLowerCase();
+    for (const [level, words] of Object.entries(SIZE_KEYWORDS)) {
+      if (words.some(w => lower.includes(w))) {
+        return `Inferred '${level}' from description: '${description}'`;
+      }
+    }
+  }
+  return `Default size ${width}×${height}`;
+}
+
+function summarizeBlueprint(blueprint) {
+  if (!blueprint || !Array.isArray(blueprint.regions) || blueprint.regions.length === 0) {
+    return '-';
+  }
+  const parts = blueprint.regions.map(r => {
+    const size = r.size || 'medium';
+    return `${r.anchor || 'center'} ${r.type || 'unknown'} (${size})`;
+  });
+  return parts.join(', ');
+}
+
+function rollbackMapDir(mapDir, existedBefore) {
+  if (!existedBefore) {
+    fs.rmSync(mapDir, { recursive: true, force: true });
+    return;
+  }
+
+  // The directory existed before this run; only remove the files we touched.
+  for (const file of ['map.json', 'map-gen-form.md', 'map-blueprint.json']) {
+    const filePath = path.join(mapDir, file);
+    try {
+      const stat = fs.statSync(filePath);
+      if (stat.isFile()) {
+        fs.rmSync(filePath);
+      }
+    } catch {
+      // Ignore files that do not exist or are not regular files.
+    }
+  }
+}
+
 function generateSingleMap(options) {
   const {
     requestedName,
@@ -70,12 +132,17 @@ function generateSingleMap(options) {
     noSync,
     description,
     isAdjust,
-    baseMapData
+    baseMapData,
+    explicitSize
   } = options;
 
   const mapsFolder = path.join(outputDir, 'maps');
   const finalName = force ? requestedName : resolveMapName(requestedName, mapsFolder);
   const mapDir = path.join(mapsFolder, finalName);
+
+  // Track whether the directory existed before this run so rollback does not
+  // destroy unrelated files in a pre-existing map folder.
+  const mapDirExisted = fs.existsSync(mapDir);
 
   let mapData;
   if (isAdjust && baseMapData) {
@@ -91,8 +158,9 @@ function generateSingleMap(options) {
   }
 
   // Apply blueprint before terrain generation in both modes so regions are preserved.
+  let blueprint = null;
   if (blueprintPath && fs.existsSync(blueprintPath)) {
-    const blueprint = JSON.parse(fs.readFileSync(blueprintPath, 'utf8'));
+    blueprint = JSON.parse(fs.readFileSync(blueprintPath, 'utf8'));
     applyBlueprint(mapData, blueprint);
   }
   generateTerrain(mapData, { style, water, obstacle, seed });
@@ -100,6 +168,9 @@ function generateSingleMap(options) {
   const largestRegion = ensureConnectivity(mapData);
   placeSpawn(mapData, largestRegion);
   placeDecorations(mapData, decoration, style, seed);
+
+  const sizeReason = buildSizeReason(width, height, description, explicitSize);
+  const layoutSummary = summarizeBlueprint(blueprint);
 
   try {
     saveMapJson(mapData, path.join(mapDir, 'map.json'));
@@ -118,19 +189,21 @@ function generateSingleMap(options) {
       baseMap: isAdjust ? requestedName : undefined,
       width,
       height,
+      sizeReason,
       seed,
       description: description || '-',
       style,
       water: water ?? 'auto',
       obstacle: obstacle ?? 'auto',
       decoration,
+      layoutSummary,
       force: !!force,
       outputPath: mapDir,
       syncServer: !syncResult.skipped
     };
     writeForm(path.join(mapDir, 'map-gen-form.md'), formOptions);
   } catch (err) {
-    fs.rmSync(mapDir, { recursive: true, force: true });
+    rollbackMapDir(mapDir, mapDirExisted);
     throw err;
   }
 
@@ -157,12 +230,21 @@ function main() {
       process.exit(1);
     }
     baseMapData = loadMapJson(basePath);
+    // Normalize bounds to numbers so string-typed JSON values do not break comparisons.
+    if (baseMapData && baseMapData.bounds) {
+      baseMapData.bounds.w = Number(baseMapData.bounds.w);
+      baseMapData.bounds.h = Number(baseMapData.bounds.h);
+    }
   }
+
+  const explicitWidth = args.width !== undefined;
+  const explicitHeight = args.height !== undefined;
+  const explicitSize = explicitWidth || explicitHeight;
 
   let width, height;
   try {
-    const defaultWidth = baseMapData ? baseMapData.bounds.w : DEFAULT_WIDTH;
-    const defaultHeight = baseMapData ? baseMapData.bounds.h : DEFAULT_HEIGHT;
+    const defaultWidth = baseMapData ? Number(baseMapData.bounds.w) : DEFAULT_WIDTH;
+    const defaultHeight = baseMapData ? Number(baseMapData.bounds.h) : DEFAULT_HEIGHT;
     width = parseSize(args.width, defaultWidth, 'width', allowOversize);
     height = parseSize(args.height, defaultHeight, 'height', allowOversize);
   } catch (err) {
@@ -189,8 +271,8 @@ function main() {
   }
 
   const style = args.style || DEFAULT_STYLE;
-  const water = args.water !== undefined ? parseFloat(args.water) : undefined;
-  const obstacle = args.obstacle !== undefined ? parseFloat(args.obstacle) : undefined;
+  const water = parseRatio(args.water, 'water');
+  const obstacle = parseRatio(args.obstacle, 'obstacle');
   const decoration = args.decoration || DEFAULT_DECORATION;
   const force = args.force === true || args.force === 'true';
   const noSync = args['no-sync'] === true || args['no-sync'] === 'true';
@@ -237,7 +319,8 @@ function main() {
         noSync,
         description: args.description,
         isAdjust,
-        baseMapData
+        baseMapData,
+        explicitSize
       });
       results.push(result);
     }

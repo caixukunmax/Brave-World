@@ -82,4 +82,30 @@ describe('sync', () => {
     const registry = JSON.parse(fs.readFileSync(path.join(serverRoot, 'map_registry.json'), 'utf8'));
     assert.strictEqual(registry.filter(e => e.map_name === '新手村').length, 1);
   });
+
+  it('updates an existing registry entry with new bounds and spawn', () => {
+    syncToServer('新手村', path.join(tmpDir, 'maps', '新手村', 'map.json'), serverRoot);
+
+    fs.writeFileSync(
+      path.join(tmpDir, 'maps', '新手村', 'map.json'),
+      JSON.stringify({
+        version: 3,
+        display_name: '新手村',
+        bounds: { x: 0, y: 0, w: 40, h: 35 },
+        spawn: { x: 8, y: 12 },
+        cells: []
+      })
+    );
+
+    const result = syncToServer('新手村', path.join(tmpDir, 'maps', '新手村', 'map.json'), serverRoot);
+    assert.strictEqual(result.skipped, false);
+
+    const registry = JSON.parse(fs.readFileSync(path.join(serverRoot, 'map_registry.json'), 'utf8'));
+    assert.strictEqual(registry.length, 1);
+    const entry = registry[0];
+    assert.strictEqual(entry.width, 40);
+    assert.strictEqual(entry.height, 35);
+    assert.strictEqual(entry.spawn_x, 8);
+    assert.strictEqual(entry.spawn_y, 12);
+  });
 });
