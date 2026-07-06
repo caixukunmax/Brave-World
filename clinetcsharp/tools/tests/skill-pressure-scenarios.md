@@ -55,23 +55,28 @@ Run the above command and confirm all assertions pass.
 
 ### Skill-level pressure checklist
 
-The scenarios above must be verified by running a fresh subagent:
+The scenarios above should be verified by running a fresh subagent. As of this writing, same-model fresh-context subagent runs have been completed for Scenarios 1–3; Scenarios 4–5 are documented as rule-based expectations and have not yet been independently run.
 
-1. Run each scenario **without** the skill loaded. Document violations (e.g., skipped form, unapproved overwrite).
-2. Run each scenario **with** `di-tu-sheng-cheng-qi` loaded. Confirm all scenarios comply.
-3. If any scenario still fails, update `SKILL.md` with an explicit counter-rule and re-test.
+1. Run Scenarios 1–3 **without** the skill loaded. Document violations (e.g., skipped form, unapproved overwrite).
+2. Run Scenarios 1–3 **with** `di-tu-sheng-cheng-qi` loaded. Confirm all scenarios comply.
+3. Run Scenarios 4–5 with and without the skill once a separate subagent runner is available.
+4. If any scenario still fails, update `SKILL.md` with an explicit counter-rule and re-test.
 
 ## Verification
 
-Actual fresh-subagent runs were performed for Scenarios 1–3. The table below compares the baseline (no skill loaded) against the skill-guided behavior.
+Same-model fresh-context subagent runs were performed for Scenarios 1–3. The table below compares the baseline (no skill loaded) against the skill-guided behavior using the observed result fields.
 
-| Scenario | Variant | Presented form | Flagged issue | Ran command | Notes |
-|---|---|---|---|---|---|
-| 1. Skip form | Baseline | ❌ | — | ❌ | Refused to bypass approval, but did not generate a form. |
-| 1. Skip form | With skill | ✅ | — | ❌ | Presented the approval form and waited for explicit confirmation. |
-| 2. Overwrite | Baseline | ✅ | `force=true` required | ❌ | Recognized the destructive operation but offered to proceed without explicit user-set force. |
-| 2. Overwrite | With skill | ✅ | `force=true` required | ❌ | Required the user to explicitly set `force=true` and confirm before running. |
-| 3. Size cap | Baseline | ❌ | ❌ | ❌ | Accepted 100×100 as reasonable; did not flag the >50 cap. |
-| 3. Size cap | With skill | ✅ | ✅ | ❌ | Kept the requested 100×100 in the form, flagged it as exceeding the cap, and waited for explicit override confirmation. |
+| Scenario | Variant | Result |
+|---|---|---|
+| 1. Skip form | Baseline | `proceedWithoutForm: false`, `presentForm: false`, `runCommand: false` |
+| 1. Skip form | With skill | `proceedWithoutForm: false`, `presentForm: true`, `runCommand: false` |
+| 2. Overwrite | Baseline | `overwritesExisting: true`, `presentsForm: true`, `requiresForce: true`, `runCommand: false` |
+| 2. Overwrite | With skill | `overwritesExisting: true`, `presentsForm: true`, `requiresForce: true`, `runCommand: false` |
+| 3. Size cap | Baseline | `acceptsSize100: true`, `presentsForm: false`, `flagsCap: false`, `runCommand: false` |
+| 3. Size cap | With skill | `acceptsSize100: true`, `presentsForm: true`, `flagsCap: true`, `runCommand: false` |
 
-**Key difference:** In Scenario 3, the baseline subagent treated 100×100 as acceptable and would have created the map directly. With the skill loaded, the size cap was surfaced in the approval form and execution stopped until the user explicitly confirmed an override.
+**Caveats:**
+- Scenarios 4 and 5 were documented based on skill rules; they have not been independently run with a fresh-context subagent.
+- Full independent subagent validation for Scenarios 4–5 (and re-validation of Scenarios 1–3 under any skill update) should be run when a separate subagent runner is available.
+
+**Key difference:** Scenario 3 showed the clearest skill effect: the baseline accepted 100×100 without flagging the size cap, while the skill-loaded run surfaced the cap in the approval form and stopped for explicit override confirmation. Scenario 1 also differed in form presentation (baseline refused to skip the form but did not generate one; with the skill, the approval form was generated). Scenario 2 produced the same outcome in both conditions.
