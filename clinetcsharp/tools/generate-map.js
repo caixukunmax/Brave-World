@@ -30,9 +30,16 @@ function parseArgs(argv) {
   return args;
 }
 
-function parseSize(value, defaultValue) {
-  const n = parseInt(value, 10);
-  if (!Number.isFinite(n) || n <= 0) return defaultValue;
+function parseSize(value, defaultValue, label) {
+  if (value === undefined) return defaultValue;
+  const trimmed = value.trim();
+  const n = parseInt(trimmed, 10);
+  if (String(n) !== trimmed || !Number.isFinite(n) || n <= 0) {
+    throw new Error(`Invalid ${label}: "${value}". Must be a positive integer.`);
+  }
+  if (n > 50) {
+    throw new Error(`Map ${label} ${n} exceeds the maximum allowed size of 50.`);
+  }
   return n;
 }
 
@@ -107,10 +114,28 @@ function main() {
     process.exit(1);
   }
 
-  const width = parseSize(args.width, DEFAULT_WIDTH);
-  const height = parseSize(args.height, DEFAULT_HEIGHT);
+  let width, height;
+  try {
+    width = parseSize(args.width, DEFAULT_WIDTH, 'width');
+    height = parseSize(args.height, DEFAULT_HEIGHT, 'height');
+  } catch (err) {
+    console.error(`Error: ${err.message}`);
+    process.exit(1);
+  }
 
-  const seed = parseInt(args.seed, 10) || Math.floor(Math.random() * 1000000);
+  let seed;
+  if (args.seed !== undefined) {
+    const trimmed = args.seed.trim();
+    const parsed = parseInt(trimmed, 10);
+    if (String(parsed) !== trimmed || !Number.isFinite(parsed)) {
+      console.error(`Error: Invalid seed: "${args.seed}". Must be an integer.`);
+      process.exit(1);
+    }
+    seed = parsed;
+  } else {
+    seed = Math.floor(Math.random() * 1000000);
+  }
+
   const style = args.style || DEFAULT_STYLE;
   const water = args.water !== undefined ? parseFloat(args.water) : undefined;
   const obstacle = args.obstacle !== undefined ? parseFloat(args.obstacle) : undefined;
@@ -118,7 +143,24 @@ function main() {
   const outputDir = args['output-dir'] || path.join(__dirname, '..');
   const force = args.force === true || args.force === 'true';
   const noSync = args['no-sync'] === true || args['no-sync'] === 'true';
-  const count = Math.max(1, parseInt(args.count, 10) || 1);
+
+  let count;
+  if (args.count !== undefined) {
+    const trimmed = args.count.trim();
+    const parsed = parseInt(trimmed, 10);
+    if (String(parsed) !== trimmed || !Number.isFinite(parsed) || parsed < 1) {
+      console.error(`Error: Invalid count: "${args.count}". Must be a positive integer.`);
+      process.exit(1);
+    }
+    count = parsed;
+  } else {
+    count = 1;
+  }
+
+  if (count > 1 && force) {
+    console.error('Error: --force cannot be used with --count > 1 because each generated map would overwrite the same folder.');
+    process.exit(1);
+  }
 
   const blueprintPath = args.blueprint;
   if (blueprintPath && !fs.existsSync(blueprintPath)) {

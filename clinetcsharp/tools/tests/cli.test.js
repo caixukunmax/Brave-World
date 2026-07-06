@@ -62,4 +62,40 @@ describe('cli', () => {
     assert.strictEqual(map.bounds.w, 30);
     assert.strictEqual(map.bounds.h, 30);
   });
+
+  it('rejects width or height above 50', () => {
+    assert.throws(() => {
+      execSync(`node "${toolPath}" --name big --width 51 --height 30 --seed 1 --output-dir "${tmpDir}" --no-sync`, { encoding: 'utf8' });
+    }, /exceeds the maximum allowed size/);
+    assert.throws(() => {
+      execSync(`node "${toolPath}" --name big --width 30 --height 51 --seed 1 --output-dir "${tmpDir}" --no-sync`, { encoding: 'utf8' });
+    }, /exceeds the maximum allowed size/);
+  });
+
+  it('rejects malformed numeric size strings', () => {
+    assert.throws(() => {
+      execSync(`node "${toolPath}" --name bad --width 20abc --height 20 --seed 1 --output-dir "${tmpDir}" --no-sync`, { encoding: 'utf8' });
+    }, /Invalid width/);
+  });
+
+  it('uses seed 0 as a deterministic seed', () => {
+    const firstRun = path.join(tmpDir, 'first');
+    const secondRun = path.join(tmpDir, 'second');
+    fs.mkdirSync(firstRun, { recursive: true });
+    fs.mkdirSync(secondRun, { recursive: true });
+
+    execSync(`node "${toolPath}" --name seedzero --width 10 --height 10 --seed 0 --output-dir "${firstRun}" --no-sync`, { encoding: 'utf8' });
+    execSync(`node "${toolPath}" --name seedzero --width 10 --height 10 --seed 0 --output-dir "${secondRun}" --no-sync`, { encoding: 'utf8' });
+
+    const map1 = JSON.parse(fs.readFileSync(path.join(firstRun, 'maps', 'seedzero', 'map.json'), 'utf8'));
+    const map2 = JSON.parse(fs.readFileSync(path.join(secondRun, 'maps', 'seedzero', 'map.json'), 'utf8'));
+    assert.deepStrictEqual(map1.cells, map2.cells);
+    assert.deepStrictEqual(map1.spawn, map2.spawn);
+  });
+
+  it('rejects --force combined with --count > 1', () => {
+    assert.throws(() => {
+      execSync(`node "${toolPath}" --name conflict --width 10 --height 10 --seed 1 --count 2 --force --output-dir "${tmpDir}" --no-sync`, { encoding: 'utf8' });
+    }, /--force cannot be used with --count/);
+  });
 });
