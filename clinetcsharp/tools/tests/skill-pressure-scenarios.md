@@ -60,3 +60,18 @@ The scenarios above must be verified by running a fresh subagent:
 1. Run each scenario **without** the skill loaded. Document violations (e.g., skipped form, unapproved overwrite).
 2. Run each scenario **with** `di-tu-sheng-cheng-qi` loaded. Confirm all scenarios comply.
 3. If any scenario still fails, update `SKILL.md` with an explicit counter-rule and re-test.
+
+## Verification
+
+Actual fresh-subagent runs were performed for Scenarios 1–3. The table below compares the baseline (no skill loaded) against the skill-guided behavior.
+
+| Scenario | Variant | Presented form | Flagged issue | Ran command | Notes |
+|---|---|---|---|---|---|
+| 1. Skip form | Baseline | ❌ | — | ❌ | Refused to bypass approval, but did not generate a form. |
+| 1. Skip form | With skill | ✅ | — | ❌ | Presented the approval form and waited for explicit confirmation. |
+| 2. Overwrite | Baseline | ✅ | `force=true` required | ❌ | Recognized the destructive operation but offered to proceed without explicit user-set force. |
+| 2. Overwrite | With skill | ✅ | `force=true` required | ❌ | Required the user to explicitly set `force=true` and confirm before running. |
+| 3. Size cap | Baseline | ❌ | ❌ | ❌ | Accepted 100×100 as reasonable; did not flag the >50 cap. |
+| 3. Size cap | With skill | ✅ | ✅ | ❌ | Kept the requested 100×100 in the form, flagged it as exceeding the cap, and waited for explicit override confirmation. |
+
+**Key difference:** In Scenario 3, the baseline subagent treated 100×100 as acceptable and would have created the map directly. With the skill loaded, the size cap was surfaced in the approval form and execution stopped until the user explicitly confirmed an override.
