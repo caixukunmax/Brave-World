@@ -12,14 +12,16 @@ function generateTerrain(mapData, options) {
   const waterRatio = options.water ?? style.water;
   const obstacleRatio = options.obstacle ?? style.obstacle;
 
-  const cells = Object.values(mapData.cells);
+  // Only operate on cells that have not been pre-set by a blueprint.
+  // Blueprint regions take precedence; noise fills the remaining default cells.
+  const cells = Object.values(mapData.cells).filter(c => c.terrain === 0);
   const values = cells.map(c => ({ c, v: noise(c.uid.split('_').map(Number)[0] * 0.1, c.uid.split('_').map(Number)[1] * 0.1) }));
   values.sort((a, b) => a.v - b.v);
 
   const waterCount = Math.floor(cells.length * waterRatio);
   const obstacleCount = Math.floor(cells.length * obstacleRatio);
 
-  // Reset
+  // Reset default cells so previously generated terrain does not leak through.
   cells.forEach(c => { c.terrain = 0; c.decoration = 0; });
 
   // Water lowest values

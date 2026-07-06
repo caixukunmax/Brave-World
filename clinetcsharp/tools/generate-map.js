@@ -88,19 +88,16 @@ function generateSingleMap(options) {
     } else {
       mapData = createMapData(width, height, finalName);
     }
-    generateTerrain(mapData, { style, water, obstacle, seed });
-    if (blueprintPath && fs.existsSync(blueprintPath)) {
-      const blueprint = JSON.parse(fs.readFileSync(blueprintPath, 'utf8'));
-      applyBlueprint(mapData, blueprint);
-    }
   } else {
     mapData = createMapData(width, height, finalName);
-    if (blueprintPath && fs.existsSync(blueprintPath)) {
-      const blueprint = JSON.parse(fs.readFileSync(blueprintPath, 'utf8'));
-      applyBlueprint(mapData, blueprint);
-    }
-    generateTerrain(mapData, { style, water, obstacle, seed });
   }
+
+  // Apply blueprint before terrain generation in both modes so regions are preserved.
+  if (blueprintPath && fs.existsSync(blueprintPath)) {
+    const blueprint = JSON.parse(fs.readFileSync(blueprintPath, 'utf8'));
+    applyBlueprint(mapData, blueprint);
+  }
+  generateTerrain(mapData, { style, water, obstacle, seed });
 
   const largestRegion = ensureConnectivity(mapData);
   placeSpawn(mapData, largestRegion);

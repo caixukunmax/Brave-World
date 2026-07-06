@@ -2,6 +2,7 @@ const { describe, it } = require('node:test');
 const assert = require('node:assert');
 const { createMapData } = require('../lib/map-core');
 const { generateTerrain, countTerrain, isWalkable, ensureConnectivity, placeSpawn, placeDecorations } = require('../lib/generator');
+const { applyBlueprint } = require('../lib/blueprint');
 const config = require('../map-gen-config.json');
 
 function makeCell(terrain) {
@@ -23,6 +24,25 @@ describe('generator terrain', () => {
     generateTerrain(m1, { style: 'forest', water: 0.2, obstacle: 0.1, seed: 99 });
     generateTerrain(m2, { style: 'forest', water: 0.2, obstacle: 0.1, seed: 99 });
     assert.deepStrictEqual(m1.cells, m2.cells);
+  });
+
+  it('preserves blueprint regions during terrain generation', () => {
+    const map = createMapData(30, 30, 'Blueprint');
+    const blueprint = {
+      regions: [
+        { type: 'water', anchor: 'center', size: 'large' },
+        { type: 'rock', anchor: 'northwest', size: 'medium' }
+      ]
+    };
+    applyBlueprint(map, blueprint);
+    const blueprintCells = Object.entries(map.cells)
+      .filter(([_, c]) => c.terrain !== 0)
+      .map(([k, c]) => [k, c.terrain]);
+    assert(blueprintCells.length > 0, 'blueprint should set some cells');
+    generateTerrain(map, { style: 'forest', water: 0.2, obstacle: 0.1, seed: 42 });
+    for (const [key, terrain] of blueprintCells) {
+      assert.strictEqual(map.cells[key].terrain, terrain, `cell ${key} should preserve blueprint terrain ${terrain}`);
+    }
   });
 });
 
