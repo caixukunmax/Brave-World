@@ -268,4 +268,59 @@ describe('cli', () => {
       execSync(`node "${toolPath}" --name oversizedbase --adjust --seed 1 --output-dir "${tmpDir}" --no-sync`, { encoding: 'utf8' });
     }, /exceeds the default maximum size/);
   });
+
+  it('rejects map names "." and ".."', () => {
+    assert.throws(() => {
+      execSync(`node "${toolPath}" --name "." --width 10 --height 10 --seed 1 --output-dir "${tmpDir}" --no-sync`, { encoding: 'utf8' });
+    }, /Invalid map name/);
+    assert.throws(() => {
+      execSync(`node "${toolPath}" --name ".." --width 10 --height 10 --seed 1 --output-dir "${tmpDir}" --no-sync`, { encoding: 'utf8' });
+    }, /Invalid map name/);
+  });
+
+  it('does not clobber unrelated .bak files in the map directory', () => {
+    const mapDir = path.join(tmpDir, 'maps', 'backupclobber');
+    fs.mkdirSync(mapDir, { recursive: true });
+    const originalMap = JSON.stringify({ version: 3, display_name: 'backupclobber', original: true });
+    fs.writeFileSync(path.join(mapDir, 'map.json'), originalMap);
+    const sentinel = 'unrelated backup content';
+    fs.writeFileSync(path.join(mapDir, 'map.json.bak'), sentinel);
+
+    execSync(`node "${toolPath}" --name backupclobber --width 10 --height 10 --seed 1 --force --output-dir "${tmpDir}" --no-sync`, { encoding: 'utf8' });
+
+    const currentMap = JSON.parse(fs.readFileSync(path.join(mapDir, 'map.json'), 'utf8'));
+    assert(!currentMap.original, 'map.json should be overwritten in force mode');
+    assert.strictEqual(fs.readFileSync(path.join(mapDir, 'map.json.bak'), 'utf8'), sentinel, 'unrelated .bak file should not be touched');
+  });
+
+  it('rejects an output-dir outside the project root', () => {
+    const escapedDir = path.resolve(tmpDir, '..', '..', '..', '..', '..', 'escaped-cli-output');
+    assert.throws(() => {
+      execSync(`node "${toolPath}" --name escaped --width 10 --height 10 --seed 1 --output-dir "${escapedDir}" --no-sync`, { encoding: 'utf8' });
+    }, /Output directory .* escapes/);
+    assert(!fs.existsSync(escapedDir), 'no files should be created outside the project');
+  });
+
+  it('accepts decimal literals .5 and 1. for ratios', () => {
+    execSync(`node "${toolPath}" --name ratioliterals --width 10 --height 10 --water .5 --obstacle 1. --seed 1 --output-dir "${tmpDir}" --no-sync`, { encoding: 'utf8' });
+    assert(fs.existsSync(path.join(tmpDir, 'maps', 'ratioliterals', 'map.json')));
+  });
+
+  it('copies the provided blueprint into the map directory', () => {
+    fs.mkdirSync(path.join(tmpDir, 'maps', 'blueprintcopy'), { recursive: true });
+    const sourceBlueprint = path.join(tmpDir, 'maps', 'blueprintcopy', 'source-blueprint.json');
+    const blueprint = { regions: [{ anchor: 'center', type: 'water', size: 'small' }] };
+    fs.writeFileSync(sourceBlueprint, JSON.stringify(blueprint));
+
+    execSync(`node "${toolPath}" --name blueprintcopy --width 15 --height 15 --seed 1 --blueprint "${sourceBlueprint}" --output-dir "${tmpDir}" --no-sync`, { encoding: 'utf8' });
+
+    const copiedPath = path.join(tmpDir, 'maps', 'blueprintcopy', 'map-blueprint.json');
+    assert(fs.existsSync(copiedPath), 'map-blueprint.json should be copied when --blueprint is provided');
+    assert.deepStrictEqual(JSON.parse(fs.readFileSync(copiedPath, 'utf8')), blueprint);
+  });
+
+  it('does not create map-blueprint.json when no blueprint is provided', () => {
+    execSync(`node "${toolPath}" --name noblueprint --width 10 --height 10 --seed 1 --output-dir "${tmpDir}" --no-sync`, { encoding: 'utf8' });
+    assert(!fs.existsSync(path.join(tmpDir, 'maps', 'noblueprint', 'map-blueprint.json')));
+  });
 });

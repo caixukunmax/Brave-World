@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { validateMapName, assertContained } = require('./map-core');
 
 const DEFAULT_WIDTH = 50;
 const DEFAULT_HEIGHT = 50;
@@ -7,12 +8,14 @@ const DEFAULT_SPAWN_X = 25;
 const DEFAULT_SPAWN_Y = 25;
 
 function syncToServer(mapName, clientMapPath, serverRoot) {
+  validateMapName(mapName);
   const serverMapsDir = path.join(serverRoot, 'maps');
   if (!fs.existsSync(serverMapsDir)) {
     return { skipped: true, reason: 'server maps directory missing' };
   }
 
   const targetDir = path.join(serverMapsDir, mapName);
+  assertContained(targetDir, serverMapsDir, 'Server map directory');
   if (!fs.existsSync(targetDir)) fs.mkdirSync(targetDir, { recursive: true });
   const targetPath = path.join(targetDir, 'map.json');
   fs.copyFileSync(clientMapPath, targetPath);
@@ -26,11 +29,7 @@ function syncToServer(mapName, clientMapPath, serverRoot) {
 }
 
 function readMapData(clientMapPath) {
-  try {
-    return JSON.parse(fs.readFileSync(clientMapPath, 'utf8'));
-  } catch {
-    return {};
-  }
+  return JSON.parse(fs.readFileSync(clientMapPath, 'utf8'));
 }
 
 function updateRegistry(serverRoot, mapName, mapData) {

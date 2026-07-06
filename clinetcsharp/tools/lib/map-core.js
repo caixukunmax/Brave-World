@@ -1,6 +1,32 @@
 const fs = require('fs');
 const path = require('path');
 
+const SAFE_NAME_RE = /^(?!.*\.\.)[a-zA-Z0-9\u4e00-\u9fff\u3040-\u309f\u30a0-\u30ff\uac00-\ud7af._-]+$/;
+
+function validateMapName(name) {
+  if (!name || typeof name !== 'string') {
+    throw new Error('Map name is required.');
+  }
+  if (name === '.' || name === '..') {
+    throw new Error(`Invalid map name: "${name}". Names may not be "." or "..".`);
+  }
+  if (!SAFE_NAME_RE.test(name)) {
+    throw new Error(
+      `Invalid map name: "${name}". Names may contain letters, digits, underscore, hyphen, dot, and CJK characters, ` +
+      'and must not contain path separators or "..".'
+    );
+  }
+}
+
+function assertContained(childPath, parentPath, label) {
+  const resolvedChild = path.resolve(childPath);
+  const resolvedParent = path.resolve(parentPath);
+  const prefix = resolvedParent.endsWith(path.sep) ? resolvedParent : resolvedParent + path.sep;
+  if (resolvedChild !== resolvedParent && !resolvedChild.startsWith(prefix)) {
+    throw new Error(`${label} "${resolvedChild}" escapes the allowed folder "${resolvedParent}".`);
+  }
+}
+
 function createCell(x, y, terrain = 0) {
   return {
     uid: `${x}_${y}`,
@@ -52,4 +78,4 @@ function calculateBounds(cells) {
   return { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 };
 }
 
-module.exports = { createCell, createMapData, saveMapJson, loadMapJson, calculateBounds };
+module.exports = { createCell, createMapData, saveMapJson, loadMapJson, calculateBounds, validateMapName, assertContained };

@@ -119,4 +119,29 @@ describe('sync', () => {
     assert.strictEqual(result.skipped, true);
     assert(result.reason && result.reason.includes('registry'));
   });
+
+  it('rejects path traversal in map name', () => {
+    assert.throws(() => {
+      syncToServer(
+        '../evil-map',
+        path.join(tmpDir, 'maps', '新手村', 'map.json'),
+        serverRoot
+      );
+    }, /Invalid map name/);
+    assert(!fs.existsSync(path.join(serverRoot, 'maps', '..', 'evil-map')), 'no directory should escape server maps folder');
+  });
+
+  it('propagates malformed map JSON instead of silently swallowing', () => {
+    fs.writeFileSync(
+      path.join(tmpDir, 'maps', '新手村', 'map.json'),
+      '{ invalid json'
+    );
+    assert.throws(() => {
+      syncToServer(
+        '新手村',
+        path.join(tmpDir, 'maps', '新手村', 'map.json'),
+        serverRoot
+      );
+    }, /Unexpected token|JSON/);
+  });
 });

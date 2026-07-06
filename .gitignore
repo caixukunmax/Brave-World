@@ -26,6 +26,7 @@ Thumbs.db
 .superpowers/sdd/*
 !.superpowers/sdd/.gitignore
 !.superpowers/sdd/progress.md
+!.superpowers/sdd/final-fix-round4-report.md
 
 # Build artifacts
 bin/

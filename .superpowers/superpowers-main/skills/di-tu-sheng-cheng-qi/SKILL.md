@@ -97,7 +97,7 @@ node clinetcsharp/tools/generate-map.js --name <finalName> --description "<desc>
 
 1. Verify `clinetcsharp/maps/<name>/map.json` exists.
 2. Verify `clinetcsharp/maps/<name>/map-gen-form.md` exists.
-3. Verify `clinetcsharp/maps/<name>/map-blueprint.json` exists (the spatial layout blueprint).
+3. Verify `clinetcsharp/maps/<name>/map-blueprint.json` exists **only if a `--blueprint` was used**. If no blueprint was provided, do not expect or verify this file.
 4. If `servercsharp/data/maps/` exists, verify the copy.
 5. If `servercsharp/data/map_registry.json` exists, verify the map entry is present. Do not abort if the file or directory is missing.
 6. Note that `tables/datas/maps/<name>/map.json` is automatically synced by `MapDataManager.SaveMapToJson` in Godot; no manual copy is required.

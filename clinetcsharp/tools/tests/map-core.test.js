@@ -2,7 +2,7 @@ const { describe, it } = require('node:test');
 const assert = require('node:assert');
 const fs = require('fs');
 const path = require('path');
-const { createMapData, saveMapJson, loadMapJson, calculateBounds } = require('../lib/map-core');
+const { createMapData, saveMapJson, loadMapJson, calculateBounds, validateMapName, assertContained } = require('../lib/map-core');
 
 describe('map-core', () => {
   it('creates default map data', () => {
@@ -29,5 +29,23 @@ describe('map-core', () => {
     const cells = { '2_3': { terrain: 0 }, '5_7': { terrain: 0 } };
     const b = calculateBounds(cells);
     assert.deepStrictEqual(b, { x: 2, y: 3, w: 4, h: 5 });
+  });
+
+  it('rejects . and .. as map names', () => {
+    assert.throws(() => validateMapName('.'), /Invalid map name/);
+    assert.throws(() => validateMapName('..'), /Invalid map name/);
+  });
+
+  it('accepts map names that contain dots', () => {
+    assert.doesNotThrow(() => validateMapName('v1.2'));
+    assert.doesNotThrow(() => validateMapName('map.test'));
+  });
+
+  it('detects paths that escape a parent directory', () => {
+    assert.throws(() => assertContained('/tmp/foo', '/tmp/bar', 'Path'), /escapes/);
+  });
+
+  it('accepts paths contained within a parent directory', () => {
+    assert.doesNotThrow(() => assertContained('/tmp/foo/bar', '/tmp/foo', 'Path'));
   });
 });

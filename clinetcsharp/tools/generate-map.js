@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
-const { createMapData, saveMapJson, loadMapJson } = require('./lib/map-core');
+const { createMapData, saveMapJson, loadMapJson, validateMapName, assertContained } = require('./lib/map-core');
 const { generateTerrain, ensureConnectivity, placeSpawn, placeDecorations } = require('./lib/generator');
 const { applyBlueprint } = require('./lib/blueprint');
 const { resolveMapName } = require('./lib/naming');
@@ -14,8 +15,6 @@ const DEFAULT_HEIGHT = 30;
 const DEFAULT_STYLE = 'mixed';
 const DEFAULT_DECORATION = 'medium';
 
-const SAFE_NAME_RE = /^(?!.*\.\.)[a-zA-Z0-9\u4e00-\u9fff\u3040-\u309f\u30a0-\u30ff\uac00-\ud7af._-]+$/;
-
 const SIZE_KEYWORDS = {
   small: ['房间', '小村庄', '密室', '小岛', 'room', 'small', 'tiny'],
   medium: ['小镇', '森林', '山谷', '港口', 'town', 'forest', 'valley', 'harbor', 'medium'],
@@ -23,27 +22,6 @@ const SIZE_KEYWORDS = {
 };
 
 const BACKUP_FILE_NAMES = ['map.json', 'map-gen-form.md', 'map-blueprint.json'];
-
-function validateMapName(name) {
-  if (!name || typeof name !== 'string') {
-    throw new Error('Map name is required.');
-  }
-  if (!SAFE_NAME_RE.test(name)) {
-    throw new Error(
-      `Invalid map name: "${name}". Names may contain letters, digits, underscore, hyphen, dot, and CJK characters, ` +
-      'and must not contain path separators or "..".'
-    );
-  }
-}
-
-function assertContained(childPath, parentPath, label) {
-  const resolvedChild = path.resolve(childPath);
-  const resolvedParent = path.resolve(parentPath);
-  const prefix = resolvedParent.endsWith(path.sep) ? resolvedParent : resolvedParent + path.sep;
-  if (resolvedChild !== resolvedParent && !resolvedChild.startsWith(prefix)) {
-    throw new Error(`${label} "${resolvedChild}" escapes the allowed folder "${resolvedParent}".`);
-  }
-}
 
 function cloneCells(cells) {
   const out = {};
@@ -71,11 +49,10 @@ function parseArgs(argv) {
 }
 
 function parseSize(value, defaultValue, label, allowOversize) {
-  if (value === undefined) return defaultValue;
-  const trimmed = value.trim();
-  const n = parseInt(trimmed, 10);
-  if (!/^\d+$/.test(trimmed) || !Number.isFinite(n) || n <= 0) {
-    throw new Error(`Invalid ${label}: "${value}". Must be a positive integer.`);
+  const raw = value === undefined ? String(defaultValue) : value.trim();
+  const n = parseInt(raw, 10);
+  if (!/^\d+$/.test(raw) || !Number.isFinite(n) || n <= 0) {
+    throw new Error(`Invalid ${label}: "${value !== undefined ? value : defaultValue}". Must be a positive integer.`);
   }
   if (n > 50 && !allowOversize) {
     throw new Error(
@@ -89,8 +66,8 @@ function parseSize(value, defaultValue, label, allowOversize) {
 function parseRatio(value, label) {
   if (value === undefined) return undefined;
   const trimmed = value.trim();
-  const n = parseFloat(trimmed);
-  if (String(n) !== trimmed || !Number.isFinite(n) || n < 0 || n > 1) {
+  const n = Number(trimmed);
+  if (!/^(\d+\.?\d*|\.\d+)$/.test(trimmed) || !Number.isFinite(n) || n < 0 || n > 1) {
     throw new Error(`Invalid ${label}: "${value}". Must be a number between 0 and 1.`);
   }
   return n;
@@ -130,12 +107,16 @@ function summarizeBlueprint(blueprint) {
 
 function createBackups(mapDir, files) {
   const backups = [];
+  let backupDir = null;
   for (const file of files) {
     const filePath = path.join(mapDir, file);
     try {
       const stat = fs.statSync(filePath);
       if (stat.isFile()) {
-        const backupPath = `${filePath}.bak`;
+        if (!backupDir) {
+          backupDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mapgen-backup-'));
+        }
+        const backupPath = path.join(backupDir, file);
         fs.copyFileSync(filePath, backupPath);
         backups.push({ file, filePath, backupPath });
       }
@@ -147,9 +128,13 @@ function createBackups(mapDir, files) {
 }
 
 function removeBackups(backups) {
+  const dirs = new Set();
   for (const { backupPath } of backups) {
+    dirs.add(path.dirname(backupPath));
+  }
+  for (const dir of dirs) {
     try {
-      fs.rmSync(backupPath);
+      fs.rmSync(dir, { recursive: true, force: true });
     } catch {
       // Ignore missing or already-removed backups.
     }
@@ -282,6 +267,11 @@ function generateSingleMap(options) {
     };
     writeForm(path.join(mapDir, 'map-gen-form.md'), formOptions);
 
+    // Persist the source blueprint alongside the generated map when one was provided.
+    if (blueprintPath) {
+      fs.copyFileSync(blueprintPath, path.join(mapDir, 'map-blueprint.json'));
+    }
+
     // Generation succeeded; discard the backups.
     removeBackups(backups);
   } catch (err) {
@@ -309,6 +299,13 @@ function main() {
 
   const isAdjust = args.adjust === true || args.adjust === 'true';
   const outputDir = args['output-dir'] || path.join(__dirname, '..');
+  const projectRoot = path.join(__dirname, '..', '..');
+  try {
+    assertContained(path.resolve(outputDir), path.resolve(projectRoot), 'Output directory');
+  } catch (err) {
+    console.error(`Error: ${err.message}`);
+    process.exit(1);
+  }
   const allowOversize = args['allow-oversize'] === true || args['allow-oversize'] === 'true';
 
   let baseMapData = null;
@@ -337,14 +334,6 @@ function main() {
     height = parseSize(args.height, defaultHeight, 'height', allowOversize);
   } catch (err) {
     console.error(`Error: ${err.message}`);
-    process.exit(1);
-  }
-
-  if ((width > 50 || height > 50) && !allowOversize) {
-    console.error(
-      `Error: Map size ${width}×${height} exceeds the default maximum size of 50. ` +
-      'Pass --allow-oversize to generate a larger map.'
-    );
     process.exit(1);
   }
 
