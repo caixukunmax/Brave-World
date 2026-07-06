@@ -91,6 +91,29 @@ function ensureConnectivity(mapData) {
   return largest;
 }
 
+function placeDecorations(mapData, density, styleName, seed) {
+  const densityValue = config.decorationDensity[density] || config.decorationDensity.medium;
+  const style = config.styles[styleName] || config.styles.mixed;
+  const noise = createNoise2D(seed + 1);
+  const candidates = Object.entries(mapData.cells).filter(([_, c]) => isWalkable(c) && !c.decoration);
+  const targetCount = Math.floor(candidates.length * densityValue);
+
+  // Filter decorations by biome compatibility
+  const validDecs = Object.entries(config.decorations)
+    .filter(([_, d]) => d.biomes.includes(styleName) || d.biomes.includes('mixed') || styleName === 'mixed')
+    .map(([_, d]) => d.id);
+
+  if (validDecs.length === 0) return;
+
+  // Shuffle-ish via noise
+  candidates.sort((a, b) => noise(a[0].split('_').map(Number)[0], a[0].split('_').map(Number)[1]) - noise(b[0].split('_').map(Number)[0], b[0].split('_').map(Number)[1]));
+
+  for (let i = 0; i < Math.min(targetCount, candidates.length); i++) {
+    const [key, cell] = candidates[i];
+    cell.decoration = validDecs[Math.floor(Math.abs(noise(...key.split('_').map(Number))) * validDecs.length) % validDecs.length];
+  }
+}
+
 function placeSpawn(mapData, region) {
   if (!region) {
     region = findLargestConnectedRegion(mapData);
@@ -120,5 +143,6 @@ module.exports = {
   isWalkable,
   findLargestConnectedRegion,
   ensureConnectivity,
-  placeSpawn
+  placeSpawn,
+  placeDecorations
 };

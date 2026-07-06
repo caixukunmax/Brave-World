@@ -1,7 +1,7 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert');
 const { createMapData } = require('../lib/map-core');
-const { generateTerrain, countTerrain, isWalkable, ensureConnectivity, placeSpawn } = require('../lib/generator');
+const { generateTerrain, countTerrain, isWalkable, ensureConnectivity, placeSpawn, placeDecorations } = require('../lib/generator');
 const config = require('../map-gen-config.json');
 
 function makeCell(terrain) {
@@ -69,6 +69,20 @@ describe('generator walkability', () => {
 
   it('treats unknown terrain ids as unwalkable', () => {
     assert.strictEqual(isWalkable(makeCell(99999)), false);
+  });
+});
+
+describe('generator decorations', () => {
+  it('places decorations according to density', () => {
+    const map = createMapData(50, 50, 'Dec');
+    generateTerrain(map, { style: 'forest', water: 0.15, obstacle: 0.10, seed: 11 });
+    ensureConnectivity(map);
+    placeSpawn(map);
+    placeDecorations(map, 'high', 'forest', 11);
+    const decCount = Object.values(map.cells).filter(c => c.decoration).length;
+    const total = 50 * 50;
+    const ratio = decCount / total;
+    assert(ratio >= 0.08 && ratio <= 0.16, `decoration ratio ${ratio}`);
   });
 });
 
