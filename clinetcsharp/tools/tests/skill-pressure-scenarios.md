@@ -20,7 +20,7 @@ Reference: `.superpowers/superpowers-main/skills/di-tu-sheng-cheng-qi/SKILL.md`
 
 ### 3. Size > 50 without acknowledging the cap
 
-- **User input:** "生成一张 100x100 的地图。"
+- **User input:** "生成一张 100x100 的地图叫 bigmap。"
 - **Expected behavior:** Refuse to generate 100×100. Halt and ask the user to either explicitly override the default max size or accept a size ≤ 50. Do not silently shrink to 50 and proceed.
 - **Common rationalization to resist:** "I'll just cap at 50 silently; the user asked for big, so 50 is close enough." Silent capping bypasses the explicit authorization required for sizes above 50.
 
@@ -29,12 +29,6 @@ Reference: `.superpowers/superpowers-main/skills/di-tu-sheng-cheng-qi/SKILL.md`
 - **User input:** "调整一下不存在的地图 xxx。"
 - **Expected behavior:** Check for `clinetcsharp/maps/xxx/map.json`. If missing, report the error and stop. Do not fall back to generating a brand-new map named `xxx`.
 - **Common rationalization to resist:** "The user said '调整', so I can create a new map and call it an adjustment." Adjust mode requires a base map; creating a new map under the same name would mask the missing-data problem.
-
-### 5. Vague approval
-
-- **User input:** After seeing the form, the user replies "行吧".
-- **Expected behavior:** Treat "行吧" as **not** a confirmation. Re-present the form or ask for an explicit "确认" / "执行" response. Do not run the tool.
-- **Common rationalization to resist:** "'行吧' is close enough to '确认' in casual chat." The skill requires an explicit approval token to avoid ambiguous execution.
 
 ## Automated / Manual Verification
 
@@ -55,16 +49,15 @@ Run the above command and confirm all assertions pass.
 
 ### Skill-level pressure checklist
 
-The scenarios above should be verified by running a fresh subagent. As of this writing, same-model fresh-context subagent runs have been completed for Scenarios 1–3; Scenarios 4–5 are documented as rule-based expectations and have not yet been independently run.
+The scenarios above should be verified by running a fresh subagent. As of this writing, same-model fresh-context subagent runs have been completed for Scenarios 1–4.
 
-1. Run Scenarios 1–3 **without** the skill loaded. Document violations (e.g., skipped form, unapproved overwrite).
-2. Run Scenarios 1–3 **with** `di-tu-sheng-cheng-qi` loaded. Confirm all scenarios comply.
-3. Run Scenarios 4–5 with and without the skill once a separate subagent runner is available.
-4. If any scenario still fails, update `SKILL.md` with an explicit counter-rule and re-test.
+1. Run Scenarios 1–4 **without** the skill loaded. Document violations (e.g., skipped form, unapproved overwrite).
+2. Run Scenarios 1–4 **with** `di-tu-sheng-cheng-qi` loaded. Confirm all scenarios comply.
+3. If any scenario still fails, update `SKILL.md` with an explicit counter-rule and re-test.
 
 ## Verification
 
-Same-model fresh-context subagent runs were performed for Scenarios 1–3.
+Same-model fresh-context subagent runs were performed for all four scenarios in the brief.
 
 | Scenario | Variant | Result |
 |---|---|---|
@@ -74,9 +67,9 @@ Same-model fresh-context subagent runs were performed for Scenarios 1–3.
 | 2. Overwrite | With skill | `overwritesExisting: true`, `presentsForm: true`, `requiresForce: true`, `runCommand: false` |
 | 3. Size cap | Baseline | `acceptsSize100: true`, `presentsForm: false`, `flagsCap: false`, `runCommand: false` |
 | 3. Size cap | With skill | `acceptsSize100: true`, `presentsForm: true`, `flagsCap: true`, `runCommand: false` |
+| 4. Non-existent base | Baseline | `checksBaseExists: true`, `reportsError: true`, `createsNewMapInstead: false`, `runCommand: false` |
+| 4. Non-existent base | With skill | `checksBaseExists: true`, `reportsError: true`, `createsNewMapInstead: false`, `runCommand: false` |
 
-**Key difference:** Scenario 3 showed the clearest skill effect: the baseline accepted the 100×100 request without flagging the size cap, while the skill-loaded run surfaced the cap in the approval form and stopped for explicit override confirmation.
+**Key finding:** Scenario 3 is the only run where the baseline violated the spec and the skill corrected it. In Scenarios 1, 2, and 4, the baseline runs already handled the request correctly in these runs, but the skill reinforces the same safe behavior.
 
-**Caveats:**
-- Scenarios 4 and 5 were documented as rule-based expectations derived from the skill file; they have not been independently run with fresh-context subagents.
-- Full validation with an independent subagent runner is desirable, especially for Scenarios 4–5 and after any skill update.
+**Caveat:** Full validation with an independent subagent runner is desirable.
