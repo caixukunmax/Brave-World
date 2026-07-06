@@ -79,18 +79,13 @@ function generateSingleMap(options) {
 
   let mapData;
   if (isAdjust && baseMapData) {
-    const dimsMatch = width === baseMapData.bounds.w && height === baseMapData.bounds.h;
-    if (dimsMatch) {
-      mapData = {
-        version: 3,
-        display_name: finalName,
-        bounds: { ...baseMapData.bounds },
-        spawn: { ...baseMapData.spawn },
-        cells: cloneCells(baseMapData.cells)
-      };
-    } else {
-      mapData = createMapData(width, height, finalName);
-    }
+    mapData = {
+      version: 3,
+      display_name: finalName,
+      bounds: { ...baseMapData.bounds },
+      spawn: { ...baseMapData.spawn },
+      cells: cloneCells(baseMapData.cells)
+    };
   } else {
     mapData = createMapData(width, height, finalName);
   }
@@ -106,33 +101,38 @@ function generateSingleMap(options) {
   placeSpawn(mapData, largestRegion);
   placeDecorations(mapData, decoration, style, seed);
 
-  saveMapJson(mapData, path.join(mapDir, 'map.json'));
+  try {
+    saveMapJson(mapData, path.join(mapDir, 'map.json'));
 
-  let syncResult = { skipped: true, reason: 'disabled via --no-sync' };
-  if (!noSync) {
-    const serverRoot = path.join(__dirname, '..', '..', 'servercsharp', 'data');
-    syncResult = syncToServer(finalName, path.join(mapDir, 'map.json'), serverRoot);
-    if (syncResult.skipped) console.log(`[sync] skipped: ${syncResult.reason}`);
+    let syncResult = { skipped: true, reason: 'disabled via --no-sync' };
+    if (!noSync) {
+      const serverRoot = path.join(__dirname, '..', '..', 'servercsharp', 'data');
+      syncResult = syncToServer(finalName, path.join(mapDir, 'map.json'), serverRoot);
+      if (syncResult.skipped) console.log(`[sync] skipped: ${syncResult.reason}`);
+    }
+
+    const formOptions = {
+      requestedName,
+      finalName,
+      mode: isAdjust ? '调整已有地图' : '生成新地图',
+      baseMap: isAdjust ? requestedName : undefined,
+      width,
+      height,
+      seed,
+      description: description || '-',
+      style,
+      water: water ?? 'auto',
+      obstacle: obstacle ?? 'auto',
+      decoration,
+      force: !!force,
+      outputPath: mapDir,
+      syncServer: !syncResult.skipped
+    };
+    writeForm(path.join(mapDir, 'map-gen-form.md'), formOptions);
+  } catch (err) {
+    fs.rmSync(mapDir, { recursive: true, force: true });
+    throw err;
   }
-
-  const formOptions = {
-    requestedName,
-    finalName,
-    mode: isAdjust ? '调整已有地图' : '生成新地图',
-    baseMap: isAdjust ? requestedName : undefined,
-    width,
-    height,
-    seed,
-    description: description || '-',
-    style,
-    water: water ?? 'auto',
-    obstacle: obstacle ?? 'auto',
-    decoration,
-    force: !!force,
-    outputPath: mapDir,
-    syncServer: !syncResult.skipped
-  };
-  writeForm(path.join(mapDir, 'map-gen-form.md'), formOptions);
 
   return { finalName, mapDir };
 }
@@ -167,6 +167,11 @@ function main() {
     height = parseSize(args.height, defaultHeight, 'height', allowOversize);
   } catch (err) {
     console.error(`Error: ${err.message}`);
+    process.exit(1);
+  }
+
+  if (isAdjust && (width !== baseMapData.bounds.w || height !== baseMapData.bounds.h)) {
+    console.error(`Error: Adjust mode cannot change map dimensions. Omit --width/--height or use the base map size (${baseMapData.bounds.w}\u00d7${baseMapData.bounds.h}).`);
     process.exit(1);
   }
 
@@ -214,31 +219,36 @@ function main() {
     process.exit(1);
   }
 
-  const results = [];
-  for (let i = 0; i < count; i++) {
-    const result = generateSingleMap({
-      requestedName: args.name,
-      outputDir,
-      width,
-      height,
-      seed: seed + i,
-      style,
-      water,
-      obstacle,
-      decoration,
-      blueprintPath,
-      force,
-      noSync,
-      description: args.description,
-      isAdjust,
-      baseMapData
-    });
-    results.push(result);
-  }
+  try {
+    const results = [];
+    for (let i = 0; i < count; i++) {
+      const result = generateSingleMap({
+        requestedName: args.name,
+        outputDir,
+        width,
+        height,
+        seed: seed + i,
+        style,
+        water,
+        obstacle,
+        decoration,
+        blueprintPath,
+        force,
+        noSync,
+        description: args.description,
+        isAdjust,
+        baseMapData
+      });
+      results.push(result);
+    }
 
-  const actionLabel = isAdjust ? 'Adjusted' : 'Generated';
-  for (const result of results) {
-    console.log(`${actionLabel} map: ${result.finalName} (${width}x${height}) at ${result.mapDir}`);
+    const actionLabel = isAdjust ? 'Adjusted' : 'Generated';
+    for (const result of results) {
+      console.log(`${actionLabel} map: ${result.finalName} (${width}x${height}) at ${result.mapDir}`);
+    }
+  } catch (err) {
+    console.error(`Error: ${err.message}`);
+    process.exit(1);
   }
 }
 

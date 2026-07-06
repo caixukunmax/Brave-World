@@ -30,4 +30,16 @@ describe('naming', () => {
     const name = resolveMapName('newmap', tmpDir);
     assert.strictEqual(name, 'newmap');
   });
+
+  it('treats regex metacharacters in requested name literally', () => {
+    fs.mkdirSync(path.join(tmpDir, 'test.map'), { recursive: true });
+    fs.writeFileSync(path.join(tmpDir, 'test.map', 'map.json'), '{}');
+    fs.mkdirSync(path.join(tmpDir, 'test.map_1'), { recursive: true });
+    fs.writeFileSync(path.join(tmpDir, 'test.map_1', 'map.json'), '{}');
+    fs.mkdirSync(path.join(tmpDir, 'testXmap_2'), { recursive: true });
+    fs.writeFileSync(path.join(tmpDir, 'testXmap_2', 'map.json'), '{}');
+
+    const name = resolveMapName('test.map', tmpDir);
+    assert.strictEqual(name, 'test.map_2');
+  });
 });

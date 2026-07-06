@@ -105,4 +105,34 @@ describe('cli', () => {
       execSync(`node "${toolPath}" --name conflict --width 10 --height 10 --seed 1 --count 2 --force --output-dir "${tmpDir}" --no-sync`, { encoding: 'utf8' });
     }, /--force cannot be used with --count/);
   });
+
+  it('rejects adjust mode with dimensions different from the base map', () => {
+    fs.mkdirSync(path.join(tmpDir, 'maps', 'adjustbase'), { recursive: true });
+    fs.writeFileSync(path.join(tmpDir, 'maps', 'adjustbase', 'map.json'), JSON.stringify({
+      version: 3,
+      display_name: 'adjustbase',
+      bounds: { x: 0, y: 0, w: 20, h: 20 },
+      spawn: { x: 10, y: 10 },
+      cells: {}
+    }));
+
+    assert.throws(() => {
+      execSync(`node "${toolPath}" --name adjustbase --adjust --width 25 --height 20 --seed 1 --output-dir "${tmpDir}" --no-sync`, { encoding: 'utf8' });
+    }, /Adjust mode cannot change map dimensions/);
+    assert.throws(() => {
+      execSync(`node "${toolPath}" --name adjustbase --adjust --width 20 --height 25 --seed 1 --output-dir "${tmpDir}" --no-sync`, { encoding: 'utf8' });
+    }, /Adjust mode cannot change map dimensions/);
+  });
+
+  it('rolls back the map directory if form write fails after save', () => {
+    const mapDir = path.join(tmpDir, 'maps', 'rollback');
+    fs.mkdirSync(mapDir, { recursive: true });
+    fs.mkdirSync(path.join(mapDir, 'map-gen-form.md'), { recursive: true });
+
+    assert.throws(() => {
+      execSync(`node "${toolPath}" --name rollback --width 10 --height 10 --seed 1 --output-dir "${tmpDir}" --no-sync`, { encoding: 'utf8' });
+    }, /Error:/);
+
+    assert(!fs.existsSync(mapDir), 'map directory should be removed on rollback');
+  });
 });

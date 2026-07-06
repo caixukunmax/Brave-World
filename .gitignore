@@ -20,8 +20,12 @@ Thumbs.db
 .claude/
 .superpowers/*
 !.superpowers/superpowers-main
+!.superpowers/sdd
 .superpowers/superpowers-main/*
 !.superpowers/superpowers-main/skills
+.superpowers/sdd/*
+!.superpowers/sdd/.gitignore
+!.superpowers/sdd/progress.md
 
 # Build artifacts
 bin/
