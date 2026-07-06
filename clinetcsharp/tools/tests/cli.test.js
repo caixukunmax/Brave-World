@@ -197,4 +197,75 @@ describe('cli', () => {
     const form = fs.readFileSync(formPath, 'utf8');
     assert(form.includes("Inferred 'small' from description:"), 'form should include inferred size reason');
   });
+
+  it('reports only the explicitly provided dimension in size reason', () => {
+    execSync(`node "${toolPath}" --name widthexplicit --width 40 --seed 1 --output-dir "${tmpDir}" --no-sync`, { encoding: 'utf8' });
+
+    const formPath = path.join(tmpDir, 'maps', 'widthexplicit', 'map-gen-form.md');
+    assert(fs.existsSync(formPath));
+    const form = fs.readFileSync(formPath, 'utf8');
+    assert(form.includes('User specified width 40'), 'form should report only width as explicit');
+    assert(!form.includes('User specified 40×30'), 'form should not report default height as explicit');
+  });
+
+  it('rejects path traversal in map name', () => {
+    assert.throws(() => {
+      execSync(`node "${toolPath}" --name "../evil-target" --width 10 --height 10 --seed 1 --output-dir "${tmpDir}" --no-sync`, { encoding: 'utf8' });
+    }, /Invalid map name/);
+    assert(!fs.existsSync(path.join(tmpDir, 'evil-target')), 'path traversal should not create files outside maps folder');
+  });
+
+  it('allows leading zeros in size arguments', () => {
+    execSync(`node "${toolPath}" --name leadingzeros --width 08 --height 08 --seed 1 --output-dir "${tmpDir}" --no-sync`, { encoding: 'utf8' });
+    const map = JSON.parse(fs.readFileSync(path.join(tmpDir, 'maps', 'leadingzeros', 'map.json'), 'utf8'));
+    assert.strictEqual(map.bounds.w, 8);
+    assert.strictEqual(map.bounds.h, 8);
+  });
+
+  it('rejects invalid style and decoration values', () => {
+    assert.throws(() => {
+      execSync(`node "${toolPath}" --name badstyle --style pirate --width 10 --height 10 --seed 1 --output-dir "${tmpDir}" --no-sync`, { encoding: 'utf8' });
+    }, /Invalid style/);
+    assert.throws(() => {
+      execSync(`node "${toolPath}" --name baddecoration --decoration extreme --width 10 --height 10 --seed 1 --output-dir "${tmpDir}" --no-sync`, { encoding: 'utf8' });
+    }, /Invalid decoration/);
+  });
+
+  it('restores pre-existing map.json from backup when force generation fails', () => {
+    const mapDir = path.join(tmpDir, 'maps', 'rollbackforce');
+    fs.mkdirSync(mapDir, { recursive: true });
+    const originalContent = JSON.stringify({ version: 3, display_name: 'rollbackforce', original: true });
+    fs.writeFileSync(path.join(mapDir, 'map.json'), originalContent);
+    // Cause writeForm to fail after map.json has been overwritten.
+    fs.mkdirSync(path.join(mapDir, 'map-gen-form.md'), { recursive: true });
+
+    assert.throws(() => {
+      execSync(`node "${toolPath}" --name rollbackforce --width 10 --height 10 --seed 1 --force --output-dir "${tmpDir}" --no-sync`, { encoding: 'utf8' });
+    }, /Error:/);
+
+    assert(fs.existsSync(mapDir), 'map directory should remain');
+    const restored = fs.readFileSync(path.join(mapDir, 'map.json'), 'utf8');
+    assert.strictEqual(restored, originalContent, 'original map.json should be restored from backup');
+    for (const file of ['map.json.bak', 'map-gen-form.md.bak', 'map-blueprint.json.bak']) {
+      assert(!fs.existsSync(path.join(mapDir, file)), `backup ${file} should be cleaned up`);
+    }
+  });
+
+  it('rejects adjust mode when the base map is oversized without --allow-oversize', () => {
+    fs.mkdirSync(path.join(tmpDir, 'maps', 'oversizedbase'), { recursive: true });
+    fs.writeFileSync(path.join(tmpDir, 'maps', 'oversizedbase', 'map.json'), JSON.stringify({
+      version: 3,
+      display_name: 'oversizedbase',
+      bounds: { x: 0, y: 0, w: 60, h: 60 },
+      spawn: { x: 30, y: 30 },
+      cells: Object.fromEntries(Array.from({ length: 60 * 60 }, (_, i) => {
+        const x = i % 60, y = Math.floor(i / 60);
+        return [`${x}_${y}`, { terrain: 0, height: 0, custom: '' }];
+      }))
+    }, null, 2));
+
+    assert.throws(() => {
+      execSync(`node "${toolPath}" --name oversizedbase --adjust --seed 1 --output-dir "${tmpDir}" --no-sync`, { encoding: 'utf8' });
+    }, /exceeds the default maximum size/);
+  });
 });

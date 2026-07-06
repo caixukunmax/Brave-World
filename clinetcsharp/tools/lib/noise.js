@@ -16,7 +16,7 @@ function buildPermutation(seed) {
   for (let i = 0; i < 256; i++) perm[i] = i;
 
   let state = seed >>> 0;
-  if (state === 0) state = 1;
+  if (state === 0) state = 0x9e3779b9;
 
   for (let i = 255; i > 0; i--) {
     state = (state * 1664525 + 1013904223) >>> 0;

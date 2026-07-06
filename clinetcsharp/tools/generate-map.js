@@ -7,17 +7,43 @@ const { applyBlueprint } = require('./lib/blueprint');
 const { resolveMapName } = require('./lib/naming');
 const { writeForm } = require('./lib/form');
 const { syncToServer } = require('./lib/sync');
+const config = require('./map-gen-config.json');
 
 const DEFAULT_WIDTH = 30;
 const DEFAULT_HEIGHT = 30;
 const DEFAULT_STYLE = 'mixed';
 const DEFAULT_DECORATION = 'medium';
 
+const SAFE_NAME_RE = /^(?!.*\.\.)[a-zA-Z0-9\u4e00-\u9fff\u3040-\u309f\u30a0-\u30ff\uac00-\ud7af._-]+$/;
+
 const SIZE_KEYWORDS = {
   small: ['房间', '小村庄', '密室', '小岛', 'room', 'small', 'tiny'],
   medium: ['小镇', '森林', '山谷', '港口', 'town', 'forest', 'valley', 'harbor', 'medium'],
   large: ['大陆', '广袤', '王国', '平原', 'continent', 'vast', 'kingdom', 'plain', 'large']
 };
+
+const BACKUP_FILE_NAMES = ['map.json', 'map-gen-form.md', 'map-blueprint.json'];
+
+function validateMapName(name) {
+  if (!name || typeof name !== 'string') {
+    throw new Error('Map name is required.');
+  }
+  if (!SAFE_NAME_RE.test(name)) {
+    throw new Error(
+      `Invalid map name: "${name}". Names may contain letters, digits, underscore, hyphen, dot, and CJK characters, ` +
+      'and must not contain path separators or "..".'
+    );
+  }
+}
+
+function assertContained(childPath, parentPath, label) {
+  const resolvedChild = path.resolve(childPath);
+  const resolvedParent = path.resolve(parentPath);
+  const prefix = resolvedParent.endsWith(path.sep) ? resolvedParent : resolvedParent + path.sep;
+  if (resolvedChild !== resolvedParent && !resolvedChild.startsWith(prefix)) {
+    throw new Error(`${label} "${resolvedChild}" escapes the allowed folder "${resolvedParent}".`);
+  }
+}
 
 function cloneCells(cells) {
   const out = {};
@@ -48,7 +74,7 @@ function parseSize(value, defaultValue, label, allowOversize) {
   if (value === undefined) return defaultValue;
   const trimmed = value.trim();
   const n = parseInt(trimmed, 10);
-  if (String(n) !== trimmed || !Number.isFinite(n) || n <= 0) {
+  if (!/^\d+$/.test(trimmed) || !Number.isFinite(n) || n <= 0) {
     throw new Error(`Invalid ${label}: "${value}". Must be a positive integer.`);
   }
   if (n > 50 && !allowOversize) {
@@ -70,9 +96,15 @@ function parseRatio(value, label) {
   return n;
 }
 
-function buildSizeReason(width, height, description, explicitSize) {
-  if (explicitSize) {
+function buildSizeReason(width, height, description, explicitWidth, explicitHeight) {
+  if (explicitWidth && explicitHeight) {
     return `User specified ${width}×${height}`;
+  }
+  if (explicitWidth) {
+    return `User specified width ${width}`;
+  }
+  if (explicitHeight) {
+    return `User specified height ${height}`;
   }
   if (description) {
     const lower = description.toLowerCase();
@@ -96,14 +128,54 @@ function summarizeBlueprint(blueprint) {
   return parts.join(', ');
 }
 
-function rollbackMapDir(mapDir, existedBefore) {
+function createBackups(mapDir, files) {
+  const backups = [];
+  for (const file of files) {
+    const filePath = path.join(mapDir, file);
+    try {
+      const stat = fs.statSync(filePath);
+      if (stat.isFile()) {
+        const backupPath = `${filePath}.bak`;
+        fs.copyFileSync(filePath, backupPath);
+        backups.push({ file, filePath, backupPath });
+      }
+    } catch {
+      // File does not exist or is not readable; nothing to back up.
+    }
+  }
+  return backups;
+}
+
+function removeBackups(backups) {
+  for (const { backupPath } of backups) {
+    try {
+      fs.rmSync(backupPath);
+    } catch {
+      // Ignore missing or already-removed backups.
+    }
+  }
+}
+
+function rollbackMapDir(mapDir, existedBefore, backups) {
   if (!existedBefore) {
     fs.rmSync(mapDir, { recursive: true, force: true });
     return;
   }
 
-  // The directory existed before this run; only remove the files we touched.
-  for (const file of ['map.json', 'map-gen-form.md', 'map-blueprint.json']) {
+  // Restore any pre-existing files that were backed up at the start of generation.
+  for (const { filePath, backupPath } of backups) {
+    try {
+      fs.copyFileSync(backupPath, filePath);
+    } catch {
+      // Backup may be missing; ignore.
+    }
+  }
+  removeBackups(backups);
+
+  // Remove generated files that did not have a pre-existing backup.
+  const backedUpFiles = new Set(backups.map(b => b.file));
+  for (const file of BACKUP_FILE_NAMES) {
+    if (backedUpFiles.has(file)) continue;
     const filePath = path.join(mapDir, file);
     try {
       const stat = fs.statSync(filePath);
@@ -133,16 +205,23 @@ function generateSingleMap(options) {
     description,
     isAdjust,
     baseMapData,
-    explicitSize
+    explicitWidth,
+    explicitHeight
   } = options;
 
   const mapsFolder = path.join(outputDir, 'maps');
   const finalName = force ? requestedName : resolveMapName(requestedName, mapsFolder);
   const mapDir = path.join(mapsFolder, finalName);
 
+  // Defense in depth: ensure the computed map directory stays inside the maps folder.
+  assertContained(mapDir, mapsFolder, 'Map directory');
+
   // Track whether the directory existed before this run so rollback does not
   // destroy unrelated files in a pre-existing map folder.
   const mapDirExisted = fs.existsSync(mapDir);
+
+  // Back up existing files before overwriting them in force mode.
+  const backups = force ? createBackups(mapDir, BACKUP_FILE_NAMES) : [];
 
   let mapData;
   if (isAdjust && baseMapData) {
@@ -169,7 +248,7 @@ function generateSingleMap(options) {
   placeSpawn(mapData, largestRegion);
   placeDecorations(mapData, decoration, style, seed);
 
-  const sizeReason = buildSizeReason(width, height, description, explicitSize);
+  const sizeReason = buildSizeReason(width, height, description, explicitWidth, explicitHeight);
   const layoutSummary = summarizeBlueprint(blueprint);
 
   try {
@@ -202,8 +281,11 @@ function generateSingleMap(options) {
       syncServer: !syncResult.skipped
     };
     writeForm(path.join(mapDir, 'map-gen-form.md'), formOptions);
+
+    // Generation succeeded; discard the backups.
+    removeBackups(backups);
   } catch (err) {
-    rollbackMapDir(mapDir, mapDirExisted);
+    rollbackMapDir(mapDir, mapDirExisted, backups);
     throw err;
   }
 
@@ -215,6 +297,13 @@ function main() {
 
   if (!args.name) {
     console.error('Usage: node generate-map.js --name <name> [--description <desc>] [--count <n>] [--width <w>] [--height <h>] [--seed <n>] [--style <style>] [--water <ratio>] [--obstacle <ratio>] [--decoration <low|medium|high>] [--force] [--output-dir <dir>] [--blueprint <path>] [--no-sync] [--adjust] [--allow-oversize]');
+    process.exit(1);
+  }
+
+  try {
+    validateMapName(args.name);
+  } catch (err) {
+    console.error(`Error: ${err.message}`);
     process.exit(1);
   }
 
@@ -239,7 +328,6 @@ function main() {
 
   const explicitWidth = args.width !== undefined;
   const explicitHeight = args.height !== undefined;
-  const explicitSize = explicitWidth || explicitHeight;
 
   let width, height;
   try {
@@ -249,6 +337,14 @@ function main() {
     height = parseSize(args.height, defaultHeight, 'height', allowOversize);
   } catch (err) {
     console.error(`Error: ${err.message}`);
+    process.exit(1);
+  }
+
+  if ((width > 50 || height > 50) && !allowOversize) {
+    console.error(
+      `Error: Map size ${width}×${height} exceeds the default maximum size of 50. ` +
+      'Pass --allow-oversize to generate a larger map.'
+    );
     process.exit(1);
   }
 
@@ -274,6 +370,18 @@ function main() {
   const water = parseRatio(args.water, 'water');
   const obstacle = parseRatio(args.obstacle, 'obstacle');
   const decoration = args.decoration || DEFAULT_DECORATION;
+
+  const validStyles = Object.keys(config.styles);
+  const validDecorations = Object.keys(config.decorationDensity);
+  if (!validStyles.includes(style)) {
+    console.error(`Error: Invalid style: "${style}". Valid styles: ${validStyles.join(', ')}.`);
+    process.exit(1);
+  }
+  if (!validDecorations.includes(decoration)) {
+    console.error(`Error: Invalid decoration density: "${decoration}". Valid densities: ${validDecorations.join(', ')}.`);
+    process.exit(1);
+  }
+
   const force = args.force === true || args.force === 'true';
   const noSync = args['no-sync'] === true || args['no-sync'] === 'true';
 
@@ -320,7 +428,8 @@ function main() {
         description: args.description,
         isAdjust,
         baseMapData,
-        explicitSize
+        explicitWidth,
+        explicitHeight
       });
       results.push(result);
     }

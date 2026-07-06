@@ -18,7 +18,10 @@ function syncToServer(mapName, clientMapPath, serverRoot) {
   fs.copyFileSync(clientMapPath, targetPath);
 
   const mapData = readMapData(clientMapPath);
-  updateRegistry(serverRoot, mapName, mapData);
+  const registryResult = updateRegistry(serverRoot, mapName, mapData);
+  if (registryResult.skipped) {
+    return registryResult;
+  }
   return { skipped: false };
 }
 

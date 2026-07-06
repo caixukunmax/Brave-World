@@ -23,7 +23,7 @@ function generateFormMarkdown(options) {
     '',
     '---',
     '',
-    '状态：已确认执行',
+    '状态：已执行',
     `执行时间：${new Date().toISOString()}`
   ];
   return lines.join('\n');

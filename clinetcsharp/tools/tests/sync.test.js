@@ -108,4 +108,15 @@ describe('sync', () => {
     assert.strictEqual(entry.spawn_x, 8);
     assert.strictEqual(entry.spawn_y, 12);
   });
+
+  it('propagates registry skip reason when registry is missing', () => {
+    fs.rmSync(path.join(serverRoot, 'map_registry.json'));
+    const result = syncToServer(
+      '新手村',
+      path.join(tmpDir, 'maps', '新手村', 'map.json'),
+      serverRoot
+    );
+    assert.strictEqual(result.skipped, true);
+    assert(result.reason && result.reason.includes('registry'));
+  });
 });
