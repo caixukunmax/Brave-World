@@ -1,4 +1,4 @@
-const { describe, it, beforeEach } = require('node:test');
+const { describe, it, beforeEach, afterEach } = require('node:test');
 const assert = require('node:assert');
 const fs = require('fs');
 const path = require('path');
@@ -16,13 +16,17 @@ describe('sync', () => {
       JSON.stringify({
         version: 3,
         display_name: '新手村',
-        bounds: { width: 30, height: 20 },
+        bounds: { x: 0, y: 0, w: 30, h: 20 },
         spawn: { x: 5, y: 10 },
         cells: []
       })
     );
     fs.mkdirSync(path.join(serverRoot, 'maps'), { recursive: true });
     fs.writeFileSync(path.join(serverRoot, 'map_registry.json'), JSON.stringify([]));
+  });
+
+  afterEach(() => {
+    if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true });
   });
 
   it('copies map to server and updates registry with actual bounds and spawn', () => {

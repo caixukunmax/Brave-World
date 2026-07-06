@@ -1,4 +1,4 @@
-const { describe, it, beforeEach } = require('node:test');
+const { describe, it, beforeEach, afterEach } = require('node:test');
 const assert = require('node:assert');
 const fs = require('fs');
 const path = require('path');
@@ -15,6 +15,10 @@ describe('naming', () => {
     fs.writeFileSync(path.join(tmpDir, 'test', 'map.json'), '{}');
     fs.writeFileSync(path.join(tmpDir, 'test_1', 'map.json'), '{}');
     fs.writeFileSync(path.join(tmpDir, 'test_2', 'map.json'), '{}');
+  });
+
+  afterEach(() => {
+    if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true });
   });
 
   it('resolves to next available index', () => {

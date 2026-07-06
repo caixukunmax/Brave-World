@@ -44,11 +44,16 @@ function updateRegistry(serverRoot, mapName, mapData) {
   const bounds = mapData && mapData.bounds ? mapData.bounds : {};
   const spawn = mapData && mapData.spawn ? mapData.spawn : {};
 
+  const width = Number.isFinite(bounds.w) ? bounds.w :
+                Number.isFinite(bounds.width) ? bounds.width : DEFAULT_WIDTH;
+  const height = Number.isFinite(bounds.h) ? bounds.h :
+                 Number.isFinite(bounds.height) ? bounds.height : DEFAULT_HEIGHT;
+
   registry.push({
     map_name: mapName,
     display_name: (mapData && mapData.display_name) || mapName,
-    width: Number.isFinite(bounds.width) ? bounds.width : DEFAULT_WIDTH,
-    height: Number.isFinite(bounds.height) ? bounds.height : DEFAULT_HEIGHT,
+    width,
+    height,
     spawn_x: Number.isFinite(spawn.x) ? spawn.x : DEFAULT_SPAWN_X,
     spawn_y: Number.isFinite(spawn.y) ? spawn.y : DEFAULT_SPAWN_Y
   });
