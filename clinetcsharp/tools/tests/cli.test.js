@@ -106,6 +106,15 @@ describe('cli', () => {
     }, /--force cannot be used with --count/);
   });
 
+  it('defaults count to 1 when --force is used without --count', () => {
+    const mapDir = path.join(tmpDir, 'maps', 'forcecount');
+    fs.mkdirSync(mapDir, { recursive: true });
+    fs.writeFileSync(path.join(mapDir, 'map.json'), JSON.stringify({ version: 3, display_name: 'forcecount' }));
+
+    execSync(`node "${toolPath}" --name forcecount --width 10 --height 10 --seed 1 --force --output-dir "${tmpDir}" --no-sync`, { encoding: 'utf8' });
+    assert(fs.existsSync(path.join(mapDir, 'map.json')));
+  });
+
   it('rejects adjust mode with dimensions different from the base map', () => {
     fs.mkdirSync(path.join(tmpDir, 'maps', 'adjustbase'), { recursive: true });
     fs.writeFileSync(path.join(tmpDir, 'maps', 'adjustbase', 'map.json'), JSON.stringify({
@@ -122,6 +131,21 @@ describe('cli', () => {
     assert.throws(() => {
       execSync(`node "${toolPath}" --name adjustbase --adjust --width 20 --height 25 --seed 1 --output-dir "${tmpDir}" --no-sync`, { encoding: 'utf8' });
     }, /Adjust mode cannot change map dimensions/);
+  });
+
+  it('rejects --adjust combined with --force', () => {
+    fs.mkdirSync(path.join(tmpDir, 'maps', 'adjustforce'), { recursive: true });
+    fs.writeFileSync(path.join(tmpDir, 'maps', 'adjustforce', 'map.json'), JSON.stringify({
+      version: 3,
+      display_name: 'adjustforce',
+      bounds: { x: 0, y: 0, w: 20, h: 20 },
+      spawn: { x: 10, y: 10 },
+      cells: {}
+    }));
+
+    assert.throws(() => {
+      execSync(`node "${toolPath}" --name adjustforce --adjust --force --seed 1 --output-dir "${tmpDir}" --no-sync`, { encoding: 'utf8' });
+    }, /--force cannot be used with --adjust/);
   });
 
   it('rolls back only the files written when the map directory already existed', () => {
@@ -167,6 +191,11 @@ describe('cli', () => {
     assert.throws(() => {
       execSync(`node "${toolPath}" --name badwater2 --width 10 --height 10 --water abc --seed 1 --output-dir "${tmpDir}" --no-sync`, { encoding: 'utf8' });
     }, /Invalid water/);
+  });
+
+  it('accepts water and obstacle set to auto', () => {
+    execSync(`node "${toolPath}" --name autoratio --width 10 --height 10 --water auto --obstacle auto --seed 1 --output-dir "${tmpDir}" --no-sync`, { encoding: 'utf8' });
+    assert(fs.existsSync(path.join(tmpDir, 'maps', 'autoratio', 'map.json')));
   });
 
   it('populates size reason and layout summary in the form', () => {
@@ -240,7 +269,7 @@ describe('cli', () => {
     fs.mkdirSync(path.join(mapDir, 'map-gen-form.md'), { recursive: true });
 
     assert.throws(() => {
-      execSync(`node "${toolPath}" --name rollbackforce --width 10 --height 10 --seed 1 --force --output-dir "${tmpDir}" --no-sync`, { encoding: 'utf8' });
+      execSync(`node "${toolPath}" --name rollbackforce --width 10 --height 10 --seed 1 --force --count 1 --output-dir "${tmpDir}" --no-sync`, { encoding: 'utf8' });
     }, /Error:/);
 
     assert(fs.existsSync(mapDir), 'map directory should remain');
@@ -286,7 +315,7 @@ describe('cli', () => {
     const sentinel = 'unrelated backup content';
     fs.writeFileSync(path.join(mapDir, 'map.json.bak'), sentinel);
 
-    execSync(`node "${toolPath}" --name backupclobber --width 10 --height 10 --seed 1 --force --output-dir "${tmpDir}" --no-sync`, { encoding: 'utf8' });
+    execSync(`node "${toolPath}" --name backupclobber --width 10 --height 10 --seed 1 --force --count 1 --output-dir "${tmpDir}" --no-sync`, { encoding: 'utf8' });
 
     const currentMap = JSON.parse(fs.readFileSync(path.join(mapDir, 'map.json'), 'utf8'));
     assert(!currentMap.original, 'map.json should be overwritten in force mode');
@@ -317,6 +346,27 @@ describe('cli', () => {
     const copiedPath = path.join(tmpDir, 'maps', 'blueprintcopy', 'map-blueprint.json');
     assert(fs.existsSync(copiedPath), 'map-blueprint.json should be copied when --blueprint is provided');
     assert.deepStrictEqual(JSON.parse(fs.readFileSync(copiedPath, 'utf8')), blueprint);
+  });
+
+  it('restores pre-existing map-blueprint.json when generation fails without --force', () => {
+    const mapDir = path.join(tmpDir, 'maps', 'bprollback');
+    fs.mkdirSync(mapDir, { recursive: true });
+    const originalBlueprint = JSON.stringify({ regions: [{ anchor: 'center', type: 'water', size: 'small' }] });
+    fs.writeFileSync(path.join(mapDir, 'map-blueprint.json'), originalBlueprint);
+
+    const sourceBlueprint = path.join(tmpDir, 'maps', 'bprollback', 'source-blueprint.json');
+    fs.writeFileSync(sourceBlueprint, JSON.stringify({ regions: [{ anchor: 'north', type: 'snow', size: 'large' }] }));
+
+    // Cause writeForm to fail after map.json and the blueprint copy have been written.
+    fs.mkdirSync(path.join(mapDir, 'map-gen-form.md'), { recursive: true });
+
+    assert.throws(() => {
+      execSync(`node "${toolPath}" --name bprollback --width 10 --height 10 --seed 1 --blueprint "${sourceBlueprint}" --output-dir "${tmpDir}" --no-sync`, { encoding: 'utf8' });
+    }, /Error:/);
+
+    const restored = fs.readFileSync(path.join(mapDir, 'map-blueprint.json'), 'utf8');
+    assert.strictEqual(restored, originalBlueprint, 'pre-existing map-blueprint.json should be restored from backup');
+    assert(!fs.existsSync(path.join(mapDir, 'map.json')), 'map.json should be rolled back');
   });
 
   it('does not create map-blueprint.json when no blueprint is provided', () => {

@@ -48,4 +48,10 @@ describe('map-core', () => {
   it('accepts paths contained within a parent directory', () => {
     assert.doesNotThrow(() => assertContained('/tmp/foo/bar', '/tmp/foo', 'Path'));
   });
+
+  if (process.platform === 'win32') {
+    it('accepts Windows paths that differ only in case', () => {
+      assert.doesNotThrow(() => assertContained('C:\\Users\\Foo', 'c:\\users\\foo', 'Path'));
+    });
+  }
 });

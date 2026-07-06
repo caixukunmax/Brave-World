@@ -21,6 +21,22 @@ const SIZE_KEYWORDS = {
   large: ['大陆', '广袤', '王国', '平原', 'continent', 'vast', 'kingdom', 'plain', 'large']
 };
 
+function inferSizeFromDescription(description, sizeLevels) {
+  if (!description) return null;
+  const lower = description.toLowerCase();
+  for (const [level, words] of Object.entries(SIZE_KEYWORDS)) {
+    if (words.some(w => lower.includes(w))) {
+      const range = sizeLevels && sizeLevels[level];
+      if (range) {
+        const width = Math.floor(Math.random() * (range.max - range.min + 1)) + range.min;
+        const height = Math.floor(Math.random() * (range.max - range.min + 1)) + range.min;
+        return { width, height, level };
+      }
+    }
+  }
+  return null;
+}
+
 const BACKUP_FILE_NAMES = ['map.json', 'map-gen-form.md', 'map-blueprint.json'];
 
 function cloneCells(cells) {
@@ -31,6 +47,8 @@ function cloneCells(cells) {
   return out;
 }
 
+const BOOLEAN_FLAGS = new Set(['force', 'adjust', 'no-sync', 'allow-oversize']);
+
 function parseArgs(argv) {
   const args = {};
   for (let i = 2; i < argv.length; i++) {
@@ -38,7 +56,14 @@ function parseArgs(argv) {
     if (!arg.startsWith('--')) continue;
     const key = arg.slice(2);
     const next = argv[i + 1];
-    if (next !== undefined && !next.startsWith('--')) {
+    if (BOOLEAN_FLAGS.has(key)) {
+      if (next === 'true' || next === 'false') {
+        args[key] = next === 'true';
+        i++;
+      } else {
+        args[key] = true;
+      }
+    } else if (next !== undefined && !next.startsWith('--')) {
       args[key] = next;
       i++;
     } else {
@@ -66,9 +91,10 @@ function parseSize(value, defaultValue, label, allowOversize) {
 function parseRatio(value, label) {
   if (value === undefined) return undefined;
   const trimmed = value.trim();
+  if (trimmed.toLowerCase() === 'auto') return undefined;
   const n = Number(trimmed);
   if (!/^(\d+\.?\d*|\.\d+)$/.test(trimmed) || !Number.isFinite(n) || n < 0 || n > 1) {
-    throw new Error(`Invalid ${label}: "${value}". Must be a number between 0 and 1.`);
+    throw new Error(`Invalid ${label}: "${value}". Must be a number between 0 and 1, or 'auto'.`);
   }
   return n;
 }
@@ -205,8 +231,8 @@ function generateSingleMap(options) {
   // destroy unrelated files in a pre-existing map folder.
   const mapDirExisted = fs.existsSync(mapDir);
 
-  // Back up existing files before overwriting them in force mode.
-  const backups = force ? createBackups(mapDir, BACKUP_FILE_NAMES) : [];
+  // Back up any pre-existing files before overwriting them.
+  const backups = createBackups(mapDir, BACKUP_FILE_NAMES);
 
   let mapData;
   if (isAdjust && baseMapData) {
@@ -326,10 +352,12 @@ function main() {
   const explicitWidth = args.width !== undefined;
   const explicitHeight = args.height !== undefined;
 
+  const inferredSize = !baseMapData ? inferSizeFromDescription(args.description, config.sizeLevels) : null;
+
   let width, height;
   try {
-    const defaultWidth = baseMapData ? Number(baseMapData.bounds.w) : DEFAULT_WIDTH;
-    const defaultHeight = baseMapData ? Number(baseMapData.bounds.h) : DEFAULT_HEIGHT;
+    const defaultWidth = baseMapData ? Number(baseMapData.bounds.w) : (inferredSize ? inferredSize.width : DEFAULT_WIDTH);
+    const defaultHeight = baseMapData ? Number(baseMapData.bounds.h) : (inferredSize ? inferredSize.height : DEFAULT_HEIGHT);
     width = parseSize(args.width, defaultWidth, 'width', allowOversize);
     height = parseSize(args.height, defaultHeight, 'height', allowOversize);
   } catch (err) {
@@ -372,6 +400,10 @@ function main() {
   }
 
   const force = args.force === true || args.force === 'true';
+  if (isAdjust && force) {
+    console.error('Error: --force cannot be used with --adjust.');
+    process.exit(1);
+  }
   const noSync = args['no-sync'] === true || args['no-sync'] === 'true';
 
   let count;
@@ -384,12 +416,17 @@ function main() {
     }
     count = parsed;
   } else {
-    count = 1;
+    count = Math.floor(Math.random() * 3) + 1; // default 1-3 variants
   }
 
   if (count > 1 && force) {
     console.error('Error: --force cannot be used with --count > 1 because each generated map would overwrite the same folder.');
     process.exit(1);
+  }
+
+  // Force overwrites a single map; default count must be deterministic.
+  if (force && args.count === undefined) {
+    count = 1;
   }
 
   const blueprintPath = args.blueprint;

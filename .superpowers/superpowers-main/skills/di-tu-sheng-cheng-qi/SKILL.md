@@ -26,12 +26,12 @@ This skill coordinates the creation of random/AI-driven maps for the project's G
 |-------|----------|---------|
 | `name` | yes | - |
 | `description` | no | - |
-| `count` | no | 1 |
-| `width` / `height` | no | inferred from description |
+| `count` | no | random (1–3) |
+| `width` / `height` | no | inferred from description; fallback 30×30 |
 | `seed` | no | random |
 | `style` | no | inferred or `mixed` |
-| `water` | no | inferred |
-| `obstacle` | no | inferred |
+| `water` | no | inferred / `auto` |
+| `obstacle` | no | inferred / `auto` |
 | `decoration` | no | inferred or `medium` |
 | `force` | no | false |
 
@@ -65,27 +65,38 @@ Always present this table before executing:
 | 请求地图名 | ... |
 | 最终保存名 | ... |
 | 模式 | 生成新地图 / 调整已有地图 |
+| 基础地图（调整模式） | ... |
 | 尺寸 | ... |
+| AI 尺寸推断理由 | ... |
 | 种子 | ... |
 | 用户描述 | ... |
 | AI 解析参数 | ... |
 | AI 解析布局 | ... |
 | 是否覆盖 | ... |
 | 输出路径 | ... |
+| 同步 server | ... |
 
 Wait for explicit "确认" or "执行". Do not proceed on vague responses.
 
 ## Execution Command
 
-After confirmation, run:
+After confirmation, run the CLI with the resolved parameters. Omit `--water` / `--obstacle` when their value is `auto`; the CLI will use the style defaults.
 
 ```bash
-node clinetcsharp/tools/generate-map.js --name <finalName> --description "<desc>" --width <w> --height <h> --seed <seed> --style <style> --water <water> --obstacle <obstacle> --decoration <decoration> --count <count>
+node clinetcsharp/tools/generate-map.js --name <finalName> --description "<desc>" --width <w> --height <h> --seed <seed> --style <style> --decoration <decoration> --count <count>
 ```
 
-- For adjustment mode, add `--adjust`.
-- For sizes above 50, add `--allow-oversize` (e.g., `--width 100 --height 100 --allow-oversize`).
-- The `--count` flag tells the CLI how many variants to generate. When `count > 1`, the tool will resolve naming conflicts and produce `<name>`, `<name>_1`, `<name>_2`, etc.
+Append additional flags only when they have explicit values:
+
+- `--water <water>` when water is not `auto`.
+- `--obstacle <obstacle>` when obstacle is not `auto`.
+- `--blueprint <path>` when a layout blueprint was generated.
+- `--adjust` for adjustment mode.
+- `--allow-oversize` for sizes above 50 (e.g., `--width 100 --height 100 --allow-oversize`).
+- `--no-sync` to skip server sync.
+- `--force` to overwrite an existing map (only with `--count 1` and never with `--adjust`).
+
+`--count` tells the CLI how many variants to generate. When omitted, the CLI randomly generates 1–3 variants. When `count > 1`, the tool resolves naming conflicts and produces `<name>`, `<name>_1`, `<name>_2`, etc.
 
 Example for an oversized map after explicit user confirmation:
 

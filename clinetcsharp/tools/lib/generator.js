@@ -97,7 +97,11 @@ function placeDecorations(mapData, density, styleName, seed) {
   const densityValue = config.decorationDensity[density] || config.decorationDensity.medium;
   const style = config.styles[styleName] || config.styles.mixed;
   const noise = createNoise2D(seed + 1);
-  const candidates = Object.entries(mapData.cells).filter(([_, c]) => isWalkable(c) && !c.decoration);
+  const { x: spawnX, y: spawnY } = mapData.spawn;
+  const candidates = Object.entries(mapData.cells).filter(([key, c]) => {
+    const [x, y] = key.split('_').map(Number);
+    return isWalkable(c) && !c.decoration && !(x === spawnX && y === spawnY);
+  });
   const targetCount = Math.floor(candidates.length * densityValue);
 
   // Filter decorations by biome compatibility

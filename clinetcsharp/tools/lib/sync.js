@@ -18,9 +18,9 @@ function syncToServer(mapName, clientMapPath, serverRoot) {
   assertContained(targetDir, serverMapsDir, 'Server map directory');
   if (!fs.existsSync(targetDir)) fs.mkdirSync(targetDir, { recursive: true });
   const targetPath = path.join(targetDir, 'map.json');
+  const mapData = readMapData(clientMapPath);
   fs.copyFileSync(clientMapPath, targetPath);
 
-  const mapData = readMapData(clientMapPath);
   const registryResult = updateRegistry(serverRoot, mapName, mapData);
   if (registryResult.skipped) {
     return registryResult;

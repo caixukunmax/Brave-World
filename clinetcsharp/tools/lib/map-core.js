@@ -19,11 +19,14 @@ function validateMapName(name) {
 }
 
 function assertContained(childPath, parentPath, label) {
-  const resolvedChild = path.resolve(childPath);
-  const resolvedParent = path.resolve(parentPath);
+  const resolvedChildRaw = path.resolve(childPath);
+  const resolvedParentRaw = path.resolve(parentPath);
+  const [resolvedChild, resolvedParent] = process.platform === 'win32'
+    ? [resolvedChildRaw.toLowerCase(), resolvedParentRaw.toLowerCase()]
+    : [resolvedChildRaw, resolvedParentRaw];
   const prefix = resolvedParent.endsWith(path.sep) ? resolvedParent : resolvedParent + path.sep;
   if (resolvedChild !== resolvedParent && !resolvedChild.startsWith(prefix)) {
-    throw new Error(`${label} "${resolvedChild}" escapes the allowed folder "${resolvedParent}".`);
+    throw new Error(`${label} "${resolvedChildRaw}" escapes the allowed folder "${resolvedParentRaw}".`);
   }
 }
 

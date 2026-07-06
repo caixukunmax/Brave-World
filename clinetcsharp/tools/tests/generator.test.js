@@ -104,6 +104,16 @@ describe('generator decorations', () => {
     const ratio = decCount / total;
     assert(ratio >= 0.08 && ratio <= 0.16, `decoration ratio ${ratio}`);
   });
+
+  it('does not place a decoration on the spawn cell', () => {
+    const map = createMapData(50, 50, 'SpawnDec');
+    generateTerrain(map, { style: 'forest', water: 0.15, obstacle: 0.10, seed: 12 });
+    ensureConnectivity(map);
+    placeSpawn(map);
+    placeDecorations(map, 'high', 'forest', 12);
+    const spawnCell = map.cells[`${map.spawn.x}_${map.spawn.y}`];
+    assert.strictEqual(spawnCell.decoration, 0, 'spawn cell should remain undecorated');
+  });
 });
 
 function floodReachable(map, sx, sy) {
