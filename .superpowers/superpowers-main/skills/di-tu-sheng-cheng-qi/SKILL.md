@@ -51,8 +51,10 @@ Never exceed 50 unless the user explicitly requests a larger size.
 2. Infer missing parameters from `description`.
 3. Extract spatial layout hints (e.g., "中央有湖", "北边是雪地") into a `map-blueprint.json`.
 4. Detect naming conflicts and choose next available `name_x`.
-5. Generate the Markdown approval form.
-6. STOP and wait for user confirmation before running the tool.
+5. For adjustment requests, verify the base map exists at `clinetcsharp/maps/<name>/map.json`. If it is missing, report the error and STOP; do not fall back to generating a new map.
+6. If the user explicitly requests a size above 50, keep the requested size but flag it in the form as `requires explicit override of the 50 cap`. Do not silently shrink it to 50; wait for the user to confirm the override or choose a size ≤ 50.
+7. Generate the Markdown approval form.
+8. STOP and wait for user confirmation before running the tool.
 
 ## Approval Form
 
@@ -98,5 +100,6 @@ node clinetcsharp/tools/generate-map.js --name <finalName> --description "<desc>
 
 - Generating without a form when the user did not confirm.
 - Overwriting an existing map without explicit `force=true` and confirmation.
-- Using sizes above 50 without user approval.
+- Using sizes above 50 without user approval or silently capping a >50 request to 50.
 - Forgetting to save the approval form with the map.
+- Attempting to adjust a non-existent base map instead of reporting that it is missing.
