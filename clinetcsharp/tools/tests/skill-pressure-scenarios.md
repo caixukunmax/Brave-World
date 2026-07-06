@@ -64,7 +64,7 @@ The scenarios above should be verified by running a fresh subagent. As of this w
 
 ## Verification
 
-Same-model fresh-context subagent runs were performed for Scenarios 1–3. The table below compares the baseline (no skill loaded) against the skill-guided behavior using the observed result fields.
+Same-model fresh-context subagent runs were performed for Scenarios 1–3.
 
 | Scenario | Variant | Result |
 |---|---|---|
@@ -75,8 +75,8 @@ Same-model fresh-context subagent runs were performed for Scenarios 1–3. The t
 | 3. Size cap | Baseline | `acceptsSize100: true`, `presentsForm: false`, `flagsCap: false`, `runCommand: false` |
 | 3. Size cap | With skill | `acceptsSize100: true`, `presentsForm: true`, `flagsCap: true`, `runCommand: false` |
 
-**Caveats:**
-- Scenarios 4 and 5 were documented based on skill rules; they have not been independently run with a fresh-context subagent.
-- Full independent subagent validation for Scenarios 4–5 (and re-validation of Scenarios 1–3 under any skill update) should be run when a separate subagent runner is available.
+**Key difference:** Scenario 3 showed the clearest skill effect: the baseline accepted the 100×100 request without flagging the size cap, while the skill-loaded run surfaced the cap in the approval form and stopped for explicit override confirmation.
 
-**Key difference:** Scenario 3 showed the clearest skill effect: the baseline accepted 100×100 without flagging the size cap, while the skill-loaded run surfaced the cap in the approval form and stopped for explicit override confirmation. Scenario 1 also differed in form presentation (baseline refused to skip the form but did not generate one; with the skill, the approval form was generated). Scenario 2 produced the same outcome in both conditions.
+**Caveats:**
+- Scenarios 4 and 5 were documented as rule-based expectations derived from the skill file; they have not been independently run with fresh-context subagents.
+- Full validation with an independent subagent runner is desirable, especially for Scenarios 4–5 and after any skill update.
