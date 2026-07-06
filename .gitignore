@@ -14,7 +14,9 @@ clinetcsharp/screenshots/
 Thumbs.db
 .DS_Store
 
-# Claude
+# Claude / Superpowers agent runtime state
+# We keep only the canonical skill definitions tracked:
+# ignore everything under .superpowers except superpowers-main/skills.
 .claude/
 .superpowers/*
 !.superpowers/superpowers-main

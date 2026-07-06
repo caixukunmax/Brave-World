@@ -78,17 +78,21 @@ Wait for explicit "确认" or "执行". Do not proceed on vague responses.
 After confirmation, run:
 
 ```bash
-node clinetcsharp/tools/generate-map.js --name <finalName> --description "<desc>" --width <w> --height <h> --seed <seed> --style <style> --water <water> --obstacle <obstacle> --decoration <decoration>
+node clinetcsharp/tools/generate-map.js --name <finalName> --description "<desc>" --width <w> --height <h> --seed <seed> --style <style> --water <water> --obstacle <obstacle> --decoration <decoration> --count <count>
 ```
 
-For adjustment mode, add `--adjust`.
+- For adjustment mode, add `--adjust`.
+- The `--count` flag tells the CLI how many variants to generate. When `count > 1`, the tool will resolve naming conflicts and produce `<name>`, `<name>_1`, `<name>_2`, etc.
 
 ## Post-Execution
 
 1. Verify `clinetcsharp/maps/<name>/map.json` exists.
 2. Verify `clinetcsharp/maps/<name>/map-gen-form.md` exists.
-3. If `servercsharp/data/maps/` exists, verify the copy.
-4. Report the final map name and paths.
+3. Verify `clinetcsharp/maps/<name>/map-blueprint.json` exists (the spatial layout blueprint).
+4. If `servercsharp/data/maps/` exists, verify the copy.
+5. If `servercsharp/data/map_registry.json` exists, verify the map entry is present. Do not abort if the file or directory is missing.
+6. Note that `tables/datas/maps/<name>/map.json` is automatically synced by `MapDataManager.SaveMapToJson` in Godot; no manual copy is required.
+7. Report the final map name and paths.
 
 ## Common Mistakes
 
