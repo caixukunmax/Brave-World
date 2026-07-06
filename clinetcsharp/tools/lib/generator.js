@@ -1,6 +1,10 @@
 const { createNoise2D } = require('./noise');
 const config = require('../map-gen-config.json');
 
+const terrainById = new Map(
+  Object.entries(config.terrains).map(([name, t]) => [t.id, { ...t, name }])
+);
+
 function generateTerrain(mapData, options) {
   const seed = options.seed ?? Math.floor(Math.random() * 1000000);
   const noise = createNoise2D(seed);
@@ -41,15 +45,16 @@ function generateTerrain(mapData, options) {
 function countTerrain(mapData) {
   const counts = {};
   for (const cell of Object.values(mapData.cells)) {
-    const name = Object.entries(config.terrains).find(([k, v]) => v.id === cell.terrain)?.[0] || 'unknown';
+    const terrain = terrainById.get(cell.terrain);
+    const name = terrain?.name || 'unknown';
     counts[name] = (counts[name] || 0) + 1;
   }
   return counts;
 }
 
 function isWalkable(cell) {
-  const terrain = Object.values(config.terrains).find(t => t.id === cell.terrain);
-  return terrain?.walkable !== false;
+  const terrain = terrainById.get(cell.terrain);
+  return terrain ? terrain.walkable === true : false;
 }
 
 function findLargestConnectedRegion(mapData) {
@@ -78,15 +83,18 @@ function findLargestConnectedRegion(mapData) {
 function ensureConnectivity(mapData) {
   const largest = findLargestConnectedRegion(mapData);
   const keep = new Set(largest);
-  for (const cell of Object.values(mapData.cells)) {
-    if (isWalkable(cell) && !keep.has(cell.uid)) {
+  for (const [key, cell] of Object.entries(mapData.cells)) {
+    if (isWalkable(cell) && !keep.has(key)) {
       cell.terrain = config.terrains.rock.id;
     }
   }
+  return largest;
 }
 
-function placeSpawn(mapData) {
-  const region = findLargestConnectedRegion(mapData);
+function placeSpawn(mapData, region) {
+  if (!region) {
+    region = findLargestConnectedRegion(mapData);
+  }
   if (region.length === 0) {
     mapData.spawn = { x: 0, y: 0 };
     return;
@@ -106,4 +114,11 @@ function placeSpawn(mapData) {
   mapData.spawn = { x: sx, y: sy };
 }
 
-module.exports = { generateTerrain, countTerrain, isWalkable, ensureConnectivity, placeSpawn };
+module.exports = {
+  generateTerrain,
+  countTerrain,
+  isWalkable,
+  findLargestConnectedRegion,
+  ensureConnectivity,
+  placeSpawn
+};

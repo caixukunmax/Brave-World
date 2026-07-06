@@ -2,6 +2,11 @@ const { describe, it } = require('node:test');
 const assert = require('node:assert');
 const { createMapData } = require('../lib/map-core');
 const { generateTerrain, countTerrain, isWalkable, ensureConnectivity, placeSpawn } = require('../lib/generator');
+const config = require('../map-gen-config.json');
+
+function makeCell(terrain) {
+  return { terrain };
+}
 
 describe('generator terrain', () => {
   it('generates water according to ratio', () => {
@@ -39,6 +44,31 @@ describe('generator connectivity', () => {
     const reachable = floodReachable(map, map.spawn.x, map.spawn.y);
     const totalWalkable = Object.values(map.cells).filter(isWalkable).length;
     assert(reachable / totalWalkable >= 0.7, `reachable ratio ${reachable / totalWalkable}`);
+  });
+
+  it('reuses the region returned by ensureConnectivity when placing spawn', () => {
+    const map = createMapData(40, 40, 'Conn');
+    generateTerrain(map, { style: 'forest', water: 0.3, obstacle: 0.15, seed: 7 });
+    const region = ensureConnectivity(map);
+    placeSpawn(map, region);
+    const spawnCell = map.cells[`${map.spawn.x}_${map.spawn.y}`];
+    assert(isWalkable(spawnCell));
+    assert(region.includes(`${map.spawn.x}_${map.spawn.y}`));
+  });
+});
+
+describe('generator walkability', () => {
+  it('treats configured walkable terrain as walkable', () => {
+    assert.strictEqual(isWalkable(makeCell(config.terrains.grass.id)), true);
+  });
+
+  it('treats configured unwalkable terrain as unwalkable', () => {
+    assert.strictEqual(isWalkable(makeCell(config.terrains.water.id)), false);
+    assert.strictEqual(isWalkable(makeCell(config.terrains.rock.id)), false);
+  });
+
+  it('treats unknown terrain ids as unwalkable', () => {
+    assert.strictEqual(isWalkable(makeCell(99999)), false);
   });
 });
 
