@@ -37,6 +37,10 @@ namespace ClinetCSharp
                 _network.CastStartNotify += OnCastStartNotify;
                 _network.CastResultNotify += OnCastResultNotify;
                 _network.RoleAttrUpdated += OnRoleAttrUpdated;
+                _network.SetPreferredSkillResponse += OnSetPreferredSkillResponse;
+                _network.CastStartNotify += OnCastStartNotifyForSelection;
+                _network.CombatEndNotify += OnCombatEndForSelection;
+                _network.PlayerDeathNotify += OnPlayerDeathForSelection;
             }
 
             RefreshSlots();
@@ -50,6 +54,10 @@ namespace ClinetCSharp
                 _network.CastStartNotify -= OnCastStartNotify;
                 _network.CastResultNotify -= OnCastResultNotify;
                 _network.RoleAttrUpdated -= OnRoleAttrUpdated;
+                _network.SetPreferredSkillResponse -= OnSetPreferredSkillResponse;
+                _network.CastStartNotify -= OnCastStartNotifyForSelection;
+                _network.CombatEndNotify -= OnCombatEndForSelection;
+                _network.PlayerDeathNotify -= OnPlayerDeathForSelection;
             }
         }
 
@@ -142,6 +150,47 @@ namespace ClinetCSharp
             }
         }
 
+        private void OnSetPreferredSkillResponse(Game.SetPreferredSkillResponse rsp)
+        {
+            if (rsp.Code != Common.ErrorCode.Success) return;
+
+            int slotIndex = -1;
+            for (int i = 0; i < MaxSlots; i++)
+            {
+                if (_slots[i].SkillId == rsp.PreferredSkillId)
+                {
+                    slotIndex = i;
+                    break;
+                }
+            }
+            SetSelectedSlot(slotIndex);
+        }
+
+        private void OnCastStartNotifyForSelection(Game.CastStartNotify notify)
+        {
+            if (_network == null) return;
+            if (notify.CasterId != _network.AccountId) return;
+
+            // 释放的是当前高亮技能，清除高亮
+            if (_selectedSlot >= 0 && _selectedSlot < MaxSlots)
+            {
+                if (_slots[_selectedSlot].SkillId == notify.SkillId)
+                    SetSelectedSlot(-1);
+            }
+        }
+
+        private void OnCombatEndForSelection(Game.CombatEndNotify notify)
+        {
+            if (_network == null) return;
+            if (notify.EntityIds.Contains(_network.AccountId))
+                SetSelectedSlot(-1);
+        }
+
+        private void OnPlayerDeathForSelection(Game.PlayerDeathNotify notify)
+        {
+            SetSelectedSlot(-1);
+        }
+
         private void RefreshSlots()
         {
             if (_network == null) return;
@@ -181,15 +230,39 @@ namespace ClinetCSharp
             var slot = _slots[slotIndex];
             if (slot.SkillId <= 0) return;
 
-            // 本地 CD 检查 — 减少无效请求
-            if (slot.IsOnCooldown) return;
+            if (_network == null) return;
 
-            // 发送施法请求（纯 CD 即时制）
-            if (_network != null)
+            // 点击已高亮的槽位 = 取消优先
+            uint requestSkillId = _selectedSlot == slotIndex ? 0 : slot.SkillId;
+
+            var req = new Game.SetPreferredSkillRequest { SkillId = requestSkillId };
+            _network.SendPacket(Protocol.MessageId.GameSetPreferredSkillReq, req);
+        }
+
+        internal void OnSlotDoubleClicked(int slotIndex)
+        {
+            var slot = _slots[slotIndex];
+            if (slot.SkillId <= 0) return;
+            if (slot.IsOnCooldown) return;
+            if (_network == null) return;
+
+            var req = new Game.CastRequest
             {
-                var req = new Game.CastRequest { SkillId = slot.SkillId };
-                _network.SendPacket(Protocol.MessageId.GameCastReq, req);
-            }
+                SkillId = slot.SkillId,
+                Interrupt = true,
+            };
+            _network.SendPacket(Protocol.MessageId.GameCastReq, req);
+        }
+
+        private void SetSelectedSlot(int slotIndex)
+        {
+            if (_selectedSlot >= 0 && _selectedSlot < MaxSlots)
+                _slots[_selectedSlot].SetSelected(false);
+
+            _selectedSlot = slotIndex;
+
+            if (_selectedSlot >= 0 && _selectedSlot < MaxSlots)
+                _slots[_selectedSlot].SetSelected(true);
         }
 
         // ============ SkillSlot (inner control) ============
@@ -335,8 +408,13 @@ namespace ClinetCSharp
             {
                 if (@event is InputEventMouseButton mb && mb.Pressed && mb.ButtonIndex == MouseButton.Left)
                 {
-                    if (SkillId > 0)
+                    if (SkillId <= 0) return;
+
+                    if (mb.DoubleClick)
+                        _bar.OnSlotDoubleClicked(_index);
+                    else
                         _bar.OnSlotClicked(_index);
+
                     AcceptEvent();
                 }
             }
