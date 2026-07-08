@@ -370,6 +370,10 @@ public class CombatManager
             }
         }
 
+        // 死亡时清除一次性优先技能（必须在移除 CombatContext 之前执行）
+        if (entityId < 1000000)
+            ClearPreferredSkill(entityId, mapsSafe);
+
         _relations.OnEntityRemoved(entityId);
 
         // NPC 死亡/脱战：重置 InCombat
@@ -579,6 +583,21 @@ public class CombatManager
         }
     }
 
+    /// <summary>清除一次性优先技能（死亡/脱战时调用）</summary>
+    private void ClearPreferredSkill(long entityId, Dictionary<string, MapState> maps)
+    {
+        var ctx = _relations.Contexts.GetValueOrDefault(entityId);
+        if (ctx != null)
+            ctx.PreferredSkillId = 0;
+
+        string? mapName = SkillPipeline.GetEntityMapName(entityId, maps);
+        if (mapName != null && maps.TryGetValue(mapName, out var map))
+        {
+            if (map.Players.TryGetValue(entityId, out var p))
+                p.PreferredSkillId = 0;
+        }
+    }
+
     private void RequestCast(long entityId, int skillId, Dictionary<string, MapState> maps)
     {
         var result = _pipeline.Cast(skillId, entityId, maps);
@@ -652,14 +671,24 @@ public class CombatManager
             {
                 return new PGame.CastResponse { Success = false, Error = ctx.SubState == "CASTING" ? "already_casting" : "post_cast" };
             }
-            else
-            {
-                _pipeline.InterruptCast(playerId);
-            }
         }
 
         if (!ctx.SkillPool.Contains(skillId))
             return new PGame.CastResponse { Success = false, Error = "invalid_skill" };
+
+        var (ok, err) = _pipeline.PreCheck(skillId, ctx, playerId, maps);
+        if (!ok)
+            return new PGame.CastResponse { Success = false, Error = err == "insufficient_mp" ? "no_mp" : err ?? "cast_failed" };
+
+        var targets = _pipeline.SelectTargets(skillId, playerId, ctx, maps);
+        if (targets == null || targets.Count == 0)
+            return new PGame.CastResponse { Success = false, Error = "no_target" };
+
+        // 校验通过后再中断当前施法，避免无效请求白白打断当前读条/后摇
+        if (ctx.SubState == "CASTING" || ctx.SubState == "POST_CAST")
+        {
+            _pipeline.InterruptCast(playerId);
+        }
 
         var result = _pipeline.Cast(skillId, playerId, maps);
 
@@ -911,6 +940,7 @@ public class CombatManager
                             {
                                 // 脱战清除应移除的 buff
                                 p.Buffs.ClearOnDisengage();
+                                ClearPreferredSkill(eid, maps);
                                 var buffNotify = new PGame.BuffUpdateNotify { EntityId = (ulong)eid };
                                 foreach (var b in p.Buffs.Buffs)
                                 {
@@ -1086,6 +1116,10 @@ public class CombatManager
         {
             return ctx.PreferredSkillId;
         }
+
+        // 若已选定一次性技能但尚未就绪/不在射程，保持选定状态，本 tick 不回落到常规 AI 选择
+        if (ctx.PreferredSkillId > 0 && ctx.SkillPool.Contains(ctx.PreferredSkillId))
+            return 0;
 
         // 常规顺序选择（CD 就绪 + 目标在范围内）
         foreach (var skillId in ctx.SkillPool)

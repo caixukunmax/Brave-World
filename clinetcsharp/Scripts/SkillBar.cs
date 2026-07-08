@@ -18,16 +18,24 @@ namespace ClinetCSharp
         [Export] public int NameFontSize { get; set; } = 10;
         private const int MaxSlots = 4;
         private const int CdRowHeight = 16;
+        private const float DoubleClickTimeout = 0.2f;
         public int NameRowHeight => Mathf.Max(NameFontSize + 8, 18);
 
         private NetworkManager _network;
         private readonly SkillSlot[] _slots = new SkillSlot[MaxSlots];
         private int _selectedSlot = -1;
+        private int _pendingClickSlot = -1;
+        private Timer _clickTimer;
 
         public override void _Ready()
         {
             AddToGroup("skill_bar");
             BuildSlots();
+
+            _clickTimer = new Timer { WaitTime = DoubleClickTimeout, OneShot = true };
+            AddChild(_clickTimer);
+            _clickTimer.Timeout += OnPendingClick;
+
             ApplyLayout();
 
             _network = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
@@ -48,6 +56,15 @@ namespace ClinetCSharp
 
         public override void _ExitTree()
         {
+            if (_clickTimer != null)
+            {
+                _clickTimer.Timeout -= OnPendingClick;
+                _clickTimer.Stop();
+                RemoveChild(_clickTimer);
+                _clickTimer.QueueFree();
+                _clickTimer = null;
+            }
+
             if (_network != null)
             {
                 _network.CombatStateNotify -= OnCombatStateNotify;
@@ -265,6 +282,27 @@ namespace ClinetCSharp
                 _slots[_selectedSlot].SetSelected(true);
         }
 
+        internal void ScheduleClick(int slotIndex)
+        {
+            _pendingClickSlot = slotIndex;
+            _clickTimer?.Start();
+        }
+
+        internal void CancelPendingClick()
+        {
+            _pendingClickSlot = -1;
+            _clickTimer?.Stop();
+        }
+
+        private void OnPendingClick()
+        {
+            if (_pendingClickSlot >= 0)
+            {
+                OnSlotClicked(_pendingClickSlot);
+                _pendingClickSlot = -1;
+            }
+        }
+
         // ============ SkillSlot (inner control) ============
 
         private partial class SkillSlot : PanelContainer
@@ -411,9 +449,14 @@ namespace ClinetCSharp
                     if (SkillId <= 0) return;
 
                     if (mb.DoubleClick)
+                    {
+                        _bar.CancelPendingClick();
                         _bar.OnSlotDoubleClicked(_index);
+                    }
                     else
-                        _bar.OnSlotClicked(_index);
+                    {
+                        _bar.ScheduleClick(_index);
+                    }
 
                     AcceptEvent();
                 }

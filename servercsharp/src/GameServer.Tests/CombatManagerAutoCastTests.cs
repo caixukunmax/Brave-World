@@ -38,6 +38,30 @@ public class CombatManagerAutoCastTests
     }
 
     [Fact]
+    public void SelectSkill_KeepsPreferred_WhenPreferredOnCooldown()
+    {
+        var (manager, pipeline, maps) = CreateManagerWithCombat();
+        var ctx = manager.GetContext(PlayerId)!;
+        var player = maps[MapName].Players[PlayerId];
+
+        player.PreferredSkillId = SkillId;
+        ctx.PreferredSkillId = SkillId;
+        ctx.SubState = "NONE";
+        ctx.SkillCooldowns[SkillId] = Environment.TickCount64 + 600_000;
+        pipeline.NextResult = "SUCCESS";
+
+        var tickMonsterSkills = typeof(CombatManager).GetMethod(
+            "TickMonsterSkills",
+            BindingFlags.NonPublic | BindingFlags.Instance)!;
+
+        tickMonsterSkills.Invoke(manager, new object[] { 0.033d, maps });
+
+        Assert.Empty(pipeline.CastCalls);
+        Assert.Equal(SkillId, ctx.PreferredSkillId);
+        Assert.Equal(SkillId, player.PreferredSkillId);
+    }
+
+    [Fact]
     public void TickMonsterSkills_SkipsAutoCast_DuringPostCast()
     {
         var (manager, pipeline, maps) = CreateManagerWithCombat();
@@ -227,6 +251,58 @@ public class CombatManagerAutoCastTests
         Assert.Equal(0, player.PreferredSkillId);
     }
 
+    [Fact]
+    public void OnDeath_ClearsPreferredSkill()
+    {
+        var (manager, pipeline, maps) = CreateManagerWithCombat();
+        var ctx = manager.GetContext(PlayerId)!;
+        var player = maps[MapName].Players[PlayerId];
+
+        player.PreferredSkillId = SkillId;
+        ctx.PreferredSkillId = SkillId;
+
+        manager.OnDeath(PlayerId, maps);
+
+        Assert.Equal(0, ctx.PreferredSkillId);
+        Assert.Equal(0, player.PreferredSkillId);
+    }
+
+    [Fact]
+    public void Disengage_ClearsPreferredSkill()
+    {
+        var (manager, pipeline, maps) = CreateManagerWithCombat();
+        var ctx = manager.GetContext(PlayerId)!;
+        var player = maps[MapName].Players[PlayerId];
+
+        player.PreferredSkillId = SkillId;
+        ctx.PreferredSkillId = SkillId;
+
+        manager.RequestDisengage(PlayerId, MonsterId);
+        manager.Tick(0.033d, maps, new FakeMonsterRegistry());
+
+        Assert.Equal(0, ctx.PreferredSkillId);
+        Assert.Equal(0, player.PreferredSkillId);
+    }
+
+    [Fact]
+    public void HandleCastRequest_InvalidSkill_DoesNotInterruptCasting()
+    {
+        var (manager, pipeline, maps) = CreateManagerWithCombat();
+        var ctx = manager.GetContext(PlayerId)!;
+
+        ctx.SubState = "CASTING";
+        ctx.CastSkillId = 9999;
+        ctx.CastEndTime = Environment.TickCount64 + 60_000;
+
+        PGame.CastResponse response = manager.HandleCastRequest(PlayerId, skillId: 12345, interrupt: true, targetId: null, maps);
+
+        Assert.False(response.Success);
+        Assert.Equal("invalid_skill", response.Error);
+        Assert.Empty(pipeline.CastCalls);
+        Assert.Equal("CASTING", ctx.SubState);
+        Assert.Equal(9999, ctx.CastSkillId);
+    }
+
     private static (CombatManager manager, FakeSkillPipeline pipeline, Dictionary<string, MapState> maps)
         CreateManagerWithCombat()
     {
@@ -307,5 +383,13 @@ public class CombatManagerAutoCastTests
     {
         public void SendToAccount(long accountId, int serverId, int msgId, byte[] data) { }
         public void SendToClient(long connId, int msgId, uint session, byte[] data) { }
+    }
+
+    private sealed class FakeMonsterRegistry : IMonsterRegistry
+    {
+        public void OnDamage(long instanceId, long attackerId, int damage) { }
+        public void OnRegen(long instanceId, int regen) { }
+        public bool IsOccupied(string mapName, int x, int y) => false;
+        public void OnDisengage(long instanceId) { }
     }
 }
