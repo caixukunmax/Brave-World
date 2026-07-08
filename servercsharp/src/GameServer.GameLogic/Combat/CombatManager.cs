@@ -691,13 +691,21 @@ public class CombatManager
                 break;
         }
 
+        int originalMp = casterState?.Mp ?? 0;
         if (refundMp > 0 && casterState != null)
             casterState.Mp = Math.Min(casterState.MaxMp, casterState.Mp + refundMp);
 
-        var (ok, err) = _pipeline.PreCheck(skillId, ctx, playerId, maps);
-
-        if (refundMp > 0 && casterState != null)
-            casterState.Mp = Math.Max(0, casterState.Mp - refundMp);
+        bool ok;
+        string? err;
+        try
+        {
+            (ok, err) = _pipeline.PreCheck(skillId, ctx, playerId, maps);
+        }
+        finally
+        {
+            if (casterState != null)
+                casterState.Mp = originalMp;
+        }
 
         if (!ok)
             return new PGame.CastResponse { Success = false, Error = err == "insufficient_mp" ? "no_mp" : err ?? "cast_failed" };
