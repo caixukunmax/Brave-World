@@ -193,6 +193,20 @@ public class SkillPipeline
         }
     }
 
+    public void InterruptCast(long entityId)
+    {
+        var ctx = CombatManager!.RelationsMgr.Contexts.GetValueOrDefault(entityId);
+        if (ctx == null) return;
+
+        if (ctx.SubState == "CASTING" || ctx.SubState == "POST_CAST")
+        {
+            ctx.SubState = "NONE";
+            ctx.CastSkillId = null;
+            ctx.CastEndTime = null;
+            ctx.PostCastEndTime = null;
+        }
+    }
+
     // ---- 阶段 4: Final Validation ----
     public bool FinalValidation(int skillId, long casterId, List<long> targets, Dictionary<string, MapState>? maps)
     {
