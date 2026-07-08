@@ -166,6 +166,67 @@ public class CombatManagerAutoCastTests
         Assert.Null(ctx.PostCastEndTime);
     }
 
+    [Fact]
+    public void HandleCastRequest_WithoutInterrupt_AllowsCast_WhenPostCastExpired()
+    {
+        var (manager, pipeline, maps) = CreateManagerWithCombat();
+        var ctx = manager.GetContext(PlayerId)!;
+
+        ctx.SubState = "POST_CAST";
+        ctx.PostCastEndTime = Environment.TickCount64 - 1;
+        pipeline.NextResult = "SUCCESS";
+
+        PGame.CastResponse response = manager.HandleCastRequest(PlayerId, SkillId, interrupt: false, targetId: null, maps);
+
+        Assert.True(response.Success);
+        Assert.Single(pipeline.CastCalls);
+        Assert.Equal((SkillId, PlayerId), pipeline.CastCalls[0]);
+        Assert.Equal("NONE", ctx.SubState);
+        Assert.Null(ctx.PostCastEndTime);
+    }
+
+    [Fact]
+    public void TickMonsterSkills_PlayerAutoCast_CastsEquippedSkill()
+    {
+        var (manager, pipeline, maps) = CreateManagerWithCombat();
+        var ctx = manager.GetContext(PlayerId)!;
+        var player = maps[MapName].Players[PlayerId];
+
+        player.PreferredSkillId = 0;
+        ctx.PreferredSkillId = 0;
+        ctx.SubState = "NONE";
+        pipeline.NextResult = "SUCCESS";
+
+        var tickMonsterSkills = typeof(CombatManager).GetMethod(
+            "TickMonsterSkills",
+            BindingFlags.NonPublic | BindingFlags.Instance)!;
+        tickMonsterSkills.Invoke(manager, new object[] { 0.033d, maps });
+
+        Assert.Contains((SkillId, PlayerId), pipeline.CastCalls);
+    }
+
+    [Fact]
+    public void TickMonsterSkills_PlayerAutoCast_ClearsPreferredSkill()
+    {
+        var (manager, pipeline, maps) = CreateManagerWithCombat();
+        var ctx = manager.GetContext(PlayerId)!;
+        var player = maps[MapName].Players[PlayerId];
+
+        player.PreferredSkillId = SkillId;
+        ctx.PreferredSkillId = SkillId;
+        ctx.SubState = "NONE";
+        pipeline.NextResult = "SUCCESS";
+
+        var tickMonsterSkills = typeof(CombatManager).GetMethod(
+            "TickMonsterSkills",
+            BindingFlags.NonPublic | BindingFlags.Instance)!;
+        tickMonsterSkills.Invoke(manager, new object[] { 0.033d, maps });
+
+        Assert.Contains((SkillId, PlayerId), pipeline.CastCalls);
+        Assert.Equal(0, ctx.PreferredSkillId);
+        Assert.Equal(0, player.PreferredSkillId);
+    }
+
     private static (CombatManager manager, FakeSkillPipeline pipeline, Dictionary<string, MapState> maps)
         CreateManagerWithCombat()
     {

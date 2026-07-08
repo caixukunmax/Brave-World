@@ -641,10 +641,21 @@ public class CombatManager
 
         if (ctx.SubState == "CASTING" || ctx.SubState == "POST_CAST")
         {
-            if (!interrupt)
+            // 后摇时间已过：视为 IDLE，允许直接施法，避免依赖 tick 调度
+            if (ctx.SubState == "POST_CAST" &&
+                (!ctx.PostCastEndTime.HasValue || Environment.TickCount64 >= ctx.PostCastEndTime))
+            {
+                ctx.SubState = "NONE";
+                ctx.PostCastEndTime = null;
+            }
+            else if (!interrupt)
+            {
                 return new PGame.CastResponse { Success = false, Error = ctx.SubState == "CASTING" ? "already_casting" : "post_cast" };
-
-            _pipeline.InterruptCast(playerId);
+            }
+            else
+            {
+                _pipeline.InterruptCast(playerId);
+            }
         }
 
         if (!ctx.SkillPool.Contains(skillId))
