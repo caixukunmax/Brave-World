@@ -628,18 +628,20 @@ public class CombatManager
         }
     }
 
-    /// <summary>处理玩家手动施法请求 — 纯 CD 即时制</summary>
-    public PGame.CastResponse HandleCastRequest(long playerId, int skillId, long? targetId, Dictionary<string, MapState> maps)
+    /// <summary>处理玩家手动/中断施法请求 — 纯 CD 即时制</summary>
+    public PGame.CastResponse HandleCastRequest(long playerId, int skillId, bool interrupt, long? targetId, Dictionary<string, MapState> maps)
     {
         var ctx = _relations.Contexts.GetValueOrDefault(playerId);
         if (ctx == null || ctx.State != "COMBAT")
             return new PGame.CastResponse { Success = false, Error = "not_in_combat" };
 
-        if (ctx.SubState == "CASTING")
-            return new PGame.CastResponse { Success = false, Error = "already_casting" };
+        if (ctx.SubState == "CASTING" || ctx.SubState == "POST_CAST")
+        {
+            if (!interrupt)
+                return new PGame.CastResponse { Success = false, Error = ctx.SubState == "CASTING" ? "already_casting" : "post_cast" };
 
-        if (ctx.SubState == "POST_CAST" && Environment.TickCount64 < (ctx.PostCastEndTime ?? 0))
-            return new PGame.CastResponse { Success = false, Error = "post_cast" };
+            _pipeline.InterruptCast(playerId);
+        }
 
         if (!ctx.SkillPool.Contains(skillId))
             return new PGame.CastResponse { Success = false, Error = "invalid_skill" };
@@ -652,7 +654,10 @@ public class CombatManager
             return new PGame.CastResponse { Success = true };
         }
         if (result == "MISS")
-            return new PGame.CastResponse { Success = true }; // 打空也算释放成功，只是没命中
+        {
+            ClearPreferredSkillIfCast(playerId, skillId, maps);
+            return new PGame.CastResponse { Success = true };
+        }
 
         return new PGame.CastResponse { Success = false, Error = "cast_failed" };
     }

@@ -28,6 +28,7 @@ public class CastRequestHandler : IMessageHandler
         var req = PGame.CastRequest.Parser.ParseFrom(data);
         int skillId = (int)req.SkillId;
         long? targetId = req.TargetId > 0 ? (long)req.TargetId : null;
+        bool interrupt = req.Interrupt;
 
         if (skillId <= 0)
         {
@@ -42,7 +43,7 @@ public class CastRequestHandler : IMessageHandler
 
         var maps = _session.MapService.GetMapsSnapshot();
         _session.MapService.RefreshCombatPositionsForSnapshot(maps);
-        var result = combatService.HandleCastRequest(claims.AccountId, skillId, targetId, maps);
+        var result = combatService.HandleCastRequest(claims.AccountId, skillId, interrupt, targetId, maps);
         return Task.FromResult(result);
     }
 

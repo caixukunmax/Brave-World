@@ -277,8 +277,8 @@ internal class CombatServiceAdapter : ICombatService
 
     public bool IsCasting(long entityId) => _inner.IsCasting(entityId);
 
-    public byte[]? HandleCastRequest(long playerId, int skillId, long? targetId, Dictionary<string, MapState> maps)
-        => _inner.HandleCastRequest(playerId, skillId, targetId, maps).ToByteArray();
+    public byte[]? HandleCastRequest(long playerId, int skillId, bool interrupt, long? targetId, Dictionary<string, MapState> maps)
+        => _inner.HandleCastRequest(playerId, skillId, interrupt, targetId, maps).ToByteArray();
 }
 
 /// <summary>

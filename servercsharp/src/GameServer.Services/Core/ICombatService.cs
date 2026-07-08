@@ -11,6 +11,6 @@ public interface ICombatService
     void Tick(double dt, Dictionary<string, MapState> maps, IMonsterRegistry? monsterRegistry);
     bool IsCasting(long entityId);
 
-    /// <summary>玩家手动施法请求 — 纯 CD 即时制</summary>
-    byte[]? HandleCastRequest(long playerId, int skillId, long? targetId, Dictionary<string, MapState> maps);
+    /// <summary>玩家手动/中断施法请求 — 纯 CD 即时制</summary>
+    byte[]? HandleCastRequest(long playerId, int skillId, bool interrupt, long? targetId, Dictionary<string, MapState> maps);
 }
