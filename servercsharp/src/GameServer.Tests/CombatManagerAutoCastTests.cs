@@ -5,6 +5,7 @@ using GameServer.Services.Map.Combat.Actions;
 using GameServer.Tables;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using PGame = global::Game;
 using Xunit;
 
 namespace GameServer.Tests;
@@ -63,6 +64,106 @@ public class CombatManagerAutoCastTests
         Assert.Equal(postCastEnd, ctx.PostCastEndTime);
         Assert.Equal(SkillId, ctx.PreferredSkillId);
         Assert.Equal(SkillId, player.PreferredSkillId);
+    }
+
+    [Fact]
+    public void HandleCastRequest_WithoutInterrupt_ReturnsAlreadyCasting()
+    {
+        var (manager, pipeline, maps) = CreateManagerWithCombat();
+        var ctx = manager.GetContext(PlayerId)!;
+
+        ctx.SubState = "CASTING";
+        ctx.CastSkillId = 9999;
+        ctx.CastEndTime = Environment.TickCount64 + 60_000;
+
+        PGame.CastResponse response = manager.HandleCastRequest(PlayerId, SkillId, interrupt: false, targetId: null, maps);
+
+        Assert.False(response.Success);
+        Assert.Equal("already_casting", response.Error);
+        Assert.Empty(pipeline.CastCalls);
+    }
+
+    [Fact]
+    public void HandleCastRequest_WithoutInterrupt_ReturnsPostCast()
+    {
+        var (manager, pipeline, maps) = CreateManagerWithCombat();
+        var ctx = manager.GetContext(PlayerId)!;
+
+        ctx.SubState = "POST_CAST";
+        ctx.PostCastEndTime = Environment.TickCount64 + 60_000;
+
+        PGame.CastResponse response = manager.HandleCastRequest(PlayerId, SkillId, interrupt: false, targetId: null, maps);
+
+        Assert.False(response.Success);
+        Assert.Equal("post_cast", response.Error);
+        Assert.Empty(pipeline.CastCalls);
+    }
+
+    [Fact]
+    public void HandleCastRequest_WithInterrupt_ResetsCastStateAndCasts()
+    {
+        var (manager, pipeline, maps) = CreateManagerWithCombat();
+        var ctx = manager.GetContext(PlayerId)!;
+        var player = maps[MapName].Players[PlayerId];
+
+        ctx.SubState = "CASTING";
+        ctx.CastSkillId = 9999;
+        ctx.CastEndTime = Environment.TickCount64 + 60_000;
+        pipeline.NextResult = "PENDING";
+
+        PGame.CastResponse response = manager.HandleCastRequest(PlayerId, SkillId, interrupt: true, targetId: null, maps);
+
+        Assert.True(response.Success);
+        Assert.Single(pipeline.CastCalls);
+        Assert.Equal((SkillId, PlayerId), pipeline.CastCalls[0]);
+        // Fake pipeline does not simulate state transitions; verify InterruptCast cleared the previous state.
+        Assert.Equal("NONE", ctx.SubState);
+        Assert.Null(ctx.CastSkillId);
+        Assert.Equal(0, ctx.PreferredSkillId);
+        Assert.Equal(0, player.PreferredSkillId);
+    }
+
+    [Fact]
+    public void HandleCastRequest_WithInterrupt_ClearsPreferredSkill_AfterMiss()
+    {
+        var (manager, pipeline, maps) = CreateManagerWithCombat();
+        var ctx = manager.GetContext(PlayerId)!;
+        var player = maps[MapName].Players[PlayerId];
+
+        ctx.SubState = "CASTING";
+        ctx.CastSkillId = 9999;
+        ctx.CastEndTime = Environment.TickCount64 + 60_000;
+        pipeline.NextResult = "MISS";
+
+        PGame.CastResponse response = manager.HandleCastRequest(PlayerId, SkillId, interrupt: true, targetId: null, maps);
+
+        Assert.True(response.Success);
+        Assert.Single(pipeline.CastCalls);
+        Assert.Equal((SkillId, PlayerId), pipeline.CastCalls[0]);
+        Assert.Equal("NONE", ctx.SubState);
+        Assert.Null(ctx.CastSkillId);
+        Assert.Equal(0, ctx.PreferredSkillId);
+        Assert.Equal(0, player.PreferredSkillId);
+    }
+
+    [Fact]
+    public void SkillPipeline_InterruptCast_ResetsCastState()
+    {
+        var (manager, pipeline, maps) = CreateManagerWithCombat();
+        var ctx = manager.GetContext(PlayerId)!;
+
+        ctx.SubState = "CASTING";
+        ctx.CastSkillId = 9999;
+        long castEnd = Environment.TickCount64 + 60_000;
+        ctx.CastEndTime = castEnd;
+        ctx.PostCastEndTime = Environment.TickCount64 + 120_000;
+
+        pipeline.InterruptCast(PlayerId);
+
+        Assert.Equal("NONE", ctx.SubState);
+        Assert.Null(ctx.CastSkillId);
+        Assert.Null(ctx.CastEndTime);
+        Assert.Null(ctx.PostCastEndTime);
     }
 
     private static (CombatManager manager, FakeSkillPipeline pipeline, Dictionary<string, MapState> maps)
