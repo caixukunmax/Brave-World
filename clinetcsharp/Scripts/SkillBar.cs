@@ -18,7 +18,7 @@ namespace ClinetCSharp
         [Export] public int NameFontSize { get; set; } = 10;
         private const int MaxSlots = 4;
         private const int CdRowHeight = 16;
-        private const float DoubleClickTimeout = 0.2f;
+        private const float DefaultDoubleClickTimeout = 0.2f;
         public int NameRowHeight => Mathf.Max(NameFontSize + 8, 18);
 
         private NetworkManager _network;
@@ -32,7 +32,10 @@ namespace ClinetCSharp
             AddToGroup("skill_bar");
             BuildSlots();
 
-            _clickTimer = new Timer { WaitTime = DoubleClickTimeout, OneShot = true };
+            float doubleClickSpeed = (float)ProjectSettings.GetSetting("input_devices/pointing/double_click_speed");
+            if (doubleClickSpeed <= 0f)
+                doubleClickSpeed = DefaultDoubleClickTimeout;
+            _clickTimer = new Timer { WaitTime = doubleClickSpeed, OneShot = true };
             AddChild(_clickTimer);
             _clickTimer.Timeout += OnPendingClick;
 
@@ -284,6 +287,10 @@ namespace ClinetCSharp
 
         internal void ScheduleClick(int slotIndex)
         {
+            // 快速点击不同槽位时，先把上一个未决的单击下发，避免丢失
+            if (_pendingClickSlot >= 0 && _pendingClickSlot != slotIndex)
+                OnSlotClicked(_pendingClickSlot);
+
             _pendingClickSlot = slotIndex;
             _clickTimer?.Start();
         }

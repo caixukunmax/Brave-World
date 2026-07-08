@@ -671,7 +671,7 @@ message CastRequest {
 
 message CastResponse {
   bool   success = 1;
-  string error = 2;          // 失败原因：cooldown / out_of_range / not_in_combat / no_mp / invalid_skill / already_casting / post_cast
+  string error = 2;          // 失败原因：cooldown / out_of_range / not_in_combat / no_mp / invalid_skill / already_casting / post_cast / no_target
 }
 
 /**

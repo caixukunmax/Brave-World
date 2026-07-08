@@ -371,13 +371,13 @@ public class CombatManager
         }
 
         // 死亡时清除一次性优先技能（必须在移除 CombatContext 之前执行）
-        if (entityId < 1000000)
+        if (entityId < CombatConstants.MonsterIdThreshold)
             ClearPreferredSkill(entityId, mapsSafe);
 
         _relations.OnEntityRemoved(entityId);
 
         // NPC 死亡/脱战：重置 InCombat
-        if (entityId < 1000000)
+        if (entityId < CombatConstants.MonsterIdThreshold)
         {
             foreach (var map in mapsSafe.Values)
             {
