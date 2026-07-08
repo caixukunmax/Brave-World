@@ -489,7 +489,7 @@ public class CombatManager
         }
     }
 
-    /// <summary>怪物 CD 驱动自动施法 — 纯 CD 制下怪物按冷却自动释放技能</summary>
+    /// <summary>战斗实体 CD 驱动自动施法 — 纯 CD 制下按冷却自动释放技能</summary>
     private void TickMonsterSkills(double dt, Dictionary<string, MapState> maps)
     {
         long now = Environment.TickCount64;
@@ -507,14 +507,11 @@ public class CombatManager
                     ctx.PostCastEndTime = null;
                 }
 
-                // 只处理怪物自动施法（玩家由手动 CastRequest 驱动）
-                if (entityId >= CombatConstants.MonsterIdThreshold)
+                // 处理所有战斗实体自动施法（玩家 + 怪物）
+                int skillId = SelectSkillWithLog(ctx, entityId, maps);
+                if (skillId > 0)
                 {
-                    int skillId = SelectSkillWithLog(ctx, entityId, maps);
-                    if (skillId > 0)
-                    {
-                        RequestCast(entityId, skillId, maps);
-                    }
+                    RequestCast(entityId, skillId, maps);
                 }
             }
             else if (ctx.SubState == "CASTING")
