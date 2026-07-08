@@ -560,11 +560,28 @@ public class CombatManager
         BroadcastCombatState(maps);
     }
 
+    private void ClearPreferredSkillIfCast(long entityId, int skillId, Dictionary<string, MapState> maps)
+    {
+        var ctx = _relations.Contexts.GetValueOrDefault(entityId);
+        if (ctx == null || ctx.PreferredSkillId != skillId) return;
+
+        ctx.PreferredSkillId = 0;
+
+        // 同步回 MapPlayerState
+        string? mapName = SkillPipeline.GetEntityMapName(entityId, maps);
+        if (mapName != null && maps.TryGetValue(mapName, out var map))
+        {
+            if (map.Players.TryGetValue(entityId, out var p))
+                p.PreferredSkillId = 0;
+        }
+    }
+
     private void RequestCast(long entityId, int skillId, Dictionary<string, MapState> maps)
     {
         var result = _pipeline.Cast(skillId, entityId, maps);
         if (result == "SUCCESS")
         {
+            ClearPreferredSkillIfCast(entityId, skillId, maps);
             long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
             string? skillName = SkillPipeline.GetSkillNameStatic(skillId);
             string actorName = SkillPipeline.GetEntityName(entityId, maps);
@@ -606,6 +623,7 @@ public class CombatManager
         }
         else if (result == "PENDING")
         {
+            ClearPreferredSkillIfCast(entityId, skillId, maps);
             // 读条中，无需额外日志（SkillStartCast 已在 Cast 中输出）
         }
     }
@@ -629,7 +647,10 @@ public class CombatManager
         var result = _pipeline.Cast(skillId, playerId, maps);
 
         if (result == "SUCCESS" || result == "PENDING")
+        {
+            ClearPreferredSkillIfCast(playerId, skillId, maps);
             return new PGame.CastResponse { Success = true };
+        }
         if (result == "MISS")
             return new PGame.CastResponse { Success = true }; // 打空也算释放成功，只是没命中
 
