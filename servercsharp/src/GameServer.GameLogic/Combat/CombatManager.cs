@@ -676,7 +676,29 @@ public class CombatManager
         if (!ctx.SkillPool.Contains(skillId))
             return new PGame.CastResponse { Success = false, Error = "invalid_skill" };
 
+        // 若当前正在读条，中断后会返还该技能的 MP；预校验时先把返还计入，避免新技能因 MP 误判而失败
+        int refundMp = 0;
+        if (ctx.SubState == "CASTING" && ctx.CastSkillId.HasValue)
+        {
+            var castingCfg = SkillPipeline.GetSkillConfigStatic(ctx.CastSkillId.Value);
+            refundMp = castingCfg?.MpCost ?? 0;
+        }
+
+        MapPlayerState? casterState = null;
+        foreach (var map in maps.Values)
+        {
+            if (map.Players.TryGetValue(playerId, out casterState))
+                break;
+        }
+
+        if (refundMp > 0 && casterState != null)
+            casterState.Mp = Math.Min(casterState.MaxMp, casterState.Mp + refundMp);
+
         var (ok, err) = _pipeline.PreCheck(skillId, ctx, playerId, maps);
+
+        if (refundMp > 0 && casterState != null)
+            casterState.Mp = Math.Max(0, casterState.Mp - refundMp);
+
         if (!ok)
             return new PGame.CastResponse { Success = false, Error = err == "insufficient_mp" ? "no_mp" : err ?? "cast_failed" };
 
@@ -687,7 +709,7 @@ public class CombatManager
         // 校验通过后再中断当前施法，避免无效请求白白打断当前读条/后摇
         if (ctx.SubState == "CASTING" || ctx.SubState == "POST_CAST")
         {
-            _pipeline.InterruptCast(playerId);
+            _pipeline.InterruptCast(playerId, maps);
         }
 
         var result = _pipeline.Cast(skillId, playerId, maps);

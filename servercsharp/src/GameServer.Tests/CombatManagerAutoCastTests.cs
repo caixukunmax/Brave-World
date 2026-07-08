@@ -303,6 +303,46 @@ public class CombatManagerAutoCastTests
         Assert.Equal(9999, ctx.CastSkillId);
     }
 
+    [Fact]
+    public void HandleCastRequest_WithInterrupt_RefundsMp_WhenCasting()
+    {
+        var (manager, pipeline, maps) = CreateManagerWithCombat();
+        var ctx = manager.GetContext(PlayerId)!;
+        var player = maps[MapName].Players[PlayerId];
+
+        ctx.SubState = "CASTING";
+        ctx.CastSkillId = SkillId;
+        ctx.CastEndTime = Environment.TickCount64 + 60_000;
+        player.Mp -= 10; // 模拟 StartCast 已扣除 MP
+        int mpBefore = player.Mp;
+        pipeline.NextResult = "SUCCESS";
+
+        PGame.CastResponse response = manager.HandleCastRequest(PlayerId, SkillId, interrupt: true, targetId: null, maps);
+
+        Assert.True(response.Success);
+        Assert.Single(pipeline.CastCalls);
+        Assert.Equal(mpBefore + 10, player.Mp);
+    }
+
+    [Fact]
+    public void HandleCastRequest_WithInterrupt_DoesNotRefundMp_DuringPostCast()
+    {
+        var (manager, pipeline, maps) = CreateManagerWithCombat();
+        var ctx = manager.GetContext(PlayerId)!;
+        var player = maps[MapName].Players[PlayerId];
+
+        ctx.SubState = "POST_CAST";
+        ctx.PostCastEndTime = Environment.TickCount64 + 60_000;
+        player.Mp = 90;
+        pipeline.NextResult = "SUCCESS";
+
+        PGame.CastResponse response = manager.HandleCastRequest(PlayerId, SkillId, interrupt: true, targetId: null, maps);
+
+        Assert.True(response.Success);
+        Assert.Single(pipeline.CastCalls);
+        Assert.Equal(90, player.Mp);
+    }
+
     private static (CombatManager manager, FakeSkillPipeline pipeline, Dictionary<string, MapState> maps)
         CreateManagerWithCombat()
     {
@@ -313,6 +353,7 @@ public class CombatManagerAutoCastTests
             Name = "Test Skill",
             CastRange = 1,
             CastTime = 0,
+            MpCost = 10,
             TargetType = ESkillTargetType.SingleEnemy,
         };
 

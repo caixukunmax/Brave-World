@@ -193,13 +193,21 @@ public class SkillPipeline
         }
     }
 
-    public void InterruptCast(long entityId)
+    public void InterruptCast(long entityId, Dictionary<string, MapState>? maps = null)
     {
         var ctx = CombatManager!.RelationsMgr.Contexts.GetValueOrDefault(entityId);
         if (ctx == null) return;
 
         if (ctx.SubState == "CASTING" || ctx.SubState == "POST_CAST")
         {
+            // 读条阶段中断：返还已扣除的 MP（后摇阶段技能已生效，不返还）
+            if (ctx.SubState == "CASTING" && ctx.CastSkillId.HasValue && maps != null)
+            {
+                var cfg = GetSkillConfig(ctx.CastSkillId.Value);
+                if (cfg != null && cfg.MpCost > 0)
+                    RefundMp(entityId, cfg.MpCost, maps);
+            }
+
             ctx.SubState = "NONE";
             ctx.CastSkillId = null;
             ctx.CastEndTime = null;

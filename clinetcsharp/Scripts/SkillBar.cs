@@ -18,7 +18,7 @@ namespace ClinetCSharp
         [Export] public int NameFontSize { get; set; } = 10;
         private const int MaxSlots = 4;
         private const int CdRowHeight = 16;
-        private const float DefaultDoubleClickTimeout = 0.2f;
+        private const float DefaultDoubleClickTimeout = 0.4f;
         public int NameRowHeight => Mathf.Max(NameFontSize + 8, 18);
 
         private NetworkManager _network;
