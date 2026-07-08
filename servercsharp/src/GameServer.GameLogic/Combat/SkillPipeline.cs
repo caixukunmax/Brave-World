@@ -345,7 +345,7 @@ public class SkillPipeline
     }
 
     // ---- 主接口 ----
-    public string Cast(int skillId, long casterId, Dictionary<string, MapState>? maps)
+    public virtual string Cast(int skillId, long casterId, Dictionary<string, MapState>? maps)
     {
         var ctx = CombatManager!.RelationsMgr.Contexts.GetValueOrDefault(casterId);
         if (ctx == null) return "FAILURE";

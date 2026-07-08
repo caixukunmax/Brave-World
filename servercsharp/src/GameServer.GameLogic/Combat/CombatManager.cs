@@ -501,17 +501,20 @@ public class CombatManager
             {
                 if (ctx.SubState == "POST_CAST" && ctx.PostCastEndTime.HasValue && now < ctx.PostCastEndTime)
                 { /* 后摇中 */ }
-                else if (ctx.SubState == "POST_CAST")
+                else
                 {
-                    ctx.SubState = "NONE";
-                    ctx.PostCastEndTime = null;
-                }
+                    if (ctx.SubState == "POST_CAST")
+                    {
+                        ctx.SubState = "NONE";
+                        ctx.PostCastEndTime = null;
+                    }
 
-                // 处理所有战斗实体自动施法（玩家 + 怪物）
-                int skillId = SelectSkillWithLog(ctx, entityId, maps);
-                if (skillId > 0)
-                {
-                    RequestCast(entityId, skillId, maps);
+                    // 处理所有战斗实体自动施法（玩家 + 怪物）
+                    int skillId = SelectSkillWithLog(ctx, entityId, maps);
+                    if (skillId > 0)
+                    {
+                        RequestCast(entityId, skillId, maps);
+                    }
                 }
             }
             else if (ctx.SubState == "CASTING")
@@ -601,6 +604,7 @@ public class CombatManager
         }
         else if (result == "MISS")
         {
+            ClearPreferredSkillIfCast(entityId, skillId, maps);
             long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
             string actorName = SkillPipeline.GetEntityName(entityId, maps);
             string sName = SkillPipeline.GetSkillNameStatic(skillId) ?? "未知技能";

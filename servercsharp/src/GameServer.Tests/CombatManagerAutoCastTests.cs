@@ -1,0 +1,149 @@
+using System.Reflection;
+using GameServer.Services.Core;
+using GameServer.Services.Map.Combat;
+using GameServer.Services.Map.Combat.Actions;
+using GameServer.Tables;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+using Xunit;
+
+namespace GameServer.Tests;
+
+public class CombatManagerAutoCastTests
+{
+    private const long PlayerId = 1L;
+    private const long MonsterId = 1_000_001L;
+    private const int SkillId = 9001;
+    private const string MapName = "test_map";
+
+    [Fact]
+    public void RequestCast_ClearsPreferredSkill_OnMiss()
+    {
+        var (manager, pipeline, maps) = CreateManagerWithCombat();
+        var ctx = manager.GetContext(PlayerId)!;
+        Assert.Equal(SkillId, ctx.PreferredSkillId);
+
+        var requestCast = typeof(CombatManager).GetMethod(
+            "RequestCast",
+            BindingFlags.NonPublic | BindingFlags.Instance)!;
+
+        pipeline.NextResult = "MISS";
+        requestCast.Invoke(manager, new object[] { PlayerId, SkillId, maps });
+
+        Assert.Single(pipeline.CastCalls);
+        Assert.Equal((SkillId, PlayerId), pipeline.CastCalls[0]);
+        Assert.Equal(0, ctx.PreferredSkillId);
+        Assert.Equal(0, maps[MapName].Players[PlayerId].PreferredSkillId);
+    }
+
+    [Fact]
+    public void TickMonsterSkills_SkipsAutoCast_DuringPostCast()
+    {
+        var (manager, pipeline, maps) = CreateManagerWithCombat();
+        var ctx = manager.GetContext(PlayerId)!;
+        var player = maps[MapName].Players[PlayerId];
+
+        // 手动进入后摇期，并设置一个足够远的结束时间
+        ctx.SubState = "POST_CAST";
+        long postCastEnd = Environment.TickCount64 + 60_000;
+        ctx.PostCastEndTime = postCastEnd;
+        player.PreferredSkillId = SkillId;
+        ctx.PreferredSkillId = SkillId;
+
+        var tickMonsterSkills = typeof(CombatManager).GetMethod(
+            "TickMonsterSkills",
+            BindingFlags.NonPublic | BindingFlags.Instance)!;
+
+        pipeline.NextResult = "SUCCESS";
+        tickMonsterSkills.Invoke(manager, new object[] { 0.033d, maps });
+
+        // 后摇期间不应发起自动施法
+        Assert.Empty(pipeline.CastCalls);
+        Assert.Equal("POST_CAST", ctx.SubState);
+        Assert.Equal(postCastEnd, ctx.PostCastEndTime);
+        Assert.Equal(SkillId, ctx.PreferredSkillId);
+        Assert.Equal(SkillId, player.PreferredSkillId);
+    }
+
+    private static (CombatManager manager, FakeSkillPipeline pipeline, Dictionary<string, MapState> maps)
+        CreateManagerWithCombat()
+    {
+        var tables = new LubanTableLoader(NullLogger<LubanTableLoader>.Instance);
+        tables.Skills[SkillId] = new SkillConfigRow
+        {
+            Id = SkillId,
+            Name = "Test Skill",
+            CastRange = 1,
+            CastTime = 0,
+            TargetType = ESkillTargetType.SingleEnemy,
+        };
+
+        var pipeline = new FakeSkillPipeline(tables);
+        var manager = new CombatManager(
+            NullLogger<CombatManager>.Instance,
+            NullLoggerFactory.Instance,
+            pipeline,
+            new ActionRegistry(),
+            new FakeNetworkSender(),
+            tables);
+
+        var player = new MapPlayerState
+        {
+            AccountId = PlayerId,
+            RoleId = PlayerId,
+            RoleName = "Player",
+            GridX = 0,
+            GridY = 0,
+            Job = "warrior",
+            EquippedSkills = new List<int> { SkillId },
+            PreferredSkillId = SkillId,
+            Hp = 100,
+            MaxHp = 100,
+            Mp = 100,
+            MaxMp = 100,
+        };
+
+        var monster = new MapMonsterState
+        {
+            InstanceId = MonsterId,
+            MonsterId = 1,
+            Name = "Monster",
+            X = 1,
+            Y = 0,
+            Hp = 100,
+            MaxHp = 100,
+        };
+
+        var map = new MapState { MapId = 1 };
+        map.Players[PlayerId] = player;
+        map.Monsters[MonsterId] = monster;
+        var maps = new Dictionary<string, MapState> { [MapName] = map };
+
+        manager.OnCollision(PlayerId, MonsterId, maps);
+
+        return (manager, pipeline, maps);
+    }
+
+    private sealed class FakeSkillPipeline : SkillPipeline
+    {
+        public List<(int SkillId, long CasterId)> CastCalls { get; } = new();
+        public string NextResult { get; set; } = "MISS";
+
+        public FakeSkillPipeline(LubanTableLoader? tables = null)
+            : base(NullLogger<SkillPipeline>.Instance, new ActionRegistry(), tables)
+        {
+        }
+
+        public override string Cast(int skillId, long casterId, Dictionary<string, MapState>? maps)
+        {
+            CastCalls.Add((skillId, casterId));
+            return NextResult;
+        }
+    }
+
+    private sealed class FakeNetworkSender : INetworkSender
+    {
+        public void SendToAccount(long accountId, int serverId, int msgId, byte[] data) { }
+        public void SendToClient(long connId, int msgId, uint session, byte[] data) { }
+    }
+}
