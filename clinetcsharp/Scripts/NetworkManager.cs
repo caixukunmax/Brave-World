@@ -55,6 +55,7 @@ namespace ClinetCSharp
         public event Action<Game.PlayerDeathNotify> PlayerDeathNotify;
         public event Action<Game.EquipSkillResponse> EquipSkillResponse;
         public event Action<Game.UnequipSkillResponse> UnequipSkillResponse;
+        public event Action<Game.SetPreferredSkillResponse> SetPreferredSkillResponse;
         public event Action<Game.NpcInteractNotify> NpcInteractNotify;
         public event Action<Game.NpcCombatResponse> NpcCombatResponse;
         public event Action<Game.ChangeJobResponse> ChangeJobResponse;

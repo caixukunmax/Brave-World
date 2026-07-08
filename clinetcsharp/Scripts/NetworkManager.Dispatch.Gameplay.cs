@@ -68,6 +68,7 @@ namespace ClinetCSharp
         {
             var rsp = Game.SetPreferredSkillResponse.Parser.ParseFrom(data);
             GD.Print($"[Network] SetPreferredSkill: skill={rsp.PreferredSkillId} code={rsp.Code}");
+            SetPreferredSkillResponse?.Invoke(rsp);
         }
 
         private void HandleChangeJobResponse(ByteString data)
