@@ -666,6 +666,7 @@ message SetPreferredSkillResponse {
 message CastRequest {
   uint32 skill_id = 1;       // 请求释放的技能 ID
   uint64 target_id = 2;      // 目标实体 ID（可选，0 = 自动选择）
+  bool   interrupt = 3;      // true = 中断当前施法/后摇并立即释放
 }
 
 message CastResponse {
