@@ -76,7 +76,7 @@ namespace ClinetCSharp
                 CastProgress = 0;
             }
 
-            QueueRedraw();
+            RefreshCastingVisuals();
         }
 
         private void OnCombatEndNotify(Game.CombatEndNotify notify)
@@ -92,7 +92,7 @@ namespace ClinetCSharp
                     IsInCombat = false;
                     CastingSkill = "";
                     CastProgress = 0;
-                    QueueRedraw();
+                    RefreshCastingVisuals();
                     break;
                 }
             }
@@ -108,7 +108,7 @@ namespace ClinetCSharp
 
             CastingSkill = SkillDataUtil.GetName((uint)notify.SkillId) ?? $"Skill{notify.SkillId}";
             CastProgress = 0f;
-            QueueRedraw();
+            RefreshCastingVisuals();
         }
 
         private void OnCombatEventNotify(Game.CombatEventNotify notify)
@@ -178,6 +178,18 @@ namespace ClinetCSharp
 
             CastingSkill = "";
             CastProgress = 0;
+            RefreshCastingVisuals();
+        }
+
+        private void RefreshCastingVisuals()
+        {
+            // 状态标签（index 3）显示当前正在释放的技能；无施法时恢复为角色状态
+            string statusText = string.IsNullOrEmpty(CastingSkill) ? Status : CastingSkill;
+            SetLabelText(3, statusText);
+
+            CastBarFillPercent = CastProgress;
+            CastBarVisible = !string.IsNullOrEmpty(CastingSkill);
+
             QueueRedraw();
         }
     }
