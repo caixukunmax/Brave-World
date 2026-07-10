@@ -102,7 +102,7 @@ namespace ClinetCSharp
             // 旧默认建筑 ID 10/11/12 → 新建筑配置 ID
             var migrationMap = new Dictionary<int, int>
             {
-                [10] = BuildingType.GetConfigBaseId(BuildingType.House),      // 房舍
+                [10] = BuildingType.GetConfigBaseId(BuildingType.House) + 1,  // 房舍
                 [11] = BuildingType.GetConfigBaseId(BuildingType.Shop) + 1,   // 商店子配置
                 [12] = BuildingType.GetConfigBaseId(BuildingType.Shop) + 2,   // 商店子配置
             };

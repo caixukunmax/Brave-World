@@ -237,6 +237,11 @@ namespace ClinetCSharp
                 ApplyDefaultStyle(n);
         }
 
+        /// <summary>
+        /// 获取所有 NPC 实体（供小地图/大地图显示标记）
+        /// </summary>
+        public System.Collections.Generic.IReadOnlyList<Npc> GetNpcs() => _npcs;
+
         public Npc GetNpcAt(Vector2I gridPos)
         {
             foreach (var npc in _npcs)

@@ -37,6 +37,9 @@ namespace ClinetCSharp
         /// <summary>历史遗留字段，纯 CD 制下始终为 0，保留以避免破坏序列化兼容性</summary>
         public float AtbValue { get; set; } = 0f;
 
+        public uint NextSkillId { get; set; }
+        public float NextSkillReadyIn { get; set; }
+
         public string CurrentState
         {
             get => _currentState;
@@ -128,9 +131,8 @@ namespace ClinetCSharp
             AddRenderComponent(new RenderComponents.AppearanceComponent());
             AddRenderComponent(new RenderComponents.HealthBarComponent());
             AddRenderComponent(new RenderComponents.MpBarComponent());
-            AddRenderComponent(new RenderComponents.CastBarComponent());
-            AddRenderComponent(new RenderComponents.ActionBarComponent());
             AddRenderComponent(new RenderComponents.DebugOverlayComponent());
+            // 施法条/动作栏由 Profile 组件动态驱动，不再硬编码
         }
 
         public override void MoveTo(Vector2I targetGridPos, float duration = 0.15f)
@@ -259,17 +261,31 @@ namespace ClinetCSharp
             SetRichLabelText(0, BuildDisplayName());
             SetRichLabelText(1, string.IsNullOrWhiteSpace(MonsterQuality) ? "普通" : MonsterQuality);
 
-            // 标签2：施法时显示具体技能名，否则显示状态
-            if (!string.IsNullOrEmpty(CastingSkill))
-                SetRichLabelText(2, "施法中");
-            else
-                SetRichLabelText(2, GetStateDisplayText(CurrentState));
+            // 标签2：预留（隐藏）
+            SetRichLabelText(2, "");
 
-            // 标签3：血量百分比（仅在战斗中有意义时显示）
-            if (HealthBarFillPercent < 1.0f)
-                SetRichLabelText(3, $"HP {(int)(HealthBarFillPercent * 100)}%");
+            // 标签3（状态）：施法中 > 过渡期“技能准备中” > 普通状态文本
+            if (!string.IsNullOrEmpty(CastingSkill))
+            {
+                SetRichLabelText(3, CastingSkill);
+                CastBarVisible = true;
+                // CastBarFillPercent 由 StartCastAnimation 的 Tween 驱动
+            }
+            else if (NextSkillId > 0)
+            {
+                SetRichLabelText(3, "技能准备中");
+                CastBarVisible = true;
+                var skillData = SkillDataUtil.Get(NextSkillId);
+                double totalCd = skillData.cd > 0 ? skillData.cd : NextSkillReadyIn;
+                CastBarFillPercent = totalCd > 0
+                    ? 1f - Mathf.Clamp(NextSkillReadyIn / (float)totalCd, 0f, 1f)
+                    : 1f;
+            }
             else
-                SetRichLabelText(3, "");
+            {
+                SetRichLabelText(3, GetStateDisplayText(CurrentState));
+                CastBarVisible = false;
+            }
         }
 
         private string BuildDisplayName()

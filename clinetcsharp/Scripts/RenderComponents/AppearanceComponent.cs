@@ -17,7 +17,9 @@ namespace ClinetCSharp.RenderComponents
 
         public void Draw()
         {
-            EntityDrawUtils.DrawBody(_entity, _entity.VisualOuterSize, _entity.VisualSize, _entity.BgColor, _entity.BgOpacity,
+            // 多格建筑使用矩形尺寸按 footprint 填充；1x1 实体 X/Y 相等，退化为旧正方形逻辑。
+            EntityDrawUtils.DrawBody(_entity, _entity.VisualOuterSizeX, _entity.VisualOuterSizeY,
+                _entity.VisualSizeX, _entity.VisualSizeY, _entity.BgColor, _entity.BgOpacity,
                 _entity.BorderColor, _entity.BorderWidth, _entity.CornerRadius);
         }
     }

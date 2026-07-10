@@ -45,10 +45,17 @@ public class MultiGridTests
         var cfg = new BuildingConfigProvider();
         cfg.Load(GetBuildingsJsonPath());
 
-        var (sx, sy) = cfg.GetSize(10000);
+        // 10001 = 房舍（2x2，阻塞）
+        var (sx, sy) = cfg.GetSize(10001);
         Assert.Equal(2, sx);
         Assert.Equal(2, sy);
-        Assert.True(cfg.BlocksMovement(10000));
+        Assert.True(cfg.BlocksMovement(10001));
+
+        // 10000 = 树（1x1，不阻塞）
+        var (sxTree, syTree) = cfg.GetSize(10000);
+        Assert.Equal(1, sxTree);
+        Assert.Equal(1, syTree);
+        Assert.False(cfg.BlocksMovement(10000));
 
         var (sx1, sy1) = cfg.GetSize(20001);
         Assert.Equal(1, sx1);
@@ -66,9 +73,9 @@ public class MultiGridTests
     public void MapDataProvider_ExpandsBuildingFootprint()
     {
         var mapData = CreateMapDataWithBuildingConfig();
-        // 5x5 地图，(1,1) 放置 2x2 房舍 10000
+        // 5x5 地图，(1,1) 放置 2x2 房舍 10001
         var cells = Enumerable.Range(0, 25).Select(_ => "{\"terrain\":1,\"height\":0}").ToArray();
-        cells[1 * 5 + 1] = "{\"terrain\":1,\"height\":0,\"decoration\":10000}";
+        cells[1 * 5 + 1] = "{\"terrain\":1,\"height\":0,\"decoration\":10001}";
         mapData.LoadMap("test_map", 0, 0, 5, 5, cells);
 
         // footprint 内 4 格都不可行走
@@ -283,7 +290,7 @@ public class MultiGridTests
         var mapData = CreateMapDataWithBuildingConfig();
         // 5x5 地图，(1,1) 放置 2x2 房舍
         var cells = Enumerable.Range(0, 25).Select(_ => "{\"terrain\":1,\"height\":0}").ToArray();
-        cells[1 * 5 + 1] = "{\"terrain\":1,\"height\":0,\"decoration\":10000}";
+        cells[1 * 5 + 1] = "{\"terrain\":1,\"height\":0,\"decoration\":10001}";
         mapData.LoadMap("test_map", 0, 0, 5, 5, cells);
 
         var ws = CreateWorldState(mapData);
@@ -310,7 +317,7 @@ public class MultiGridTests
     {
         var mapData = CreateMapDataWithBuildingConfig();
         var cells = Enumerable.Range(0, 25).Select(_ => "{\"terrain\":1,\"height\":0}").ToArray();
-        cells[1 * 5 + 1] = "{\"terrain\":1,\"height\":0,\"decoration\":10000}";
+        cells[1 * 5 + 1] = "{\"terrain\":1,\"height\":0,\"decoration\":10001}";
         mapData.LoadMap("test_map", 0, 0, 5, 5, cells);
 
         var ws = CreateWorldState(mapData);
@@ -370,7 +377,7 @@ public class MultiGridTests
         var mapData = CreateMapDataWithBuildingConfig();
         // 5x5 地图，(1,1) 放置 2x2 房舍
         var cells = Enumerable.Range(0, 25).Select(_ => "{\"terrain\":1,\"height\":0}").ToArray();
-        cells[1 * 5 + 1] = "{\"terrain\":1,\"height\":0,\"decoration\":10000}";
+        cells[1 * 5 + 1] = "{\"terrain\":1,\"height\":0,\"decoration\":10001}";
         mapData.LoadMap("test_map", 0, 0, 5, 5, cells);
 
         // 2x2 实体以 (1,1) 为锚点时落在建筑上，应被修正到最近的合法锚点

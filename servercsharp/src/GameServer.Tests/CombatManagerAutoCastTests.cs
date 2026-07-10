@@ -418,6 +418,12 @@ public class CombatManagerAutoCastTests
             CastCalls.Add((skillId, casterId));
             return NextResult;
         }
+
+        public override string CastForAuto(int skillId, long casterId, Dictionary<string, MapState>? maps)
+        {
+            CastCalls.Add((skillId, casterId));
+            return NextResult;
+        }
     }
 
     private sealed class FakeNetworkSender : INetworkSender

@@ -56,7 +56,7 @@ namespace ClinetCSharp
 
         private void HandleTeleportResponse(string message)
         {
-            if (!message.StartsWith("TELEPORT:"))
+            if (!message.StartsWith("TELEPORT:") && !message.StartsWith("RETURN:"))
                 return;
 
             var parts = message.Split(':');

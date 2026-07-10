@@ -37,6 +37,13 @@ namespace ClinetCSharp
             var defaultMask = ImageTexture.CreateFromImage(defaultImage);
             _shaderMaterial.SetShaderParameter("terrain_mask", defaultMask);
             _shaderMaterial.SetShaderParameter("terrain_mask_size", new Vector2(1.0f, 1.0f));
+
+            // 默认水面遮罩：全黑（无水）
+            var defaultWaterImage = Image.CreateEmpty(1, 1, false, Image.Format.Rgba8);
+            defaultWaterImage.SetPixel(0, 0, new Color(0.0f, 0.0f, 0.0f, 0.0f));
+            var defaultWaterMask = ImageTexture.CreateFromImage(defaultWaterImage);
+            _shaderMaterial.SetShaderParameter("water_mask", defaultWaterMask);
+            _shaderMaterial.SetShaderParameter("water_mask_size", new Vector2(1.0f, 1.0f));
         }
 
         public void UpdateOverlay(
@@ -108,6 +115,31 @@ namespace ClinetCSharp
                 return;
 
             DrawRect(new Rect2(0.0f, 0.0f, _mapWidthWorld, _mapHeightWorld), Colors.White, true);
+        }
+
+        /// <summary>
+        /// 更新水面遮罩纹理。R=1 表示该格子是水域，R=0 表示非水域。
+        /// </summary>
+        public void UpdateWaterMask(ImageTexture? waterMaskTexture, int mapWidth, int mapHeight)
+        {
+            if (_shaderMaterial == null)
+                return;
+
+            if (waterMaskTexture != null)
+            {
+                _shaderMaterial.SetShaderParameter("water_mask", waterMaskTexture);
+                _shaderMaterial.SetShaderParameter("water_mask_size", new Vector2(mapWidth, mapHeight));
+            }
+            else
+            {
+                var defaultImage = Image.CreateEmpty(1, 1, false, Image.Format.Rgba8);
+                defaultImage.SetPixel(0, 0, new Color(0.0f, 0.0f, 0.0f, 0.0f));
+                var defaultMask = ImageTexture.CreateFromImage(defaultImage);
+                _shaderMaterial.SetShaderParameter("water_mask", defaultMask);
+                _shaderMaterial.SetShaderParameter("water_mask_size", new Vector2(1.0f, 1.0f));
+            }
+
+            QueueRedraw();
         }
 
         /// <summary>

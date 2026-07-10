@@ -51,6 +51,7 @@ public class Role
     [BsonElement("move_speed_ms")]   public int    MoveSpeedMs   { get; set; }
     [BsonElement("learned_skills")]  public List<int> LearnedSkills  { get; set; } = new();
     [BsonElement("equipped_skills")] public List<int> EquippedSkills { get; set; } = new();
+    [BsonElement("preferred_skill_id")] public int PreferredSkillId { get; set; }
     [BsonElement("inventory_order")] public List<int> InventoryOrder { get; set; } = new();
     [BsonElement("job_skills")]      public Dictionary<string, JobSkillData> JobSkills { get; set; } = new();
 }

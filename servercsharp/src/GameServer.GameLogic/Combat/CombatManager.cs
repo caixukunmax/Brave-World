@@ -245,7 +245,7 @@ public class CombatManager
         string actorName = SkillPipeline.GetEntityName(attackerId, mapsSafe);
         string targetName = SkillPipeline.GetEntityName(targetId, mapsSafe);
 
-        _logger.LogInformation("[Combat] damage: attacker={Attacker} target={Target} dmg={Damage}", attackerId, targetId, damage);
+        _logger.LogDebug("[Combat] damage: attacker={Attacker} target={Target} dmg={Damage}", attackerId, targetId, damage);
 
         // 先广播伤害日志（死亡处理前，避免重生后收到多余日志）
         long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
@@ -299,7 +299,7 @@ public class CombatManager
         if (effectiveDamage < 0) effectiveDamage = 0;
         if (absorbed > 0)
         {
-            _logger.LogInformation("[Combat] shield absorbed: target={Target} absorbed={Absorbed} effective={Effective}", targetId, absorbed, effectiveDamage);
+            _logger.LogDebug("[Combat] shield absorbed: target={Target} absorbed={Absorbed} effective={Effective}", targetId, absorbed, effectiveDamage);
             CombatTrace.BuffShieldAbsorb(_logger, combatId, targetId, targetName, damage, absorbed, targetPlayer?.Buffs.GetShieldAmount() ?? 0);
         }
 
@@ -429,7 +429,7 @@ public class CombatManager
 
     public void ApplyHeal(long casterId, long targetId, int healAmount, string healType, Dictionary<string, MapState>? maps)
     {
-        _logger.LogInformation("[Combat] heal: caster={Caster} target={Target} amount={Amount}", casterId, targetId, healAmount);
+        _logger.LogDebug("[Combat] heal: caster={Caster} target={Target} amount={Amount}", casterId, targetId, healAmount);
 
         var mapsSafe = maps ?? new Dictionary<string, MapState>();
 
@@ -600,7 +600,7 @@ public class CombatManager
 
     private void RequestCast(long entityId, int skillId, Dictionary<string, MapState> maps)
     {
-        var result = _pipeline.Cast(skillId, entityId, maps);
+        var result = _pipeline.CastForAuto(skillId, entityId, maps);
         if (result == "SUCCESS")
         {
             ClearPreferredSkillIfCast(entityId, skillId, maps);
@@ -1055,6 +1055,7 @@ public class CombatManager
                     MaxHp = p.MaxHp,
                     Mp = p.Mp,
                     MaxMp = p.MaxMp,
+                    InCombat = false,
                 };
                 notify.Units.Add(unit);
                 _network.SendToAccount(accountId, p.ServerId,
@@ -1097,70 +1098,26 @@ public class CombatManager
     private int SelectSkill(CombatContext ctx, Dictionary<string, MapState> maps)
     {
         long now = Environment.TickCount64;
-        long entityId = ctx.EntityId;
 
-        // 辅助：检查技能是否有目标在施法范围内
-        bool IsInRange(int skillId)
-        {
-            var cfg = SkillPipeline.GetSkillConfigStatic(skillId);
-            if (cfg == null) return false;
-            if (cfg.TargetType == ESkillTargetType.Self) return true;
-
-            var casterPositions = SkillPipeline.FindEntityCombatPositions(entityId, maps);
-            if (casterPositions.Count == 0) return false;
-
-            foreach (var relationId in ctx.RelationIds)
-            {
-                var rel = _relations.Relations.GetValueOrDefault(relationId);
-                if (rel == null || !rel.IsActive) continue;
-
-                long targetId = 0;
-                if (cfg.TargetType == ESkillTargetType.SingleEnemy || cfg.TargetType == ESkillTargetType.AllEnemiesInRange)
-                {
-                    targetId = rel.AttackerId == entityId ? rel.TargetId :
-                               rel.TargetId == entityId ? rel.AttackerId : 0;
-                }
-                else if (cfg.TargetType == ESkillTargetType.AllAlliesInRange)
-                {
-                    bool casterIsPlayer = entityId < CombatConstants.MonsterIdThreshold;
-                    long otherId = rel.AttackerId == entityId ? rel.TargetId : rel.AttackerId;
-                    bool otherIsPlayer = otherId < CombatConstants.MonsterIdThreshold;
-                    if (casterIsPlayer == otherIsPlayer)
-                        targetId = otherId;
-                }
-
-                if (targetId == 0) continue;
-                var targetPositions = SkillPipeline.FindEntityCombatPositions(targetId, maps);
-                if (targetPositions.Count == 0) continue;
-                int d = SkillPipeline.MinCombatDistance(casterPositions, targetPositions);
-                if (d <= cfg.CastRange) return true;
-            }
-            return false;
-        }
-
-        // 优先释放被选中的技能
+        // 优先释放被选中的技能（仅检查 CD 就绪，不再检查射程；射程在 Final Validation 判定 Miss）
         if (ctx.PreferredSkillId > 0 &&
             ctx.SkillPool.Contains(ctx.PreferredSkillId) &&
-            (!ctx.SkillCooldowns.TryGetValue(ctx.PreferredSkillId, out var preferredCdEnd) || now >= preferredCdEnd) &&
-            IsInRange(ctx.PreferredSkillId))
+            (!ctx.SkillCooldowns.TryGetValue(ctx.PreferredSkillId, out var preferredCdEnd) || now >= preferredCdEnd))
         {
             return ctx.PreferredSkillId;
         }
 
-        // 若已选定一次性技能但尚未就绪/不在射程，保持选定状态，本 tick 不回落到常规 AI 选择
+        // 若已选定一次性技能但尚未就绪，保持选定状态，本 tick 不回落到常规 AI 选择
         if (ctx.PreferredSkillId > 0 && ctx.SkillPool.Contains(ctx.PreferredSkillId))
             return 0;
 
-        // 常规顺序选择（CD 就绪 + 目标在范围内）
+        // 常规顺序选择（仅检查 CD 就绪，射程由 Final Validation 判定）
         foreach (var skillId in ctx.SkillPool)
         {
             if (!ctx.SkillCooldowns.TryGetValue(skillId, out var cdEnd) || now >= cdEnd)
-            {
-                if (IsInRange(skillId))
-                    return skillId;
-            }
+                return skillId;
         }
-        return 0; // 所有技能冷却中或目标不在范围内
+        return 0; // 所有技能冷却中
     }
 
     /// <summary>记录 SelectSkill 决策（供调试）</summary>
@@ -1377,7 +1334,7 @@ public class CombatManager
     private void BroadcastCombatState(Dictionary<string, MapState> maps)
     {
         long nowMs = Environment.TickCount64;
-        var playerStates = new Dictionary<long, List<(long id, string name, double _, bool isPlayer, int hp, int maxHp, int mp, int maxMp, string castingSkill, float castProgress, List<(uint skillId, float remainingCd, float totalCd)> cds)>>();
+        var playerStates = new Dictionary<long, List<(long id, string name, double _, bool isPlayer, int hp, int maxHp, int mp, int maxMp, string castingSkill, float castProgress, List<(uint skillId, float remainingCd, float totalCd)> cds, uint nextSkillId, float nextSkillReadyIn)>>();
 
         foreach (var (mapName, map) in maps)
         {
@@ -1388,10 +1345,11 @@ public class CombatManager
 
                 var (cs, cp) = GetCastingInfo(ctx);
                 var playerCds = BuildCdEntries(ctx, nowMs);
+                var (pNextSkillId, pNextReadyIn) = ComputeNextSkill(ctx, maps, nowMs);
                 var unitSet = new HashSet<long> { accountId };
-                var units = new List<(long, string, double, bool, int, int, int, int, string, float, List<(uint, float, float)>)>
+                var units = new List<(long, string, double, bool, int, int, int, int, string, float, List<(uint, float, float)>, uint, float)>
                 {
-                    (accountId, p.RoleName ?? $"player_{accountId}", 0d, true, p.Hp, p.MaxHp, p.Mp, p.MaxMp, cs, cp, playerCds)
+                    (accountId, p.RoleName ?? $"player_{accountId}", 0d, true, p.Hp, p.MaxHp, p.Mp, p.MaxMp, cs, cp, playerCds, pNextSkillId, pNextReadyIn)
                 };
 
                 foreach (var relationId in ctx.RelationIds)
@@ -1411,9 +1369,10 @@ public class CombatManager
                     }
                     var (ocs, ocp) = GetCastingInfo(otherCtx);
                     var otherCds = BuildCdEntries(otherCtx, nowMs);
+                    var (oNextSkillId, oNextReadyIn) = ComputeNextSkill(otherCtx, maps, nowMs);
 
                     units.Add((otherId, SkillPipeline.GetEntityName(otherId, maps),
-                        0d, otherId < 1000000, otherHp, otherMaxHp, otherMp, otherMaxMp, ocs, ocp, otherCds));
+                        0d, otherId < 1000000, otherHp, otherMaxHp, otherMp, otherMaxMp, ocs, ocp, otherCds, oNextSkillId, oNextReadyIn));
                 }
 
                 if (units.Count > 0) playerStates[accountId] = units;
@@ -1427,13 +1386,15 @@ public class CombatManager
             int serverId = maps[mapName].Players.GetValueOrDefault(accountId)?.ServerId ?? 0;
 
             var notify = new PGame.CombatStateNotify();
-            foreach (var (id, name, _, isPlayer, hp, maxHp, mp, maxMp, castingSkill, castProgress, cds) in units)
+            foreach (var (id, name, _, isPlayer, hp, maxHp, mp, maxMp, castingSkill, castProgress, cds, nextSkillId, nextSkillReadyIn) in units)
             {
                 var unit = new PGame.CombatStateNotify.Types.CombatUnit
                 {
                     EntityId = (ulong)id, EntityName = name, Atb = 0f,
                     IsPlayer = isPlayer, Hp = hp, MaxHp = maxHp, Mp = mp, MaxMp = maxMp,
                     CastingSkill = castingSkill, CastProgress = castProgress,
+                    NextSkillId = nextSkillId, NextSkillReadyIn = nextSkillReadyIn,
+                    InCombat = true,
                 };
                 foreach (var (skillId, remainingCd, totalCd) in cds)
                     unit.SkillCds.Add(new PGame.CombatStateNotify.Types.SkillCdEntry
@@ -1443,6 +1404,43 @@ public class CombatManager
 
             _network.SendToAccount(accountId, serverId, (int)PProtocol.MessageId.GameCombatStateNotify, notify.ToByteArray());
         }
+    }
+
+    /// <summary>
+    /// 计算过渡期显示的"下一个技能"。
+    /// 仅在 SubState == NONE 时返回；读条/后摇期间返回 (0, 0)。
+    /// </summary>
+    private (uint skillId, float readyIn) ComputeNextSkill(CombatContext? ctx, Dictionary<string, MapState> maps, long nowMs)
+    {
+        if (ctx == null || ctx.SubState == "CASTING" || ctx.SubState == "POST_CAST" || ctx.SkillPool.Count == 0)
+            return (0, 0f);
+
+        int nextId = SelectSkill(ctx, maps);
+        if (nextId > 0)
+            return ((uint)nextId, 0f);
+
+        long minRemainingMs = long.MaxValue;
+        int fastestSkillId = 0;
+        foreach (var skillId in ctx.SkillPool)
+        {
+            if (!ctx.SkillCooldowns.TryGetValue(skillId, out var cdEnd))
+            {
+                fastestSkillId = skillId;
+                minRemainingMs = 0;
+                break;
+            }
+            long remaining = Math.Max(0, cdEnd - nowMs);
+            if (remaining < minRemainingMs)
+            {
+                minRemainingMs = remaining;
+                fastestSkillId = skillId;
+            }
+        }
+
+        if (fastestSkillId <= 0)
+            return (0, 0f);
+
+        return ((uint)fastestSkillId, minRemainingMs / 1000f);
     }
 
     private static List<(uint skillId, float remainingCd, float totalCd)> BuildCdEntries(CombatContext? ctx, long nowMs)

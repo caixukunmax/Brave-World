@@ -24,6 +24,19 @@ using PProtocol = global::Protocol;
 
 namespace GameServer;
 
+/// <summary>自动保存用的玩家字段快照 — 在 GameLoop 线程读取，避免与保存线程竞争</summary>
+file record RoleSaveSnapshot(
+    int Hp, int MaxHp, int Mp, int MaxMp,
+    int Patk, int Matk, int Pdef, int Mdef,
+    int MpRegen, int MoveSpeedMs,
+    int GridX, int GridY,
+    string CurrentMap,
+    int Level, int Exp,
+    string Job,
+    int PreferredSkillId,
+    List<int> LearnedSkills,
+    List<int> EquippedSkills);
+
 class Program
 {
     static async Task Main(string[] args)
@@ -237,7 +250,7 @@ public class GameServerHostedService : IHostedService
         _ = MonsterTickLoop(hotReloader, gameLoop, _cts.Token);
         _ = CombatTickLoop(hotReloader, mapService, gameLoop, _cts.Token);
         _ = DropTickLoop(hotReloader, gameLoop, _cts.Token);
-        _ = PlayerAutoSaveLoop(playerSession, _cts.Token);
+        _ = PlayerAutoSaveLoop(playerSession, gameLoop, _cts.Token);
         _ = HotReloadCommandLoop(hotReloader, _logger, network, mapData, mapService, handlerRegistry, playerSession, router, worldState, eventBus, _cts.Token);
         _logger.LogInformation("Game tick loops started");
 
@@ -323,6 +336,7 @@ public class GameServerHostedService : IHostedService
 
     private static async Task PlayerAutoSaveLoop(
         PlayerSessionManager playerSession,
+        IGameLoopScheduler gameLoop,
         CancellationToken ct)
     {
         using var timer = new PeriodicTimer(TimeSpan.FromMinutes(5));
@@ -333,38 +347,64 @@ public class GameServerHostedService : IHostedService
                 var players = playerSession.OnlinePlayers;
                 if (players.Count == 0) continue;
 
-                int saved = 0;
-                foreach (var (accountId, role) in players)
+                // 在 GameLoop 线程读取 Role 字段生成快照，避免与游戏逻辑线程竞争
+                var snapshots = await gameLoop.Enqueue(() =>
                 {
-                    try
+                    var list = new List<(long AccountId, long RoleId, RoleSaveSnapshot Snapshot)>();
+                    foreach (var (accountId, role) in players)
                     {
-                        await playerSession.Roles.Update(role.RoleId, u =>
-                            u.Set(r => r.Hp, role.Hp)
-                             .Set(r => r.MaxHp, role.MaxHp)
-                             .Set(r => r.Mp, role.Mp)
-                             .Set(r => r.MaxMp, role.MaxMp)
-                             .Set(r => r.Patk, role.Patk)
-                             .Set(r => r.Matk, role.Matk)
-                             .Set(r => r.Pdef, role.Pdef)
-                             .Set(r => r.Mdef, role.Mdef)
-                             .Set(r => r.MpRegen, role.MpRegen)
-                             .Set(r => r.MoveSpeedMs, role.MoveSpeedMs)
-                             .Set(r => r.GridX, role.GridX)
-                             .Set(r => r.GridY, role.GridY)
-                             .Set(r => r.CurrentMap, role.CurrentMap)
-                             .Set(r => r.Level, role.Level)
-                             .Set(r => r.Exp, role.Exp)
-                             .Set(r => r.Job, role.Job)
-                             .Set(r => r.LearnedSkills, role.LearnedSkills)
-                             .Set(r => r.EquippedSkills, role.EquippedSkills));
-                        saved++;
+                        list.Add((accountId, role.RoleId, new RoleSaveSnapshot(
+                            role.Hp, role.MaxHp, role.Mp, role.MaxMp,
+                            role.Patk, role.Matk, role.Pdef, role.Mdef,
+                            role.MpRegen, role.MoveSpeedMs,
+                            role.GridX, role.GridY,
+                            role.CurrentMap,
+                            role.Level, role.Exp,
+                            role.Job,
+                            role.PreferredSkillId,
+                            new List<int>(role.LearnedSkills),
+                            new List<int>(role.EquippedSkills))));
                     }
-                    catch (Exception ex)
+                    return list;
+                });
+
+                // 在后台线程批量写 MongoDB，不阻塞 GameLoop
+                _ = Task.Run(async () =>
+                {
+                    int saved = 0;
+                    foreach (var (accountId, roleId, snapshot) in snapshots)
                     {
-                        Console.WriteLine($"[AutoSave] Failed for role {role.RoleId}: {ex.Message}");
+                        try
+                        {
+                            await playerSession.Roles.Update(roleId, u =>
+                                u.Set(r => r.Hp, snapshot.Hp)
+                                 .Set(r => r.MaxHp, snapshot.MaxHp)
+                                 .Set(r => r.Mp, snapshot.Mp)
+                                 .Set(r => r.MaxMp, snapshot.MaxMp)
+                                 .Set(r => r.Patk, snapshot.Patk)
+                                 .Set(r => r.Matk, snapshot.Matk)
+                                 .Set(r => r.Pdef, snapshot.Pdef)
+                                 .Set(r => r.Mdef, snapshot.Mdef)
+                                 .Set(r => r.MpRegen, snapshot.MpRegen)
+                                 .Set(r => r.MoveSpeedMs, snapshot.MoveSpeedMs)
+                                 .Set(r => r.GridX, snapshot.GridX)
+                                 .Set(r => r.GridY, snapshot.GridY)
+                                 .Set(r => r.CurrentMap, snapshot.CurrentMap)
+                                 .Set(r => r.Level, snapshot.Level)
+                                 .Set(r => r.Exp, snapshot.Exp)
+                                 .Set(r => r.Job, snapshot.Job)
+                                 .Set(r => r.PreferredSkillId, snapshot.PreferredSkillId)
+                                 .Set(r => r.LearnedSkills, snapshot.LearnedSkills)
+                                 .Set(r => r.EquippedSkills, snapshot.EquippedSkills));
+                            saved++;
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"[AutoSave] Failed for role {roleId}: {ex.Message}");
+                        }
                     }
-                }
-                Console.WriteLine($"[AutoSave] Saved {saved}/{players.Count} online players");
+                    Console.WriteLine($"[AutoSave] Saved {saved}/{snapshots.Count} online players");
+                });
             }
             catch (Exception ex)
             {

@@ -17,8 +17,8 @@ namespace ClinetCSharp.RenderComponents
 
         public void Draw()
         {
-            // 玩家：第一个状态由“状态标签 + 施法条”显示，动作栏留给第二个及以后的状态
-            if (_entity is Player && !string.IsNullOrWhiteSpace(_entity.CastingSkill))
+            // 施法时由“状态标签 + 施法条”显示技能名和进度，动作栏不再重复绘制
+            if (!string.IsNullOrWhiteSpace(_entity.CastingSkill))
                 return;
 
             string skillName = _entity.CastingSkill;

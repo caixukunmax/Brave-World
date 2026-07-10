@@ -43,49 +43,49 @@ public static class CombatTrace
 
     public static void SkillPreCheck(ILogger logger, long combatId, long casterId, string casterName, int skillId, bool ok, string? err)
     {
-        logger.LogInformation(
+        logger.LogDebug(
             "[CombatTrace] event=skill_precheck | combat={Combat} | caster={Cid}({CName}) | skill={Skill} | ok={Ok} | err={Err}",
             combatId, casterId, casterName, skillId, ok, err ?? "");
     }
 
     public static void SkillSelectTargets(ILogger logger, long combatId, long casterId, string casterName, int skillId, string targetType, List<long> targetIds)
     {
-        logger.LogInformation(
+        logger.LogDebug(
             "[CombatTrace] event=skill_select_targets | combat={Combat} | caster={Cid}({CName}) | skill={Skill} | target_type={TType} | targets=[{Targets}]",
             combatId, casterId, casterName, skillId, targetType, string.Join(",", targetIds));
     }
 
     public static void SkillStartCast(ILogger logger, long combatId, long casterId, string casterName, int skillId, double castTime, int mpCost)
     {
-        logger.LogInformation(
+        logger.LogDebug(
             "[CombatTrace] event=skill_start_cast | combat={Combat} | caster={Cid}({CName}) | skill={Skill} | cast_time={CastTime:F1}s | mp_cost={MpCost}",
             combatId, casterId, casterName, skillId, castTime, mpCost);
     }
 
     public static void SkillFinalValidation(ILogger logger, long combatId, long casterId, string casterName, int skillId, bool ok, List<long> finalTargets)
     {
-        logger.LogInformation(
+        logger.LogDebug(
             "[CombatTrace] event=skill_final_validation | combat={Combat} | caster={Cid}({CName}) | skill={Skill} | ok={Ok} | final_targets=[{Targets}]",
             combatId, casterId, casterName, skillId, ok, string.Join(",", finalTargets));
     }
 
     public static void SkillExecuteAction(ILogger logger, long combatId, long casterId, string casterName, int skillId, string actionType, List<long> targetIds)
     {
-        logger.LogInformation(
+        logger.LogDebug(
             "[CombatTrace] event=skill_execute_action | combat={Combat} | caster={Cid}({CName}) | skill={Skill} | action={Action} | targets=[{Targets}]",
             combatId, casterId, casterName, skillId, actionType, string.Join(",", targetIds));
     }
 
     public static void SkillEndCast(ILogger logger, long combatId, long casterId, string casterName, int skillId, bool isMiss, double cooldown)
     {
-        logger.LogInformation(
+        logger.LogDebug(
             "[CombatTrace] event=skill_end_cast | combat={Combat} | caster={Cid}({CName}) | skill={Skill} | miss={Miss} | cd={Cd:F1}s",
             combatId, casterId, casterName, skillId, isMiss, cooldown);
     }
 
     public static void SkillCastResult(ILogger logger, long combatId, long casterId, string casterName, int skillId, string result)
     {
-        logger.LogInformation(
+        logger.LogDebug(
             "[CombatTrace] event=skill_cast_result | combat={Combat} | caster={Cid}({CName}) | skill={Skill} | result={Result}",
             combatId, casterId, casterName, skillId, result);
     }
@@ -95,7 +95,7 @@ public static class CombatTrace
     public static void DamageApply(ILogger logger, long combatId, long attackerId, string attackerName,
         long targetId, string targetName, int damage, string damageType, int absorbed, int effective)
     {
-        logger.LogInformation(
+        logger.LogDebug(
             "[CombatTrace] event=damage_apply | combat={Combat} | attacker={Aid}({AName}) | target={Tid}({TName}) | dmg={Dmg} | type={Type} | absorbed={Absorbed} | effective={Effective}",
             combatId, attackerId, attackerName, targetId, targetName, damage, damageType, absorbed, effective);
     }
@@ -103,7 +103,7 @@ public static class CombatTrace
     public static void DamageCalc(ILogger logger, long combatId, long attackerId, string attackerName,
         long targetId, string targetName, int baseAtk, int targetDef, double coefficient, int finalDamage, string damageType)
     {
-        logger.LogInformation(
+        logger.LogDebug(
             "[CombatTrace] event=damage_calc | combat={Combat} | attacker={Aid}({AName}) | target={Tid}({TName}) | base_atk={BaseAtk} | target_def={Def} | coef={Coef:F1} | final={Final} | type={Type}",
             combatId, attackerId, attackerName, targetId, targetName, baseAtk, targetDef, coefficient, finalDamage, damageType);
     }
@@ -113,7 +113,7 @@ public static class CombatTrace
     public static void HealApply(ILogger logger, long combatId, long casterId, string casterName,
         long targetId, string targetName, int healAmount, string healType)
     {
-        logger.LogInformation(
+        logger.LogDebug(
             "[CombatTrace] event=heal_apply | combat={Combat} | caster={Cid}({CName}) | target={Tid}({TName}) | heal={Heal} | type={Type}",
             combatId, casterId, casterName, targetId, targetName, healAmount, healType);
     }
@@ -123,14 +123,14 @@ public static class CombatTrace
     public static void BuffApply(ILogger logger, long combatId, long casterId, string casterName,
         long targetId, string targetName, int buffId, string buffName, int stacks, double duration, int shield)
     {
-        logger.LogInformation(
+        logger.LogDebug(
             "[CombatTrace] event=buff_apply | combat={Combat} | caster={Cid}({CName}) | target={Tid}({TName}) | buff={Bid}({BName}) | stacks={Stacks} | dur={Dur:F1}s | shield={Shield}",
             combatId, casterId, casterName, targetId, targetName, buffId, buffName, stacks, duration, shield);
     }
 
     public static void BuffExpire(ILogger logger, long combatId, long entityId, string entityName, int buffId, string buffName)
     {
-        logger.LogInformation(
+        logger.LogDebug(
             "[CombatTrace] event=buff_expire | combat={Combat} | entity={Eid}({Name}) | buff={Bid}({BName})",
             combatId, entityId, entityName, buffId, buffName);
     }
@@ -138,7 +138,7 @@ public static class CombatTrace
     public static void BuffTick(ILogger logger, long combatId, long targetId, string targetName,
         int buffId, string buffName, int tickDamage, string damageType, int tickCount)
     {
-        logger.LogInformation(
+        logger.LogDebug(
             "[CombatTrace] event=buff_tick | combat={Combat} | target={Tid}({TName}) | buff={Bid}({BName}) | dmg={Dmg} | type={Type} | tick={Tick}",
             combatId, targetId, targetName, buffId, buffName, tickDamage, damageType, tickCount);
     }
@@ -146,7 +146,7 @@ public static class CombatTrace
     public static void BuffPurify(ILogger logger, long combatId, long casterId, string casterName,
         long targetId, string targetName, int removedCount)
     {
-        logger.LogInformation(
+        logger.LogDebug(
             "[CombatTrace] event=buff_purify | combat={Combat} | caster={Cid}({CName}) | target={Tid}({TName}) | removed={Count}",
             combatId, casterId, casterName, targetId, targetName, removedCount);
     }
@@ -154,7 +154,7 @@ public static class CombatTrace
     public static void BuffShieldAbsorb(ILogger logger, long combatId, long targetId, string targetName,
         int damage, int absorbed, int shieldRemaining)
     {
-        logger.LogInformation(
+        logger.LogDebug(
             "[CombatTrace] event=buff_shield_absorb | combat={Combat} | target={Tid}({TName}) | incoming_dmg={Dmg} | absorbed={Absorbed} | shield_remaining={Remaining}",
             combatId, targetId, targetName, damage, absorbed, shieldRemaining);
     }
@@ -201,7 +201,7 @@ public static class CombatTrace
         int patk, int matk, int pdef, int mdef,
         int buffPatk, int buffMatk, int buffPdef, int buffMdef)
     {
-        logger.LogInformation(
+        logger.LogDebug(
             "[CombatTrace] event=attr_snapshot | combat={Combat} | entity={Eid}({Name}) | patk={Patk}+{BPatk} | matk={Matk}+{BMatk} | pdef={Pdef}+{BPdef} | mdef={Mdef}+{BMdef}",
             combatId, entityId, entityName, patk, buffPatk, matk, buffMatk, pdef, buffPdef, mdef, buffMdef);
     }

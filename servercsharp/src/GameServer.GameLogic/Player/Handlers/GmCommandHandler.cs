@@ -138,6 +138,21 @@ public class GmCommandHandler : IMessageHandler
             return new PGame.GmCommandResponse { Code = PCommon.ErrorCode.Success, Message = $"TELEPORT:{walkable.Value.x}:{walkable.Value.y}" }.ToByteArray();
         }
 
+        if (cmd == "return" || cmd == "home")
+        {
+            var currentMap = player.CurrentMap;
+            var (spawnX, spawnY) = _mapData.GetSpawnPoint(currentMap);
+            int sizeX = player.GridSizeX > 0 ? player.GridSizeX : 1;
+            int sizeY = player.GridSizeY > 0 ? player.GridSizeY : 1;
+            var walkable = _session.MapService.FindNearestWalkableForFootprint(currentMap, spawnX, spawnY, sizeX, sizeY);
+            if (walkable != null) { spawnX = walkable.Value.x; spawnY = walkable.Value.y; }
+
+            player.GridX = spawnX;
+            player.GridY = spawnY;
+            _session.MapService.PlayerMove(claims.AccountId, currentMap, spawnX, spawnY);
+            return new PGame.GmCommandResponse { Code = PCommon.ErrorCode.Success, Message = $"RETURN:{spawnX}:{spawnY}" }.ToByteArray();
+        }
+
         if (cmd == "addchest")
         {
             var chestCfgId = parts.Length > 1 ? int.Parse(parts[1]) : 0;

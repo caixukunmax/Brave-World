@@ -14,7 +14,7 @@ namespace ClinetCSharp
             ProcessMode = ProcessModeEnum.Always;
             GD.Print("[ScreenshotTool] _Ready() called - ScreenshotTool initializing...");
 
-            var dir = DirAccess.Open("res://");
+            var dir = DirAccess.Open("user://");
             if (dir != null && !dir.DirExists("screenshots"))
             {
                 var err = dir.MakeDir("screenshots");
@@ -94,7 +94,7 @@ namespace ClinetCSharp
 
             var datetime = Time.GetDatetimeDictFromSystem();
             var timestamp = $"{datetime["year"]:D4}{datetime["month"]:D2}{datetime["day"]:D2}_{datetime["hour"]:D2}{datetime["minute"]:D2}{datetime["second"]:D2}";
-            var folderPath = $"res://screenshots/screenshot_{timestamp}";
+            var folderPath = $"user://screenshots/screenshot_{timestamp}";
 
             var err = DirAccess.MakeDirRecursiveAbsolute(folderPath);
             if (err != Error.Ok)

@@ -284,10 +284,14 @@ function main(): void {
   const MAP_SERVER_DIR = path.resolve(ROOT_DIR, paths.maps.cs_output_dir);
   const MAP_REGISTRY_PATH = path.resolve(ROOT_DIR, paths.maps.cs_registry_path);
 
+  function stripBom(content: string): string {
+    return content.charCodeAt(0) === 0xFEFF ? content.slice(1) : content;
+  }
+
   // 读取地图注册表，获取 display_name -> map_name 映射
   const mapNameMap = new Map<string, string>(); // display_name -> map_name
   if (fs.existsSync(MAP_REGISTRY_PATH)) {
-    const registry = JSON.parse(fs.readFileSync(MAP_REGISTRY_PATH, 'utf-8'));
+    const registry = JSON.parse(stripBom(fs.readFileSync(MAP_REGISTRY_PATH, 'utf-8')));
     for (const entry of registry) {
       if (entry.display_name && entry.map_name) {
         mapNameMap.set(entry.display_name, entry.map_name);
@@ -298,10 +302,13 @@ function main(): void {
   if (fs.existsSync(MAP_SOURCE_DIR)) {
     const mapDirs = fs.readdirSync(MAP_SOURCE_DIR, { withFileTypes: true })
       .filter(e => e.isDirectory());
+    const sourceMapNames = new Set<string>();
 
     for (const dir of mapDirs) {
       const displayName = dir.name;
       const serverMapName = mapNameMap.get(displayName) || displayName;
+      sourceMapNames.add(displayName);
+      sourceMapNames.add(serverMapName);
 
       const srcDir = path.join(MAP_SOURCE_DIR, displayName);
       const clientDir = path.join(MAP_CLIENT_DIR, displayName);
@@ -314,6 +321,18 @@ function main(): void {
       // 同步到服务端
       copyDirSync(srcDir, serverDir);
       success(`Map '${displayName}' → ${paths.maps.cs_output_dir}/${serverMapName}`);
+    }
+
+    // 清理目标目录中已不存在的地图
+    for (const outDir of [MAP_CLIENT_DIR, MAP_SERVER_DIR]) {
+      if (!fs.existsSync(outDir)) continue;
+      for (const entry of fs.readdirSync(outDir, { withFileTypes: true })) {
+        if (!entry.isDirectory()) continue;
+        if (sourceMapNames.has(entry.name)) continue;
+        const staleDir = path.join(outDir, entry.name);
+        removeDirSync(staleDir);
+        info(`Removed stale map dir: ${staleDir}`);
+      }
     }
 
     // 同时同步到服务端 bin 目录（运行时读取位置）
@@ -333,8 +352,51 @@ function main(): void {
         copyDirSync(srcDir, binDir);
       }
     }
+    // 清理 bin 目录中的过期地图
+    for (const binDir of [BIN_DEBUG_DIR, BIN_RELEASE_DIR]) {
+      if (!fs.existsSync(binDir)) continue;
+      for (const entry of fs.readdirSync(binDir, { withFileTypes: true })) {
+        if (!entry.isDirectory()) continue;
+        if (sourceMapNames.has(entry.name)) continue;
+        const staleDir = path.join(binDir, entry.name);
+        removeDirSync(staleDir);
+        info(`Removed stale bin map dir: ${staleDir}`);
+      }
+    }
     if (fs.existsSync(BIN_DEBUG_DIR) || fs.existsSync(BIN_RELEASE_DIR)) {
       success('Map CSV → bin/Debug|Release/net8.0/data/maps (runtime sync)');
+    }
+
+    // 重新生成服务端地图注册表，确保已删除的地图不会残留
+    function readJsonFile(jsonPath: string): any {
+      return JSON.parse(stripBom(fs.readFileSync(jsonPath, 'utf-8')));
+    }
+
+    const registry = mapDirs.map(dir => {
+      const displayName = dir.name;
+      const serverMapName = mapNameMap.get(displayName) || displayName;
+      const jsonPath = path.join(MAP_SOURCE_DIR, displayName, 'map.json');
+      const mapJson = readJsonFile(jsonPath);
+      const bounds = mapJson.bounds || { x: 0, y: 0, w: 50, h: 50 };
+      const spawn = mapJson.spawn || { x: Math.floor(bounds.w / 2), y: Math.floor(bounds.h / 2) };
+      return {
+        map_name: serverMapName,
+        display_name: mapJson.display_name || displayName,
+        width: bounds.w,
+        height: bounds.h,
+        spawn_x: spawn.x,
+        spawn_y: spawn.y,
+      };
+    });
+    fs.writeFileSync(MAP_REGISTRY_PATH, JSON.stringify(registry, null, 2), 'utf-8');
+    success(`Map registry → ${paths.maps.cs_registry_path} (${registry.length} maps)`);
+
+    // 同步注册表到 bin 运行目录
+    for (const binDataDir of [path.dirname(BIN_DEBUG_DIR), path.dirname(BIN_RELEASE_DIR)]) {
+      const binRegistryPath = path.join(binDataDir, 'map_registry.json');
+      if (fs.existsSync(path.dirname(binRegistryPath))) {
+        fs.writeFileSync(binRegistryPath, JSON.stringify(registry, null, 2), 'utf-8');
+      }
     }
   } else {
     warn(`Map source dir not found: ${MAP_SOURCE_DIR}`);

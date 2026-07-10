@@ -90,6 +90,10 @@ public class DeathResponder
             Hp = hp, MaxHp = hp, Mp = mp, MaxMp = mp,
             Patk = patk, Matk = matk, Pdef = pdef, Mdef = mdef,
             MpRegen = role.MpRegen,
+            Job = role.Job,
+            MoveSpeedMs = role.MoveSpeedMs > 0 ? role.MoveSpeedMs : GameConstants.BaseMoveSpeedMs,
+            PreferredSkillId = role.PreferredSkillId,
+            EquippedSkills = new List<int>(role.EquippedSkills),
         });
 
         // 7. 发送死亡通知给客户端

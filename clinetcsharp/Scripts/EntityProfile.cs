@@ -207,6 +207,8 @@ namespace ClinetCSharp
 
             profile.SetData("healthbar", BarData.CreateHealthBarDefault());
             profile.SetData("mpbar", BarData.CreateMpBarDefault());
+            profile.SetData("castbar", new CastBarData());
+            profile.SetData("actionbar", new ActionBarData());
 
             profile.SetData("monster_ai", new MonsterAiData());
 
@@ -220,21 +222,22 @@ namespace ClinetCSharp
 
             labels.Names[0] = "名字";
             labels.Names[1] = "品质";
-            labels.Names[2] = "状态";
-            labels.Names[3] = string.IsNullOrWhiteSpace(labels.Names[3]) ? "预留" : labels.Names[3];
+            labels.Names[2] = "预留";
+            labels.Names[3] = "状态";
 
             labels.Visible[0] = true;
             labels.Visible[1] = true;
-            labels.Visible[2] = true;
-            labels.Visible[3] = false;
+            labels.Visible[2] = false;
+            labels.Visible[3] = true;
 
             labels.ContentPreview[0] = "";
             labels.ContentPreview[1] = "";
             labels.ContentPreview[2] = "";
+            labels.ContentPreview[3] = "";
 
             labels.LockContent(0);
             labels.LockContent(1);
-            labels.LockContent(2);
+            labels.LockContent(3);
         }
 
         /// <summary>创建默认 NPC Profile</summary>
@@ -267,7 +270,7 @@ namespace ClinetCSharp
         }
 
         /// <summary>创建默认建筑 Profile</summary>
-        public static EntityProfile CreateDecorationDefault(int id, string name, string displayName, int buildingType, Color bgColor, Color borderColor, bool blockMovement)
+        public static EntityProfile CreateDecorationDefault(int id, string name, string displayName, int buildingType, Color bgColor, Color borderColor, bool blockMovement, int sizeX = 0, int sizeY = 0)
         {
             var profile = new EntityProfile
             {
@@ -277,12 +280,15 @@ namespace ClinetCSharp
             };
 
             // 房舍默认 2x2 占地，与服务器 buildings.json 保持一致；商店默认 1x1
-            int sizeX = buildingType == BuildingType.House ? 2 : 1;
-            int sizeY = buildingType == BuildingType.House ? 2 : 1;
+            if (sizeX <= 0)
+                sizeX = buildingType == BuildingType.House ? 2 : 1;
+            if (sizeY <= 0)
+                sizeY = buildingType == BuildingType.House ? 2 : 1;
 
             profile.SetData("appearance", new AppearanceData
             {
-                VisualSizeScale = 0.95f,
+                // 建筑默认填满整个 footprint，避免跨格建筑看起来“浮在中间”
+                VisualSizeScale = 1.0f,
                 BorderWidthScale = 3.0f / 111.0f,
                 CornerRadius = 8.0f,
                 BgOpacity = bgColor.A,

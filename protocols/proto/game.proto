@@ -90,6 +90,9 @@ message CombatStateNotify {
     int32 mp = 10;             // 当前魔法
     int32 max_mp = 11;         // 最大魔法
     repeated BuffInfo buffs = 12;  // 当前 Buff/Debuff 列表
+    uint32 next_skill_id = 13;       // 下一个将释放的技能 ID，0 表示无（过渡期显示用）
+    float  next_skill_ready_in = 14; // 该技能还有多久可释放（秒），0 表示已就绪
+    bool   in_combat = 15;           // 是否处于战斗中（ true=战斗中, false=非战斗）
   }
   message BuffInfo {
     int32 buff_id = 1;         // Buff 配置 ID

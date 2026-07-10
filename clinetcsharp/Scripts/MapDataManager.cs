@@ -259,6 +259,23 @@ namespace ClinetCSharp
             return SaveMapToJson(mapName, gridData, mapName, bounds, new Vector2I(25, 25));
         }
 
+        /// <summary>
+        /// 从地图数据中查找出生点建筑（60000）的位置。
+        /// 找到则返回该建筑所在格子坐标；否则返回 fallbackSpawn。
+        /// </summary>
+        public static Vector2I FindSpawnPointFromGridData(
+            System.Collections.Generic.Dictionary<Vector2I, GridCell> gridData,
+            Vector2I fallbackSpawn)
+        {
+            int spawnPointConfigId = BuildingType.GetConfigBaseId(BuildingType.SpawnPoint);
+            foreach (var cell in gridData.Values)
+            {
+                if (cell.DecorationType == spawnPointConfigId)
+                    return cell.Pos;
+            }
+            return fallbackSpawn;
+        }
+
         private static Rect2I CalculateBounds(System.Collections.Generic.Dictionary<Vector2I, GridCell> gridData)
         {
             if (gridData.Count == 0)
@@ -552,7 +569,8 @@ namespace ClinetCSharp
         }
 
         /// <summary>
-        /// 删除地图文件夹（递归删除其内容后删除空目录）
+        /// 删除地图：同时删除客户端运行时目录、tables 源目录、服务端源目录，
+        /// 并从 map_registry.json 中移除注册项，确保重启服务器后不再加载。
         /// </summary>
         public static Error DeleteMap(string mapName)
         {
@@ -565,7 +583,98 @@ namespace ClinetCSharp
                 return err;
 
             err = DirAccess.RemoveAbsolute(mapPath);
-            return err == Error.Ok ? Error.Ok : Error.Failed;
+            if (err != Error.Ok)
+                return err;
+
+            // 同步删除服务端/表格源目录并清理注册表
+            try
+            {
+                var projectRoot = System.IO.Path.GetFullPath(
+                    System.IO.Path.Combine(ProjectSettings.GlobalizePath("res://"), ".."));
+
+                // 1. tables 源目录
+                var tablesMapDir = System.IO.Path.Combine(projectRoot, "tables", "datas", "maps", mapName);
+                if (System.IO.Directory.Exists(tablesMapDir))
+                    System.IO.Directory.Delete(tablesMapDir, recursive: true);
+
+                // 2. 服务端源目录
+                var serverMapDir = System.IO.Path.Combine(projectRoot, "servercsharp", "data", "maps", mapName);
+                if (System.IO.Directory.Exists(serverMapDir))
+                    System.IO.Directory.Delete(serverMapDir, recursive: true);
+
+                // 3. 注册表（源 + bin 运行目录）
+                var registryPaths = new[]
+                {
+                    System.IO.Path.Combine(projectRoot, "servercsharp", "data", "map_registry.json"),
+                    System.IO.Path.Combine(projectRoot, "servercsharp", "src", "GameServer", "bin", "Debug", "net8.0", "data", "map_registry.json"),
+                    System.IO.Path.Combine(projectRoot, "servercsharp", "src", "GameServer", "bin", "Release", "net8.0", "data", "map_registry.json"),
+                };
+                foreach (var registryPath in registryPaths)
+                {
+                    if (System.IO.File.Exists(registryPath))
+                        RemoveMapFromRegistry(registryPath, mapName);
+                }
+
+                // 4. bin 运行目录中的地图文件夹
+                var binMapDirs = new[]
+                {
+                    System.IO.Path.Combine(projectRoot, "servercsharp", "src", "GameServer", "bin", "Debug", "net8.0", "data", "maps", mapName),
+                    System.IO.Path.Combine(projectRoot, "servercsharp", "src", "GameServer", "bin", "Release", "net8.0", "data", "maps", mapName),
+                };
+                foreach (var binMapDir in binMapDirs)
+                {
+                    if (System.IO.Directory.Exists(binMapDir))
+                        System.IO.Directory.Delete(binMapDir, recursive: true);
+                }
+
+                GD.Print($"[MapDataManager] 已彻底删除地图 '{mapName}' 并清理注册表");
+            }
+            catch (System.Exception ex)
+            {
+                GD.PushError($"[MapDataManager] 删除地图后同步清理失败: {ex.Message}");
+                return Error.Failed;
+            }
+
+            return Error.Ok;
+        }
+
+        /// <summary>
+        /// 从 map_registry.json 中移除指定地图条目。
+        /// </summary>
+        private static void RemoveMapFromRegistry(string registryPath, string mapName)
+        {
+            try
+            {
+                var text = System.IO.File.ReadAllText(registryPath, System.Text.Encoding.UTF8);
+                var registry = System.Text.Json.JsonSerializer.Deserialize<System.Collections.Generic.List<System.Collections.Generic.Dictionary<string, object>>>(text);
+                if (registry == null) return;
+
+                bool changed = false;
+                for (int i = registry.Count - 1; i >= 0; i--)
+                {
+                    var entry = registry[i];
+                    if (entry.TryGetValue("map_name", out var mapNameValue)
+                        && mapNameValue is System.Text.Json.JsonElement je
+                        && je.ValueKind == System.Text.Json.JsonValueKind.String
+                        && je.GetString() == mapName)
+                    {
+                        registry.RemoveAt(i);
+                        changed = true;
+                    }
+                }
+
+                if (changed)
+                {
+                    System.IO.File.WriteAllText(registryPath,
+                        System.Text.Json.JsonSerializer.Serialize(registry, new System.Text.Json.JsonSerializerOptions { WriteIndented = true }),
+                        System.Text.Encoding.UTF8);
+                    GD.Print($"[MapDataManager] 已从注册表移除 '{mapName}': {registryPath}");
+                }
+            }
+            catch (System.Exception ex)
+            {
+                GD.PushError($"[MapDataManager] 更新注册表失败 {registryPath}: {ex.Message}");
+            }
         }
 
         /// <summary>

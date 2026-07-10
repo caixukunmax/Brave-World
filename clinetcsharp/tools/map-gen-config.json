@@ -22,8 +22,7 @@
     "high": 0.12
   },
   "decorations": {
-    "tree": { "id": 10000, "walkable": false, "biomes": ["forest", "mixed", "swamp"] },
-    "house": { "id": 10001, "walkable": false, "biomes": ["forest", "ruins", "mixed"] },
+    "tree": { "id": 10000, "walkable": true, "biomes": ["forest", "mixed", "swamp"] },
     "rock": { "id": 10002, "walkable": false, "biomes": ["desert", "ruins", "snow"] },
     "palm": { "id": 10003, "walkable": false, "biomes": ["desert", "swamp"] }
   },

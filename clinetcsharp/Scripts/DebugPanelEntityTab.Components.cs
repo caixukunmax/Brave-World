@@ -27,19 +27,6 @@ namespace ClinetCSharp
             var toDisable = new HashSet<string>();
             var toEnable = new HashSet<string>();
 
-            var advancedModeCheck = new CheckBox
-            {
-                Text = "显示全部组件（高级模式）",
-                ButtonPressed = _showAllComponents,
-            };
-            var advancedHint = new Label
-            {
-                Text = "高级模式会显示当前实体类型白名单之外的实验组件。",
-                AutowrapMode = TextServer.AutowrapMode.WordSmart,
-                Modulate = new Color(0.82f, 0.72f, 0.42f),
-                Visible = _showAllComponents,
-            };
-
             void RefreshList()
             {
                 foreach (var child in dialogVBox.GetChildren())
@@ -48,8 +35,28 @@ namespace ClinetCSharp
                         node.QueueFree();
                 }
 
+                var advancedModeCheck = new CheckBox
+                {
+                    Text = "显示全部组件（高级模式）",
+                    ButtonPressed = _showAllComponents,
+                };
+                var advancedHint = new Label
+                {
+                    Text = "高级模式会显示当前实体类型白名单之外的实验组件。",
+                    AutowrapMode = TextServer.AutowrapMode.WordSmart,
+                    Modulate = new Color(0.82f, 0.72f, 0.42f),
+                    Visible = _showAllComponents,
+                };
+
                 dialogVBox.AddChild(advancedModeCheck);
                 dialogVBox.AddChild(advancedHint);
+
+                advancedModeCheck.Toggled += enabled =>
+                {
+                    _showAllComponents = enabled;
+                    advancedHint.Visible = enabled;
+                    RefreshList();
+                };
 
                 var allComponents = BuildComponentCatalog(profile);
                 var enabled = new List<(string name, string displayName)>();
@@ -78,13 +85,6 @@ namespace ClinetCSharp
                 BuildDisabledComponentList(dialogVBox, disabled, toDisable, toEnable, toRemove, toAdd);
                 BuildAvailableComponentList(dialogVBox, available, profile, toRemove, toAdd, RefreshList);
             }
-
-            advancedModeCheck.Toggled += enabled =>
-            {
-                _showAllComponents = enabled;
-                advancedHint.Visible = enabled;
-                RefreshList();
-            };
 
             RefreshList();
 

@@ -7,12 +7,20 @@ namespace ClinetCSharp
     /// </summary>
     public static class EntityDrawUtils
     {
-        /// <summary>绘制角色方块（圆角矩形）</summary>
+        /// <summary>绘制角色方块（圆角矩形，正方形）</summary>
         public static void DrawBody(Node2D node, int outerSize, int innerSize, Color bgColor, float bgOpacity,
             Color borderColor, float borderWidth, float cornerRadius)
         {
-            float halfOuter = outerSize / 2.0f;
-            var outerRect = new Rect2(new Vector2(-halfOuter, -halfOuter), new Vector2(outerSize, outerSize));
+            DrawBody(node, outerSize, outerSize, innerSize, innerSize, bgColor, bgOpacity, borderColor, borderWidth, cornerRadius);
+        }
+
+        /// <summary>绘制角色/建筑方块（圆角矩形，支持矩形 footprint）</summary>
+        public static void DrawBody(Node2D node, int outerWidth, int outerHeight, int innerWidth, int innerHeight,
+            Color bgColor, float bgOpacity, Color borderColor, float borderWidth, float cornerRadius)
+        {
+            float halfOuterW = outerWidth / 2.0f;
+            float halfOuterH = outerHeight / 2.0f;
+            var outerRect = new Rect2(new Vector2(-halfOuterW, -halfOuterH), new Vector2(outerWidth, outerHeight));
             float clampedOpacity = Mathf.Clamp(bgOpacity, 0.0f, 1.0f);
             // The inner fill should represent the final visible color instead of
             // blending with the border underlay, otherwise low-opacity black gets
@@ -27,13 +35,14 @@ namespace ClinetCSharp
 
             if (snappedCorner > 0)
             {
-                float outerRadius = Mathf.Min(snappedCorner, outerSize / 2.0f);
+                float outerRadius = Mathf.Min(snappedCorner, Mathf.Min(outerWidth, outerHeight) / 2.0f);
                 node.DrawRoundedRect(outerRect, borderColor, true, outerRadius);
 
-                if (innerSize > 0)
+                if (innerWidth > 0 && innerHeight > 0)
                 {
-                    float halfInner = innerSize / 2.0f;
-                    var innerRect = new Rect2(new Vector2(-halfInner, -halfInner), new Vector2(innerSize, innerSize));
+                    float halfInnerW = innerWidth / 2.0f;
+                    float halfInnerH = innerHeight / 2.0f;
+                    var innerRect = new Rect2(new Vector2(-halfInnerW, -halfInnerH), new Vector2(innerWidth, innerHeight));
                     float innerRadius = Mathf.Max(0.0f, outerRadius - snappedBorder);
                     node.DrawRoundedRect(innerRect, actualBg, true, innerRadius);
                 }
@@ -41,10 +50,11 @@ namespace ClinetCSharp
             else
             {
                 node.DrawRect(outerRect, borderColor, true);
-                if (innerSize > 0)
+                if (innerWidth > 0 && innerHeight > 0)
                 {
-                    float halfInner = innerSize / 2.0f;
-                    var innerRect = new Rect2(new Vector2(-halfInner, -halfInner), new Vector2(innerSize, innerSize));
+                    float halfInnerW = innerWidth / 2.0f;
+                    float halfInnerH = innerHeight / 2.0f;
+                    var innerRect = new Rect2(new Vector2(-halfInnerW, -halfInnerH), new Vector2(innerWidth, innerHeight));
                     node.DrawRect(innerRect, actualBg, true);
                 }
             }

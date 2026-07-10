@@ -42,6 +42,7 @@ namespace ClinetCSharp
             AddButton("背包", ToggleInventory);
             AddButton("技能", ToggleSkillPanel);
             AddButton("战斗日志", ToggleIntegratedPanel);
+            AddButton("地图", ToggleBigMap);
         }
 
         private void AddButton(string text, System.Action onPressed)
@@ -160,6 +161,11 @@ namespace ClinetCSharp
         private void ToggleIntegratedPanel()
         {
             PanelManager.Instance?.GetDraggablePanel<IntegratedPanel>()?.Toggle();
+        }
+
+        private void ToggleBigMap()
+        {
+            BigMapPanel.Instance?.Toggle();
         }
         #endregion
     }

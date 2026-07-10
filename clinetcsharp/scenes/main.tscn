@@ -23,6 +23,10 @@
 [ext_resource type="Script" path="res://Scripts/FunctionButtonBar.cs" id="22_fnbar"]
 [ext_resource type="PackedScene" path="res://scenes/buff_bar.tscn" id="23_buffbar"]
 [ext_resource type="Script" path="res://Scripts/MapDecorationManager.cs" id="24_decmgr"]
+[ext_resource type="PackedScene" path="res://scenes/minimap_hud.tscn" id="25_minimap"]
+[ext_resource type="PackedScene" path="res://scenes/big_map_panel.tscn" id="26_bigmap"]
+[ext_resource type="Script" path="res://Scripts/ScreenTransition.cs" id="27_transition"]
+[ext_resource type="PackedScene" path="res://scenes/tavern_interior_panel.tscn" id="28_tavern"]
 
 [node name="Main" type="Node2D"]
 
@@ -60,6 +64,8 @@ smooth_speed = 10.0
 layer = 70
 script = ExtResource("22_fnbar")
 
+[node name="MinimapHud" parent="." instance=ExtResource("25_minimap")]
+
 [node name="MapEditor" type="Node2D" parent="."]
 script = ExtResource("5_editor")
 
@@ -80,6 +86,13 @@ script = ExtResource("13_monstercfg")
 
 [node name="MapManager" type="Node" parent="."]
 script = ExtResource("12_map")
+
+[node name="BigMapPanel" parent="." instance=ExtResource("26_bigmap")]
+
+[node name="ScreenTransition" type="CanvasLayer" parent="."]
+script = ExtResource("27_transition")
+
+[node name="TavernInteriorPanel" parent="." instance=ExtResource("28_tavern")]
 
 [node name="UICanvas" type="CanvasLayer" parent="."]
 layer = 100

@@ -1,6 +1,8 @@
 using Godot;
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using ClinetCSharp.RenderComponents;
 
 namespace ClinetCSharp
 {
@@ -89,10 +91,17 @@ namespace ClinetCSharp
 
         public bool IsDefaultProfile(int id)
         {
-            // 玩家/怪物/NPC 默认 1-3；建筑默认配置 10000、20000
+            // 玩家/怪物/NPC 默认 1-3；建筑默认配置区间基址 10000/20000/30000/40000/50000
+            // 10000=树，10001=房舍（2x2），两者都视为默认配置防止误删
             return (id >= 1 && id <= 3)
                 || id == BuildingType.GetConfigBaseId(BuildingType.House)
-                || id == BuildingType.GetConfigBaseId(BuildingType.Shop);
+                || id == BuildingType.GetConfigBaseId(BuildingType.House) + 1
+                || id == BuildingType.GetConfigBaseId(BuildingType.Shop)
+                || id == BuildingType.GetConfigBaseId(BuildingType.Well)
+                || id == BuildingType.GetConfigBaseId(BuildingType.Farm)
+                || id == BuildingType.GetConfigBaseId(BuildingType.Tavern)
+                || id == BuildingType.GetConfigBaseId(BuildingType.SpawnPoint)
+                || id == BuildingType.GetConfigBaseId(BuildingType.Portal);
         }
 
         public bool DeleteProfile(int id)
@@ -187,8 +196,8 @@ namespace ClinetCSharp
         {
             foreach (var profile in _profiles.Values)
             {
-                // 默认房舍强制 2x2，与服务器 buildings.json 保持一致
-                if (profile.EntityType == "decoration" && profile.Id == BuildingType.GetConfigBaseId(BuildingType.House))
+                // 默认房舍（10001）强制 2x2，与服务器 buildings.json 保持一致
+                if (profile.EntityType == "decoration" && profile.Id == BuildingType.GetConfigBaseId(BuildingType.House) + 1)
                 {
                     var app = profile.GetData<AppearanceData>("appearance");
                     if (app != null)
@@ -243,10 +252,15 @@ namespace ClinetCSharp
                 _profiles[3] = EntityProfile.CreateNpcDefault(3);
 
             // 默认建筑 Profiles
-            // 房舍 build_cfg_id 从 10000 开始，商店从 20000 开始
+            // 10000=树(1x1)，10001=房舍(2x2)，商店 20000，水井 30000，农田 40000，酒馆 50000，出生点 60000，传送门 70000
             if (!_profiles.ContainsKey(BuildingType.GetConfigBaseId(BuildingType.House)))
                 _profiles[BuildingType.GetConfigBaseId(BuildingType.House)] = EntityProfile.CreateDecorationDefault(
-                    BuildingType.GetConfigBaseId(BuildingType.House), "House", "房舍", BuildingType.House,
+                    BuildingType.GetConfigBaseId(BuildingType.House), "Tree", "树", BuildingType.House,
+                    new Color(0.2f, 0.5f, 0.25f, 0.9f),
+                    new Color(0.1f, 0.35f, 0.15f), false, sizeX: 1, sizeY: 1);
+            if (!_profiles.ContainsKey(BuildingType.GetConfigBaseId(BuildingType.House) + 1))
+                _profiles[BuildingType.GetConfigBaseId(BuildingType.House) + 1] = EntityProfile.CreateDecorationDefault(
+                    BuildingType.GetConfigBaseId(BuildingType.House) + 1, "House", "房舍", BuildingType.House,
                     new Color(0.545f, 0.353f, 0.169f, 0.9f),
                     new Color(0.4f, 0.2f, 0.1f), true);
             if (!_profiles.ContainsKey(BuildingType.GetConfigBaseId(BuildingType.Shop)))
@@ -254,6 +268,31 @@ namespace ClinetCSharp
                     BuildingType.GetConfigBaseId(BuildingType.Shop), "Shop", "商店", BuildingType.Shop,
                     new Color(0.2f, 0.4f, 0.6f, 0.9f),
                     new Color(0.1f, 0.3f, 0.5f), true);
+            if (!_profiles.ContainsKey(BuildingType.GetConfigBaseId(BuildingType.Well)))
+                _profiles[BuildingType.GetConfigBaseId(BuildingType.Well)] = EntityProfile.CreateDecorationDefault(
+                    BuildingType.GetConfigBaseId(BuildingType.Well), "Well", "水井", BuildingType.Well,
+                    new Color(0.5f, 0.5f, 0.55f, 0.9f),
+                    new Color(0.3f, 0.3f, 0.35f), true, sizeX: 1, sizeY: 1);
+            if (!_profiles.ContainsKey(BuildingType.GetConfigBaseId(BuildingType.Farm)))
+                _profiles[BuildingType.GetConfigBaseId(BuildingType.Farm)] = EntityProfile.CreateDecorationDefault(
+                    BuildingType.GetConfigBaseId(BuildingType.Farm), "Farm", "农田", BuildingType.Farm,
+                    new Color(0.8f, 0.7f, 0.3f, 0.9f),
+                    new Color(0.5f, 0.4f, 0.1f), true, sizeX: 2, sizeY: 1);
+            if (!_profiles.ContainsKey(BuildingType.GetConfigBaseId(BuildingType.Tavern)))
+                _profiles[BuildingType.GetConfigBaseId(BuildingType.Tavern)] = EntityProfile.CreateDecorationDefault(
+                    BuildingType.GetConfigBaseId(BuildingType.Tavern), "Tavern", "酒馆", BuildingType.Tavern,
+                    new Color(0.6f, 0.3f, 0.2f, 0.9f),
+                    new Color(0.4f, 0.15f, 0.1f), true, sizeX: 2, sizeY: 2);
+            if (!_profiles.ContainsKey(BuildingType.GetConfigBaseId(BuildingType.SpawnPoint)))
+                _profiles[BuildingType.GetConfigBaseId(BuildingType.SpawnPoint)] = EntityProfile.CreateDecorationDefault(
+                    BuildingType.GetConfigBaseId(BuildingType.SpawnPoint), "SpawnPoint", "出生点", BuildingType.SpawnPoint,
+                    new Color(0.2f, 0.8f, 0.9f, 0.9f),
+                    new Color(0.1f, 0.5f, 0.6f), false, sizeX: 1, sizeY: 1);
+            if (!_profiles.ContainsKey(BuildingType.GetConfigBaseId(BuildingType.Portal)))
+                _profiles[BuildingType.GetConfigBaseId(BuildingType.Portal)] = EntityProfile.CreateDecorationDefault(
+                    BuildingType.GetConfigBaseId(BuildingType.Portal), "Portal", "共享传送门", BuildingType.Portal,
+                    new Color(0.6f, 0.2f, 0.9f, 0.9f),
+                    new Color(0.4f, 0.1f, 0.7f), false, sizeX: 1, sizeY: 1);
 
             _nextId = Mathf.Max(_nextId, _profiles.Keys.Max() + 1);
         }
@@ -498,7 +537,29 @@ namespace ClinetCSharp
                     dec.BlockMovement = false;
             }
 
+            // 同步渲染组件与 Profile 组件：避免渲染层硬编码
+            SyncRenderComponents(entity, profile);
+
             entity.QueueRedraw();
+        }
+
+        /// <summary>
+        /// 根据 Profile 组件启用情况，动态增删对应的渲染组件
+        /// </summary>
+        private void SyncRenderComponents(EntityBase entity, EntityProfile profile)
+        {
+            SyncRenderComponent<RenderComponents.CastBarComponent>(entity, profile, "castbar", () => new RenderComponents.CastBarComponent());
+            SyncRenderComponent<RenderComponents.ActionBarComponent>(entity, profile, "actionbar", () => new RenderComponents.ActionBarComponent());
+        }
+
+        private void SyncRenderComponent<T>(EntityBase entity, EntityProfile profile, string componentName, Func<T> factory) where T : class, IRenderComponent
+        {
+            bool has = entity.GetRenderComponent<T>() != null;
+            bool want = profile.HasComponent(componentName) && !profile.IsComponentDisabled(componentName);
+            if (want && !has)
+                entity.AddRenderComponent(factory());
+            else if (!want && has)
+                entity.RemoveRenderComponent<T>();
         }
 
         /// <summary>

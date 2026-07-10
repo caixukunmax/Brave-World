@@ -13,8 +13,42 @@ uniform vec2 map_size_world = vec2(7100.0, 7100.0);
 uniform sampler2D terrain_mask : hint_default_white;
 uniform vec2 terrain_mask_size = vec2(1.0, 1.0);
 
+// 水面遮罩：R=1 表示水域，R=0 表示非水域
+uniform sampler2D water_mask : hint_default_black;
+uniform vec2 water_mask_size = vec2(1.0, 1.0);
+
+// 水面动画参数：可见但柔和的波纹
+uniform float water_speed = 0.05;
+uniform float water_wave_strength = 0.045;
+uniform float water_sparkle_speed = 0.12;
+uniform float water_sparkle_intensity = 0.035;
+
 // 地图外部 / 地形墙填充颜色
 uniform vec4 outside_map_color : source_color = vec4(0.15, 0.15, 0.15, 1.0);
+
+// 平滑 hash noise
+float water_hash(vec2 p) {
+    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+}
+
+float water_noise(vec2 p) {
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    vec2 u = f * f * (3.0 - 2.0 * f);
+    return mix(mix(water_hash(i), water_hash(i + vec2(1.0, 0.0)), u.x),
+               mix(water_hash(i + vec2(0.0, 1.0)), water_hash(i + vec2(1.0, 1.0)), u.x), u.y);
+}
+
+float water_fbm(vec2 p) {
+    float value = 0.0;
+    float amplitude = 0.5;
+    for (int i = 0; i < 5; i++) {
+        value += amplitude * water_noise(p);
+        p *= 2.2;
+        amplitude *= 0.5;
+    }
+    return value;
+}
 
 void fragment() {
     vec2 world_pos = UV * map_size_world;
@@ -28,6 +62,10 @@ void fragment() {
     vec4 mask_sample = texture(terrain_mask, mask_uv);
     float mask_value = mask_sample.r;
     vec3 terrain_color = mask_sample.gba;
+
+    // 采样水面遮罩
+    vec2 water_uv = (vec2(cell_coord) + 0.5) / water_mask_size;
+    float is_water = texture(water_mask, water_uv).r;
 
     // 以格子坐标系计算到最近整数边界的距离
     vec2 dist_to_line = abs(fract(grid_coord - 0.5) - 0.5);
@@ -50,9 +88,34 @@ void fragment() {
         final_color = outside_map_color;
     } else if (terrain_color.r > 0.001 || terrain_color.g > 0.001 || terrain_color.b > 0.001) {
         vec4 bg = vec4(terrain_color, 1.0);
+
+        // 水面动画：柔和可见的波纹 + 偶尔微光
+        if (is_water > 0.5) {
+            float t = TIME * water_speed;
+
+            // 低频噪声驱动波纹形状，避免死板正弦条纹
+            vec2 noise_uv = world_pos * 0.018 + vec2(t, t * 0.35);
+            float n = water_fbm(noise_uv);
+
+            // 用噪声调制正弦波相位，形成自然水纹
+            float phase = n * 3.14159;
+            float w1 = sin(world_pos.x * 0.035 + world_pos.y * 0.015 + t + phase) * water_wave_strength;
+            float w2 = sin(world_pos.x * 0.022 - world_pos.y * 0.028 + t * 0.8 - phase * 0.7) * (water_wave_strength * 0.7);
+            float wave = (w1 + w2) * 0.5;
+
+            // 偶尔的柔和微光，不是细碎斑点
+            float sparkle_phase = water_fbm(world_pos * 0.035 + vec2(TIME * water_sparkle_speed, -TIME * water_sparkle_speed * 0.5));
+            float sparkle = pow(max(0.0, sparkle_phase - 0.55), 3.0) * water_sparkle_intensity;
+
+            // 蓝色通道变化更明显，整体柔和
+            bg.rgb += vec3(wave * 0.45 + sparkle, wave * 0.55 + sparkle, wave * 0.95 + sparkle * 1.2);
+        }
+
         final_color = mix(bg, vec4(line_color.rgb, 1.0), grid_alpha);
     } else {
-        final_color = vec4(line_color.rgb, grid_alpha);
+        // 有效格子但地形颜色为纯黑（如普通地形 color_a=0）：用极暗灰填充，避免看起来像空数据
+        vec4 default_fill = vec4(0.06, 0.06, 0.06, 1.0);
+        final_color = mix(default_fill, vec4(line_color.rgb, 1.0), grid_alpha);
     }
 
     COLOR = final_color;

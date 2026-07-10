@@ -103,9 +103,13 @@ namespace ClinetCSharp
 
             // 兼容旧 decoration type（1=房舍，2=商店），转换为 build_cfg_id
             if (profileId == BuildingType.House)
-                profileId = BuildingType.GetConfigBaseId(BuildingType.House);
+                profileId = BuildingType.GetConfigBaseId(BuildingType.House) + 1;
             else if (profileId == BuildingType.Shop)
                 profileId = BuildingType.GetConfigBaseId(BuildingType.Shop);
+
+            // 出生点仅在编辑器中生成，游戏运行时完全隐身
+            if (!SpawnEditable && profileId == BuildingType.GetConfigBaseId(BuildingType.SpawnPoint))
+                return null;
 
             int buildingType = BuildingType.GetTypeFromConfigId(profileId);
             if (!BuildingType.IsValid(buildingType))

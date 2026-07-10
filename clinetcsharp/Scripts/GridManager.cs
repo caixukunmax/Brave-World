@@ -58,6 +58,9 @@ namespace ClinetCSharp
         /// <summary>当前地图边界（所有存在格子的包围盒）。</summary>
         public Rect2I MapBounds { get; private set; } = new Rect2I(0, 0, 50, 50);
 
+        /// <summary>从 map.json 加载时记录的出生点，保存时作为找不到出生点建筑的回退。</summary>
+        private Vector2I _loadedSpawn = new Vector2I(25, 25);
+
         /// <summary>地图宽度（兼容旧代码，实际为 MapBounds 宽度）</summary>
         public int MapWidth => MapBounds.Size.X;
 
@@ -122,6 +125,7 @@ namespace ClinetCSharp
         private GridShaderOverlay? _gridShaderOverlay;
         private ColorRect? _background;
         private ImageTexture? _terrainMaskTexture;
+        private ImageTexture? _waterMaskTexture;
 
         public override void _Ready()
         {
@@ -280,9 +284,10 @@ namespace ClinetCSharp
             {
                 GridData = loadedData;
                 MapBounds = loadedBounds;
+                _loadedSpawn = loadedSpawn;
                 RecalculateMapBounds();
             #if DEBUG
-            GD.Print($"[GridManager] 加载地图: {CurrentMapName} 格子数={GridData.Count}, bounds={MapBounds}");
+            GD.Print($"[GridManager] 加载地图: {CurrentMapName} 格子数={GridData.Count}, bounds={MapBounds} spawn={_loadedSpawn}");
             #endif
             }
             else if (FileAccess.FileExists(MapDataManager.MapsFolder + CurrentMapName + "/" + MapDataManager.JsonFilename))
@@ -625,7 +630,7 @@ namespace ClinetCSharp
         {
             // 兼容旧 decoration type（1=房舍，2=商店），转换为 build_cfg_id
             if (profileId == BuildingType.House)
-                profileId = BuildingType.GetConfigBaseId(BuildingType.House);
+                profileId = BuildingType.GetConfigBaseId(BuildingType.House) + 1;
             else if (profileId == BuildingType.Shop)
                 profileId = BuildingType.GetConfigBaseId(BuildingType.Shop);
 
@@ -977,14 +982,13 @@ namespace ClinetCSharp
             QueueRedraw();
         }
 
-        /// <summary>
-        /// 根据当前 GridData 生成地形墙遮罩纹理并更新到 Shader。
-        /// 遮罩中黑色(0)表示地形墙（不绘制网格线），白色(1)表示普通格子。
-        /// </summary>
+
+
         /// <summary>
         /// 根据当前 GridData 生成 RGBA8 地形遮罩纹理并更新到 Shader。
         /// R 通道：0=地形墙(不绘制网格线，显示灰色填充)，255=普通格子
         /// GBA 通道：地形配置颜色（RGB），地形墙使用 OutsideMapColor
+        /// 同时生成 water_mask：R=1 表示水域，R=0 表示非水域。
         /// </summary>
         private void UpdateTerrainMask()
         {
@@ -998,6 +1002,7 @@ namespace ClinetCSharp
 
             var bounds = MapBounds;
             var image = Image.CreateEmpty(bounds.Size.X, bounds.Size.Y, false, Image.Format.Rgba8);
+            var waterImage = Image.CreateEmpty(bounds.Size.X, bounds.Size.Y, false, Image.Format.Rgba8);
 
             for (int y = 0; y < bounds.Size.Y; y++)
             {
@@ -1006,6 +1011,7 @@ namespace ClinetCSharp
                     var logicalPos = new Vector2I(bounds.Position.X + x, bounds.Position.Y + y);
                     byte maskValue;
                     float r, g, b;
+                    bool isWater = false;
 
                     if (GridData.TryGetValue(logicalPos, out var cell))
                     {
@@ -1043,6 +1049,8 @@ namespace ClinetCSharp
                                 g = 0f;
                                 b = 0f;
                             }
+
+                            isWater = cell.TerrainType == 1;
                         }
                     }
                     else
@@ -1055,6 +1063,7 @@ namespace ClinetCSharp
                     }
 
                     image.SetPixel(x, y, new Color(maskValue / 255f, r, g, b));
+                    waterImage.SetPixel(x, y, isWater ? new Color(1.0f, 0.0f, 0.0f, 0.0f) : new Color(0.0f, 0.0f, 0.0f, 0.0f));
                 }
             }
 
@@ -1069,10 +1078,23 @@ namespace ClinetCSharp
             {
                 _terrainMaskTexture = ImageTexture.CreateFromImage(image);
             }
+
+            if (_waterMaskTexture != null &&
+                _waterMaskTexture.GetWidth() == bounds.Size.X &&
+                _waterMaskTexture.GetHeight() == bounds.Size.Y)
+            {
+                _waterMaskTexture.Update(waterImage);
+            }
+            else
+            {
+                _waterMaskTexture = ImageTexture.CreateFromImage(waterImage);
+            }
+
             _gridShaderOverlay.UpdateTerrainMask(_terrainMaskTexture, bounds.Size.X, bounds.Size.Y);
+            _gridShaderOverlay.UpdateWaterMask(_waterMaskTexture, bounds.Size.X, bounds.Size.Y);
             _gridShaderOverlay.UpdateOutsideMapColor(ShowOutsideMapGray ? OutsideMapColor : Colors.Transparent);
 #if DEBUG
-            GD.Print($"[GridManager] UpdateTerrainMask: 已更新 terrain_mask {bounds.Size.X}x{bounds.Size.Y}, bounds={bounds}");
+            GD.Print($"[GridManager] UpdateTerrainMask: 已更新 terrain/water mask {bounds.Size.X}x{bounds.Size.Y}, bounds={bounds}");
 #endif
         }
 
@@ -1140,7 +1162,8 @@ namespace ClinetCSharp
 
         public Error SaveCurrentMap()
         {
-            return MapDataManager.SaveMapToJson(CurrentMapName, GridData, CurrentMapName, MapBounds, new Vector2I(25, 25));
+            var spawn = MapDataManager.FindSpawnPointFromGridData(GridData, _loadedSpawn);
+            return MapDataManager.SaveMapToJson(CurrentMapName, GridData, CurrentMapName, MapBounds, spawn);
         }
 
         /// <summary>
@@ -1178,6 +1201,7 @@ namespace ClinetCSharp
             // 刷新渲染与持久化
             UpdateGridShaderOverlay();
             _gridShaderOverlay?.UpdateTerrainMask(null, 0, 0);
+            _gridShaderOverlay?.UpdateWaterMask(null, 0, 0);
             UpdateTerrainMask();
             SyncBackgroundSize();
             QueueRedraw();
@@ -1243,8 +1267,9 @@ namespace ClinetCSharp
                 CurrentMapName = mapName;
 
                 UpdateGridShaderOverlay();
-                // 先重置 terrain_mask，强制 Godot 渲染服务器解除旧纹理绑定
+                // 先重置 terrain_mask/water_mask，强制 Godot 渲染服务器解除旧纹理绑定
                 _gridShaderOverlay?.UpdateTerrainMask(null, 0, 0);
+                _gridShaderOverlay?.UpdateWaterMask(null, 0, 0);
                 UpdateTerrainMask();
                 SyncBackgroundSize();
                 SyncDecorations();

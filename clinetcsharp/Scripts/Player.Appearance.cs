@@ -159,7 +159,7 @@ namespace ClinetCSharp
             PlayerLabelTexts[0] = $"LV.{Level} {CharacterName}";
             PlayerLabelTexts[1] = Job;
             PlayerLabelTexts[2] = Title;
-            PlayerLabelTexts[3] = Status;
+            // 第3行（状态）由 RefreshCastingVisuals 动态管理，这里不覆盖
 
             LevelBadgeText = "LV.{level}";
 

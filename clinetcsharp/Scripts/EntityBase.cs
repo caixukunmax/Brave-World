@@ -66,6 +66,7 @@ namespace ClinetCSharp
         public int FontSize { get; set; } = 0; // 0 = 自动
 
         // ========== 外观 — 计算属性（只读） ==========
+        // 注意：以下三个属性保持旧的正方形语义，用于 Player/Monster 等 1x1 实体以及血条/标签等附属组件。
         public int VisualOuterSize
         {
             get
@@ -76,6 +77,12 @@ namespace ClinetCSharp
         }
         public int BorderWidth => Mathf.Clamp(Mathf.RoundToInt(GridSize * BorderWidthScale), 1, Mathf.Max(1, VisualOuterSize / 2));
         public int VisualSize => Mathf.Max(2, VisualOuterSize - BorderWidth * 2);
+
+        // 多格建筑使用矩形尺寸，按 footprint 实际宽高填充。
+        public int VisualOuterSizeX => Mathf.Clamp(Mathf.RoundToInt(GridSize * Mathf.Max(1, GridSizeX) * VisualSizeScale), 10, GridSize * Mathf.Max(1, GridSizeX));
+        public int VisualOuterSizeY => Mathf.Clamp(Mathf.RoundToInt(GridSize * Mathf.Max(1, GridSizeY) * VisualSizeScale), 10, GridSize * Mathf.Max(1, GridSizeY));
+        public int VisualSizeX => Mathf.Max(2, VisualOuterSizeX - BorderWidth * 2);
+        public int VisualSizeY => Mathf.Max(2, VisualOuterSizeY - BorderWidth * 2);
 
         // ========== 血量（绝对值 + 百分比） ==========
         public int CurrentHp { get; set; } = 0;
@@ -190,6 +197,43 @@ namespace ClinetCSharp
         public bool ActionBarForceShow { get; set; } = false;
         public float ActionBarTextYOffset { get; set; } = 0f;
         public float ActionBarProgressHeight { get; set; } = 4f;
+
+        private Tween _castTween;
+
+        /// <summary>设置施法进度，同时同步施法条填充百分比并重绘</summary>
+        public void SetCastProgress(float progress)
+        {
+            CastProgress = Mathf.Clamp(progress, 0f, 1f);
+            CastBarFillPercent = CastProgress;
+            QueueRedraw();
+        }
+
+        /// <summary>启动本地施法读条动画，从左到右填充</summary>
+        public void StartCastAnimation(float duration)
+        {
+            StopCastAnimation();
+            if (duration <= 0f)
+            {
+                SetCastProgress(1f);
+                return;
+            }
+
+            SetCastProgress(0f);
+            _castTween = CreateTween();
+            _castTween.TweenMethod(Callable.From<float>(SetCastProgress), 0.0f, 1.0f, duration)
+                .SetTrans(Tween.TransitionType.Linear)
+                .SetEase(Tween.EaseType.InOut);
+        }
+
+        /// <summary>停止本地施法读条动画</summary>
+        public void StopCastAnimation()
+        {
+            if (_castTween != null && GodotObject.IsInstanceValid(_castTween))
+            {
+                _castTween.Kill();
+                _castTween = null;
+            }
+        }
 
         // ========== GridSize ==========
         private int _gridSize = 111;

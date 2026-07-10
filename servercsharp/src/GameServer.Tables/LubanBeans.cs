@@ -100,6 +100,24 @@ public class MapConfigRow
     [JsonPropertyName("spawn_y")] public int SpawnY { get; set; }
 }
 
+// ---- Npc ----
+
+public class NpcRow
+{
+    [JsonPropertyName("id")] public int Id { get; set; }
+    [JsonPropertyName("name")] public string Name { get; set; } = "";
+    [JsonPropertyName("npc_type")] public int NpcType { get; set; }
+}
+
+public class MapNpcRow
+{
+    [JsonPropertyName("id")] public int Id { get; set; }
+    [JsonPropertyName("map_id")] public int MapId { get; set; }
+    [JsonPropertyName("npc_id")] public int NpcId { get; set; }
+    [JsonPropertyName("x")] public int X { get; set; }
+    [JsonPropertyName("y")] public int Y { get; set; }
+}
+
 // ---- PlayerAttr ----
 
 public class PlayerAttrRow

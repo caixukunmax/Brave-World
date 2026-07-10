@@ -36,6 +36,9 @@ namespace ClinetCSharp
             ApplyRoleInfo(roleInfo);
         }
 
+        public uint NextSkillId { get; set; }
+        public float NextSkillReadyIn { get; set; }
+
         private void OnCombatStateNotify(Game.CombatStateNotify notify)
         {
             var nm = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
@@ -43,6 +46,9 @@ namespace ClinetCSharp
                 return;
 
             bool found = false;
+            string serverCastingSkill = "";
+            uint nextSkillId = 0;
+            float nextSkillReadyIn = 0f;
             foreach (var unit in notify.Units)
             {
                 if (!unit.IsPlayer || unit.EntityId != nm.AccountId)
@@ -63,17 +69,32 @@ namespace ClinetCSharp
                     CombatAttrs[4] = unit.MaxMp;
                 }
 
-                CastingSkill = unit.CastingSkill;
-                CastProgress = unit.CastProgress;
-                found = true;
+                serverCastingSkill = unit.CastingSkill;
+                nextSkillId = unit.NextSkillId;
+                nextSkillReadyIn = unit.NextSkillReadyIn;
+                found = unit.InCombat;
                 break;
             }
 
             IsInCombat = found;
+            NextSkillId = nextSkillId;
+            NextSkillReadyIn = nextSkillReadyIn;
+
             if (!found)
             {
                 CastingSkill = "";
-                CastProgress = 0;
+                StopCastAnimation();
+            }
+            else
+            {
+                // 服务端未推送技能名时，保持本地已识别的技能名（本地动画更平滑）
+                if (!string.IsNullOrEmpty(serverCastingSkill) && string.IsNullOrEmpty(CastingSkill))
+                    CastingSkill = serverCastingSkill;
+                else if (string.IsNullOrEmpty(serverCastingSkill) && !string.IsNullOrEmpty(CastingSkill))
+                {
+                    CastingSkill = "";
+                    StopCastAnimation();
+                }
             }
 
             RefreshCastingVisuals();
@@ -91,7 +112,7 @@ namespace ClinetCSharp
                 {
                     IsInCombat = false;
                     CastingSkill = "";
-                    CastProgress = 0;
+                    StopCastAnimation();
                     RefreshCastingVisuals();
                     break;
                 }
@@ -106,8 +127,10 @@ namespace ClinetCSharp
             if (notify.CasterId != nm.AccountId)
                 return;
 
+            GD.Print($"[Player] OnCastStartNotify: skill={notify.SkillId}, castTime={notify.CastTime:F2}s");
+
             CastingSkill = SkillDataUtil.GetName((uint)notify.SkillId) ?? $"Skill{notify.SkillId}";
-            CastProgress = 0f;
+            StartCastAnimation(notify.CastTime);
             RefreshCastingVisuals();
         }
 
@@ -177,18 +200,42 @@ namespace ClinetCSharp
             }
 
             CastingSkill = "";
-            CastProgress = 0;
+            StopCastAnimation();
             RefreshCastingVisuals();
         }
 
         private void RefreshCastingVisuals()
         {
-            // 状态标签（index 3）显示当前正在释放的技能；无施法时恢复为角色状态
-            string statusText = string.IsNullOrEmpty(CastingSkill) ? Status : CastingSkill;
-            SetLabelText(3, statusText);
-
-            CastBarFillPercent = CastProgress;
-            CastBarVisible = !string.IsNullOrEmpty(CastingSkill);
+            if (!string.IsNullOrEmpty(CastingSkill))
+            {
+                // 施法中：显示技能名 + 读条进度
+                SetLabelText(3, CastingSkill);
+                CastBarFillPercent = CastProgress;
+                CastBarVisible = true;
+            }
+            else if (IsInCombat && NextSkillId > 0)
+            {
+                // 过渡期：显示“技能准备中” + 下一个技能 CD 倒计时
+                SetLabelText(3, "技能准备中");
+                var skillData = SkillDataUtil.Get(NextSkillId);
+                double totalCd = skillData.cd > 0 ? skillData.cd : NextSkillReadyIn;
+                CastBarFillPercent = totalCd > 0
+                    ? 1f - Mathf.Clamp(NextSkillReadyIn / (float)totalCd, 0f, 1f)
+                    : 1f;
+                CastBarVisible = true;
+            }
+            else if (IsInCombat)
+            {
+                // 战斗中但无下一个技能：不显示
+                SetLabelText(3, "");
+                CastBarVisible = false;
+            }
+            else
+            {
+                // 非战斗：显示闲逛中
+                SetLabelText(3, "闲逛中...");
+                CastBarVisible = false;
+            }
 
             QueueRedraw();
         }

@@ -1,6 +1,7 @@
 using GameServer.Common.Net;
 using GameServer.Services.Core;
 using Google.Protobuf;
+using MongoDB.Driver;
 using PCommon = global::Common;
 using PGame = global::Game;
 using PProtocol = global::Protocol;
@@ -36,12 +37,16 @@ public class SetPreferredSkillHandler : IMessageHandler
                 return Task.FromResult<byte[]?>(MakeError(PCommon.ErrorCode.InvalidRequest, "skill not equipped"));
         }
 
-        // 更新 MapPlayerState
+        // 更新运行时状态
         var mapPlayer = _session.MapService.GetPlayerOnMap(player.CurrentMap, claims.AccountId);
         if (mapPlayer != null)
         {
             mapPlayer.PreferredSkillId = skillId;
         }
+
+        // 同步到 Role 并持久化，避免下线后丢失
+        player.PreferredSkillId = skillId;
+        _ = _session.Roles.Update(player.RoleId, u => u.Set(r => r.PreferredSkillId, skillId));
 
         var rsp = new PGame.SetPreferredSkillResponse
         {

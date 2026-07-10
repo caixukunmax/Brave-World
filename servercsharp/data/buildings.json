@@ -1,7 +1,13 @@
 {
   "1": { "sizeX": 1, "sizeY": 1, "blockMovement": true },
-  "10000": { "sizeX": 2, "sizeY": 2, "blockMovement": true },
+  "10000": { "sizeX": 1, "sizeY": 1, "blockMovement": false, "name": "tree" },
+  "10001": { "sizeX": 2, "sizeY": 2, "blockMovement": true, "name": "house" },
   "20000": { "sizeX": 1, "sizeY": 1, "blockMovement": false },
   "20001": { "sizeX": 1, "sizeY": 1, "blockMovement": false },
-  "20002": { "sizeX": 1, "sizeY": 1, "blockMovement": false }
+  "20002": { "sizeX": 1, "sizeY": 1, "blockMovement": false },
+  "30000": { "sizeX": 1, "sizeY": 1, "blockMovement": true },
+  "40000": { "sizeX": 2, "sizeY": 1, "blockMovement": true },
+  "50000": { "sizeX": 2, "sizeY": 2, "blockMovement": true },
+  "60000": { "sizeX": 1, "sizeY": 1, "blockMovement": false, "name": "spawn_point" },
+  "70000": { "sizeX": 1, "sizeY": 1, "blockMovement": false, "name": "portal" }
 }

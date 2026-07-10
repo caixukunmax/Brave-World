@@ -100,9 +100,10 @@ namespace ClinetCSharp
         {
             return oldValue switch
             {
-                10 => BuildingType.GetConfigBaseId(BuildingType.House),     // 房舍
-                11 => BuildingType.GetConfigBaseId(BuildingType.Shop) + 1,  // 商店子配置
-                12 => BuildingType.GetConfigBaseId(BuildingType.Shop) + 2,  // 商店子配置
+                1 => BuildingType.GetConfigBaseId(BuildingType.House) + 1, // 旧房舍
+                10 => BuildingType.GetConfigBaseId(BuildingType.House) + 1,  // 房舍
+                11 => BuildingType.GetConfigBaseId(BuildingType.Shop) + 1,   // 商店子配置
+                12 => BuildingType.GetConfigBaseId(BuildingType.Shop) + 2,   // 商店子配置
                 _ => oldValue,
             };
         }

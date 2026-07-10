@@ -9,13 +9,13 @@
     "build:all": "npm run build:tables && npm run build:proto && npm run build:server",
     "test": "dotnet test servercsharp/src/GameServer.Tests --nologo -v q",
     "verify": "powershell -ExecutionPolicy Bypass -File scripts/build.ps1 verify",
-    "dev": "powershell -ExecutionPolicy Bypass -File scripts/build.ps1 dev"
+    "dev": "powershell -ExecutionPolicy Bypass -File scripts/build.ps1 dev",
+    "sync:maps": "npm run sync:maps --workspace=tables",
+    "verify:maps": "npm run verify:maps --workspace=tables"
   },
   "workspaces": [
     "protocols",
     "tables"
   ],
-  "dependencies": {
-    "@ai-sdk/openai-compatible": "^2.0.41"
-  }
+  "dependencies": {}
 }

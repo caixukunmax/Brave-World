@@ -1,4 +1,4 @@
-﻿{
+{
   "bounds": {
     "h": 50,
     "w": 50,
@@ -328,13 +328,11 @@
     },
     "10_21": {
       "custom": "",
-      "decoration": 10000,
       "height": 0,
       "terrain": 0
     },
     "10_22": {
       "custom": "",
-      "decoration": 1,
       "height": 0,
       "terrain": 0
     },
@@ -560,13 +558,11 @@
     },
     "11_18": {
       "custom": "",
-      "decoration": 20002,
       "height": 0,
       "terrain": 0
     },
     "11_19": {
       "custom": "",
-      "decoration": 20001,
       "height": 0,
       "terrain": 0
     },
@@ -577,7 +573,6 @@
     },
     "11_20": {
       "custom": "",
-      "decoration": 20001,
       "height": 0,
       "terrain": 0
     },
@@ -588,7 +583,6 @@
     },
     "11_22": {
       "custom": "",
-      "decoration": 20001,
       "height": 0,
       "terrain": 0
     },
@@ -1084,7 +1078,6 @@
     },
     "13_21": {
       "custom": "",
-      "decoration": 20002,
       "height": 0,
       "terrain": 0
     },
@@ -7306,22 +7299,22 @@
     "36_16": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "36_17": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "36_18": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "36_19": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "36_2": {
       "custom": "",
@@ -7521,27 +7514,27 @@
     "37_1": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "37_10": {
       "custom": "",
       "height": 0,
-      "terrain": 1
+      "terrain": 0
     },
     "37_11": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "37_12": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "37_13": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "37_14": {
       "custom": "",
@@ -7556,27 +7549,27 @@
     "37_16": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "37_17": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "37_18": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "37_19": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "37_2": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "37_20": {
       "custom": "",
@@ -7631,7 +7624,7 @@
     "37_3": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "37_30": {
       "custom": "",
@@ -7686,7 +7679,7 @@
     "37_4": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "37_40": {
       "custom": "",
@@ -7741,27 +7734,27 @@
     "37_5": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "37_6": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "37_7": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "37_8": {
       "custom": "",
       "height": 0,
-      "terrain": 1
+      "terrain": 0
     },
     "37_9": {
       "custom": "",
       "height": 0,
-      "terrain": 1
+      "terrain": 0
     },
     "38_0": {
       "custom": "",
@@ -7771,27 +7764,27 @@
     "38_1": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "38_10": {
       "custom": "",
       "height": 0,
-      "terrain": 1
+      "terrain": 0
     },
     "38_11": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "38_12": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "38_13": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "38_14": {
       "custom": "",
@@ -7806,27 +7799,27 @@
     "38_16": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "38_17": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "38_18": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "38_19": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "38_2": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "38_20": {
       "custom": "",
@@ -7881,7 +7874,7 @@
     "38_3": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "38_30": {
       "custom": "",
@@ -7936,7 +7929,7 @@
     "38_4": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "38_40": {
       "custom": "",
@@ -7991,27 +7984,27 @@
     "38_5": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "38_6": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "38_7": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "38_8": {
       "custom": "",
       "height": 0,
-      "terrain": 1
+      "terrain": 0
     },
     "38_9": {
       "custom": "",
       "height": 0,
-      "terrain": 1
+      "terrain": 0
     },
     "39_0": {
       "custom": "",
@@ -8021,27 +8014,27 @@
     "39_1": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "39_10": {
       "custom": "",
       "height": 0,
-      "terrain": 1
+      "terrain": 0
     },
     "39_11": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "39_12": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "39_13": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "39_14": {
       "custom": "",
@@ -8056,27 +8049,27 @@
     "39_16": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "39_17": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "39_18": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "39_19": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "39_2": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "39_20": {
       "custom": "",
@@ -8131,7 +8124,7 @@
     "39_3": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "39_30": {
       "custom": "",
@@ -8186,7 +8179,7 @@
     "39_4": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "39_40": {
       "custom": "",
@@ -8241,27 +8234,27 @@
     "39_5": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "39_6": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "39_7": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "39_8": {
       "custom": "",
       "height": 0,
-      "terrain": 1
+      "terrain": 0
     },
     "39_9": {
       "custom": "",
       "height": 0,
-      "terrain": 1
+      "terrain": 0
     },
     "3_0": {
       "custom": "",
@@ -8521,27 +8514,27 @@
     "40_1": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "40_10": {
       "custom": "",
       "height": 0,
-      "terrain": 1
+      "terrain": 0
     },
     "40_11": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "40_12": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "40_13": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "40_14": {
       "custom": "",
@@ -8556,27 +8549,27 @@
     "40_16": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "40_17": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "40_18": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "40_19": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "40_2": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "40_20": {
       "custom": "",
@@ -8631,7 +8624,7 @@
     "40_3": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "40_30": {
       "custom": "",
@@ -8686,7 +8679,7 @@
     "40_4": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "40_40": {
       "custom": "",
@@ -8741,27 +8734,27 @@
     "40_5": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "40_6": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "40_7": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "40_8": {
       "custom": "",
       "height": 0,
-      "terrain": 1
+      "terrain": 0
     },
     "40_9": {
       "custom": "",
       "height": 0,
-      "terrain": 1
+      "terrain": 0
     },
     "41_0": {
       "custom": "",
@@ -8771,27 +8764,27 @@
     "41_1": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "41_10": {
       "custom": "",
       "height": 0,
-      "terrain": 1
+      "terrain": 0
     },
     "41_11": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "41_12": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "41_13": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "41_14": {
       "custom": "",
@@ -8806,27 +8799,27 @@
     "41_16": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "41_17": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "41_18": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "41_19": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "41_2": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "41_20": {
       "custom": "",
@@ -8881,7 +8874,7 @@
     "41_3": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "41_30": {
       "custom": "",
@@ -8936,7 +8929,7 @@
     "41_4": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "41_40": {
       "custom": "",
@@ -8991,27 +8984,27 @@
     "41_5": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "41_6": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "41_7": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "41_8": {
       "custom": "",
       "height": 0,
-      "terrain": 1
+      "terrain": 0
     },
     "41_9": {
       "custom": "",
       "height": 0,
-      "terrain": 1
+      "terrain": 0
     },
     "42_0": {
       "custom": "",
@@ -9021,27 +9014,27 @@
     "42_1": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "42_10": {
       "custom": "",
       "height": 0,
-      "terrain": 1
+      "terrain": 0
     },
     "42_11": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "42_12": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "42_13": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "42_14": {
       "custom": "",
@@ -9056,27 +9049,27 @@
     "42_16": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "42_17": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "42_18": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "42_19": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "42_2": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "42_20": {
       "custom": "",
@@ -9131,7 +9124,7 @@
     "42_3": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "42_30": {
       "custom": "",
@@ -9186,7 +9179,7 @@
     "42_4": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "42_40": {
       "custom": "",
@@ -9241,27 +9234,27 @@
     "42_5": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "42_6": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "42_7": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "42_8": {
       "custom": "",
       "height": 0,
-      "terrain": 1
+      "terrain": 0
     },
     "42_9": {
       "custom": "",
       "height": 0,
-      "terrain": 1
+      "terrain": 0
     },
     "43_0": {
       "custom": "",
@@ -9271,27 +9264,27 @@
     "43_1": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "43_10": {
       "custom": "",
       "height": 0,
-      "terrain": 1
+      "terrain": 0
     },
     "43_11": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "43_12": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "43_13": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "43_14": {
       "custom": "",
@@ -9306,27 +9299,27 @@
     "43_16": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "43_17": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "43_18": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "43_19": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "43_2": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "43_20": {
       "custom": "",
@@ -9381,7 +9374,7 @@
     "43_3": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "43_30": {
       "custom": "",
@@ -9436,7 +9429,7 @@
     "43_4": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "43_40": {
       "custom": "",
@@ -9491,27 +9484,27 @@
     "43_5": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "43_6": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "43_7": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "43_8": {
       "custom": "",
       "height": 0,
-      "terrain": 1
+      "terrain": 0
     },
     "43_9": {
       "custom": "",
       "height": 0,
-      "terrain": 1
+      "terrain": 0
     },
     "44_0": {
       "custom": "",
@@ -9521,27 +9514,27 @@
     "44_1": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "44_10": {
       "custom": "",
       "height": 0,
-      "terrain": 1
+      "terrain": 0
     },
     "44_11": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "44_12": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "44_13": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "44_14": {
       "custom": "",
@@ -9556,27 +9549,27 @@
     "44_16": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "44_17": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "44_18": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "44_19": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "44_2": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "44_20": {
       "custom": "",
@@ -9631,7 +9624,7 @@
     "44_3": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "44_30": {
       "custom": "",
@@ -9686,7 +9679,7 @@
     "44_4": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "44_40": {
       "custom": "",
@@ -9741,27 +9734,27 @@
     "44_5": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "44_6": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "44_7": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "44_8": {
       "custom": "",
       "height": 0,
-      "terrain": 1
+      "terrain": 0
     },
     "44_9": {
       "custom": "",
       "height": 0,
-      "terrain": 1
+      "terrain": 0
     },
     "45_0": {
       "custom": "",
@@ -9771,27 +9764,27 @@
     "45_1": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "45_10": {
       "custom": "",
       "height": 0,
-      "terrain": 1
+      "terrain": 0
     },
     "45_11": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "45_12": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "45_13": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "45_14": {
       "custom": "",
@@ -9806,27 +9799,27 @@
     "45_16": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "45_17": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "45_18": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "45_19": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "45_2": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "45_20": {
       "custom": "",
@@ -9881,7 +9874,7 @@
     "45_3": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "45_30": {
       "custom": "",
@@ -9936,7 +9929,7 @@
     "45_4": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "45_40": {
       "custom": "",
@@ -9991,27 +9984,27 @@
     "45_5": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "45_6": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "45_7": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "45_8": {
       "custom": "",
       "height": 0,
-      "terrain": 1
+      "terrain": 0
     },
     "45_9": {
       "custom": "",
       "height": 0,
-      "terrain": 1
+      "terrain": 0
     },
     "46_0": {
       "custom": "",
@@ -10021,27 +10014,27 @@
     "46_1": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "46_10": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "46_11": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "46_12": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "46_13": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "46_14": {
       "custom": "",
@@ -10056,27 +10049,27 @@
     "46_16": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "46_17": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "46_18": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "46_19": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "46_2": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "46_20": {
       "custom": "",
@@ -10131,7 +10124,7 @@
     "46_3": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "46_30": {
       "custom": "",
@@ -10186,7 +10179,7 @@
     "46_4": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "46_40": {
       "custom": "",
@@ -10241,27 +10234,27 @@
     "46_5": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "46_6": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "46_7": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "46_8": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "46_9": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "47_0": {
       "custom": "",
@@ -10271,27 +10264,27 @@
     "47_1": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "47_10": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "47_11": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "47_12": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "47_13": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "47_14": {
       "custom": "",
@@ -10306,27 +10299,27 @@
     "47_16": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "47_17": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "47_18": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "47_19": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "47_2": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "47_20": {
       "custom": "",
@@ -10381,7 +10374,7 @@
     "47_3": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "47_30": {
       "custom": "",
@@ -10436,7 +10429,7 @@
     "47_4": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "47_40": {
       "custom": "",
@@ -10491,27 +10484,27 @@
     "47_5": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "47_6": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "47_7": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "47_8": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "47_9": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "48_0": {
       "custom": "",
@@ -10521,27 +10514,27 @@
     "48_1": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "48_10": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "48_11": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "48_12": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "48_13": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "48_14": {
       "custom": "",
@@ -10576,7 +10569,7 @@
     "48_2": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "48_20": {
       "custom": "",
@@ -10631,7 +10624,7 @@
     "48_3": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "48_30": {
       "custom": "",
@@ -10686,7 +10679,7 @@
     "48_4": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "48_40": {
       "custom": "",
@@ -10741,27 +10734,27 @@
     "48_5": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "48_6": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "48_7": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "48_8": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "48_9": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "49_0": {
       "custom": "",
@@ -10771,27 +10764,27 @@
     "49_1": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "49_10": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "49_11": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "49_12": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "49_13": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "49_14": {
       "custom": "",
@@ -10826,7 +10819,7 @@
     "49_2": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "49_20": {
       "custom": "",
@@ -10881,7 +10874,7 @@
     "49_3": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "49_30": {
       "custom": "",
@@ -10936,7 +10929,7 @@
     "49_4": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "49_40": {
       "custom": "",
@@ -10991,27 +10984,27 @@
     "49_5": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "49_6": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "49_7": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "49_8": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "49_9": {
       "custom": "",
       "height": 0,
-      "terrain": 9
+      "terrain": 0
     },
     "4_0": {
       "custom": "",
@@ -11595,7 +11588,6 @@
     },
     "6_23": {
       "custom": "",
-      "decoration": 20000,
       "height": 0,
       "terrain": 0
     },

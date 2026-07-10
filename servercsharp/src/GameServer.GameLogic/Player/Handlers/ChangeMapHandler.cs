@@ -83,6 +83,10 @@ public class ChangeMapHandler : IMessageHandler
             Hp = enterHp, MaxHp = hp, Mp = enterMp, MaxMp = mp,
             Patk = patk, Matk = matk, Pdef = pdef, Mdef = mdef,
             MpRegen = role.MpRegen,
+            Job = role.Job,
+            MoveSpeedMs = role.MoveSpeedMs > 0 ? role.MoveSpeedMs : GameConstants.BaseMoveSpeedMs,
+            PreferredSkillId = role.PreferredSkillId,
+            EquippedSkills = new List<int>(role.EquippedSkills),
         });
 
         // 推送新地图信息（怪物 + 宝箱 + NPC）

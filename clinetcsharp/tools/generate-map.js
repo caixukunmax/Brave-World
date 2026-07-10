@@ -7,7 +7,6 @@ const { generateTerrain, ensureConnectivity, placeSpawn, placeDecorations } = re
 const { applyBlueprint } = require('./lib/blueprint');
 const { resolveMapName } = require('./lib/naming');
 const { writeForm } = require('./lib/form');
-const { syncToServer } = require('./lib/sync');
 const config = require('./map-gen-config.json');
 
 const DEFAULT_WIDTH = 30;
@@ -267,9 +266,18 @@ function generateSingleMap(options) {
 
     let syncResult = { skipped: true, reason: 'disabled via --no-sync' };
     if (!noSync) {
-      const serverRoot = path.join(__dirname, '..', '..', 'servercsharp', 'data');
-      syncResult = syncToServer(finalName, path.join(mapDir, 'map.json'), serverRoot);
-      if (syncResult.skipped) console.log(`[sync] skipped: ${syncResult.reason}`);
+      // 统一走 tables/datas/maps/ 作为数据源，再同步到 client/server/bin
+      const projectRoot = path.join(__dirname, '..', '..');
+      const tablesMapDir = path.join(projectRoot, 'tables', 'datas', 'maps', finalName);
+      fs.mkdirSync(tablesMapDir, { recursive: true });
+      fs.copyFileSync(path.join(mapDir, 'map.json'), path.join(tablesMapDir, 'map.json'));
+      try {
+        execSync('npx tsx tables/scripts/sync-maps.ts', { stdio: 'inherit', cwd: projectRoot });
+        syncResult = { skipped: false };
+      } catch (err) {
+        console.error(`[sync] failed: ${err.message}`);
+        syncResult = { skipped: true, reason: err.message };
+      }
     }
 
     const formOptions = {

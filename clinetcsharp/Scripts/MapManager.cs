@@ -30,6 +30,13 @@ namespace ClinetCSharp
             nm.DropPickupNotify += OnDropPickup;
             nm.DropRemoveNotify += OnDropRemove;
 
+            // 确保 GridManager 加载服务器指定的地图（避免默认加载了错误的本地地图）
+            var gridMgr = GetTree()?.GetFirstNodeInGroup("grid_manager") as GridManager;
+            if (gridMgr != null && !string.IsNullOrEmpty(nm.CurrentMapName) && gridMgr.CurrentMapName != nm.CurrentMapName)
+            {
+                gridMgr.LoadMap(nm.CurrentMapName);
+            }
+
             // 如果已经有缓存数据（热加载场景），直接生成
             if (nm.Chests.Count > 0 || nm.Monsters.Count > 0 || nm.Npcs.Count > 0)
             {
@@ -41,8 +48,14 @@ namespace ClinetCSharp
         {
             GD.Print($"[MapManager] MapInfoReceived map={notify.MapName} chests={notify.Chests.Count} monsters={notify.Monsters.Count} npcs={notify.Npcs.Count} tiles={notify.Tiles.Count}");
             
-            // 同步服务端地形数据到本地 GridCell
+            // 如果服务器切换了地图，先让 GridManager 加载正确的本地地图
             var gridMgr = GetTree()?.GetFirstNodeInGroup("grid_manager") as GridManager;
+            if (gridMgr != null && gridMgr.CurrentMapName != notify.MapName)
+            {
+                gridMgr.LoadMap(notify.MapName);
+            }
+
+            // 同步服务端地形数据到本地 GridCell
             if (gridMgr != null && notify.Tiles.Count > 0)
             {
                 foreach (var tile in notify.Tiles)

@@ -45,7 +45,7 @@ namespace ClinetCSharp
 
         // 当前设置的属性（应用到选中格子）
         public int PaintTerrain { get; set; } = 0;
-        public int PaintDecoration { get; set; } = BuildingType.GetConfigBaseId(BuildingType.House); // 默认房舍 build_cfg_id=10000
+        public int PaintDecoration { get; set; } = BuildingType.GetConfigBaseId(BuildingType.House) + 1; // 默认房舍 build_cfg_id=10001
 
         // 编辑器工具模式（只保留刷地形和放置建筑）
         public enum EditorTool
@@ -1623,6 +1623,15 @@ namespace ClinetCSharp
                 }
             }
 
+            // 检查多格建筑占地是否与其他建筑占地重叠（锚点不重合时也可能重叠）
+            var excludeAnchor = _dragMode == DragMode.MovePlaced ? (Vector2I?)_dragSourceGridPos : null;
+            if (IsFootprintOverlapping(gridPos, sizeX, sizeY, excludeAnchor))
+            {
+                GD.Print($"[MapEditor.Drop] 目标 footprint 与其他建筑占地重叠，取消放置");
+                ShowToast("目标位置与其他建筑占地重叠", Colors.Yellow);
+                return;
+            }
+
             DecorationEditCommand? cmd = null;
 
             if (_dragMode == DragMode.FromPalette)
@@ -1695,6 +1704,35 @@ namespace ClinetCSharp
         {
             var cfg = DecorationConfigUtil.Get(decorationType);
             return (Mathf.Max(1, cfg.SizeX), Mathf.Max(1, cfg.SizeY));
+        }
+
+        /// <summary>
+        /// 检查目标 footprint 是否与任意已有建筑占地重叠。
+        /// 由于多格建筑只在锚点格记录 DecorationType，仅靠 DecorationType 检查会漏掉
+        /// 锚点不相交但 footprint 相交的情况（如 2x2 房舍错开 1 格）。
+        /// </summary>
+        private bool IsFootprintOverlapping(Vector2I targetAnchor, int sizeX, int sizeY, Vector2I? excludeAnchor = null)
+        {
+            if (_editGridManager == null) return false;
+
+            var targetFootprint = GetOccupiedFootprintCells(targetAnchor, sizeX, sizeY);
+            foreach (var cell in _editGridManager.GridData.Values)
+            {
+                if (cell.DecorationType == 0) continue;
+                var anchor = cell.Pos;
+                if (excludeAnchor.HasValue && anchor == excludeAnchor.Value) continue;
+
+                var (otherSizeX, otherSizeY) = GetDecorationSize(cell.DecorationType);
+                var otherFootprint = GetOccupiedFootprintCells(anchor, otherSizeX, otherSizeY);
+                if (otherFootprint.Count == 0) continue;
+
+                foreach (var pos in targetFootprint)
+                {
+                    if (otherFootprint.Contains(pos))
+                        return true;
+                }
+            }
+            return false;
         }
 
         private bool IsMouseOverEditorPanel()

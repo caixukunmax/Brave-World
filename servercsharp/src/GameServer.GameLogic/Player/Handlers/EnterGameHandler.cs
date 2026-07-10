@@ -1,3 +1,4 @@
+using GameServer.Common.Config;
 using GameServer.Common.Net;
 using GameServer.Common.Security;
 using GameServer.Database.Models;
@@ -21,14 +22,16 @@ public class EnterGameHandler : IMessageHandler
     private readonly IMonsterAiService _monsterAi;
     private readonly IDropService _dropService;
     private readonly LubanTableLoader _tables;
+    private readonly MapDataProvider _mapData;
 
-    public EnterGameHandler(PlayerSessionManager session, INetworkSender network, IMonsterAiService monsterAi, IDropService dropService, LubanTableLoader tables)
+    public EnterGameHandler(PlayerSessionManager session, INetworkSender network, IMonsterAiService monsterAi, IDropService dropService, LubanTableLoader tables, MapDataProvider mapData)
     {
         _session = session;
         _network = network;
         _monsterAi = monsterAi;
         _dropService = dropService;
         _tables = tables;
+        _mapData = mapData;
     }
 
     public async Task<byte[]?> HandleAsync(MessageContext ctx, byte[] data)
@@ -87,6 +90,31 @@ public class EnterGameHandler : IMessageHandler
 
         var mapName = MapNameNormalizer.Normalize(role.CurrentMap);
 
+        // 如果角色记录的地图已不存在（例如地图被删除），迁移到注册表第一张可用地图
+        if (_mapData.GetRegistryEntry(mapName) == null)
+        {
+            var fallback = _mapData.GetAllRegistryEntries().Values.FirstOrDefault();
+            if (fallback == null)
+            {
+                _session.Logger.LogError("EnterGame: roleId={RoleId} currentMap={CurrentMap} 不存在且注册表为空", roleId, mapName);
+                return MakeError(PCommon.ErrorCode.UnknownError);
+            }
+
+            var (spawnX, spawnY) = (fallback.spawn_x, fallback.spawn_y);
+            _session.Logger.LogWarning("EnterGame: roleId={RoleId} 地图 {OldMap} 已不存在，迁移到 {NewMap} ({SpawnX},{SpawnY})",
+                roleId, mapName, fallback.map_name, spawnX, spawnY);
+
+            role.CurrentMap = fallback.map_name;
+            role.GridX = spawnX;
+            role.GridY = spawnY;
+            mapName = fallback.map_name;
+
+            await _session.Roles.Update(roleId, u => u
+                .Set(r => r.CurrentMap, role.CurrentMap)
+                .Set(r => r.GridX, role.GridX)
+                .Set(r => r.GridY, role.GridY));
+        }
+
         // 按角色 footprint 校验出生点，若当前坐标无法容纳则修正到最近的合法锚点
         int sizeX = role.GridSizeX > 0 ? role.GridSizeX : 1;
         int sizeY = role.GridSizeY > 0 ? role.GridSizeY : 1;
@@ -119,7 +147,8 @@ public class EnterGameHandler : IMessageHandler
             MpRegen = mpRegen,
             Job = role.Job,
             MoveSpeedMs = role.MoveSpeedMs > 0 ? role.MoveSpeedMs : GameConstants.BaseMoveSpeedMs,
-            EquippedSkills = role.EquippedSkills,
+            PreferredSkillId = role.PreferredSkillId,
+            EquippedSkills = new List<int>(role.EquippedSkills),
         });
 
         var rsp = new PGame.EnterGameResponse

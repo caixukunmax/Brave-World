@@ -329,6 +329,12 @@ namespace ClinetCSharp
             ZoomSpeed = speed;
         }
 
+        /// <summary>设置相机是否处于延迟回归状态（供大地图等外部模块使用）</summary>
+        public void SetReturning(bool returning)
+        {
+            IsReturning = returning;
+        }
+
         // ============ 处理循环 ============
 
         public override void _Process(double delta)

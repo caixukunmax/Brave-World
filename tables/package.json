@@ -6,6 +6,8 @@
   "type": "module",
   "scripts": {
     "build": "tsx scripts/build_tables.ts",
+    "sync:maps": "tsx scripts/sync-maps.ts",
+    "verify:maps": "tsx scripts/verify-maps.ts",
     "clean": "rm -rf .tmp ../servercsharp/data/tables"
   },
   "keywords": [

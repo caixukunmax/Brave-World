@@ -114,6 +114,40 @@ describe('generator decorations', () => {
     const spawnCell = map.cells[`${map.spawn.x}_${map.spawn.y}`];
     assert.strictEqual(spawnCell.decoration, 0, 'spawn cell should remain undecorated');
   });
+
+  it('does not let multi-cell decorations overlap', () => {
+    // 临时注入一个 2x2 测试装饰物，验证 placeDecorations 的占地检测
+    const testId = 99999;
+    const testSize = { x: 2, y: 2 };
+    config.decorations['__test_2x2'] = { id: testId, walkable: false, biomes: ['forest'], size: testSize };
+
+    try {
+      for (let seed = 1; seed <= 20; seed++) {
+        const map = createMapData(80, 80, 'NoOverlap');
+        generateTerrain(map, { style: 'forest', water: 0.10, obstacle: 0.05, seed });
+        ensureConnectivity(map);
+        placeSpawn(map);
+        placeDecorations(map, 'high', 'forest', seed);
+
+        const placed = Object.entries(map.cells)
+          .filter(([_, c]) => c.decoration === testId)
+          .map(([k, _]) => k.split('_').map(Number));
+
+        const occupied = new Set();
+        for (const [ax, ay] of placed) {
+          for (let dy = 0; dy < testSize.y; dy++) {
+            for (let dx = 0; dx < testSize.x; dx++) {
+              const key = `${ax + dx}_${ay + dy}`;
+              assert(!occupied.has(key), `2x2 decoration at ${ax},${ay} overlaps another at ${key}`);
+              occupied.add(key);
+            }
+          }
+        }
+      }
+    } finally {
+      delete config.decorations['__test_2x2'];
+    }
+  });
 });
 
 function floodReachable(map, sx, sy) {

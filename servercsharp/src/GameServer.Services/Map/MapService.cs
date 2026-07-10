@@ -62,6 +62,7 @@ public class MapService
             MpRegen = snapshot.MpRegen,
             Job = snapshot.Job,
             MoveSpeedMs = snapshot.MoveSpeedMs,
+            PreferredSkillId = snapshot.PreferredSkillId,
             EquippedSkills = snapshot.EquippedSkills,
             Buffs = new BuffContainer(_tables),
         });
@@ -391,6 +392,7 @@ public class PlayerSnapshot
     public int MpRegen { get; set; }
     public string Job { get; set; } = "";
     public int MoveSpeedMs { get; set; }
+    public int PreferredSkillId { get; set; }
     public List<int> EquippedSkills { get; set; } = new();
 }
 

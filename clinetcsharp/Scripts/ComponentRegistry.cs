@@ -18,7 +18,7 @@ namespace ClinetCSharp
         private static readonly Dictionary<string, string[]> _typeComponents = new()
         {
             ["player"] = new[] { "appearance", "labels", "healthbar", "mpbar", "castbar", "actionbar", "levelbadge" },
-            ["monster"] = new[] { "appearance", "labels", "healthbar", "mpbar", "monster_ai" },
+            ["monster"] = new[] { "appearance", "labels", "healthbar", "mpbar", "castbar", "actionbar", "monster_ai" },
             ["npc"] = new[] { "appearance", "labels", "healthbar", "mpbar", "npc_interact" },
             ["decoration"] = new[] { "appearance", "labels", "obstacle", "building_type" },
         };

@@ -16,6 +16,8 @@ namespace ClinetCSharp
         private bool _collisionMove;
         private bool _bouncingBack;
         private Vector2I _lastMoveTargetPos;
+        private bool _lastSkipState;          // 用于控制 HandleInput 跳过日志刷屏
+        private ulong _lastSkipLogTimeMs;       // 上次输出跳过日志的时间戳（毫秒）
 
         public override void _Process(double delta)
         {
@@ -43,13 +45,22 @@ namespace ClinetCSharp
 
         private void HandleInput()
         {
-            if (IsMoving || _moveSentCount >= MaxMoveQueue || IsServerGridCorrectionActive())
+            bool shouldSkip = IsMoving || _moveSentCount >= MaxMoveQueue || IsServerGridCorrectionActive();
+            if (shouldSkip)
             {
 #if DEBUG
-                GD.Print($"[Player.HandleInput] 跳过移动: IsMoving={IsMoving}, _moveSentCount={_moveSentCount}, IsServerGridCorrectionActive={IsServerGridCorrectionActive()}");
+                ulong now = Time.GetTicksMsec();
+                if (!_lastSkipState || now - _lastSkipLogTimeMs > 1000)
+                {
+                    _lastSkipLogTimeMs = now;
+                    GD.Print($"[Player.HandleInput] 跳过移动: IsMoving={IsMoving}, _moveSentCount={_moveSentCount}, IsServerGridCorrectionActive={IsServerGridCorrectionActive()}");
+                }
 #endif
+                _lastSkipState = true;
                 return;
             }
+
+            _lastSkipState = false;
 
             // 蓄力期间禁止本地移动输入，避免服务器拒绝后产生回弹
             if (!string.IsNullOrEmpty(CastingSkill))

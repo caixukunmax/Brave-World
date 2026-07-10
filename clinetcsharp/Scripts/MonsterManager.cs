@@ -408,7 +408,7 @@ namespace ClinetCSharp
                 {
                     m.IsInCombat = false;
                     m.CastingSkill = "";
-                    m.CastProgress = 0;
+                    m.StopCastAnimation();
                     m.HealthBarFillPercent = 1.0f;
                     m.MpBarFillPercent = 1.0f;
                     m.AtbValue = 0f;
@@ -430,11 +430,24 @@ namespace ClinetCSharp
 
             foreach (var m in _monsters)
             {
-                if (combatMonsters.TryGetValue(m.InstanceId, out var unit))
+                if (combatMonsters.TryGetValue(m.InstanceId, out var unit) && unit.InCombat)
                 {
                     m.IsInCombat = true;
-                    m.CastingSkill = unit.CastingSkill;
-                    m.CastProgress = unit.CastProgress;
+
+                    // 技能名变化时更新；施法进度由本地 Tween 平滑驱动，不直接覆盖
+                    bool wasCasting = !string.IsNullOrEmpty(m.CastingSkill);
+                    bool isCasting = !string.IsNullOrEmpty(unit.CastingSkill);
+                    if (isCasting && m.CastingSkill != unit.CastingSkill)
+                        m.CastingSkill = unit.CastingSkill;
+                    else if (!isCasting && wasCasting)
+                    {
+                        m.CastingSkill = "";
+                        m.StopCastAnimation();
+                    }
+
+                    m.NextSkillId = unit.NextSkillId;
+                    m.NextSkillReadyIn = unit.NextSkillReadyIn;
+
                     m.AtbValue = 0f;
                     if (unit.MaxHp > 0)
                     {
@@ -450,7 +463,9 @@ namespace ClinetCSharp
                 {
                     m.IsInCombat = false;
                     m.CastingSkill = "";
-                    m.CastProgress = 0;
+                    m.StopCastAnimation();
+                    m.NextSkillId = 0;
+                    m.NextSkillReadyIn = 0f;
                     m.AtbValue = 0f;
                     m.HealthBarFillPercent = 1.0f;
                     m.MpBarFillPercent = 1.0f;
@@ -470,7 +485,7 @@ namespace ClinetCSharp
                 if (m == null) continue;
                 m.IsInCombat = false;
                 m.CastingSkill = "";
-                m.CastProgress = 0;
+                m.StopCastAnimation();
                 m.AtbValue = 0f;
                 if (!m.IsMoving && IsCombatState(m.CurrentState))
                     m.CurrentState = "idle";
@@ -484,8 +499,8 @@ namespace ClinetCSharp
             var m = _monsters.Find(x => x.InstanceId == notify.CasterId);
             if (m == null) return;
             m.CastingSkill = SkillDataUtil.GetName((uint)notify.SkillId) ?? $"Skill{notify.SkillId}";
-            m.CastProgress = 0f;
-            m.QueueRedraw();
+            m.StartCastAnimation(notify.CastTime);
+            m.RefreshDataBoundLabels();
         }
 
         private void OnCombatEventNotify(Game.CombatEventNotify notify)

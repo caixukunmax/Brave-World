@@ -68,7 +68,12 @@ public class SkillPipeline
     }
 
     // ---- 阶段 2: Target Selection ----
-    public List<long>? SelectTargets(int skillId, long casterId, CombatContext ctx, Dictionary<string, MapState>? maps)
+    /// <summary>
+    /// 目标选择。
+    /// 手动施法默认保留射程过滤；自动战斗通过 ignoreRange=true 跳过射程过滤，
+    /// 让 Final Validation 阶段按射程判定是否 Miss。
+    /// </summary>
+    public List<long>? SelectTargets(int skillId, long casterId, CombatContext ctx, Dictionary<string, MapState>? maps, bool ignoreRange = false)
     {
         var cfg = GetSkillConfig(skillId);
         if (cfg == null || maps == null) return null;
@@ -91,19 +96,21 @@ public class SkillPipeline
                 if (targetPositions.Count == 0) continue;
 
                 int d = MinCombatDistance(casterPositions, targetPositions);
-                if (d <= cfg.CastRange)
+                if (ignoreRange || d <= cfg.CastRange)
                     candidates.Add((rel.TargetId, d));
             }
 
-            // 优先攻击目标：如果设定且在射程内，优先使用
+            // 优先攻击目标：手动施法或目标在射程内时优先使用；自动战斗且目标在射程外时进入候选排序
             if (ctx.PriorityTargetId > 0)
             {
                 var priorityPositions = FindEntityCombatPositions(ctx.PriorityTargetId, maps);
                 if (priorityPositions.Count > 0)
                 {
                     int pd = MinCombatDistance(casterPositions, priorityPositions);
-                    if (pd <= cfg.CastRange)
+                    if (!ignoreRange && pd <= cfg.CastRange)
                         return [ctx.PriorityTargetId];
+                    if (ignoreRange)
+                        candidates.Add((ctx.PriorityTargetId, pd));
                 }
             }
 
@@ -123,7 +130,7 @@ public class SkillPipeline
                 if (targetPositions.Count == 0) continue;
 
                 int d = MinCombatDistance(casterPositions, targetPositions);
-                if (d <= cfg.CastRange)
+                if (ignoreRange || d <= cfg.CastRange)
                     targets.Add(rel.TargetId);
             }
             return targets.Count > 0 ? targets : null;
@@ -149,7 +156,7 @@ public class SkillPipeline
                         var allyPositions = FindEntityCombatPositions(allyId, maps);
                         if (allyPositions.Count == 0) continue;
                         int d = MinCombatDistance(casterPositions, allyPositions);
-                        if (d <= cfg.CastRange)
+                        if (ignoreRange || d <= cfg.CastRange)
                             allies.Add(allyId);
                     }
                 }
@@ -160,7 +167,7 @@ public class SkillPipeline
                         var allyPositions = FindEntityCombatPositions(allyId, maps);
                         if (allyPositions.Count == 0) continue;
                         int d = MinCombatDistance(casterPositions, allyPositions);
-                        if (d <= cfg.CastRange)
+                        if (ignoreRange || d <= cfg.CastRange)
                             allies.Add(allyId);
                     }
                 }
@@ -353,7 +360,15 @@ public class SkillPipeline
     }
 
     // ---- 主接口 ----
+    /// <summary>手动施法入口：目标选择受射程过滤约束。</summary>
     public virtual string Cast(int skillId, long casterId, Dictionary<string, MapState>? maps)
+        => CastCore(skillId, casterId, maps, ignoreRange: false);
+
+    /// <summary>自动战斗/AI 施法入口：目标选择忽略射程，由 Final Validation 判定 Miss。</summary>
+    public virtual string CastForAuto(int skillId, long casterId, Dictionary<string, MapState>? maps)
+        => CastCore(skillId, casterId, maps, ignoreRange: true);
+
+    private string CastCore(int skillId, long casterId, Dictionary<string, MapState>? maps, bool ignoreRange)
     {
         var ctx = CombatManager!.RelationsMgr.Contexts.GetValueOrDefault(casterId);
         if (ctx == null) return "FAILURE";
@@ -365,7 +380,7 @@ public class SkillPipeline
         if (!ok) return "FAILURE";
 
         // 阶段 2: Target Selection
-        var targets = SelectTargets(skillId, casterId, ctx, maps);
+        var targets = SelectTargets(skillId, casterId, ctx, maps, ignoreRange);
         if (targets == null || targets.Count == 0) return "FAILURE";
         var cfg = GetSkillConfig(skillId);
         CombatTrace.SkillSelectTargets(_logger, combatId, casterId, SkillPipeline.GetEntityName(casterId, maps!), skillId, cfg?.TargetType.ToString() ?? "", targets);
@@ -397,10 +412,7 @@ public class SkillPipeline
         if (!FinalValidation(skillId, casterId, targets, maps))
         {
             CombatTrace.SkillFinalValidation(_logger, combatId, casterId, SkillPipeline.GetEntityName(casterId, maps!), skillId, false, targets);
-            if (cfg != null && cfg.MpCost > 0 && maps != null)
-            {
-                RefundMp(casterId, cfg.MpCost, maps);
-            }
+            // Miss 时不返还 MP，进入完整 CD（自动战斗/风筝惩罚）
             if (maps != null && CombatManager != null)
                 CombatManager.BroadcastCastResultNotify(casterId, skillId, targets, true, maps);
             EndCast(casterId, skillId, true);
@@ -463,11 +475,7 @@ public class SkillPipeline
 
         if (!FinalValidation(skillId.Value, casterId, targets, maps))
         {
-            var cfg = GetSkillConfig(skillId.Value);
-            if (cfg != null && cfg.MpCost > 0 && maps != null)
-            {
-                RefundMp(casterId, cfg.MpCost, maps);
-            }
+            // Miss：MP 不返还，技能进入完整 CD
             if (maps != null && CombatManager != null)
                 CombatManager.BroadcastCastResultNotify(casterId, skillId.Value, targets, true, maps);
             EndCast(casterId, skillId.Value, true);

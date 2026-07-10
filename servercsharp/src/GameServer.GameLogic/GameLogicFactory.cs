@@ -254,7 +254,7 @@ public class GameLogicFactory : IGameLogicFactory
 
     public INpcManager InitNpcs(WorldState worldState)
     {
-        var npcManager = new NpcManager(worldState, _loggerFactory.CreateLogger<NpcManager>());
+        var npcManager = new NpcManager(worldState, _tables, _loggerFactory.CreateLogger<NpcManager>());
         npcManager.Init();
         return npcManager;
     }

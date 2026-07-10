@@ -93,16 +93,23 @@ function ensureConnectivity(mapData) {
   return largest;
 }
 
+function getDecorationSize(decId) {
+  for (const d of Object.values(config.decorations)) {
+    if (d.id === decId) {
+      const sx = d.size?.x ?? 1;
+      const sy = d.size?.y ?? 1;
+      return { x: Math.max(1, sx), y: Math.max(1, sy) };
+    }
+  }
+  return { x: 1, y: 1 };
+}
+
 function placeDecorations(mapData, density, styleName, seed) {
   const densityValue = config.decorationDensity[density] || config.decorationDensity.medium;
   const style = config.styles[styleName] || config.styles.mixed;
   const noise = createNoise2D(seed + 1);
   const { x: spawnX, y: spawnY } = mapData.spawn;
-  const candidates = Object.entries(mapData.cells).filter(([key, c]) => {
-    const [x, y] = key.split('_').map(Number);
-    return isWalkable(c) && !c.decoration && !(x === spawnX && y === spawnY);
-  });
-  const targetCount = Math.floor(candidates.length * densityValue);
+  const { x: bx, y: by, w: bw, h: bh } = mapData.bounds;
 
   // Filter decorations by biome compatibility
   const validDecs = Object.entries(config.decorations)
@@ -111,12 +118,62 @@ function placeDecorations(mapData, density, styleName, seed) {
 
   if (validDecs.length === 0) return;
 
+  const candidates = Object.entries(mapData.cells).filter(([key, c]) => {
+    const [x, y] = key.split('_').map(Number);
+    return isWalkable(c) && !c.decoration && !(x === spawnX && y === spawnY);
+  });
+  const targetCount = Math.floor(candidates.length * densityValue);
+
   // Shuffle-ish via noise
   candidates.sort((a, b) => noise(a[0].split('_').map(Number)[0], a[0].split('_').map(Number)[1]) - noise(b[0].split('_').map(Number)[0], b[0].split('_').map(Number)[1]));
 
-  for (let i = 0; i < Math.min(targetCount, candidates.length); i++) {
-    const [key, cell] = candidates[i];
-    cell.decoration = validDecs[Math.floor(Math.abs(noise(...key.split('_').map(Number))) * validDecs.length) % validDecs.length];
+  const occupied = new Set();
+
+  function occupiesSpawn(anchorX, anchorY, sizeX, sizeY) {
+    return anchorX <= spawnX && spawnX < anchorX + sizeX &&
+           anchorY <= spawnY && spawnY < anchorY + sizeY;
+  }
+
+  function canPlace(anchorX, anchorY, sizeX, sizeY) {
+    if (anchorX < bx || anchorY < by || anchorX + sizeX > bx + bw || anchorY + sizeY > by + bh)
+      return false;
+    if (occupiesSpawn(anchorX, anchorY, sizeX, sizeY))
+      return false;
+    for (let dy = 0; dy < sizeY; dy++) {
+      for (let dx = 0; dx < sizeX; dx++) {
+        const x = anchorX + dx;
+        const y = anchorY + dy;
+        const key = `${x}_${y}`;
+        const cell = mapData.cells[key];
+        if (!cell || !isWalkable(cell) || cell.decoration || occupied.has(key))
+          return false;
+      }
+    }
+    return true;
+  }
+
+  function markOccupied(anchorX, anchorY, sizeX, sizeY) {
+    for (let dy = 0; dy < sizeY; dy++) {
+      for (let dx = 0; dx < sizeX; dx++) {
+        occupied.add(`${anchorX + dx}_${anchorY + dy}`);
+      }
+    }
+  }
+
+  let placed = 0;
+  for (const [key] of candidates) {
+    if (placed >= targetCount) break;
+    const [x, y] = key.split('_').map(Number);
+
+    // Pick decoration type deterministically for this cell
+    const decId = validDecs[Math.floor(Math.abs(noise(x, y)) * validDecs.length) % validDecs.length];
+    const { x: sizeX, y: sizeY } = getDecorationSize(decId);
+
+    if (!canPlace(x, y, sizeX, sizeY)) continue;
+
+    mapData.cells[key].decoration = decId;
+    markOccupied(x, y, sizeX, sizeY);
+    placed++;
   }
 }
 

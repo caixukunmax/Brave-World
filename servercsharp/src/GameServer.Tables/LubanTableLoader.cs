@@ -26,6 +26,8 @@ public class LubanTableLoader
     public Dictionary<int, TerrainConfigRow> TerrainConfigs { get; private set; } = new();
     public Dictionary<int, ItemRow> Items { get; private set; } = new();
     public Dictionary<int, ChestConfigRow> ChestConfigs { get; private set; } = new();
+    public Dictionary<int, NpcRow> Npcs { get; private set; } = new();
+    public Dictionary<int, MapNpcRow> MapNpcs { get; private set; } = new();
 
     // 反向索引: mapName → mapId
     private Dictionary<string, int> _mapNameToId = new();
@@ -64,6 +66,8 @@ public class LubanTableLoader
         Items = LoadTable<ItemRow>(dataDir, "item_tbitem.json", opts);
         TerrainConfigs = LoadTable<TerrainConfigRow>(dataDir, "common_tbterrainconfig.json", opts);
         ChestConfigs = LoadTable<ChestConfigRow>(dataDir, "common_tbchestconfig.json", opts);
+        Npcs = LoadTable<NpcRow>(dataDir, "common_tbnpc.json", opts);
+        MapNpcs = LoadTable<MapNpcRow>(dataDir, "common_tbmapnpc.json", opts);
 
         // 建立地图名→ID 反向索引
         _mapNameToId = MapConfigs.Values.ToDictionary(m => m.MapName, m => m.Id);
@@ -80,6 +84,16 @@ public class LubanTableLoader
         if (!_mapNameToId.TryGetValue(mapName, out var mapId)) return new();
         return MapMonsters.Values.Where(s => s.MapId == mapId && s.IsActive).ToList();
     }
+
+    /// <summary>获取指定地图的 NPC 刷新列表</summary>
+    public List<MapNpcRow> GetNpcSpawnsForMap(string mapName)
+    {
+        if (!_mapNameToId.TryGetValue(mapName, out var mapId)) return new();
+        return MapNpcs.Values.Where(s => s.MapId == mapId).ToList();
+    }
+
+    /// <summary>获取 NPC 基础配置</summary>
+    public NpcRow? GetNpc(int npcId) => Npcs.GetValueOrDefault(npcId);
 
     /// <summary>获取 AI 配置</summary>
     public AiRow? GetAi(int aiId) => AiConfigs.GetValueOrDefault(aiId);

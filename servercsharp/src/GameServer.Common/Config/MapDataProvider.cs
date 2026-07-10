@@ -366,9 +366,30 @@ public class MapDataProvider
         return _registry.TryGetValue(mapName, out var entry) ? entry : null;
     }
 
+    /// <summary>
+    /// 出生点建筑配置 ID（与客户端 BuildingType.SpawnPoint 保持一致）
+    /// </summary>
+    public const int SpawnPointDecorationId = 60000;
+
     public (int x, int y) GetSpawnPoint(string mapName)
     {
         mapName = ResolveMapName(mapName);
+
+        // 优先使用地图中的出生点建筑（60000）作为出生点来源
+        if (_maps.TryGetValue(mapName, out var map))
+        {
+            for (int y = 0; y < map.Height; y++)
+            {
+                for (int x = 0; x < map.Width; x++)
+                {
+                    if (map.DecorationType[x, y] == SpawnPointDecorationId)
+                    {
+                        return (x + map.OffsetX, y + map.OffsetY);
+                    }
+                }
+            }
+        }
+
         if (_registry.TryGetValue(mapName, out var entry))
             return (entry.spawn_x, entry.spawn_y);
         return (25, 25);
