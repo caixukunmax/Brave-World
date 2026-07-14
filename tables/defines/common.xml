@@ -90,4 +90,19 @@
 	</bean>
 	<table name="TbGmCommandDesc" value="GmCommandDescBean" mode="map" input="common/TbGmCommandDesc_new.xlsx"/>
 
+	<!-- 剧情章节 -->
+	<bean name="StoryChapterBean">
+		<var name="id" type="int" comment="章节ID"/>
+		<var name="title" type="string" comment="章节标题"/>
+	</bean>
+
+	<!-- 剧情对话/旁白 -->
+	<bean name="StoryDialogueBean">
+		<var name="id" type="int" comment="对话ID"/>
+		<var name="chapter_id" type="int" comment="所属章节ID"/>
+		<var name="sequence" type="int" comment="章节内顺序"/>
+		<var name="speaker" type="string" comment="说话人，空表示旁白"/>
+		<var name="content" type="string" comment="文本内容"/>
+	</bean>
+
 </module>
