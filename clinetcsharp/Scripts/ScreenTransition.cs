@@ -7,9 +7,10 @@ namespace ClinetCSharp
     /// 全屏淡入淡出过渡层。
     /// 用于进门、切换场景等需要黑屏过渡的效果。
     /// </summary>
-    public partial class ScreenTransition : CanvasLayer
+    public partial class ScreenTransition : CanvasLayer, IPanel
     {
-        public static ScreenTransition Instance { get; private set; }
+        /// <summary>获取全屏过渡层实例。优先从 PanelManager 查询，确保生命周期受统一管理。</summary>
+        public static ScreenTransition Get() => PanelManager.Instance?.GetPanel<ScreenTransition>();
 
         [Export] public float DefaultDuration { get; set; } = 0.4f;
 
@@ -21,7 +22,6 @@ namespace ClinetCSharp
 
         public override void _Ready()
         {
-            Instance = this;
             Layer = 200;
             ProcessMode = ProcessModeEnum.Always;
 
@@ -30,12 +30,18 @@ namespace ClinetCSharp
             _overlay.Color = new Color(0, 0, 0, 0);
             _overlay.MouseFilter = Control.MouseFilterEnum.Ignore;
             AddChild(_overlay);
+
+            CallDeferred(MethodName.RegisterWithPanelManager);
         }
 
         public override void _ExitTree()
         {
-            if (Instance == this)
-                Instance = null;
+            PanelManager.Instance?.UnregisterPanel(this);
+        }
+
+        private void RegisterWithPanelManager()
+        {
+            PanelManager.Instance?.RegisterPanel(this);
         }
 
         /// <summary>淡入到黑屏，黑屏后调用 onBlack。</summary>
@@ -70,5 +76,12 @@ namespace ClinetCSharp
                 onFinished?.Invoke();
             };
         }
+
+        #region IPanel Implementation
+        bool IPanel.IsVisible() => Visible;
+        void IPanel.ShowPanel() => Visible = true;
+        void IPanel.HidePanel() => Visible = false;
+        string IPanel.PanelName => "ScreenTransition";
+        #endregion
     }
 }

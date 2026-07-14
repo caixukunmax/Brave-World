@@ -21,10 +21,12 @@ namespace ClinetCSharp
     {
         public static UIInputPolicy Instance { get; private set; }
 
-        private bool _isPaused;
-        private bool _wasTreePaused;
+        private readonly Stack<bool> _pauseStack = new();
         private readonly HashSet<Node> _registeredNodes = new();
         private readonly Dictionary<Node, ProcessModeEnum> _savedProcessModes = new();
+
+        /// <summary>当前暂停嵌套深度。0 表示未暂停。</summary>
+        public int PauseDepth => _pauseStack.Count;
 
         public override void _Ready()
         {
@@ -46,7 +48,7 @@ namespace ClinetCSharp
             if (!_registeredNodes.Add(node)) return;
 
             // 如果当前已暂停，立即让新注册节点也保持输入
-            if (_isPaused)
+            if (_pauseStack.Count > 0)
                 SaveAndSetAlways(node);
         }
 
@@ -55,7 +57,7 @@ namespace ClinetCSharp
         {
             if (node == null) return;
 
-            if (_isPaused && _savedProcessModes.TryGetValue(node, out var savedMode) && IsInstanceValid(node))
+            if (_pauseStack.Count > 0 && _savedProcessModes.TryGetValue(node, out var savedMode) && IsInstanceValid(node))
             {
                 node.ProcessMode = savedMode;
                 _savedProcessModes.Remove(node);
@@ -66,18 +68,15 @@ namespace ClinetCSharp
 
         /// <summary>
         /// 暂停游戏，同时保证已注册 UI 节点继续处理输入。
-        /// 可嵌套调用：内部只保存第一次调用前的暂停状态。
+        /// 可嵌套调用：每次调用都会把当前 tree.Paused 状态压栈。
         /// </summary>
         public void PauseGame()
         {
-            if (_isPaused) return;
-
             var tree = GetTree();
             if (tree == null) return;
 
-            _wasTreePaused = tree.Paused;
+            _pauseStack.Push(tree.Paused);
             tree.Paused = true;
-            _isPaused = true;
 
             foreach (var node in _registeredNodes)
             {
@@ -86,10 +85,10 @@ namespace ClinetCSharp
             }
         }
 
-        /// <summary>恢复游戏到 PauseGame 之前的暂停状态。</summary>
+        /// <summary>恢复游戏到最近一次 PauseGame 之前的暂停状态。</summary>
         public void ResumeGame()
         {
-            if (!_isPaused) return;
+            if (_pauseStack.Count == 0) return;
 
             foreach (var node in _registeredNodes)
             {
@@ -99,11 +98,11 @@ namespace ClinetCSharp
             }
             _savedProcessModes.Clear();
 
-            _isPaused = false;
+            bool wasPaused = _pauseStack.Pop();
 
             var tree = GetTree();
             if (tree != null)
-                tree.Paused = _wasTreePaused;
+                tree.Paused = wasPaused;
         }
 
         /// <summary>判断鼠标当前是否位于交互式 UI 控件上（会阻断世界输入）。</summary>
