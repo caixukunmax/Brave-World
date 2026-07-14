@@ -106,7 +106,7 @@ namespace ClinetCSharp
                 {
                     _network = tree.GetFirstNodeInGroup("network_manager") as NetworkManager;
                     if (_network == null)
-                        _network = tree.Root.GetNodeOrNull<NetworkManager>("NetworkManager");
+                        _network = UiServices.GetNetworkManager(this);
                 }
             }
 
@@ -274,7 +274,7 @@ namespace ClinetCSharp
         private void OnEnterTavern()
         {
             CloseTavernButton();
-            TavernInteriorPanel.Instance?.Enter();
+            TavernInteriorPanel.Get()?.Enter();
             GD.Print("[MapDecoration] 进入酒馆");
         }
 
@@ -328,12 +328,16 @@ namespace ClinetCSharp
         {
             if (IsEditable && @event is InputEventMouseButton mb && mb.ButtonIndex == MouseButton.Left && mb.Pressed)
             {
-                if (HitTest(GetGlobalMousePosition()))
+                // 编辑模式下：只在“放建筑”工具下才允许拖拽建筑；
+                // 刷地形模式下不拦截，让框选可以从建筑上启动。
+                var editor = GetTree()?.GetFirstNodeInGroup("map_editor") as MapEditor;
+                if (editor != null && editor.CurrentTool == MapEditor.EditorTool.PlaceDecoration && HitTest(GetGlobalMousePosition()))
                 {
                     DecorationDragRequested?.Invoke(this);
                     GetViewport()?.SetInputAsHandled();
-                    return;
                 }
+                // 编辑模式下不触发普通实体点击（传送门/酒馆等），避免拦截编辑器操作
+                return;
             }
 
             // 如果鼠标正悬停在其他 UI 控件上（如酒馆进入按钮），让控件先处理，不吞掉点击

@@ -16,7 +16,7 @@ namespace ClinetCSharp
             // 等待一帧，确保所有子节点 _Ready 已执行
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
 
-            var nm = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
+            var nm = UiServices.GetNetworkManager(this);
             if (nm == null)
             {
                 GD.PrintErr("[MapManager] NetworkManager not found");
@@ -26,6 +26,7 @@ namespace ClinetCSharp
             // 连接地图信息同步信号
             nm.MapInfoReceived += OnMapInfoReceived;
             nm.MonsterMoveNotify += OnMonsterMove;
+            nm.DirectionNotify += OnDirectionNotify;
             nm.DropSpawnNotify += OnDropSpawn;
             nm.DropPickupNotify += OnDropPickup;
             nm.DropRemoveNotify += OnDropRemove;
@@ -83,7 +84,14 @@ namespace ClinetCSharp
         private void OnMonsterMove(Game.MonsterMoveNotify notify)
         {
             var monsterMgr = GetTree()?.GetFirstNodeInGroup("monster_manager") as MonsterManager;
-            monsterMgr?.OnMonsterMove(notify.InstanceId, new Vector2I(notify.FromX, notify.FromY), new Vector2I(notify.ToX, notify.ToY), notify.State, notify.DurationMs);
+            monsterMgr?.OnMonsterMove(notify.InstanceId, new Vector2I(notify.FromX, notify.FromY), new Vector2I(notify.ToX, notify.ToY), notify.State, notify.DurationMs, notify.Direction);
+        }
+
+        private void OnDirectionNotify(Game.DirectionNotify notify)
+        {
+            // 更新对应实体的朝向
+            var monsterMgr = GetTree()?.GetFirstNodeInGroup("monster_manager") as MonsterManager;
+            monsterMgr?.SetDirection((uint)notify.EntityId, notify.Direction);
         }
 
         private void OnDropSpawn(Game.DropSpawnNotify notify)
@@ -122,7 +130,7 @@ namespace ClinetCSharp
 
         private void SpawnMapEntities()
         {
-            var nm = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
+            var nm = UiServices.GetNetworkManager(this);
             if (nm == null) return;
 
             GD.Print($"[MapManager] SpawnMapEntities cached chests={nm.Chests.Count} monsters={nm.Monsters.Count} npcs={nm.Npcs.Count}");
@@ -174,11 +182,12 @@ namespace ClinetCSharp
 
         public override void _ExitTree()
         {
-            var nm = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
+            var nm = UiServices.GetNetworkManager(this);
             if (nm != null)
             {
                 nm.MapInfoReceived -= OnMapInfoReceived;
                 nm.MonsterMoveNotify -= OnMonsterMove;
+                nm.DirectionNotify -= OnDirectionNotify;
                 nm.DropSpawnNotify -= OnDropSpawn;
                 nm.DropPickupNotify -= OnDropPickup;
                 nm.DropRemoveNotify -= OnDropRemove;

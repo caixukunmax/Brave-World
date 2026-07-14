@@ -53,7 +53,7 @@ namespace ClinetCSharp
 
         /// <summary>地图数据：逻辑坐标 -> 格子。只有存在的格子才会被加入。</summary>
         public System.Collections.Generic.Dictionary<Vector2I, GridCell> GridData { get; set; } = new();
-        public string CurrentMapName { get; set; } = "新手村";
+        public string CurrentMapName { get; set; } = "落叶乡";
 
         /// <summary>当前地图边界（所有存在格子的包围盒）。</summary>
         public Rect2I MapBounds { get; private set; } = new Rect2I(0, 0, 50, 50);
@@ -1113,7 +1113,7 @@ namespace ClinetCSharp
         private void DrawGridCoords()
         {
             // 绘制每个格子的逻辑坐标
-            var font = ThemeDB.FallbackFont;
+            var font = _terrainLabelFont ?? ThemeDB.FallbackFont;
             var fontSize = Mathf.Max(8, GridSize / 6);  // 根据格子大小动态调整字号
             var textColor = new Color(0.8f, 0.8f, 0.8f, 0.7f);  // 浅灰色
 
@@ -1134,7 +1134,7 @@ namespace ClinetCSharp
         private void DrawCellUids()
         {
             // 绘制每个格子的 UID（唯一标识符，创建时生成，永不改变）
-            var font = ThemeDB.FallbackFont;
+            var font = _terrainLabelFont ?? ThemeDB.FallbackFont;
             var fontSize = Mathf.Max(8, GridSize / 6);
             var textColor = new Color(1.0f, 0.9f, 0.3f, 0.85f);  // 金黄色，醒目但不过度遮挡
 

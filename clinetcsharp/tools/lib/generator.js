@@ -37,9 +37,28 @@ function generateTerrain(mapData, options) {
   // Apply style bias for remaining land
   const bias = style.terrainBias;
   for (const { c } of values.slice(waterCount + obstacleCount)) {
-    if (bias.length > 0) {
+    if (bias && bias.length > 0) {
       const pick = bias[Math.floor(Math.abs(noise(c.uid.split('_').map(Number)[0], c.uid.split('_').map(Number)[1])) * bias.length) % bias.length];
-      c.terrain = config.terrains[pick].id;
+      if (config.terrains[pick]) {
+        c.terrain = config.terrains[pick].id;
+      }
+    }
+  }
+}
+
+/**
+ * 将生成阶段使用的 terrain 类型（水、岩石）转换为建筑装饰。
+ * 最终地图数据中只保留普通平地（terrain=0）和建筑装饰（decoration）。
+ */
+function convertTerrainToDecorations(mapData) {
+  for (const cell of Object.values(mapData.cells)) {
+    const terrain = terrainById.get(cell.terrain);
+    if (terrain && terrain.decorationId) {
+      // 只在没有已有装饰的格子上转换，避免覆盖蓝图或 placeDecorations 放置的建筑
+      if (!cell.decoration) {
+        cell.decoration = terrain.decorationId;
+      }
+      cell.terrain = 0;
     }
   }
 }
@@ -111,8 +130,12 @@ function placeDecorations(mapData, density, styleName, seed) {
   const { x: spawnX, y: spawnY } = mapData.spawn;
   const { x: bx, y: by, w: bw, h: bh } = mapData.bounds;
 
-  // Filter decorations by biome compatibility
+  // Filter decorations by biome compatibility.
+  // 水/岩石属于地形类装饰，由 generateTerrain + convertTerrainToDecorations 统一放置，
+  // 不在此处作为普通装饰随机放置，避免排序靠前的候选全部选中水。
+  const terrainDecorationNames = new Set(['water', 'rock']);
   const validDecs = Object.entries(config.decorations)
+    .filter(([name, d]) => !terrainDecorationNames.has(name))
     .filter(([_, d]) => d.biomes.includes(styleName) || d.biomes.includes('mixed') || styleName === 'mixed')
     .map(([_, d]) => d.id);
 
@@ -202,6 +225,7 @@ function placeSpawn(mapData, region) {
 
 module.exports = {
   generateTerrain,
+  convertTerrainToDecorations,
   countTerrain,
   isWalkable,
   findLargestConnectedRegion,

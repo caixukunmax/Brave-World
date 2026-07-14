@@ -101,6 +101,13 @@ namespace ClinetCSharp
             if (_decorations.ContainsKey(pos))
                 return _decorations[pos];
 
+            // 防御：玩家/怪物/NPC 的 Profile ID 不能用作建筑装饰
+            if (profileId >= 1 && profileId <= 3)
+            {
+                GD.PushError($"[MapDecorationManager] 拒绝使用玩家/怪物/NPC Profile {profileId} 作为建筑装饰 at {pos}");
+                return null;
+            }
+
             // 兼容旧 decoration type（1=房舍，2=商店），转换为 build_cfg_id
             if (profileId == BuildingType.House)
                 profileId = BuildingType.GetConfigBaseId(BuildingType.House) + 1;

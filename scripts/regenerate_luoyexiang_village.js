@@ -73,7 +73,8 @@ function inBounds(x, y, w, h) {
 }
 
 function isWalkable(cell) {
-  return cell && (cell.terrain === 0 || cell.terrain === 2 || cell.terrain === 3 || cell.terrain === 5);
+  // 水/岩石等地形已转换为建筑装饰，地图上只剩普通平地（terrain 0）作为可行走底图
+  return cell && cell.terrain === 0;
 }
 
 // 在指定中心附近找一个可行走的格子
@@ -95,19 +96,21 @@ function findWalkable(mapData, cx, cy, radius) {
 }
 
 // 建筑配置：id、占地大小、是否阻塞移动，必须与客户端 EntityProfileManager 默认配置保持一致。
-// 10000=树(1x1,不阻塞), 10001=房舍(2x2), 10002=岩石, 10003=棕榈,
-// 20000=商店, 30000=水井, 40000=农田, 50000=酒馆, 60000=出生点, 70000=共享传送门
+// 10000=树(1x1,不阻塞, Terrain), 10001=房舍(2x2, Building), 10003=草地(1x1, Terrain),
+// 20000=商店, 30000=水井, 40000=农田, 50000=酒馆, 60000=出生点, 70000=共享传送门,
+// 80000=水域(建筑装饰, Terrain), 90000=岩石(建筑装饰, Terrain)。10002 为旧岩石装饰，生成时会被迁移。
 const BUILDINGS = {
   tree:        { id: 10000, size: { x: 1, y: 1 }, block: false },
   house:       { id: 10001, size: { x: 2, y: 2 }, block: true },
-  rock:        { id: 10002, size: { x: 1, y: 1 }, block: true },
-  palm:        { id: 10003, size: { x: 1, y: 1 }, block: true },
+  grass:       { id: 10003, size: { x: 1, y: 1 }, block: false },
   shop:        { id: 20000, size: { x: 1, y: 1 }, block: true },
   well:        { id: 30000, size: { x: 1, y: 1 }, block: true },
   farm:        { id: 40000, size: { x: 2, y: 1 }, block: true },
   tavern:      { id: 50000, size: { x: 2, y: 2 }, block: true },
   spawn:       { id: 60000, size: { x: 1, y: 1 }, block: false },
   portal:      { id: 70000, size: { x: 1, y: 1 }, block: false },
+  water:       { id: 80000, size: { x: 1, y: 1 }, block: true },
+  rock:        { id: 90000, size: { x: 1, y: 1 }, block: true },
 };
 
 function buildingFootprint(x, y, sizeX, sizeY) {
@@ -165,6 +168,65 @@ function distSq(x1, y1, x2, y2) {
   const dx = x1 - x2;
   const dy = y1 - y2;
   return dx * dx + dy * dy;
+}
+
+// 将基础地图生成器产生的“地形”水/岩石/草地转换为同等的“建筑装饰”，
+// 使地图上所有视觉/可玩内容都落在 decoration 层级。
+function convertTerrainToDecorations(mapData) {
+  const { w, h } = mapData.bounds;
+  let waterCount = 0;
+  let rockCount = 0;
+  let grassCount = 0;
+  let migratedOldRock = 0;
+
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const k = key(x, y);
+      const cell = mapData.cells[k];
+      if (!cell) continue;
+
+      // 水地形 -> 水域装饰
+      if (cell.terrain === 1) {
+        cell.terrain = 0;
+        cell.decoration = BUILDINGS.water.id;
+        waterCount++;
+        continue;
+      }
+
+      // 岩石地形 -> 岩石装饰
+      if (cell.terrain === 4) {
+        cell.terrain = 0;
+        cell.decoration = BUILDINGS.rock.id;
+        rockCount++;
+        continue;
+      }
+
+      // 草地地形 -> 草地装饰
+      if (cell.terrain === 2) {
+        cell.terrain = 0;
+        cell.decoration = BUILDINGS.grass.id;
+        grassCount++;
+        continue;
+      }
+
+      // 其他非平地地形（沙地、雪地等）统一回普通平地
+      if (cell.terrain !== 0) {
+        cell.terrain = 0;
+      }
+
+      // 迁移旧岩石装饰 10002 -> 新岩石装饰 90000
+      if (cell.decoration === 10002) {
+        cell.decoration = BUILDINGS.rock.id;
+        migratedOldRock++;
+        continue;
+      }
+
+      // 旧棕榈装饰 10003 已改为草地，保留作为草地装饰
+    }
+  }
+
+  console.log(`[Regen] 地形转建筑装饰: 水=${waterCount}, 岩石=${rockCount}, 草地=${grassCount}, 迁移旧岩石=${migratedOldRock}`);
+  return { waterCount, rockCount, grassCount, migratedOldRock };
 }
 
 // 在地图中心生成一座城镇：中间是规整的街区，外围保持野外自然装饰
@@ -304,6 +366,9 @@ console.log('[Regen] Step 3: Place town, spawn and teleport...');
 const mapJsonPath = path.join(CLIENT_MAPS_DIR, MAP_NAME, 'map.json');
 const mapData = loadMapJson(mapJsonPath);
 const rng = createRng(42);
+
+// 先把基础生成器产生的水/岩石等地形转换为建筑装饰，确保地图上所有内容都是 decoration 级别
+convertTerrainToDecorations(mapData);
 
 // 中心城镇：半径 18 的圆形城区，内部为街区网格
 const placed = placeTown(mapData, 50, 50, 18, rng);
