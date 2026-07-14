@@ -135,11 +135,15 @@ public class ProjectileManager
     }
 
     /// <summary>
-    /// 每帧更新所有弹道，返回命中事件列表
+    /// 每帧更新所有弹道，返回命中事件列表。
+    /// 每帧开始时构建格子→实体索引，避免逐格遍历全地图实体。
     /// </summary>
     public List<ProjectileHitInfo> Tick(double dt, Dictionary<string, MapState> maps, CombatRelationManager relations)
     {
         var hits = new List<ProjectileHitInfo>();
+
+        // 构建格子索引：(mapName, x, y) → 实体ID 列表
+        var cellIndex = BuildCellIndex(maps);
 
         foreach (var proj in _projectiles.ToList())
         {
@@ -158,8 +162,8 @@ public class ProjectileManager
             {
                 var (gx, gy) = proj.Path[i];
 
-                // 检查该格子是否有与施法者为敌对的实体
-                var targetId = FindEnemyAt(proj.CasterId, proj.MapName, gx, gy, maps, relations);
+                // 检查该格子是否有与施法者为敌对的实体（O(1) 查找）
+                var targetId = FindEnemyAt(proj.CasterId, proj.MapName, gx, gy, cellIndex, relations);
                 if (targetId.HasValue)
                 {
                     hits.Add(new ProjectileHitInfo(
@@ -197,45 +201,52 @@ public class ProjectileManager
     }
 
     /// <summary>
-    /// 检查指定格子上是否有与施法者为敌对的实体
+    /// 构建 (mapName, x, y) → 实体ID 列表 的格子索引，供弹道碰撞检测 O(1) 查找。
+    /// </summary>
+    private static Dictionary<(string mapName, int x, int y), List<long>> BuildCellIndex(Dictionary<string, MapState> maps)
+    {
+        var index = new Dictionary<(string, int, int), List<long>>();
+
+        foreach (var (mapName, map) in maps)
+        {
+            foreach (var (playerId, player) in map.Players)
+                AddToCellIndex(index, mapName, player.GridX, player.GridY, playerId);
+
+            foreach (var (monsterId, monster) in map.Monsters)
+                AddToCellIndex(index, mapName, monster.X, monster.Y, monsterId);
+
+            foreach (var (npcId, npc) in map.Npcs)
+                AddToCellIndex(index, mapName, npc.X, npc.Y, npcId);
+        }
+
+        return index;
+    }
+
+    private static void AddToCellIndex(Dictionary<(string, int, int), List<long>> index, string mapName, int x, int y, long entityId)
+    {
+        var key = (mapName, x, y);
+        if (!index.TryGetValue(key, out var list))
+        {
+            list = new List<long>(1);
+            index[key] = list;
+        }
+        list.Add(entityId);
+    }
+
+    /// <summary>
+    /// 检查指定格子上是否有与施法者为敌对的实体（使用格子索引 O(1) 查找）
     /// </summary>
     private static long? FindEnemyAt(long casterId, string mapName, int x, int y,
-        Dictionary<string, MapState> maps, CombatRelationManager relations)
+        Dictionary<(string mapName, int x, int y), List<long>> cellIndex, CombatRelationManager relations)
     {
-        if (!maps.TryGetValue(mapName, out var map))
+        if (!cellIndex.TryGetValue((mapName, x, y), out var entities))
             return null;
 
-        // 检查玩家
-        foreach (var (playerId, player) in map.Players)
+        foreach (var entityId in entities)
         {
-            if (playerId == casterId) continue;
-            if (player.GridX == x && player.GridY == y)
-            {
-                if (relations.HasActiveRelation(casterId, playerId))
-                    return playerId;
-            }
-        }
-
-        // 检查怪物
-        foreach (var (monsterId, monster) in map.Monsters)
-        {
-            if (monsterId == casterId) continue;
-            if (monster.X == x && monster.Y == y)
-            {
-                if (relations.HasActiveRelation(casterId, monsterId))
-                    return monsterId;
-            }
-        }
-
-        // 检查 NPC
-        foreach (var (npcId, npc) in map.Npcs)
-        {
-            if (npcId == casterId) continue;
-            if (npc.X == x && npc.Y == y)
-            {
-                if (relations.HasActiveRelation(casterId, npcId))
-                    return npcId;
-            }
+            if (entityId == casterId) continue;
+            if (relations.HasActiveRelation(casterId, entityId))
+                return entityId;
         }
 
         return null;

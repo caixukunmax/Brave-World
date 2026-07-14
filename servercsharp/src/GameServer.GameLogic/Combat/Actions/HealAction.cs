@@ -62,18 +62,18 @@ public class HealAction : ICombatAction
         int baseHeal = 10;
 
         // 获取施法者的 buff 属性修正（治疗加成）
-        int casterBuffHeal = DealDamageAction.GetBuffAttrModifier(casterId, "heal", maps, combatManager);
-        int casterBuffHealPct = DealDamageAction.GetBuffAttrModifier(casterId, "heal_pct", maps, combatManager);
+        double casterBuffHeal = DealDamageAction.GetBuffAttrModifier(casterId, "heal", maps, combatManager);
+        double casterBuffHealPct = DealDamageAction.GetBuffAttrModifier(casterId, "heal_pct", maps, combatManager);
 
         if (healType == "physical")
         {
             int patk = DealDamageAction.GetEntityAttr(casterId, "patk", maps) ?? 10;
-            baseHeal = patk + casterBuffHeal;
+            baseHeal = (int)(patk + casterBuffHeal);
         }
         else
         {
             int matk = DealDamageAction.GetEntityAttr(casterId, "matk", maps) ?? 10;
-            baseHeal = matk + casterBuffHeal;
+            baseHeal = (int)(matk + casterBuffHeal);
         }
 
         int healAmount = (int)Math.Floor(baseHeal * coefficient);

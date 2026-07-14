@@ -1,3 +1,4 @@
+using GameServer.Services.Core;
 using GameServer.Tables;
 
 namespace GameServer.Services.Monster;
@@ -38,6 +39,7 @@ public class MonsterRuntimeState
     public int Y { get; set; }
     public int SizeX { get; set; } = 1;
     public int SizeY { get; set; } = 1;
+    public int Direction { get; set; } = 1; // 0=右, 1=下, 2=左, 3=上
     public int SpawnX { get; set; }
     public int SpawnY { get; set; }
     public int AiId { get; set; }
@@ -48,8 +50,39 @@ public class MonsterRuntimeState
     public long? NarratedTargetId { get; set; }
     public HashSet<long> TerritoryPlayers { get; set; } = new();
     public long LastMoveTime { get; set; }
-    public int Hp { get; set; } = 100;
-    public int MaxHp { get; set; } = 100;
+
+    /// <summary>绑定到 WorldState 中的权威 MapMonsterState，HP 读写自动同步。</summary>
+    public MapMonsterState? MapState { get; set; }
+
+    private int _hp = 100;
+    private int _maxHp = 100;
+
+    /// <summary>怪物当前 HP — 代理到 MapMonsterState，未绑定时使用本地值。</summary>
+    public int Hp
+    {
+        get => MapState?.Hp ?? _hp;
+        set
+        {
+            if (MapState != null)
+                MapState.Hp = value;
+            else
+                _hp = value;
+        }
+    }
+
+    /// <summary>怪物最大 HP — 代理到 MapMonsterState，未绑定时使用本地值。</summary>
+    public int MaxHp
+    {
+        get => MapState?.MaxHp ?? _maxHp;
+        set
+        {
+            if (MapState != null)
+                MapState.MaxHp = value;
+            else
+                _maxHp = value;
+        }
+    }
+
     public int Mp { get; set; } = 100;
     public int MaxMp { get; set; } = 100;
     public int Level { get; set; } = 1;

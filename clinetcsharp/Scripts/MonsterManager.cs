@@ -12,6 +12,7 @@ namespace ClinetCSharp
     public partial class MonsterManager : Node
     {
         private List<Monster> _monsters = new();
+        private Dictionary<uint, Monster> _monsterById = new();
         private Dictionary<uint, Vector2I> _monsterPositions = new();
         private HashSet<Vector2I> _monsterReservedPositions = new();
         private int _gridSize = 111;
@@ -79,7 +80,7 @@ namespace ClinetCSharp
                     }
                 }
                 if (_network == null)
-                    _network = tree.Root.GetNodeOrNull<NetworkManager>("NetworkManager");
+                    _network = UiServices.GetNetworkManager(this);
                 if (_network != null)
                 {
                     _network.CombatStateNotify += OnCombatStateNotify;
@@ -228,6 +229,7 @@ namespace ClinetCSharp
             foreach (var m in _monsters)
                 m.QueueFree();
             _monsters.Clear();
+            _monsterById.Clear();
             _monsterPositions.Clear();
             _monsterReservedPositions.Clear();
 
@@ -276,6 +278,7 @@ namespace ClinetCSharp
                 if (pm != null) pm.ApplyProfile(monster, 2);
                 else GD.PrintErr("[MonsterManager] EntityProfileManager.Instance is null, cannot apply profile");
                 _monsters.Add(monster);
+                _monsterById[monster.InstanceId] = monster;
                 _monsterPositions[m.InstanceId] = new Vector2I(m.X, m.Y);
 
                 GD.Print($"[MonsterManager] Spawned monster {monster.InstanceId}({monster.MonsterName}) at ({monster.GridX},{monster.GridY})");
@@ -336,6 +339,14 @@ namespace ClinetCSharp
             }
         }
 
+        public void SetDirection(uint instanceId, int direction)
+        {
+            if (_monsterById.TryGetValue(instanceId, out var m))
+            {
+                m.Direction = direction;
+            }
+        }
+
         public Monster GetMonsterAt(Vector2I gridPos)
         {
             foreach (var m in _monsters)
@@ -348,10 +359,9 @@ namespace ClinetCSharp
             return null;
         }
 
-        public void OnMonsterMove(uint instanceId, Vector2I from, Vector2I to, string state, int durationMs)
+        public void OnMonsterMove(uint instanceId, Vector2I from, Vector2I to, string state, int durationMs, int direction = 1)
         {
-            var m = _monsters.Find(x => x.InstanceId == instanceId);
-            if (m == null) return;
+            if (!_monsterById.TryGetValue(instanceId, out var m)) return;
 
             // 清理旧的预约 footprint，防止怪物改变移动目标时残留过期数据
             if (m.PendingGridPos.HasValue)
@@ -360,6 +370,7 @@ namespace ClinetCSharp
             _monsterPositions[instanceId] = from;
             AddReservedFootprint(to, m.GridSizeX, m.GridSizeY);
             m.CurrentState = state;
+            m.Direction = direction;
             float durationSec = durationMs > 0 ? durationMs / 1000.0f : 0.15f;
             m.MoveTo(to, durationSec);
         }
@@ -430,6 +441,13 @@ namespace ClinetCSharp
 
             foreach (var m in _monsters)
             {
+                // 记录变化前状态，用于判断是否需要重绘
+                float prevHpPct = m.HealthBarFillPercent;
+                float prevMpPct = m.MpBarFillPercent;
+                bool prevInCombat = m.IsInCombat;
+                string prevCasting = m.CastingSkill;
+                string prevState = m.CurrentState;
+
                 if (combatMonsters.TryGetValue(m.InstanceId, out var unit) && unit.InCombat)
                 {
                     m.IsInCombat = true;
@@ -472,8 +490,17 @@ namespace ClinetCSharp
                     if (!m.IsMoving && IsCombatState(m.CurrentState))
                         m.CurrentState = "idle";
                 }
-                m.RefreshDataBoundLabels();
-                m.QueueRedraw();
+
+                // 只在 HP/MP/战斗状态/施法/动作状态变化时才刷新标签和重绘
+                if (m.HealthBarFillPercent != prevHpPct ||
+                    m.MpBarFillPercent != prevMpPct ||
+                    m.IsInCombat != prevInCombat ||
+                    m.CastingSkill != prevCasting ||
+                    m.CurrentState != prevState)
+                {
+                    m.RefreshDataBoundLabels();
+                    m.QueueRedraw();
+                }
             }
         }
 
@@ -481,8 +508,7 @@ namespace ClinetCSharp
         {
             foreach (var id in notify.EntityIds)
             {
-                var m = _monsters.Find(x => x.InstanceId == id);
-                if (m == null) continue;
+                if (!_monsterById.TryGetValue((uint)id, out var m)) continue;
                 m.IsInCombat = false;
                 m.CastingSkill = "";
                 m.StopCastAnimation();
@@ -496,8 +522,7 @@ namespace ClinetCSharp
 
         private void OnCastStartNotify(Game.CastStartNotify notify)
         {
-            var m = _monsters.Find(x => x.InstanceId == notify.CasterId);
-            if (m == null) return;
+            if (!_monsterById.TryGetValue((uint)notify.CasterId, out var m)) return;
             m.CastingSkill = SkillDataUtil.GetName((uint)notify.SkillId) ?? $"Skill{notify.SkillId}";
             m.StartCastAnimation(notify.CastTime);
             m.RefreshDataBoundLabels();
@@ -505,8 +530,7 @@ namespace ClinetCSharp
 
         private void OnCombatEventNotify(Game.CombatEventNotify notify)
         {
-            var m = _monsters.Find(x => x.InstanceId == notify.TargetId);
-            if (m == null) return;
+            if (!_monsterById.TryGetValue((uint)notify.TargetId, out var m)) return;
 
             if (notify.HpDelta != 0 && m.CurrentMaxHp > 0)
             {
@@ -519,10 +543,10 @@ namespace ClinetCSharp
 
         private void OnMonsterDeathNotify(Game.MonsterDeathNotify notify)
         {
-            var m = _monsters.Find(x => x.InstanceId == notify.InstanceId);
-            if (m == null) return;
+            if (!_monsterById.TryGetValue(notify.InstanceId, out var m)) return;
 
             _monsterPositions.Remove(notify.InstanceId);
+            _monsterById.Remove(notify.InstanceId);
             if (m.PendingGridPos.HasValue)
                 RemoveReservedFootprint(m.PendingGridPos.Value, m.GridSizeX, m.GridSizeY);
             _monsters.Remove(m);
@@ -536,10 +560,10 @@ namespace ClinetCSharp
         private void OnMonsterRespawnNotify(Game.MonsterRespawnNotify notify)
         {
             // 如果已存在同 instanceId 的怪物（异常情况），先移除
-            var existing = _monsters.Find(x => x.InstanceId == notify.InstanceId);
-            if (existing != null)
+            if (_monsterById.TryGetValue(notify.InstanceId, out var existing))
             {
                 _monsterPositions.Remove(notify.InstanceId);
+                _monsterById.Remove(notify.InstanceId);
                 _monsters.Remove(existing);
                 existing.QueueFree();
             }
@@ -573,6 +597,7 @@ namespace ClinetCSharp
             if (pm != null) pm.ApplyProfile(monster, 2);
             else GD.PrintErr("[MonsterManager] EntityProfileManager.Instance is null, cannot apply profile");
             _monsters.Add(monster);
+            _monsterById[monster.InstanceId] = monster;
             _monsterPositions[notify.InstanceId] = new Vector2I(notify.X, notify.Y);
 
             GD.Print($"[MonsterManager] Respawned monster {monster.InstanceId}({monster.MonsterName}) at ({monster.GridX},{monster.GridY})");
@@ -580,8 +605,7 @@ namespace ClinetCSharp
 
         public void OnMonsterMoveCancel(Game.MonsterMoveCancelNotify notify)
         {
-            var m = _monsters.Find(x => x.InstanceId == notify.InstanceId);
-            if (m == null) return;
+            if (!_monsterById.TryGetValue(notify.InstanceId, out var m)) return;
 
             var rollbackPos = new Vector2I(notify.RollbackX, notify.RollbackY);
             if (m.PendingGridPos.HasValue)

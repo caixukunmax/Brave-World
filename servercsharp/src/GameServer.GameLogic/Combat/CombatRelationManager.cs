@@ -15,6 +15,15 @@ public class CombatRelationManager
     private int _nextRelationId = 1;
     private readonly LubanTableLoader? _tables;
 
+    /// <summary>
+    /// 双向索引：(entityA, entityB) → relationId。
+    /// key 的两个 ID 已排序（min, max），不区分方向，查找 O(1)。
+    /// </summary>
+    private readonly Dictionary<(long min, long max), int> _pairIndex = new();
+
+    private static (long min, long max) MakePair(long a, long b) =>
+        a < b ? (a, b) : (b, a);
+
     public CombatRelationManager(LubanTableLoader? tables = null)
     {
         _tables = tables;
@@ -49,11 +58,11 @@ public class CombatRelationManager
 
     public int CreateRelation(long attackerId, long targetId)
     {
-        foreach (var (_, existing) in Relations)
-        {
-            if (existing.AttackerId == attackerId && existing.TargetId == targetId && existing.IsActive)
-                return existing.RelationId;
-        }
+        // O(1) 检查已存在的活跃关系
+        var pairKey = MakePair(attackerId, targetId);
+        if (_pairIndex.TryGetValue(pairKey, out var existingId) &&
+            Relations.TryGetValue(existingId, out var existing) && existing.IsActive)
+            return existing.RelationId;
 
         int relationId = Interlocked.Increment(ref _nextRelationId);
         var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
@@ -70,6 +79,7 @@ public class CombatRelationManager
             TauntSourceId = attackerId,
         };
 
+        _pairIndex[pairKey] = relationId;
         GetOrCreateContext(attackerId).RelationIds.Add(relationId);
         GetOrCreateContext(targetId).RelationIds.Add(relationId);
         return relationId;
@@ -83,17 +93,10 @@ public class CombatRelationManager
         long nowMs = Environment.TickCount64;
         long tauntEnd = nowMs + 2000;
 
-        foreach (var (_, rel) in Relations)
+        var pairKey = MakePair(sourceId, targetId);
+        if (_pairIndex.TryGetValue(pairKey, out var relationId))
         {
-            if (!rel.IsActive) continue;
-            // 更新 sourceId → targetId 的关系
-            if (rel.AttackerId == sourceId && rel.TargetId == targetId)
-            {
-                rel.TauntEndTime = tauntEnd;
-                rel.TauntSourceId = sourceId;
-            }
-            // 更新 targetId → sourceId 的关系（双向同步）
-            if (rel.AttackerId == targetId && rel.TargetId == sourceId)
+            if (Relations.TryGetValue(relationId, out var rel) && rel.IsActive)
             {
                 rel.TauntEndTime = tauntEnd;
                 rel.TauntSourceId = sourceId;
@@ -106,6 +109,8 @@ public class CombatRelationManager
         var rel = Relations.GetValueOrDefault(relationId);
         if (rel == null || !rel.IsActive) return;
         rel.IsActive = false;
+
+        _pairIndex.Remove(MakePair(rel.AttackerId, rel.TargetId));
 
         var ctxA = Contexts.GetValueOrDefault(rel.AttackerId);
         var ctxB = Contexts.GetValueOrDefault(rel.TargetId);
@@ -121,17 +126,8 @@ public class CombatRelationManager
     /// </summary>
     public void RemoveBidirectionalRelation(long entityA, long entityB)
     {
-        var toRemove = new List<int>();
-        foreach (var (relationId, rel) in Relations)
-        {
-            if (!rel.IsActive) continue;
-            if ((rel.AttackerId == entityA && rel.TargetId == entityB) ||
-                (rel.AttackerId == entityB && rel.TargetId == entityA))
-            {
-                toRemove.Add(relationId);
-            }
-        }
-        foreach (var relationId in toRemove)
+        var pairKey = MakePair(entityA, entityB);
+        if (_pairIndex.TryGetValue(pairKey, out var relationId))
             RemoveRelation(relationId);
     }
 
@@ -146,14 +142,12 @@ public class CombatRelationManager
 
     public bool HasActiveRelation(long entityA, long entityB)
     {
-        foreach (var (_, rel) in Relations)
-        {
-            if (rel.IsActive &&
-                ((rel.AttackerId == entityA && rel.TargetId == entityB) ||
-                 (rel.AttackerId == entityB && rel.TargetId == entityA)))
-                return true;
-        }
-        return false;
+        var pairKey = MakePair(entityA, entityB);
+        if (!_pairIndex.TryGetValue(pairKey, out var relationId))
+            return false;
+        if (!Relations.TryGetValue(relationId, out var rel))
+            return false;
+        return rel.IsActive;
     }
 
     /// <summary>
@@ -162,14 +156,11 @@ public class CombatRelationManager
     public void UpdateLastDamageTime(long attackerId, long targetId)
     {
         long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        foreach (var (_, rel) in Relations)
+        var pairKey = MakePair(attackerId, targetId);
+        if (_pairIndex.TryGetValue(pairKey, out var relationId) &&
+            Relations.TryGetValue(relationId, out var rel) && rel.IsActive)
         {
-            if (!rel.IsActive) continue;
-            if ((rel.AttackerId == attackerId && rel.TargetId == targetId) ||
-                (rel.AttackerId == targetId && rel.TargetId == attackerId))
-            {
-                rel.LastDamageTime = now;
-            }
+            rel.LastDamageTime = now;
         }
     }
 
@@ -178,12 +169,13 @@ public class CombatRelationManager
     /// </summary>
     public void AddAccumulatedDamage(long attackerId, long targetId, int damage)
     {
-        foreach (var (_, rel) in Relations)
+        var pairKey = MakePair(attackerId, targetId);
+        if (_pairIndex.TryGetValue(pairKey, out var relationId))
         {
-            if (!rel.IsActive) continue;
-            if (rel.AttackerId == attackerId && rel.TargetId == targetId)
+            if (Relations.TryGetValue(relationId, out var rel) && rel.IsActive)
             {
-                rel.AccumulatedDamage += damage;
+                if (rel.AttackerId == attackerId && rel.TargetId == targetId)
+                    rel.AccumulatedDamage += damage;
             }
         }
     }

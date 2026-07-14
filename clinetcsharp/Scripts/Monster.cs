@@ -120,6 +120,7 @@ namespace ClinetCSharp
         {
             foreach (var comp in _renderComponents)
                 comp.Draw();
+            EntityDrawUtils.DrawDirectionArrow(this);
         }
 
         private void EnsureRenderComponents()
@@ -138,6 +139,7 @@ namespace ClinetCSharp
         public override void MoveTo(Vector2I targetGridPos, float duration = 0.15f)
         {
             var fromGridPos = new Vector2I(_gridX, _gridY);
+            Direction = DirectionFromVector(targetGridPos.X - _gridX, targetGridPos.Y - _gridY);
             _pendingGridPos = targetGridPos;
             base.MoveTo(targetGridPos, duration);
             if (_currentTween != null)

@@ -93,8 +93,7 @@ namespace ClinetCSharp
             if (_equippedList == null)
                 return;
 
-            foreach (var child in _equippedList.GetChildren())
-                child.QueueFree();
+            _equippedList.ClearChildren();
 
             if (_network == null)
                 return;
@@ -149,8 +148,7 @@ namespace ClinetCSharp
             if (_learnedList == null)
                 return;
 
-            foreach (var child in _learnedList.GetChildren())
-                child.QueueFree();
+            _learnedList.ClearChildren();
 
             if (_network == null)
                 return;
@@ -202,8 +200,7 @@ namespace ClinetCSharp
             if (_learnableList == null)
                 return;
 
-            foreach (var child in _learnableList.GetChildren())
-                child.QueueFree();
+            _learnableList.ClearChildren();
 
             if (_network == null)
                 return;
