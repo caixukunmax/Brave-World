@@ -8,6 +8,7 @@ namespace ClinetCSharp
         {
             foreach (var comp in _renderComponents)
                 comp.Draw();
+            EntityDrawUtils.DrawDirectionArrow(this);
         }
 
         /// <summary>确保渲染组件已添加（幂等，只添加一次）</summary>

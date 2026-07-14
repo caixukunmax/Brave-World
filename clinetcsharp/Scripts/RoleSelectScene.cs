@@ -47,7 +47,7 @@ namespace ClinetCSharp
             _cancelButton.Pressed += HideCreateDialog;
             _nameEdit.TextSubmitted += _ => OnCreateRole();
 
-            _network = GetNode<NetworkManager>("/root/NetworkManager");
+            _network = UiServices.GetNetworkManager(this);
             _network.EnterGameResponse += OnEnterGameResponse;
             _network.CreateRoleResponse += OnCreateRoleResponse;
 
@@ -57,8 +57,7 @@ namespace ClinetCSharp
 
         private void LoadRoles()
         {
-            foreach (Node child in _roleContainer.GetChildren())
-                child.QueueFree();
+            _roleContainer.ClearChildren();
             _roleCards.Clear();
             _selectedRoleId = 0;
             _enterButton.Disabled = true;

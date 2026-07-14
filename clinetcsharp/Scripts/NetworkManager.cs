@@ -29,6 +29,7 @@ namespace ClinetCSharp
         public event Action<Game.MonsterMoveCancelNotify> MonsterMoveCancelNotify;
         public event Action<Game.MonsterDeathNotify> MonsterDeathNotify;
         public event Action<Game.MonsterRespawnNotify> MonsterRespawnNotify;
+        public event Action<Game.DirectionNotify> DirectionNotify;
         public event Action<Game.MapInfoSyncNotify> MapInfoReceived;
         public event Action<Game.ChestUpdateNotify> ChestUpdateNotify;
         public event Action<Game.DropSpawnNotify> DropSpawnNotify;

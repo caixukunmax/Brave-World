@@ -21,6 +21,7 @@ LogCollector="*res://Scripts/LogCollector.cs"
 NetworkManager="*res://Scripts/NetworkManager.cs"
 ScreenshotTool="*res://Scripts/ScreenshotTool.cs"
 EntityProfileManager="*res://Scripts/EntityProfileManager.cs"
+GameUiVisibilityManager="*res://Scripts/GameUiVisibilityManager.cs"
 
 [display]
 

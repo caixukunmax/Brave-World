@@ -10,7 +10,7 @@ namespace ClinetCSharp
         public override void _Ready()
         {
             // 如果没有登录（没有 account_token），强制跳转到登录界面
-            var nm = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
+            var nm = UiServices.GetNetworkManager(this);
             if (nm == null || string.IsNullOrEmpty(nm.AccountToken))
             {
                 GD.Print("[AuthChecker] 未登录，跳转到登录界面");

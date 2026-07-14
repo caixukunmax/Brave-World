@@ -36,7 +36,7 @@ namespace ClinetCSharp
             _refreshButton.Pressed += LoadServerList;
             _confirmButton.Pressed += OnConfirmPressed;
 
-            _network = GetNode<NetworkManager>("/root/NetworkManager");
+            _network = UiServices.GetNetworkManager(this);
             _network.SelectServerResponse += OnSelectServerResponse;
 
             _accountLabel.Text = $"账号ID: {_network.AccountId}";
@@ -50,8 +50,7 @@ namespace ClinetCSharp
             _selectedServerId = 0;
             _selectedServerName = "";
 
-            foreach (Node child in _serverList.GetChildren())
-                child.QueueFree();
+            _serverList.ClearChildren();
             _serverButtons.Clear();
 
             if (_network.Servers.Count == 0)

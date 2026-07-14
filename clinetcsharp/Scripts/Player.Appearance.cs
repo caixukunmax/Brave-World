@@ -155,6 +155,7 @@ namespace ClinetCSharp
             Status = roleInfo.Status;
             GridSizeX = roleInfo.SizeX > 0 ? roleInfo.SizeX : 1;
             GridSizeY = roleInfo.SizeY > 0 ? roleInfo.SizeY : 1;
+            Direction = roleInfo.Direction;
 
             PlayerLabelTexts[0] = $"LV.{Level} {CharacterName}";
             PlayerLabelTexts[1] = Job;

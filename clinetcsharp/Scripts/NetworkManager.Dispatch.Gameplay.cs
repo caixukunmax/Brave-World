@@ -92,5 +92,10 @@ namespace ClinetCSharp
         {
             MonsterRespawnNotify?.Invoke(Game.MonsterRespawnNotify.Parser.ParseFrom(data));
         }
+
+        private void HandleDirectionNotify(ByteString data)
+        {
+            DirectionNotify?.Invoke(Game.DirectionNotify.Parser.ParseFrom(data));
+        }
     }
 }
