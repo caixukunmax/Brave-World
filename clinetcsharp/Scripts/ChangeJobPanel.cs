@@ -20,7 +20,7 @@ namespace ClinetCSharp
 
         public override void _Ready()
         {
-            _network = GetTree().Root.GetNodeOrNull<NetworkManager>("NetworkManager");
+            _network = UiServices.GetNetworkManager(this);
             if (_network != null)
                 _network.ChangeJobResponse += OnChangeJobResponse;
 

@@ -12,11 +12,13 @@ namespace ClinetCSharp
         public const int Tavern = 5;     // 酒馆/地标，城镇中心
         public const int SpawnPoint = 6; // 出生点，仅编辑器可见
         public const int Portal = 7;     // 共享传送门
+        public const int Water = 8;      // 水域/水塘，作为建筑装饰
+        public const int Rock = 9;       // 岩石，作为建筑装饰
 
         public const int ConfigIdMultiplier = 10000;
         public const int UidMultiplier = 100000;
 
-        public static bool IsValid(int type) => type is House or Shop or Well or Farm or Tavern or SpawnPoint or Portal;
+        public static bool IsValid(int type) => type is House or Shop or Well or Farm or Tavern or SpawnPoint or Portal or Water or Rock;
 
         public static int GetConfigBaseId(int type) => type * ConfigIdMultiplier;
 

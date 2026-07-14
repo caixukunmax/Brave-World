@@ -165,7 +165,7 @@ namespace ClinetCSharp
 
         private void ToggleBigMap()
         {
-            BigMapPanel.Instance?.Toggle();
+            BigMapPanel.Get()?.Toggle();
         }
         #endregion
     }

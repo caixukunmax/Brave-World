@@ -31,6 +31,30 @@ namespace ClinetCSharp
             cfg.SetValue("system_tab", "backpack_reorder_duration", InventoryUI.BackpackReorderAnimationDuration);
             cfg.SetValue("system_tab", "backpack_hover_border_width", InventoryUI.BackpackHoverBoxBorderWidth);
             cfg.SetValue("system_tab", "backpack_hover_box_color", InventoryUI.BackpackHoverBoxColor);
+
+            // 方向箭头配置
+            cfg.SetValue("system_tab", "direction_arrow_style", EntityBase.DirectionArrowStyle);
+            cfg.SetValue("system_tab", "direction_arrow_size", EntityBase.DirectionArrowSize);
+            cfg.SetValue("system_tab", "direction_arrow_color", EntityBase.DirectionArrowColor);
+            cfg.SetValue("system_tab", "direction_arrow_alpha", EntityBase.DirectionArrowAlpha);
+
+            string[] dirKeys = { "right", "down", "left", "up" };
+            for (int d = 0; d < 4; d++)
+            {
+                cfg.SetValue("system_tab", $"direction_arrow_offset_x_{dirKeys[d]}", EntityBase.DirectionArrowOffsets[d].X);
+                cfg.SetValue("system_tab", $"direction_arrow_offset_y_{dirKeys[d]}", EntityBase.DirectionArrowOffsets[d].Y);
+                cfg.SetValue("system_tab", $"direction_arrow_angle_{dirKeys[d]}", EntityBase.DirectionArrowAngles[d]);
+            }
+
+            // 剧情窗口配置
+            cfg.SetValue("system_tab", "story_panel_width", StoryPanel.StoryPanelWidth);
+            cfg.SetValue("system_tab", "story_panel_height", StoryPanel.StoryPanelHeight);
+            cfg.SetValue("system_tab", "story_font_size", StoryPanel.StoryFontSize);
+            cfg.SetValue("system_tab", "story_panel_alpha", StoryPanel.StoryPanelAlpha);
+            cfg.SetValue("system_tab", "story_content_padding", StoryPanel.StoryContentPadding);
+            cfg.SetValue("system_tab", "story_typewriter_enabled", StoryPanel.StoryTypewriterEnabled);
+            cfg.SetValue("system_tab", "story_typewriter_interval_ms", StoryPanel.StoryTypewriterIntervalMs);
+            cfg.SetValue("system_tab", "story_history_entry_spacing", StoryPanel.StoryHistoryEntrySpacing);
         }
 
         public override void LoadConfig(ConfigFile cfg, bool configLoaded)
@@ -154,6 +178,110 @@ namespace ClinetCSharp
             _backpackHoverColorPicker.Color = InventoryUI.BackpackHoverBoxColor;
             _backpackHoverColorPicker.SetBlockSignals(false);
 
+            // 方向箭头配置
+            EntityBase.DirectionArrowStyle = (int)(double)cfg.GetValue("system_tab", "direction_arrow_style", 0.0);
+            EntityBase.DirectionArrowSize = (float)(double)cfg.GetValue("system_tab", "direction_arrow_size", 0.35);
+            EntityBase.DirectionArrowColor = (Color)cfg.GetValue("system_tab", "direction_arrow_color", new Color(1f, 0.9f, 0.2f, 0.9f));
+            EntityBase.DirectionArrowAlpha = (float)(double)cfg.GetValue("system_tab", "direction_arrow_alpha", 0.9);
+            Vector2[] defaultOffsets = { new(15, 0), new(0, 15), new(-15, 0), new(0, -15) };
+            float[] defaultAngles = { 0f, 90f, 180f, 270f };
+            string[] dirKeys = { "right", "down", "left", "up" };
+            for (int d = 0; d < 4; d++)
+            {
+                float ox = (float)(double)cfg.GetValue("system_tab", $"direction_arrow_offset_x_{dirKeys[d]}", (double)defaultOffsets[d].X);
+                float oy = (float)(double)cfg.GetValue("system_tab", $"direction_arrow_offset_y_{dirKeys[d]}", (double)defaultOffsets[d].Y);
+                float ang = (float)(double)cfg.GetValue("system_tab", $"direction_arrow_angle_{dirKeys[d]}", (double)defaultAngles[d]);
+                EntityBase.DirectionArrowOffsets[d] = new Vector2(ox, oy);
+                EntityBase.DirectionArrowAngles[d] = ang;
+            }
+
+            _directionArrowStyleOption.SetBlockSignals(true);
+            _directionArrowStyleOption.Select(EntityBase.DirectionArrowStyle);
+            _directionArrowStyleOption.SetBlockSignals(false);
+
+            _directionArrowSizeSlider.SetBlockSignals(true);
+            _directionArrowSizeSlider.Value = EntityBase.DirectionArrowSize;
+            _directionArrowSizeSlider.SetBlockSignals(false);
+            _directionArrowSizeValue.Text = EntityBase.DirectionArrowSize.ToString("F2");
+
+            _directionArrowColorPicker.SetBlockSignals(true);
+            _directionArrowColorPicker.Color = EntityBase.DirectionArrowColor;
+            _directionArrowColorPicker.SetBlockSignals(false);
+
+            _directionArrowAlphaSlider.SetBlockSignals(true);
+            _directionArrowAlphaSlider.Value = EntityBase.DirectionArrowAlpha;
+            _directionArrowAlphaSlider.SetBlockSignals(false);
+            _directionArrowAlphaValue.Text = EntityBase.DirectionArrowAlpha.ToString("F2");
+
+            for (int d = 0; d < 4; d++)
+            {
+                _directionArrowOffsetXSliders[d].SetBlockSignals(true);
+                _directionArrowOffsetXSliders[d].Value = EntityBase.DirectionArrowOffsets[d].X;
+                _directionArrowOffsetXSliders[d].SetBlockSignals(false);
+                _directionArrowOffsetXValues[d].Text = EntityBase.DirectionArrowOffsets[d].X.ToString("F0");
+
+                _directionArrowOffsetYSliders[d].SetBlockSignals(true);
+                _directionArrowOffsetYSliders[d].Value = EntityBase.DirectionArrowOffsets[d].Y;
+                _directionArrowOffsetYSliders[d].SetBlockSignals(false);
+                _directionArrowOffsetYValues[d].Text = EntityBase.DirectionArrowOffsets[d].Y.ToString("F0");
+
+                _directionArrowAngleSliders[d].SetBlockSignals(true);
+                _directionArrowAngleSliders[d].Value = EntityBase.DirectionArrowAngles[d];
+                _directionArrowAngleSliders[d].SetBlockSignals(false);
+                _directionArrowAngleValues[d].Text = EntityBase.DirectionArrowAngles[d].ToString("F0");
+            }
+
+            // 剧情窗口配置
+            StoryPanel.StoryPanelWidth = (int)(double)cfg.GetValue("system_tab", "story_panel_width", 560.0);
+            StoryPanel.StoryPanelHeight = (int)(double)cfg.GetValue("system_tab", "story_panel_height", 240.0);
+            StoryPanel.StoryFontSize = (int)(double)cfg.GetValue("system_tab", "story_font_size", 18.0);
+            StoryPanel.StoryPanelAlpha = (int)(double)cfg.GetValue("system_tab", "story_panel_alpha", 85.0);
+            StoryPanel.StoryTypewriterEnabled = (bool)cfg.GetValue("system_tab", "story_typewriter_enabled", false);
+            StoryPanel.StoryTypewriterIntervalMs = (int)(double)cfg.GetValue("system_tab", "story_typewriter_interval_ms", 50.0);
+            StoryPanel.StoryHistoryEntrySpacing = (int)(double)cfg.GetValue("system_tab", "story_history_entry_spacing", 8.0);
+
+            _storyPanelWidthSlider.SetBlockSignals(true);
+            _storyPanelWidthSlider.Value = StoryPanel.StoryPanelWidth;
+            _storyPanelWidthSlider.SetBlockSignals(false);
+            _storyPanelWidthValue.Text = StoryPanel.StoryPanelWidth.ToString();
+
+            _storyPanelHeightSlider.SetBlockSignals(true);
+            _storyPanelHeightSlider.Value = StoryPanel.StoryPanelHeight;
+            _storyPanelHeightSlider.SetBlockSignals(false);
+            _storyPanelHeightValue.Text = StoryPanel.StoryPanelHeight.ToString();
+
+            _storyFontSizeSlider.SetBlockSignals(true);
+            _storyFontSizeSlider.Value = StoryPanel.StoryFontSize;
+            _storyFontSizeSlider.SetBlockSignals(false);
+            _storyFontSizeValue.Text = StoryPanel.StoryFontSize.ToString();
+
+            _storyPanelAlphaSlider.SetBlockSignals(true);
+            _storyPanelAlphaSlider.Value = StoryPanel.StoryPanelAlpha;
+            _storyPanelAlphaSlider.SetBlockSignals(false);
+            _storyPanelAlphaValue.Text = StoryPanel.StoryPanelAlpha.ToString();
+
+            StoryPanel.StoryContentPadding = (int)(double)cfg.GetValue("system_tab", "story_content_padding", 16.0);
+
+            _storyContentPaddingSlider.SetBlockSignals(true);
+            _storyContentPaddingSlider.Value = StoryPanel.StoryContentPadding;
+            _storyContentPaddingSlider.SetBlockSignals(false);
+            _storyContentPaddingValue.Text = StoryPanel.StoryContentPadding.ToString();
+
+            _storyTypewriterCheck.SetBlockSignals(true);
+            _storyTypewriterCheck.ButtonPressed = StoryPanel.StoryTypewriterEnabled;
+            _storyTypewriterCheck.SetBlockSignals(false);
+
+            _storyTypewriterIntervalSlider.SetBlockSignals(true);
+            _storyTypewriterIntervalSlider.Value = StoryPanel.StoryTypewriterIntervalMs;
+            _storyTypewriterIntervalSlider.SetBlockSignals(false);
+            _storyTypewriterIntervalValue.Text = StoryPanel.StoryTypewriterIntervalMs.ToString();
+
+            _storyHistorySpacingSlider.SetBlockSignals(true);
+            _storyHistorySpacingSlider.Value = StoryPanel.StoryHistoryEntrySpacing;
+            _storyHistorySpacingSlider.SetBlockSignals(false);
+            _storyHistorySpacingValue.Text = StoryPanel.StoryHistoryEntrySpacing.ToString();
+
+            ApplyStoryPanelSettings();
             ApplyInventorySettings();
         }
 
@@ -258,6 +386,83 @@ namespace ClinetCSharp
             _backpackHoverColorPicker.SetBlockSignals(true);
             _backpackHoverColorPicker.Color = InventoryUI.BackpackHoverBoxColor;
             _backpackHoverColorPicker.SetBlockSignals(false);
+
+            // 方向箭头配置
+            _directionArrowStyleOption.SetBlockSignals(true);
+            _directionArrowStyleOption.Select(EntityBase.DirectionArrowStyle);
+            _directionArrowStyleOption.SetBlockSignals(false);
+
+            _directionArrowSizeSlider.SetBlockSignals(true);
+            _directionArrowSizeSlider.Value = EntityBase.DirectionArrowSize;
+            _directionArrowSizeSlider.SetBlockSignals(false);
+            _directionArrowSizeValue.Text = EntityBase.DirectionArrowSize.ToString("F2");
+
+            _directionArrowColorPicker.SetBlockSignals(true);
+            _directionArrowColorPicker.Color = EntityBase.DirectionArrowColor;
+            _directionArrowColorPicker.SetBlockSignals(false);
+
+            _directionArrowAlphaSlider.SetBlockSignals(true);
+            _directionArrowAlphaSlider.Value = EntityBase.DirectionArrowAlpha;
+            _directionArrowAlphaSlider.SetBlockSignals(false);
+            _directionArrowAlphaValue.Text = EntityBase.DirectionArrowAlpha.ToString("F2");
+
+            for (int d = 0; d < 4; d++)
+            {
+                _directionArrowOffsetXSliders[d].SetBlockSignals(true);
+                _directionArrowOffsetXSliders[d].Value = EntityBase.DirectionArrowOffsets[d].X;
+                _directionArrowOffsetXSliders[d].SetBlockSignals(false);
+                _directionArrowOffsetXValues[d].Text = EntityBase.DirectionArrowOffsets[d].X.ToString("F0");
+
+                _directionArrowOffsetYSliders[d].SetBlockSignals(true);
+                _directionArrowOffsetYSliders[d].Value = EntityBase.DirectionArrowOffsets[d].Y;
+                _directionArrowOffsetYSliders[d].SetBlockSignals(false);
+                _directionArrowOffsetYValues[d].Text = EntityBase.DirectionArrowOffsets[d].Y.ToString("F0");
+
+                _directionArrowAngleSliders[d].SetBlockSignals(true);
+                _directionArrowAngleSliders[d].Value = EntityBase.DirectionArrowAngles[d];
+                _directionArrowAngleSliders[d].SetBlockSignals(false);
+                _directionArrowAngleValues[d].Text = EntityBase.DirectionArrowAngles[d].ToString("F0");
+            }
+
+            // 剧情窗口配置
+            _storyPanelWidthSlider.SetBlockSignals(true);
+            _storyPanelWidthSlider.Value = StoryPanel.StoryPanelWidth;
+            _storyPanelWidthSlider.SetBlockSignals(false);
+            _storyPanelWidthValue.Text = StoryPanel.StoryPanelWidth.ToString();
+
+            _storyPanelHeightSlider.SetBlockSignals(true);
+            _storyPanelHeightSlider.Value = StoryPanel.StoryPanelHeight;
+            _storyPanelHeightSlider.SetBlockSignals(false);
+            _storyPanelHeightValue.Text = StoryPanel.StoryPanelHeight.ToString();
+
+            _storyFontSizeSlider.SetBlockSignals(true);
+            _storyFontSizeSlider.Value = StoryPanel.StoryFontSize;
+            _storyFontSizeSlider.SetBlockSignals(false);
+            _storyFontSizeValue.Text = StoryPanel.StoryFontSize.ToString();
+
+            _storyPanelAlphaSlider.SetBlockSignals(true);
+            _storyPanelAlphaSlider.Value = StoryPanel.StoryPanelAlpha;
+            _storyPanelAlphaSlider.SetBlockSignals(false);
+            _storyPanelAlphaValue.Text = StoryPanel.StoryPanelAlpha.ToString();
+
+            _storyContentPaddingSlider.SetBlockSignals(true);
+            _storyContentPaddingSlider.Value = StoryPanel.StoryContentPadding;
+            _storyContentPaddingSlider.SetBlockSignals(false);
+            _storyContentPaddingValue.Text = StoryPanel.StoryContentPadding.ToString();
+
+            _storyTypewriterCheck.SetBlockSignals(true);
+            _storyTypewriterCheck.ButtonPressed = StoryPanel.StoryTypewriterEnabled;
+            _storyTypewriterCheck.SetBlockSignals(false);
+
+            _storyTypewriterIntervalSlider.SetBlockSignals(true);
+            _storyTypewriterIntervalSlider.Value = StoryPanel.StoryTypewriterIntervalMs;
+            _storyTypewriterIntervalSlider.SetBlockSignals(false);
+            _storyTypewriterIntervalValue.Text = StoryPanel.StoryTypewriterIntervalMs.ToString();
+
+            _storyHistorySpacingSlider.SetBlockSignals(true);
+            _storyHistorySpacingSlider.Value = StoryPanel.StoryHistoryEntrySpacing;
+            _storyHistorySpacingSlider.SetBlockSignals(false);
+            _storyHistorySpacingValue.Text = StoryPanel.StoryHistoryEntrySpacing.ToString();
         }
     }
 }

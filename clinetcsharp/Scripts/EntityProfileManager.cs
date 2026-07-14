@@ -35,6 +35,9 @@ namespace ClinetCSharp
 
             EnsureDefaultProfiles();
             LoadConfig();
+            // 旧格式配置会清空 profile，新格式也可能缺少默认建筑的 category 组件，
+            // 因此在加载完成后再兜底一次，确保默认建筑及其分类存在。
+            EnsureDefaultProfiles();
             NormalizeBuiltInProfiles();
 
             // 同步到 DecorationConfigUtil 兼容层，保证旧接口（如 MapEditor 建筑列表）能读到数据。
@@ -101,7 +104,12 @@ namespace ClinetCSharp
                 || id == BuildingType.GetConfigBaseId(BuildingType.Farm)
                 || id == BuildingType.GetConfigBaseId(BuildingType.Tavern)
                 || id == BuildingType.GetConfigBaseId(BuildingType.SpawnPoint)
-                || id == BuildingType.GetConfigBaseId(BuildingType.Portal);
+                || id == BuildingType.GetConfigBaseId(BuildingType.Portal)
+                || id == BuildingType.GetConfigBaseId(BuildingType.Water)
+                || id == BuildingType.GetConfigBaseId(BuildingType.Rock)
+                // 旧岩石装饰 ID 10002 / 草地 10003，保留兼容
+                || id == BuildingType.GetConfigBaseId(BuildingType.House) + 2
+                || id == BuildingType.GetConfigBaseId(BuildingType.House) + 3;
         }
 
         public bool DeleteProfile(int id)
@@ -252,47 +260,53 @@ namespace ClinetCSharp
                 _profiles[3] = EntityProfile.CreateNpcDefault(3);
 
             // 默认建筑 Profiles
-            // 10000=树(1x1)，10001=房舍(2x2)，商店 20000，水井 30000，农田 40000，酒馆 50000，出生点 60000，传送门 70000
-            if (!_profiles.ContainsKey(BuildingType.GetConfigBaseId(BuildingType.House)))
-                _profiles[BuildingType.GetConfigBaseId(BuildingType.House)] = EntityProfile.CreateDecorationDefault(
-                    BuildingType.GetConfigBaseId(BuildingType.House), "Tree", "树", BuildingType.House,
-                    new Color(0.2f, 0.5f, 0.25f, 0.9f),
-                    new Color(0.1f, 0.35f, 0.15f), false, sizeX: 1, sizeY: 1);
-            if (!_profiles.ContainsKey(BuildingType.GetConfigBaseId(BuildingType.House) + 1))
-                _profiles[BuildingType.GetConfigBaseId(BuildingType.House) + 1] = EntityProfile.CreateDecorationDefault(
-                    BuildingType.GetConfigBaseId(BuildingType.House) + 1, "House", "房舍", BuildingType.House,
-                    new Color(0.545f, 0.353f, 0.169f, 0.9f),
-                    new Color(0.4f, 0.2f, 0.1f), true);
-            if (!_profiles.ContainsKey(BuildingType.GetConfigBaseId(BuildingType.Shop)))
-                _profiles[BuildingType.GetConfigBaseId(BuildingType.Shop)] = EntityProfile.CreateDecorationDefault(
-                    BuildingType.GetConfigBaseId(BuildingType.Shop), "Shop", "商店", BuildingType.Shop,
-                    new Color(0.2f, 0.4f, 0.6f, 0.9f),
-                    new Color(0.1f, 0.3f, 0.5f), true);
-            if (!_profiles.ContainsKey(BuildingType.GetConfigBaseId(BuildingType.Well)))
-                _profiles[BuildingType.GetConfigBaseId(BuildingType.Well)] = EntityProfile.CreateDecorationDefault(
-                    BuildingType.GetConfigBaseId(BuildingType.Well), "Well", "水井", BuildingType.Well,
-                    new Color(0.5f, 0.5f, 0.55f, 0.9f),
-                    new Color(0.3f, 0.3f, 0.35f), true, sizeX: 1, sizeY: 1);
-            if (!_profiles.ContainsKey(BuildingType.GetConfigBaseId(BuildingType.Farm)))
-                _profiles[BuildingType.GetConfigBaseId(BuildingType.Farm)] = EntityProfile.CreateDecorationDefault(
-                    BuildingType.GetConfigBaseId(BuildingType.Farm), "Farm", "农田", BuildingType.Farm,
-                    new Color(0.8f, 0.7f, 0.3f, 0.9f),
-                    new Color(0.5f, 0.4f, 0.1f), true, sizeX: 2, sizeY: 1);
-            if (!_profiles.ContainsKey(BuildingType.GetConfigBaseId(BuildingType.Tavern)))
-                _profiles[BuildingType.GetConfigBaseId(BuildingType.Tavern)] = EntityProfile.CreateDecorationDefault(
-                    BuildingType.GetConfigBaseId(BuildingType.Tavern), "Tavern", "酒馆", BuildingType.Tavern,
-                    new Color(0.6f, 0.3f, 0.2f, 0.9f),
-                    new Color(0.4f, 0.15f, 0.1f), true, sizeX: 2, sizeY: 2);
-            if (!_profiles.ContainsKey(BuildingType.GetConfigBaseId(BuildingType.SpawnPoint)))
-                _profiles[BuildingType.GetConfigBaseId(BuildingType.SpawnPoint)] = EntityProfile.CreateDecorationDefault(
-                    BuildingType.GetConfigBaseId(BuildingType.SpawnPoint), "SpawnPoint", "出生点", BuildingType.SpawnPoint,
-                    new Color(0.2f, 0.8f, 0.9f, 0.9f),
-                    new Color(0.1f, 0.5f, 0.6f), false, sizeX: 1, sizeY: 1);
-            if (!_profiles.ContainsKey(BuildingType.GetConfigBaseId(BuildingType.Portal)))
-                _profiles[BuildingType.GetConfigBaseId(BuildingType.Portal)] = EntityProfile.CreateDecorationDefault(
-                    BuildingType.GetConfigBaseId(BuildingType.Portal), "Portal", "共享传送门", BuildingType.Portal,
-                    new Color(0.6f, 0.2f, 0.9f, 0.9f),
-                    new Color(0.4f, 0.1f, 0.7f), false, sizeX: 1, sizeY: 1);
+            // 10000=树(1x1, Terrain)，10001=房舍(2x2, Building)，10002=岩石(旧兼容, Terrain)，10003=草地(Terrain)，
+            // 20000=商店(Building)，30000=水井(Building)，40000=农田(Building)，50000=酒馆(Building)，
+            // 60000=出生点(Special)，70000=共享传送门(Special)，80000=水域(Terrain)，90000=岩石(Terrain)
+            // 局部辅助：若已存在则从配置加载的 profile 缺少 category 组件，这里只补 category，避免覆盖用户其他自定义。
+            void EnsureDeco(int id, string name, string displayName, int buildingType, Color bgColor, Color borderColor, bool blockMovement, int sizeX, int sizeY, string category)
+            {
+                if (!_profiles.TryGetValue(id, out var profile))
+                {
+                    profile = EntityProfile.CreateDecorationDefault(id, name, displayName, buildingType, bgColor, borderColor, blockMovement, sizeX, sizeY, category);
+                    _profiles[id] = profile;
+                    return;
+                }
+                var catData = profile.GetData<CategoryData>("category");
+                if (catData == null)
+                    profile.SetData("category", new CategoryData { Category = category });
+                else
+                    catData.Category = category;
+            }
+
+            EnsureDeco(BuildingType.GetConfigBaseId(BuildingType.House), "Tree", "树", BuildingType.House,
+                new Color(0.2f, 0.5f, 0.25f, 0.9f), new Color(0.1f, 0.35f, 0.15f), false, 1, 1, "Terrain");
+            EnsureDeco(BuildingType.GetConfigBaseId(BuildingType.House) + 1, "House", "房舍", BuildingType.House,
+                new Color(0.545f, 0.353f, 0.169f, 0.9f), new Color(0.4f, 0.2f, 0.1f), true, 2, 2, "Building");
+            // 10002 岩石：历史地图生成器使用的旧 ID（House 区间），保留兼容防止旧地图渲染 fallback 成树
+            EnsureDeco(BuildingType.GetConfigBaseId(BuildingType.House) + 2, "RockLegacy", "岩石", BuildingType.House,
+                new Color(0.53f, 0.53f, 0.53f, 0.9f), new Color(0.35f, 0.35f, 0.35f), true, 1, 1, "Terrain");
+            // 10003 草地：替换旧棕榈，作为地形类建筑
+            EnsureDeco(BuildingType.GetConfigBaseId(BuildingType.House) + 3, "Grass", "草地", BuildingType.House,
+                new Color(0.35f, 0.65f, 0.35f, 0.9f), new Color(0.2f, 0.45f, 0.2f), false, 1, 1, "Terrain");
+            EnsureDeco(BuildingType.GetConfigBaseId(BuildingType.Shop), "Shop", "商店", BuildingType.Shop,
+                new Color(0.2f, 0.4f, 0.6f, 0.9f), new Color(0.1f, 0.3f, 0.5f), true, 1, 1, "Building");
+            EnsureDeco(BuildingType.GetConfigBaseId(BuildingType.Well), "Well", "水井", BuildingType.Well,
+                new Color(0.5f, 0.5f, 0.55f, 0.9f), new Color(0.3f, 0.3f, 0.35f), true, 1, 1, "Building");
+            EnsureDeco(BuildingType.GetConfigBaseId(BuildingType.Farm), "Farm", "农田", BuildingType.Farm,
+                new Color(0.8f, 0.7f, 0.3f, 0.9f), new Color(0.5f, 0.4f, 0.1f), true, 2, 1, "Building");
+            EnsureDeco(BuildingType.GetConfigBaseId(BuildingType.Tavern), "Tavern", "酒馆", BuildingType.Tavern,
+                new Color(0.6f, 0.3f, 0.2f, 0.9f), new Color(0.4f, 0.15f, 0.1f), true, 2, 2, "Building");
+            EnsureDeco(BuildingType.GetConfigBaseId(BuildingType.SpawnPoint), "SpawnPoint", "出生点", BuildingType.SpawnPoint,
+                new Color(0.2f, 0.8f, 0.9f, 0.9f), new Color(0.1f, 0.5f, 0.6f), false, 1, 1, "Special");
+            EnsureDeco(BuildingType.GetConfigBaseId(BuildingType.Portal), "Portal", "共享传送门", BuildingType.Portal,
+                new Color(0.6f, 0.2f, 0.9f, 0.9f), new Color(0.4f, 0.1f, 0.7f), false, 1, 1, "Special");
+            // 水域装饰：把底层水地形转换为建筑装饰，与房舍同为 decoration 级别
+            EnsureDeco(BuildingType.GetConfigBaseId(BuildingType.Water), "Water", "水", BuildingType.Water,
+                new Color(0.29f, 0.56f, 0.85f, 0.9f), new Color(0.15f, 0.35f, 0.6f), true, 1, 1, "Terrain");
+            // 岩石装饰：独立建筑类型，取代旧 10002 成为岩石的标准 decoration ID
+            EnsureDeco(BuildingType.GetConfigBaseId(BuildingType.Rock), "Rock", "岩石", BuildingType.Rock,
+                new Color(0.53f, 0.53f, 0.53f, 0.9f), new Color(0.35f, 0.35f, 0.35f), true, 1, 1, "Terrain");
 
             _nextId = Mathf.Max(_nextId, _profiles.Keys.Max() + 1);
         }

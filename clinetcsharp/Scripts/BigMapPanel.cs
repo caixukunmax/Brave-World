@@ -1,5 +1,4 @@
 using Godot;
-using System.Collections.Generic;
 
 namespace ClinetCSharp
 {
@@ -8,9 +7,10 @@ namespace ClinetCSharp
     /// 打开时接管主相机并拉远视角，显示与地图编辑器同款的网格渲染；
     /// 关闭时恢复游戏相机与 UI。
     /// </summary>
-    public partial class BigMapPanel : CanvasLayer
+    public partial class BigMapPanel : CanvasLayer, IPanel
     {
-        public static BigMapPanel Instance { get; private set; }
+        /// <summary>获取大地图面板实例。优先从 PanelManager 查询，确保生命周期受统一管理。</summary>
+        public static BigMapPanel Get() => PanelManager.Instance?.GetPanel<BigMapPanel>();
 
         [Export] public float DefaultZoom { get; set; } = 0.3f;
         [Export] public float MinZoom { get; set; } = 0.1f;
@@ -44,24 +44,24 @@ namespace ClinetCSharp
         private float _savedCameraMaxZoom;
         private bool _isOpen;
 
-        // 被隐藏对象的快照
-        private readonly List<CanvasItem> _hiddenItems = new();
-        private readonly List<DraggablePanel> _hiddenPanels = new();
-
         public override void _Ready()
         {
-            Instance = this;
             Layer = 110;
             Visible = false;
             AddToGroup("big_map_panel");
 
             BuildUi();
+            CallDeferred(MethodName.RegisterWithPanelManager);
         }
 
         public override void _ExitTree()
         {
-            if (Instance == this)
-                Instance = null;
+            PanelManager.Instance?.UnregisterPanel(this);
+        }
+
+        private void RegisterWithPanelManager()
+        {
+            PanelManager.Instance?.RegisterPanel(this);
         }
 
         public override void _Input(InputEvent @event)
@@ -84,9 +84,22 @@ namespace ClinetCSharp
 
         public override void _Process(double delta)
         {
-            if (_isOpen && _markerOverlay != null)
+            if (!_isOpen || _markerOverlay == null) return;
+
+            // 节流：仅在相机位置/缩放变化时才重绘标记层。
+            // 大地图打开时游戏暂停，实体不会移动，无需每帧重绘。
+            var camPos = _camera?.Position ?? Vector2.Zero;
+            var camZoom = _camera?.Zoom.X ?? 0f;
+            if (camPos != _lastMarkerCamPos || camZoom != _lastMarkerCamZoom)
+            {
+                _lastMarkerCamPos = camPos;
+                _lastMarkerCamZoom = camZoom;
                 _markerOverlay.QueueRedraw();
+            }
         }
+
+        private Vector2 _lastMarkerCamPos = Vector2.Zero;
+        private float _lastMarkerCamZoom;
 
         public void Toggle()
         {
@@ -117,7 +130,7 @@ namespace ClinetCSharp
             _isOpen = true;
 
             SaveState();
-            HideGameUiAndEntities();
+            GameUiVisibilityManager.Instance?.HideGameUi();
 
             // 进入相机编辑模式
             _camera.IsEditorMode = true;
@@ -133,6 +146,9 @@ namespace ClinetCSharp
             SyncSliderToCamera();
 
             Visible = true;
+
+            // 首次打开时立即重绘标记层
+            _markerOverlay?.QueueRedraw();
 
             // 暂停游戏，但保证相机、本覆盖层、网格管理器仍能处理
             UIInputPolicy.Instance?.RegisterUiNode(this);
@@ -155,7 +171,7 @@ namespace ClinetCSharp
             UIInputPolicy.Instance?.UnregisterUiNode(this);
 
             RestoreState();
-            ShowGameUiAndEntities();
+            GameUiVisibilityManager.Instance?.ShowGameUi();
 
             Visible = false;
 
@@ -250,6 +266,13 @@ namespace ClinetCSharp
 
         #endregion
 
+        #region IPanel Implementation
+        bool IPanel.IsVisible() => Visible;
+        void IPanel.ShowPanel() => Open();
+        void IPanel.HidePanel() => Close();
+        string IPanel.PanelName => "BigMapPanel";
+        #endregion
+
         #region State Save / Restore
 
         private void SaveState()
@@ -282,103 +305,6 @@ namespace ClinetCSharp
             {
                 _camera.SetReturning(_savedCameraReturn);
             }
-        }
-
-        #endregion
-
-        #region Hide / Show Game World
-
-        private void HideGameUiAndEntities()
-        {
-            _hiddenItems.Clear();
-            _hiddenPanels.Clear();
-
-            HideItem(GetTree()?.GetFirstNodeInGroup("function_bar") as CanvasItem);
-            HideItem(GetTree()?.GetFirstNodeInGroup("skill_bar") as CanvasItem);
-            HideItem(GetTree()?.GetFirstNodeInGroup("buff_bar") as CanvasItem);
-            HideItem(GetTree()?.GetFirstNodeInGroup("minimap_hud") as CanvasItem);
-
-            var patrolOverlay = GetTree()?.GetFirstNodeInGroup("monster_patrol_overlay") as CanvasItem;
-            HideItem(patrolOverlay);
-
-            var monsterMgr = GetTree()?.GetFirstNodeInGroup("monster_manager") as MonsterManager;
-            monsterMgr?.SetAllMonstersVisible(false);
-
-            var npcMgr = GetTree()?.GetFirstNodeInGroup("npc_manager") as NpcManager;
-            npcMgr?.SetAllNpcsVisible(false);
-            npcMgr?.CloseInteractMenu();
-
-            var chestMgr = GetTree()?.GetFirstNodeInGroup("chest_manager") as ChestManager;
-            chestMgr?.SetAllChestsVisible(false);
-
-            var dropMgr = GetTree()?.GetFirstNodeInGroup("drop_manager") as DropManager;
-            dropMgr?.SetAllDropsVisible(false);
-
-            var decMgr = GetTree()?.GetFirstNodeInGroup("map_decoration_manager") as MapDecorationManager;
-            decMgr?.SetAllDecorationsVisible(false);
-
-            if (_player != null)
-                _player.Visible = false;
-
-            // 隐藏所有面板
-            var panelMgr = PanelManager.Instance;
-            if (panelMgr != null)
-            {
-                var uiCanvas = panelMgr.GetParent() as CanvasLayer;
-                if (uiCanvas != null)
-                {
-                    foreach (var child in uiCanvas.GetChildren())
-                    {
-                        if (child is DraggablePanel dp && dp.Visible)
-                        {
-                            _hiddenPanels.Add(dp);
-                            dp.Visible = false;
-                        }
-                    }
-                }
-            }
-        }
-
-        private void ShowGameUiAndEntities()
-        {
-            foreach (var item in _hiddenItems)
-            {
-                if (item != null && IsInstanceValid(item))
-                    item.Visible = true;
-            }
-            _hiddenItems.Clear();
-
-            var monsterMgr = GetTree()?.GetFirstNodeInGroup("monster_manager") as MonsterManager;
-            monsterMgr?.SetAllMonstersVisible(true);
-
-            var npcMgr = GetTree()?.GetFirstNodeInGroup("npc_manager") as NpcManager;
-            npcMgr?.SetAllNpcsVisible(true);
-
-            var chestMgr = GetTree()?.GetFirstNodeInGroup("chest_manager") as ChestManager;
-            chestMgr?.SetAllChestsVisible(true);
-
-            var dropMgr = GetTree()?.GetFirstNodeInGroup("drop_manager") as DropManager;
-            dropMgr?.SetAllDropsVisible(true);
-
-            var decMgr = GetTree()?.GetFirstNodeInGroup("map_decoration_manager") as MapDecorationManager;
-            decMgr?.SetAllDecorationsVisible(true);
-
-            if (_player != null)
-                _player.Visible = true;
-
-            foreach (var panel in _hiddenPanels)
-            {
-                if (panel != null && IsInstanceValid(panel))
-                    panel.Visible = true;
-            }
-            _hiddenPanels.Clear();
-        }
-
-        private void HideItem(CanvasItem item)
-        {
-            if (item == null || !IsInstanceValid(item) || !item.Visible) return;
-            _hiddenItems.Add(item);
-            item.Visible = false;
         }
 
         #endregion

@@ -100,7 +100,7 @@ namespace ClinetCSharp
         protected virtual void SavePosition() { }
 
         /// <summary>关闭按钮按下，默认隐藏面板</summary>
-        protected virtual void OnClosed() { Visible = false; }
+        protected virtual void OnClosed() { Visible = false; SetProcess(false); }
 
         /// <summary>最小化状态变化通知</summary>
         protected virtual void OnMinimizeChanged(bool minimized) { }
@@ -122,6 +122,10 @@ namespace ClinetCSharp
             OnPanelReady();
             CallDeferred(MethodName.RegisterWithManager);
             CallDeferred(MethodName.RegisterWithInputPolicy);
+
+            // 初始状态：不可见的面板不运行 _Process
+            if (!Visible)
+                SetProcess(false);
         }
 
         private void RegisterWithManager()
@@ -287,8 +291,21 @@ namespace ClinetCSharp
         #endregion
 
         #region _Process - drag/resize move (polled, + safety release check)
+
+        /// <summary>
+        /// 面板可见性变化时同步 _Process 开关，避免不可见面板每帧空转。
+        /// 子类如需在不可见时继续 _Process，可重写并调用 SetProcess(true)。
+        /// </summary>
+        protected virtual void OnVisibilityChanged()
+        {
+            SetProcess(Visible);
+        }
+
         public override void _Process(double delta)
         {
+            // 不可见时跳过所有处理（SetProcess(false) 通常已阻止调用，此为双重保险）
+            if (!Visible) return;
+
             if (!Input.IsMouseButtonPressed(MouseButton.Left))
                 ReleaseFocusedTransientDragControlOnMouseRelease(GetViewport());
 
@@ -559,6 +576,7 @@ namespace ClinetCSharp
         public void Toggle()
         {
             Visible = !Visible;
+            SetProcess(Visible);
             if (Visible)
                 PanelManager.Instance?.RequestFocus(this);
         }
@@ -572,8 +590,8 @@ namespace ClinetCSharp
 
         #region IPanel Implementation
         bool IPanel.IsVisible() => Visible;
-        void IPanel.ShowPanel() => Visible = true;
-        void IPanel.HidePanel() => Visible = false;
+        void IPanel.ShowPanel() { Visible = true; SetProcess(true); }
+        void IPanel.HidePanel() { Visible = false; SetProcess(false); }
         string IPanel.PanelName => Name;
         #endregion
     }

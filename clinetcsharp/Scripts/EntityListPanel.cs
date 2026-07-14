@@ -16,7 +16,7 @@ namespace ClinetCSharp
         {
             _contentBox = GetNodeOrNull<VBoxContainer>("VBoxContainer/Content/ContentBox");
 
-            _network = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
+            _network = UiServices.GetNetworkManager(this);
             if (_network != null)
                 _network.MapInfoReceived += OnMapInfoReceived;
 
@@ -45,8 +45,7 @@ namespace ClinetCSharp
         {
             if (_contentBox == null) return;
 
-            foreach (var child in _contentBox.GetChildren())
-                child.QueueFree();
+            _contentBox.ClearChildren();
 
             var player = GetTree()?.GetFirstNodeInGroup("player") as Player;
 

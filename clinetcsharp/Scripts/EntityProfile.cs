@@ -270,7 +270,7 @@ namespace ClinetCSharp
         }
 
         /// <summary>创建默认建筑 Profile</summary>
-        public static EntityProfile CreateDecorationDefault(int id, string name, string displayName, int buildingType, Color bgColor, Color borderColor, bool blockMovement, int sizeX = 0, int sizeY = 0)
+        public static EntityProfile CreateDecorationDefault(int id, string name, string displayName, int buildingType, Color bgColor, Color borderColor, bool blockMovement, int sizeX = 0, int sizeY = 0, string category = "")
         {
             var profile = new EntityProfile
             {
@@ -309,6 +309,7 @@ namespace ClinetCSharp
 
             profile.SetData("obstacle", new ObstacleData { BlockMovement = blockMovement });
             profile.SetData("building_type", new BuildingTypeData { Type = buildingType });
+            profile.SetData("category", new CategoryData { Category = category });
 
             return profile;
         }

@@ -46,7 +46,7 @@ namespace ClinetCSharp
             }
 
             // 若自己是拾取者且有剩余，提示背包已满
-            var network = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
+            var network = UiServices.GetNetworkManager(this);
             if (notify.RemainingCount > 0 && network != null && notify.PickerId == network.AccountId)
             {
                 var invManager = GetTree()?.GetFirstNodeInGroup("inventory_manager") as InventoryManager;
@@ -57,7 +57,7 @@ namespace ClinetCSharp
 
         private void ShowInventoryFullToast(string itemName, uint remainingCount)
         {
-            var network = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
+            var network = UiServices.GetNetworkManager(this);
             if (network == null) return;
 
             var toast = new Label

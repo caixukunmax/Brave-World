@@ -5,7 +5,7 @@ namespace ClinetCSharp
     /// <summary>
     /// 共享绘制工具 — Player / Monster 共用的绘制逻辑
     /// </summary>
-    public static class EntityDrawUtils
+    public static partial class EntityDrawUtils
     {
         /// <summary>绘制角色方块（圆角矩形，正方形）</summary>
         public static void DrawBody(Node2D node, int outerSize, int innerSize, Color bgColor, float bgOpacity,

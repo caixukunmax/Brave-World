@@ -23,7 +23,7 @@ namespace ClinetCSharp
             AddChild(_floatLayer);
 
             // 订阅网络事件
-            var nm = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
+            var nm = UiServices.GetNetworkManager(this);
             if (nm != null)
             {
                 nm.OpenChestResponse += OnOpenChestResponse;
@@ -35,7 +35,7 @@ namespace ClinetCSharp
 
         public override void _ExitTree()
         {
-            var nm = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
+            var nm = UiServices.GetNetworkManager(this);
             if (nm != null)
             {
                 nm.OpenChestResponse -= OnOpenChestResponse;
@@ -144,7 +144,7 @@ namespace ClinetCSharp
 
         private void SendOpenChest(Chest chest)
         {
-            var nm = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
+            var nm = UiServices.GetNetworkManager(this);
             if (nm == null || !nm.IsServerConnected()) return;
 
             nm.PendingOpenChestId = chest.ChestId;
@@ -155,7 +155,7 @@ namespace ClinetCSharp
 
         private void OnOpenChestResponse(Game.OpenChestResponse rsp)
         {
-            var nm = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
+            var nm = UiServices.GetNetworkManager(this);
             uint chestId = nm?.PendingOpenChestId ?? 0;
             nm.PendingOpenChestId = null;
 
