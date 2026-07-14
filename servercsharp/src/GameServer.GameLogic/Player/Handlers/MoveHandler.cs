@@ -1,3 +1,4 @@
+using GameServer.Common;
 using GameServer.Common.Net;
 using GameServer.Services.Core;
 using GameServer.Services.World;
@@ -53,6 +54,9 @@ public class MoveStartHandler : IMessageHandler
                 durationMs = GameConstants.MinMoveSpeedMs;
             if (durationMs > GameConstants.MaxMoveSpeedMs)
                 durationMs = GameConstants.MaxMoveSpeedMs;
+
+            // 更新玩家朝向
+            player.Direction = DirectionUtil.FromMoveVector(fromX, fromY, toX, toY);
         }
 
         // 地形减速：沙地0.7x、雪地0.6x、沼泽0.4x → durationMs 除以系数（变慢）
@@ -218,11 +222,12 @@ public class MoveCompleteHandler : IMessageHandler
 
         _session.MapService.World.CompleteMove(claims.AccountId);
 
-        // 更新数据库中的坐标
+        // 更新数据库中的坐标和朝向
         if (_session.TryGetPlayer(claims.AccountId, out var player))
         {
             player.GridX = req.TargetX;
             player.GridY = req.TargetY;
+            // 方向已在 MoveStartHandler 中设置，此处无需重复设置
         }
 
         // 移动到目标格后尝试自动拾取掉落物

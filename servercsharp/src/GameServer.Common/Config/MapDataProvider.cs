@@ -66,15 +66,11 @@ public class MapDataProvider
 
     /// <summary>
     /// 注册地图名别名，兼容历史数据中的拼音/中文不一致问题。
-    /// 例如历史角色数据可能存储 "xinshoucun"，而注册表使用 "新手村"。
+    /// 别名在 LoadAllMaps 时动态注册，不硬编码任何地图名。
     /// </summary>
     private void RegisterAliases()
     {
-        // 新手村 <-> xinshoucun
-        if (_registry.ContainsKey("新手村") && !_registry.ContainsKey("xinshoucun"))
-            _mapNameAliases["xinshoucun"] = "新手村";
-        if (_registry.ContainsKey("xinshoucun") && !_registry.ContainsKey("新手村"))
-            _mapNameAliases["新手村"] = "xinshoucun";
+        // 预留：未来可通过 map_registry.json 中的 aliases 字段注册别名
     }
 
     /// <summary>将查询用的地图名解析为注册表中实际存在的 key。</summary>
@@ -396,6 +392,17 @@ public class MapDataProvider
     }
 
     public Dictionary<string, MapRegistryEntry> GetAllRegistryEntries() => _registry;
+
+    /// <summary>
+    /// 获取默认地图（注册表中的第一个地图）及其出生点。
+    /// 如果注册表为空则返回 null。
+    /// </summary>
+    public (string mapName, int spawnX, int spawnY)? GetDefaultMap()
+    {
+        var first = _registry.Values.FirstOrDefault();
+        if (first == null) return null;
+        return (first.map_name, first.spawn_x, first.spawn_y);
+    }
 
     public record MapData(string Name, int OffsetX, int OffsetY, int Width, int Height, int[,] TerrainType, int[,] DecorationType, bool[,] Blocked);
 }

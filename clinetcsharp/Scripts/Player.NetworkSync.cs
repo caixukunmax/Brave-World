@@ -41,7 +41,7 @@ namespace ClinetCSharp
 
         private void OnCombatStateNotify(Game.CombatStateNotify notify)
         {
-            var nm = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
+            var nm = UiServices.GetNetworkManager(this);
             if (nm == null || nm.AccountId == 0)
                 return;
 
@@ -102,7 +102,7 @@ namespace ClinetCSharp
 
         private void OnCombatEndNotify(Game.CombatEndNotify notify)
         {
-            var nm = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
+            var nm = UiServices.GetNetworkManager(this);
             if (nm == null || nm.AccountId == 0)
                 return;
 
@@ -121,7 +121,7 @@ namespace ClinetCSharp
 
         private void OnCastStartNotify(Game.CastStartNotify notify)
         {
-            var nm = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
+            var nm = UiServices.GetNetworkManager(this);
             if (nm == null || nm.AccountId == 0)
                 return;
             if (notify.CasterId != nm.AccountId)
@@ -136,7 +136,7 @@ namespace ClinetCSharp
 
         private void OnCombatEventNotify(Game.CombatEventNotify notify)
         {
-            var nm = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
+            var nm = UiServices.GetNetworkManager(this);
             if (nm == null || nm.AccountId == 0)
                 return;
             if (notify.TargetId != nm.AccountId)

@@ -51,6 +51,7 @@ namespace ClinetCSharp
             if ((status == StreamPeerTcp.Status.None || status == StreamPeerTcp.Status.Error) && _connected)
             {
                 _connected = false;
+                ClearPendingCallbacks();
                 Disconnected?.Invoke();
             }
         }
@@ -110,6 +111,7 @@ namespace ClinetCSharp
             _bufferOffset = 0;
             _bufferCount = 0;
             _expectedLength = -1;
+            ClearPendingCallbacks();
         }
 
         public bool IsServerConnected()

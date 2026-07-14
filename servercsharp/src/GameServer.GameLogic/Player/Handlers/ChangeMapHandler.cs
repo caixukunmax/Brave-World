@@ -105,6 +105,7 @@ public class ChangeMapHandler : IMessageHandler
                 Level = (uint)m.Level,
                 SizeX = m.SizeX > 0 ? m.SizeX : 1,
                 SizeY = m.SizeY > 0 ? m.SizeY : 1,
+                Direction = m.Direction,
             };
             info.Attrs.Add(new PGame.MonsterAttr { AttrKey = 1, AttrValue = m.Hp });
             info.Attrs.Add(new PGame.MonsterAttr { AttrKey = 2, AttrValue = m.Patk });
@@ -128,6 +129,7 @@ public class ChangeMapHandler : IMessageHandler
                     Y = n.Y,
                     SizeX = n.SizeX > 0 ? n.SizeX : 1,
                     SizeY = n.SizeY > 0 ? n.SizeY : 1,
+                    Direction = n.Direction,
                 });
             }
         }

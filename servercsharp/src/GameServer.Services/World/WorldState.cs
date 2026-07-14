@@ -57,7 +57,7 @@ public class WorldState : IWorldState
     /// 实体位置索引：entityId → (mapName, anchorX, anchorY, sizeX, sizeY)。
     /// 与 MapState.Players/Monsters/Npcs 同步维护，用于 O(1) 定位实体。
     /// </summary>
-    private readonly Dictionary<long, (string mapName, int x, int y, int sizeX, int sizeY)> _entityLocations = new();
+    private readonly ConcurrentDictionary<long, (string mapName, int x, int y, int sizeX, int sizeY)> _entityLocations = new();
 
     public WorldState(MapDataProvider mapData, ILogger<WorldState> logger)
     {
@@ -74,7 +74,11 @@ public class WorldState : IWorldState
             _maps[mapName] = new MapState { MapId = mapId++ };
         }
         if (_maps.Count == 0)
-            _maps[GameConstants.DefaultMapName] = new MapState { MapId = GameConstants.DefaultMapId };
+        {
+            var defaultMap = _mapData.GetDefaultMap();
+            if (defaultMap != null)
+                _maps[defaultMap.Value.mapName] = new MapState { MapId = GameConstants.DefaultMapId };
+        }
     }
 
     // ---- 只读接口 ----
@@ -232,7 +236,7 @@ public class WorldState : IWorldState
     {
         if (!_entityLocations.TryGetValue(entityId, out var loc))
             return;
-        _entityLocations.Remove(entityId);
+        _entityLocations.TryRemove(entityId, out _);
 
         if (!_maps.TryGetValue(loc.mapName, out var map))
             return;

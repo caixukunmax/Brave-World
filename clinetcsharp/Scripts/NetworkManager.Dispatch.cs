@@ -7,12 +7,15 @@ namespace ClinetCSharp
 {
     public partial class NetworkManager
     {
-        private void DispatchMessage(int msgId, ByteString data)
+        private void DispatchMessage(int msgId, ByteString data, uint session)
         {
             try
             {
                 switch ((MessageId)msgId)
                 {
+                    case MessageId.GameGetServerLogPathRsp:
+                        HandleServerLogPathResponse(data, session);
+                        break;
                     case MessageId.GatewayHeartbeatRsp:
                         HandleGatewayHeartbeatResponse(data);
                         break;
@@ -75,6 +78,9 @@ namespace ClinetCSharp
                         break;
                     case MessageId.GameMonsterRespawnNotify:
                         HandleMonsterRespawnNotify(data);
+                        break;
+                    case MessageId.GameDirectionNotify:
+                        HandleDirectionNotify(data);
                         break;
                     case MessageId.GameCombatLogNotify:
                         HandleCombatLogNotify(data);
@@ -163,6 +169,16 @@ namespace ClinetCSharp
         {
             var rsp = Game.InventoryReorderResponse.Parser.ParseFrom(data);
             InventoryReorderResponse?.Invoke(rsp);
+        }
+
+        private void HandleServerLogPathResponse(ByteString data, uint session)
+        {
+            var rsp = Game.GetServerLogPathResponse.Parser.ParseFrom(data);
+            if (_pendingLogPathCallbacks.TryGetValue(session, out var callback))
+            {
+                _pendingLogPathCallbacks.Remove(session);
+                callback?.Invoke(rsp.LogPath ?? "");
+            }
         }
     }
 }

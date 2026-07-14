@@ -49,13 +49,12 @@ public class CreateRoleHandler : IMessageHandler
         var roleId = await _session.Roles.GetNextRoleId();
         var now = (int)DateTimeOffset.UtcNow.ToUnixTimeSeconds();
 
-        // 从地图注册表获取出生点（取第一个地图）
-        var allEntries = _mapData.GetAllRegistryEntries();
-        var firstMap = allEntries.Values.FirstOrDefault();
-        var birthMap = firstMap?.map_name ?? GameConstants.DefaultMapName;
-        var (spawnX, spawnY) = firstMap != null
-            ? (firstMap.spawn_x, firstMap.spawn_y)
-            : (GameConstants.DefaultSpawnX, GameConstants.DefaultSpawnY);
+        // 从地图注册表获取默认地图（注册表中的第一个地图）
+        var defaultMap = _mapData.GetDefaultMap();
+        if (defaultMap == null)
+            return MakeError(PCommon.ErrorCode.UnknownError);
+        var birthMap = defaultMap.Value.mapName;
+        var (spawnX, spawnY) = (defaultMap.Value.spawnX, defaultMap.Value.spawnY);
 
         // 按 Lv1 初始化属性
         var (baseHp, baseMp, basePatk, baseMatk, basePdef, baseMdef, baseMpRegen) = _tables.GetPlayerAttrsByLevel(1);

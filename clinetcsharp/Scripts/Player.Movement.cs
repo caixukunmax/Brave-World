@@ -86,7 +86,10 @@ namespace ClinetCSharp
                 direction.X = 1;
 
             if (direction != Vector2I.Zero)
+            {
+                Direction = DirectionFromVector(direction.X, direction.Y);
                 MoveTo(_gridPos + direction);
+            }
         }
 
         private void MoveTo(Vector2I targetGridPos)
@@ -120,6 +123,7 @@ namespace ClinetCSharp
             _moveTargetPos = targetGridPos;
             _collisionMove = true;
             _moveSentCount++;
+            Direction = DirectionFromVector(targetGridPos.X - _moveFromPos.X, targetGridPos.Y - _moveFromPos.Y);
 
             var targetWorldPos = GetWorldPositionForGridPos(targetGridPos);
             StartMoveTween(targetWorldPos, MoveDuration);
@@ -159,6 +163,7 @@ namespace ClinetCSharp
             _collisionMove = false;
             _moveSentCount++;
             ClearPendingServerGridCorrection();
+            Direction = DirectionFromVector(targetGridPos.X - _moveFromPos.X, targetGridPos.Y - _moveFromPos.Y);
             _gridPos = targetGridPos;
 
             var targetWorldPos = GetWorldPositionForGridPos(_gridPos);

@@ -25,6 +25,7 @@ public class HotReloader
     public IMonsterAiService? MonsterService { get; private set; }
     public IDropService? DropService { get; private set; }
     public INpcManager? NpcManager { get; set; }
+    public object? GmHandler { get; set; }
 
     public HotReloader(ILoggerFactory loggerFactory, LubanTableLoader tables, string? dllPath = null)
     {
