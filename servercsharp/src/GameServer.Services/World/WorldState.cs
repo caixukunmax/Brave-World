@@ -172,6 +172,9 @@ public class WorldState : IWorldState
     public (int width, int height, int[,] decorationTypes)? GetMapDecorationData(string mapName)
         => _mapData.GetMapDecorationData(mapName);
 
+    public (int width, int height, int[,] terrainTypes)? GetMapTerrainData(string mapName)
+        => _mapData.GetMapTerrainData(mapName);
+
     public bool IsOccupied(string mapName, int x, int y)
     {
         if (!_maps.TryGetValue(mapName, out var map)) return false;
@@ -293,6 +296,15 @@ public class WorldState : IWorldState
 
     public void PlayerEnter(string mapName, MapPlayerState player)
     {
+        // 幂等：若该账号已存在于某地图，先强制移除旧实体，避免脏空间索引
+        if (_entityLocations.TryGetValue(player.AccountId, out var oldLoc))
+        {
+            _logger.LogWarning("[WorldState] PlayerEnter: account={AccountId} already on map={OldMap}, forcing leave before enter",
+                player.AccountId, oldLoc.mapName);
+            PlayerLeave(player.AccountId, oldLoc.mapName);
+        }
+        CancelMove(player.AccountId);
+
         if (!_maps.TryGetValue(mapName, out var map))
         {
             map = new MapState { MapId = GameConstants.DefaultMapId };

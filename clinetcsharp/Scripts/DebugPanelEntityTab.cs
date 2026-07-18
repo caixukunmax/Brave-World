@@ -69,10 +69,12 @@ namespace ClinetCSharp
             foreach (var component in _activeComponents.Values)
                 component.DisconnectSignals();
 
-            // 清理预览实体
+            // 清理预览实体和面板（两者都必须 QueueFree，否则 Owner 子节点会累积泄漏）
             if (_previewEntity != null && GodotObject.IsInstanceValid(_previewEntity))
                 _previewEntity.QueueFree();
             _previewEntity = null;
+            if (_previewPanel != null && GodotObject.IsInstanceValid(_previewPanel))
+                _previewPanel.QueueFree();
             _previewPanel = null;
         }
 

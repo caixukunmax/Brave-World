@@ -94,11 +94,9 @@ namespace ClinetCSharp
 
         public bool IsDefaultProfile(int id)
         {
-            // 玩家/怪物/NPC 默认 1-3；建筑默认配置区间基址 10000/20000/30000/40000/50000
-            // 10000=树，10001=房舍（2x2），两者都视为默认配置防止误删
+            // 玩家/怪物/NPC 默认 1-3；建筑默认配置区间基址 10000/20000/...
             return (id >= 1 && id <= 3)
-                || id == BuildingType.GetConfigBaseId(BuildingType.House)
-                || id == BuildingType.GetConfigBaseId(BuildingType.House) + 1
+                || id == BuildingType.GetConfigBaseId(BuildingType.House) + 1      // 房舍 10001
                 || id == BuildingType.GetConfigBaseId(BuildingType.Shop)
                 || id == BuildingType.GetConfigBaseId(BuildingType.Well)
                 || id == BuildingType.GetConfigBaseId(BuildingType.Farm)
@@ -107,7 +105,10 @@ namespace ClinetCSharp
                 || id == BuildingType.GetConfigBaseId(BuildingType.Portal)
                 || id == BuildingType.GetConfigBaseId(BuildingType.Water)
                 || id == BuildingType.GetConfigBaseId(BuildingType.Rock)
-                // 旧岩石装饰 ID 10002 / 草地 10003，保留兼容
+                || id == BuildingType.GetConfigBaseId(BuildingType.Tree)
+                || id == BuildingType.GetConfigBaseId(BuildingType.Grass)
+                // 旧 ID 10000/10002/10003 保留兼容，防止未重新生成的旧地图崩溃
+                || id == BuildingType.GetConfigBaseId(BuildingType.House)
                 || id == BuildingType.GetConfigBaseId(BuildingType.House) + 2
                 || id == BuildingType.GetConfigBaseId(BuildingType.House) + 3;
         }
@@ -202,8 +203,39 @@ namespace ClinetCSharp
 
         private void NormalizeBuiltInProfiles()
         {
+            // 默认 decoration profile 的规范（building_type + category），用于覆盖旧配置文件中残留的错误数据
+            var defaultDecoSpecs = new System.Collections.Generic.Dictionary<int, (int buildingType, string category)>
+            {
+                [BuildingType.GetConfigBaseId(BuildingType.House)]     = (BuildingType.House, "Legacy"),
+                [BuildingType.GetConfigBaseId(BuildingType.House) + 1] = (BuildingType.House, "Building"),
+                [BuildingType.GetConfigBaseId(BuildingType.House) + 2] = (BuildingType.House, "Legacy"),
+                [BuildingType.GetConfigBaseId(BuildingType.House) + 3] = (BuildingType.House, "Legacy"),
+                [BuildingType.GetConfigBaseId(BuildingType.Shop)]      = (BuildingType.Shop, "Building"),
+                [BuildingType.GetConfigBaseId(BuildingType.Well)]      = (BuildingType.Well, "Building"),
+                [BuildingType.GetConfigBaseId(BuildingType.Farm)]      = (BuildingType.Farm, "Building"),
+                [BuildingType.GetConfigBaseId(BuildingType.Tavern)]    = (BuildingType.Tavern, "Building"),
+                [BuildingType.GetConfigBaseId(BuildingType.SpawnPoint)] = (BuildingType.SpawnPoint, "Special"),
+                [BuildingType.GetConfigBaseId(BuildingType.Portal)]    = (BuildingType.Portal, "Special"),
+                [BuildingType.GetConfigBaseId(BuildingType.Water)]     = (BuildingType.Water, "Terrain"),
+                [BuildingType.GetConfigBaseId(BuildingType.Rock)]      = (BuildingType.Rock, "Terrain"),
+                [BuildingType.GetConfigBaseId(BuildingType.Tree)]      = (BuildingType.Tree, "Terrain"),
+                [BuildingType.GetConfigBaseId(BuildingType.Grass)]     = (BuildingType.Grass, "Terrain"),
+            };
+
             foreach (var profile in _profiles.Values)
             {
+                // 默认 decoration profile：强制校正 building_type 和 category
+                if (profile.EntityType == "decoration" && defaultDecoSpecs.TryGetValue(profile.Id, out var spec))
+                {
+                    var bt = profile.GetData<BuildingTypeData>("building_type");
+                    if (bt != null) bt.Type = spec.buildingType;
+                    else profile.SetData("building_type", new BuildingTypeData { Type = spec.buildingType });
+
+                    var cat = profile.GetData<CategoryData>("category");
+                    if (cat != null) cat.Category = spec.category;
+                    else profile.SetData("category", new CategoryData { Category = spec.category });
+                }
+
                 // 默认房舍（10001）强制 2x2，与服务器 buildings.json 保持一致
                 if (profile.EntityType == "decoration" && profile.Id == BuildingType.GetConfigBaseId(BuildingType.House) + 1)
                 {
@@ -260,9 +292,10 @@ namespace ClinetCSharp
                 _profiles[3] = EntityProfile.CreateNpcDefault(3);
 
             // 默认建筑 Profiles
-            // 10000=树(1x1, Terrain)，10001=房舍(2x2, Building)，10002=岩石(旧兼容, Terrain)，10003=草地(Terrain)，
-            // 20000=商店(Building)，30000=水井(Building)，40000=农田(Building)，50000=酒馆(Building)，
-            // 60000=出生点(Special)，70000=共享传送门(Special)，80000=水域(Terrain)，90000=岩石(Terrain)
+            // 10001=房舍(2x2, Building), 20000=商店(Building), 30000=水井(Building), 40000=农田(Building), 50000=酒馆(Building),
+            // 60000=出生点(Special), 70000=共享传送门(Special)
+            // 80000=水域(Terrain), 90000=岩石(Terrain), 100000=树(Terrain), 110000=草地(Terrain)
+            // 旧兼容: 10000=树旧ID, 10002=岩石旧ID, 10003=草地旧ID（仅用于未重新生成的旧地图）
             // 局部辅助：若已存在则从配置加载的 profile 缺少 category 组件，这里只补 category，避免覆盖用户其他自定义。
             void EnsureDeco(int id, string name, string displayName, int buildingType, Color bgColor, Color borderColor, bool blockMovement, int sizeX, int sizeY, string category)
             {
@@ -279,16 +312,16 @@ namespace ClinetCSharp
                     catData.Category = category;
             }
 
-            EnsureDeco(BuildingType.GetConfigBaseId(BuildingType.House), "Tree", "树", BuildingType.House,
-                new Color(0.2f, 0.5f, 0.25f, 0.9f), new Color(0.1f, 0.35f, 0.15f), false, 1, 1, "Terrain");
+            EnsureDeco(BuildingType.GetConfigBaseId(BuildingType.House), "TreeLegacy", "树(旧)", BuildingType.House,
+                new Color(0.2f, 0.5f, 0.25f, 0.9f), new Color(0.1f, 0.35f, 0.15f), false, 1, 1, "Legacy");
             EnsureDeco(BuildingType.GetConfigBaseId(BuildingType.House) + 1, "House", "房舍", BuildingType.House,
                 new Color(0.545f, 0.353f, 0.169f, 0.9f), new Color(0.4f, 0.2f, 0.1f), true, 2, 2, "Building");
-            // 10002 岩石：历史地图生成器使用的旧 ID（House 区间），保留兼容防止旧地图渲染 fallback 成树
-            EnsureDeco(BuildingType.GetConfigBaseId(BuildingType.House) + 2, "RockLegacy", "岩石", BuildingType.House,
-                new Color(0.53f, 0.53f, 0.53f, 0.9f), new Color(0.35f, 0.35f, 0.35f), true, 1, 1, "Terrain");
-            // 10003 草地：替换旧棕榈，作为地形类建筑
-            EnsureDeco(BuildingType.GetConfigBaseId(BuildingType.House) + 3, "Grass", "草地", BuildingType.House,
-                new Color(0.35f, 0.65f, 0.35f, 0.9f), new Color(0.2f, 0.45f, 0.2f), false, 1, 1, "Terrain");
+            // 10002 岩石：历史地图生成器使用的旧 ID（House 区间），保留兼容
+            EnsureDeco(BuildingType.GetConfigBaseId(BuildingType.House) + 2, "RockLegacy", "岩石(旧)", BuildingType.House,
+                new Color(0.53f, 0.53f, 0.53f, 0.9f), new Color(0.35f, 0.35f, 0.35f), true, 1, 1, "Legacy");
+            // 10003 草地：旧 ID，保留兼容
+            EnsureDeco(BuildingType.GetConfigBaseId(BuildingType.House) + 3, "GrassLegacy", "草地(旧)", BuildingType.House,
+                new Color(0.35f, 0.65f, 0.35f, 0.9f), new Color(0.2f, 0.45f, 0.2f), false, 1, 1, "Legacy");
             EnsureDeco(BuildingType.GetConfigBaseId(BuildingType.Shop), "Shop", "商店", BuildingType.Shop,
                 new Color(0.2f, 0.4f, 0.6f, 0.9f), new Color(0.1f, 0.3f, 0.5f), true, 1, 1, "Building");
             EnsureDeco(BuildingType.GetConfigBaseId(BuildingType.Well), "Well", "水井", BuildingType.Well,
@@ -307,6 +340,10 @@ namespace ClinetCSharp
             // 岩石装饰：独立建筑类型，取代旧 10002 成为岩石的标准 decoration ID
             EnsureDeco(BuildingType.GetConfigBaseId(BuildingType.Rock), "Rock", "岩石", BuildingType.Rock,
                 new Color(0.53f, 0.53f, 0.53f, 0.9f), new Color(0.35f, 0.35f, 0.35f), true, 1, 1, "Terrain");
+            EnsureDeco(BuildingType.GetConfigBaseId(BuildingType.Tree), "Tree", "树", BuildingType.Tree,
+                new Color(0.2f, 0.5f, 0.25f, 0.9f), new Color(0.1f, 0.35f, 0.15f), false, 1, 1, "Terrain");
+            EnsureDeco(BuildingType.GetConfigBaseId(BuildingType.Grass), "Grass", "草地", BuildingType.Grass,
+                new Color(0.35f, 0.65f, 0.35f, 0.9f), new Color(0.2f, 0.45f, 0.2f), false, 1, 1, "Terrain");
 
             _nextId = Mathf.Max(_nextId, _profiles.Keys.Max() + 1);
         }
@@ -333,12 +370,13 @@ namespace ClinetCSharp
                 ApplyProfile(player, player.ProfileId);
                 count++;
             }
-            else if (player != null && player.ProfileId < 0)
+            else if (player != null) // ProfileId <= 0 也视为未绑定
             {
+                int oldId = player.ProfileId;
                 player.ProfileId = 1;
                 ApplyProfile(player, 1);
                 count++;
-                GD.Print($"[ProfileMgr] Assigned Player → ProfileId=1");
+                GD.Print($"[ProfileMgr] Assigned Player → ProfileId=1 (was {oldId})");
             }
             // Monster/NPC: 在 Manager 创建时已 ApplyProfile，这里也检查一次确保
             foreach (var node in tree.GetNodesInGroup("monster"))
@@ -377,6 +415,9 @@ namespace ClinetCSharp
             entity.HealthBarVisible = false;
             entity.MpBarVisible = false;
             entity.CastBarVisible = false;
+
+            // 铭牌背景：隐藏
+            entity.NameplateVisible = false;
 
             // Player 特有
             if (entity is Player p)
@@ -551,6 +592,24 @@ namespace ClinetCSharp
                     dec.BlockMovement = false;
             }
 
+            // Nameplate
+            var nameplate = profile.GetData<NameplateData>("nameplate");
+            if (nameplate != null && !profile.IsComponentDisabled("nameplate"))
+            {
+                entity.NameplateVisible = nameplate.Visible;
+                entity.NameplateYOffset = nameplate.YOffset;
+                entity.NameplateSpacing = nameplate.Spacing;
+                entity.NameplateBarHeight = nameplate.BarHeight;
+                entity.NameplateBarColor = nameplate.BarColor;
+                entity.NameplateCenterBoxHeight = nameplate.CenterBoxHeight;
+                entity.NameplateCenterBoxWidthScale = nameplate.CenterBoxWidthScale;
+                entity.NameplateCenterBoxColor = nameplate.CenterBoxColor;
+            }
+            else
+            {
+                entity.NameplateVisible = false;
+            }
+
             // 同步渲染组件与 Profile 组件：避免渲染层硬编码
             SyncRenderComponents(entity, profile);
 
@@ -564,6 +623,7 @@ namespace ClinetCSharp
         {
             SyncRenderComponent<RenderComponents.CastBarComponent>(entity, profile, "castbar", () => new RenderComponents.CastBarComponent());
             SyncRenderComponent<RenderComponents.ActionBarComponent>(entity, profile, "actionbar", () => new RenderComponents.ActionBarComponent());
+            SyncRenderComponent<RenderComponents.NameplateRenderComponent>(entity, profile, "nameplate", () => new RenderComponents.NameplateRenderComponent());
         }
 
         private void SyncRenderComponent<T>(EntityBase entity, EntityProfile profile, string componentName, Func<T> factory) where T : class, IRenderComponent
@@ -596,7 +656,7 @@ namespace ClinetCSharp
                 var player = tree.GetFirstNodeInGroup("player") as EntityBase;
                 if (player != null)
                 {
-                    if (player.ProfileId < 0) player.ProfileId = profileId;
+                    if (player.ProfileId <= 0) player.ProfileId = profileId; // 0 和负数都视为未绑定
                     if (player.ProfileId == profileId)
                     { ApplyProfile(player, profileId); applied++; }
                 }

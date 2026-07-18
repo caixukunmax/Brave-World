@@ -279,11 +279,19 @@ namespace ClinetCSharp
                 EntityType = "decoration",
             };
 
-            // 房舍默认 2x2 占地，与服务器 buildings.json 保持一致；商店默认 1x1
-            if (sizeX <= 0)
-                sizeX = buildingType == BuildingType.House ? 2 : 1;
-            if (sizeY <= 0)
-                sizeY = buildingType == BuildingType.House ? 2 : 1;
+            // 默认占地：显式传入 size 时优先；未传入时按建筑类型取默认值
+            if (sizeX <= 0 || sizeY <= 0)
+            {
+                var (defaultX, defaultY) = buildingType switch
+                {
+                    BuildingType.House => (2, 2),
+                    BuildingType.Tavern => (2, 2),
+                    BuildingType.Farm => (2, 1),
+                    _ => (1, 1),
+                };
+                if (sizeX <= 0) sizeX = defaultX;
+                if (sizeY <= 0) sizeY = defaultY;
+            }
 
             profile.SetData("appearance", new AppearanceData
             {

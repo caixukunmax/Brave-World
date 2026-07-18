@@ -220,13 +220,25 @@ public class MoveCompleteHandler : IMessageHandler
         var claims = ctx.Claims!;
         var req = PGame.MoveCompleteRequest.Parser.ParseFrom(data);
 
+        // 以服务端移动预约的权威目标格为准，防止客户端伪造坐标
+        var res = _session.MapService.World.GetReservation(claims.AccountId);
+        if (res == null)
+        {
+            _session.Logger.LogWarning("[MoveComplete] no reservation for player={PlayerId}, ignoring client target=({TX},{TY})",
+                claims.AccountId, req.TargetX, req.TargetY);
+            return null;
+        }
+
+        int targetX = res.TargetX;
+        int targetY = res.TargetY;
+
         _session.MapService.World.CompleteMove(claims.AccountId);
 
         // 更新数据库中的坐标和朝向
         if (_session.TryGetPlayer(claims.AccountId, out var player))
         {
-            player.GridX = req.TargetX;
-            player.GridY = req.TargetY;
+            player.GridX = targetX;
+            player.GridY = targetY;
             // 方向已在 MoveStartHandler 中设置，此处无需重复设置
         }
 
@@ -234,7 +246,7 @@ public class MoveCompleteHandler : IMessageHandler
         var mapName = _session.MapService.World.GetEntityMapName(claims.AccountId);
         if (!string.IsNullOrEmpty(mapName))
         {
-            await _dropService.TryAutoPickup(claims.AccountId, mapName, (int)req.TargetX, (int)req.TargetY);
+            await _dropService.TryAutoPickup(claims.AccountId, mapName, targetX, targetY);
         }
 
         return null;

@@ -3,7 +3,9 @@ using System.Net.Sockets;
 using System.Threading.Channels;
 using GameServer.Common.Net;
 using GameServer.Services.Core;
+using GameServer.Services.Player;
 using Google.Protobuf;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using PCommon = global::Common;
 using PGateway = global::Gateway;
@@ -22,8 +24,11 @@ public class GatewayService : INetworkSender
     private readonly ILogger<GatewayService> _logger;
     private readonly MessageRouter _router;
     private readonly IGameLoopScheduler _gameLoop;
+    private readonly IServiceProvider _serviceProvider;
     private readonly int _port;
     private readonly int _heartbeatTimeoutSeconds;
+
+    private PlayerSessionManager? _playerSession;
 
     private long _connCounter;
     private readonly Dictionary<long, Connection> _connections = new();
@@ -34,15 +39,20 @@ public class GatewayService : INetworkSender
         ILogger<GatewayService> logger,
         MessageRouter router,
         IGameLoopScheduler gameLoop,
+        IServiceProvider serviceProvider,
         int port = 8889,
         int heartbeatTimeoutSeconds = 3600)
     {
         _logger = logger;
         _router = router;
         _gameLoop = gameLoop;
+        _serviceProvider = serviceProvider;
         _port = port;
         _heartbeatTimeoutSeconds = heartbeatTimeoutSeconds;
     }
+
+    private PlayerSessionManager PlayerSession
+        => _playerSession ??= _serviceProvider.GetRequiredService<PlayerSessionManager>();
 
     public async Task StartAsync(CancellationToken ct)
     {
@@ -285,15 +295,45 @@ public class GatewayService : INetworkSender
     {
         if (_connections.Remove(connId, out var conn))
         {
-            if (conn.AccountId > 0 && conn.ServerId > 0)
+            bool wasBound = false;
+            long accountId = conn.AccountId;
+            int serverId = conn.ServerId;
+
+            if (accountId > 0 && serverId > 0)
             {
-                var key = $"{conn.AccountId}:{conn.ServerId}";
+                var key = $"{accountId}:{serverId}";
                 if (_accountConnections.TryGetValue(key, out var existingId) && existingId == connId)
+                {
                     _accountConnections.Remove(key);
+                    wasBound = true;
+                }
             }
+
             _logger.LogInformation("Connection closed: connId={ConnId} reason={Reason}", connId, reason);
             try { conn.Socket.Close(); } catch { }
             conn.Cts.Cancel();
+
+            // 若该连接仍是账号的当前绑定连接，则清理游戏状态（必须在 GameLoopScheduler 单线程执行）
+            if (wasBound)
+            {
+                _gameLoop.Enqueue(() =>
+                {
+                    var sessionManager = PlayerSession;
+                    var mapName = sessionManager.MapService.World.GetEntityMapName(accountId);
+                    if (mapName != null)
+                    {
+                        sessionManager.MapService.PlayerLeave(accountId, mapName);
+                        sessionManager.MapService.World.CancelMove(accountId);
+                    }
+                    else
+                    {
+                        _logger.LogWarning("[Gateway] connection closed but entity not on map: account={AccountId}", accountId);
+                    }
+
+                    sessionManager.SetOffline(accountId);
+                    _logger.LogInformation("[Gateway] game state cleaned for account={AccountId} reason={Reason}", accountId, reason);
+                });
+            }
         }
     }
 

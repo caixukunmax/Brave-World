@@ -113,6 +113,24 @@ namespace ClinetCSharp
                     config.SetValue(section, "progress_height", (double)action.ProgressHeight);
                     break;
 
+                case NameplateData np:
+                    config.SetValue(section, "visible", np.Visible);
+                    config.SetValue(section, "y_offset", (double)np.YOffset);
+                    config.SetValue(section, "spacing", (double)np.Spacing);
+                    config.SetValue(section, "bar_height", (double)np.BarHeight);
+                    // 铭牌颜色带有意义的 alpha，必须连 alpha 一起写盘
+                    config.SetValue(section, "bar_color_r", (double)np.BarColor.R);
+                    config.SetValue(section, "bar_color_g", (double)np.BarColor.G);
+                    config.SetValue(section, "bar_color_b", (double)np.BarColor.B);
+                    config.SetValue(section, "bar_color_a", (double)np.BarColor.A);
+                    config.SetValue(section, "center_box_height", (double)np.CenterBoxHeight);
+                    config.SetValue(section, "center_box_width_scale", ToFp(np.CenterBoxWidthScale));
+                    config.SetValue(section, "center_box_color_r", (double)np.CenterBoxColor.R);
+                    config.SetValue(section, "center_box_color_g", (double)np.CenterBoxColor.G);
+                    config.SetValue(section, "center_box_color_b", (double)np.CenterBoxColor.B);
+                    config.SetValue(section, "center_box_color_a", (double)np.CenterBoxColor.A);
+                    break;
+
                 case LevelBadgeData badge:
                     config.SetValue(section, "visible", badge.Visible);
                     config.SetValue(section, "font_size", (double)badge.FontSize);
@@ -141,6 +159,10 @@ namespace ClinetCSharp
 
                 case ObstacleData obstacle:
                     config.SetValue(section, "block_movement", obstacle.BlockMovement);
+                    break;
+
+                case CategoryData cat:
+                    config.SetValue(section, "category", cat.Category ?? "");
                     break;
 
                 case BuildingTypeData buildingType:
@@ -247,6 +269,27 @@ namespace ClinetCSharp
                         ProgressHeight = (float)(double)config.GetValue(section, "progress_height", 4),
                     };
 
+                case "nameplate":
+                    return new NameplateData
+                    {
+                        Visible = (bool)config.GetValue(section, "visible", false),
+                        YOffset = (float)(double)config.GetValue(section, "y_offset", -80.0),
+                        Spacing = (float)(double)config.GetValue(section, "spacing", 4.0),
+                        BarHeight = (float)(double)config.GetValue(section, "bar_height", 6.0),
+                        BarColor = new Color(
+                            (float)(double)config.GetValue(section, "bar_color_r", 0.1),
+                            (float)(double)config.GetValue(section, "bar_color_g", 0.1),
+                            (float)(double)config.GetValue(section, "bar_color_b", 0.1),
+                            (float)(double)config.GetValue(section, "bar_color_a", 0.7)),
+                        CenterBoxHeight = (float)(double)config.GetValue(section, "center_box_height", 24.0),
+                        CenterBoxWidthScale = FromFp(ReadFp(config, section, "center_box_width_scale", 6000)),
+                        CenterBoxColor = new Color(
+                            (float)(double)config.GetValue(section, "center_box_color_r", 0.1),
+                            (float)(double)config.GetValue(section, "center_box_color_g", 0.1),
+                            (float)(double)config.GetValue(section, "center_box_color_b", 0.1),
+                            (float)(double)config.GetValue(section, "center_box_color_a", 0.85)),
+                    };
+
                 case "levelbadge":
                     return new LevelBadgeData
                     {
@@ -286,6 +329,12 @@ namespace ClinetCSharp
                         BlockMovement = (bool)config.GetValue(section, "block_movement", true),
                     };
 
+                case "category":
+                    return new CategoryData
+                    {
+                        Category = (string)config.GetValue(section, "category", ""),
+                    };
+
                 case "building_type":
                 {
                     var typeValue = config.GetValue(section, "building_type", BuildingType.House);
@@ -311,6 +360,15 @@ namespace ClinetCSharp
             {
                 "房舍" => BuildingType.House,
                 "商店" => BuildingType.Shop,
+                "水井" => BuildingType.Well,
+                "农田" => BuildingType.Farm,
+                "酒馆" => BuildingType.Tavern,
+                "出生点" => BuildingType.SpawnPoint,
+                "共享传送门" => BuildingType.Portal,
+                "水" => BuildingType.Water,
+                "岩石" => BuildingType.Rock,
+                "树" => BuildingType.Tree,
+                "草地" => BuildingType.Grass,
                 "民居" => BuildingType.House,
                 "军事" => BuildingType.Shop,
                 "装饰" => BuildingType.House,

@@ -86,6 +86,7 @@ class Program
                         sp.GetRequiredService<ILogger<GatewayService>>(),
                         sp.GetRequiredService<MessageRouter>(),
                         sp.GetRequiredService<IGameLoopScheduler>(),
+                        sp,
                         port,
                         hbTimeout);
                 });

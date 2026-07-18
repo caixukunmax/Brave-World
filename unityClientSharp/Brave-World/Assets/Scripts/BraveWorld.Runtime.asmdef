@@ -1,0 +1,15 @@
+{
+    "name": "BraveWorld.Runtime",
+    "rootNamespace": "UnityClientSharp",
+    "references": [
+        "Unity.TextMeshPro",
+        "UnityEngine.UI"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

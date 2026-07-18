@@ -17,10 +17,10 @@ namespace ClinetCSharp
         /// <summary>实体类型 → 默认组件名列表</summary>
         private static readonly Dictionary<string, string[]> _typeComponents = new()
         {
-            ["player"] = new[] { "appearance", "labels", "healthbar", "mpbar", "castbar", "actionbar", "levelbadge" },
-            ["monster"] = new[] { "appearance", "labels", "healthbar", "mpbar", "castbar", "actionbar", "monster_ai" },
-            ["npc"] = new[] { "appearance", "labels", "healthbar", "mpbar", "npc_interact" },
-            ["decoration"] = new[] { "appearance", "labels", "obstacle", "building_type" },
+            ["player"] = new[] { "appearance", "labels", "nameplate", "healthbar", "mpbar", "castbar", "actionbar", "levelbadge" },
+            ["monster"] = new[] { "appearance", "labels", "nameplate", "healthbar", "mpbar", "castbar", "actionbar", "monster_ai" },
+            ["npc"] = new[] { "appearance", "labels", "nameplate", "healthbar", "mpbar", "npc_interact" },
+            ["decoration"] = new[] { "appearance", "labels", "nameplate", "obstacle", "building_type", "category" },
         };
 
         public static void Register(string name, Func<IEntityTabComponent> factory, string displayName = null, string category = null, string icon = null, Color? accentColor = null)
@@ -58,9 +58,10 @@ namespace ClinetCSharp
             }
             else
             {
-                // 未知类型 → 返回所有组件
-                foreach (var kv in _meta)
-                    yield return (kv.Key, kv.Value.DisplayName);
+                // 未知类型不应默认允许所有组件，否则用户可能给错误类型加上不兼容的组件。
+                // 返回空集合，让 BuildComponentCatalog 把所有组件标记为"实验"。
+                GD.PushWarning($"[ComponentRegistry] 未知实体类型 \"{entityType}\"，无默认组件白名单");
+                yield break;
             }
         }
 
@@ -73,6 +74,7 @@ namespace ClinetCSharp
         {
             Register("appearance", () => new AppearanceComponent(), "外观", "外观", "🎨", new Color(0.95f, 0.55f, 0.25f));
             Register("labels", () => new LabelGroupComponent(), "标签", "外观", "🏷️", new Color(0.90f, 0.70f, 0.30f));
+            Register("nameplate", () => new NameplateComponent(), "铭牌背景", "外观", "🔖", new Color(0.55f, 0.55f, 0.65f));
             Register("healthbar", () => new BarGroupComponent("healthbar", "血条"), "血条", "状态", "❤️", new Color(0.90f, 0.25f, 0.25f));
             Register("mpbar", () => new BarGroupComponent("mpbar", "MP条"), "MP条", "状态", "💙", new Color(0.25f, 0.55f, 0.95f));
             Register("castbar", () => new CastBarComponent(), "施法条", "状态", "✨", new Color(0.70f, 0.40f, 0.95f));
@@ -82,6 +84,7 @@ namespace ClinetCSharp
             Register("npc_interact", () => new NpcInteractComponent(), "交互面板", "交互", "💬", new Color(0.35f, 0.75f, 0.65f));
             Register("obstacle", () => new ObstacleComponent(), "障碍", "行为", "🧱", new Color(0.65f, 0.55f, 0.45f));
             Register("building_type", () => new BuildingTypeComponent(), "建筑类型", "行为", "🏠", new Color(0.75f, 0.65f, 0.35f));
+            Register("category", () => new CategoryComponent(), "分类", "行为", "📂", new Color(0.65f, 0.55f, 0.45f));
         }
     }
 

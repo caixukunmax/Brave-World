@@ -7,7 +7,8 @@ describe('map-gen-config', () => {
     assert(config.terrains.water.id === 1);
     assert(config.styles.forest.water === 0.15);
     assert(config.decorationDensity.medium === 0.06);
-    assert(config.decorations.tree.id === 10000);
+    assert(config.decorations.tree.id === 100000);
+    assert(config.decorations.grass.id === 110000);
     assert(config.sizeLevels.medium.min === 30);
   });
 });

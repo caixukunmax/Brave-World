@@ -32,6 +32,7 @@ namespace ClinetCSharp
                         "monster" => _previewEntity is Monster,
                         "npc" => _previewEntity is Npc,
                         "player" => _previewEntity is PlayerPreview,
+                        "decoration" => _previewEntity is MapDecoration,
                         _ => true,
                     };
 
@@ -256,6 +257,14 @@ namespace ClinetCSharp
                     npc.SetProcessInput(false);
                     entity = npc;
                     break;
+                case "decoration":
+                    var decoration = new MapDecoration();
+                    // 预览实体不加入 decoration / map_decoration 组，避免被 ApplyProfileToAll 当成已放置建筑命中
+                    decoration.Setup(profile.Id, 0, 0, 111, -1, 1, 1, false);
+                    decoration.SetProcessInput(false);
+                    decoration.IsEditable = true;
+                    entity = decoration;
+                    break;
                 case "player":
                 default:
                     var preview = new PlayerPreview();
@@ -320,6 +329,12 @@ namespace ClinetCSharp
                 return;
 
             profileManager.ApplyProfile(_previewEntity, _currentProfileId);
+
+            // 重新适配预览实体位置。ApplyProfile 内部可能因尺寸(SizeX/SizeY)变化触发
+            // OnGridSizeChanged，它会把多格建筑/装饰的 Position 重置回初始 (0,0) 网格锚点，
+            // 导致实体偏出预览相机视野而“看不见”。此处借助 SetPreviewEntity 的同实例分支
+            // (ApplyEntityPreviewState) 把实体重新居中到预览地图中心，避免偏移。
+            _previewPanel?.SetPreviewEntity(_previewEntity);
         }
 
 

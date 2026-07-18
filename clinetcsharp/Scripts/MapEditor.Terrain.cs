@@ -97,13 +97,14 @@ namespace ClinetCSharp
 
         /// <summary>
         /// 判断一个 decoration id 是否是合法的地形类建筑。
-        /// 返回 false 表示 id 属于玩家/怪物/NPC Profile（1-3）或遗留岩石（10002）。
+        /// 只允许 Category == "Terrain" 的配置（树、草地、水、岩石）以及 0（清除）。
         /// </summary>
         private bool IsValidTerrainDecorationId(int id)
         {
-            if (id >= 1 && id <= 3) return false;
-            if (id == BuildingType.GetConfigBaseId(BuildingType.House) + 2) return false; // 遗留岩石 10002
-            return true;
+            if (id == 0) return true; // 清除选项
+            if (id >= 1 && id <= 3) return false; // 玩家/怪物/NPC Profile
+            var cfg = DecorationConfigUtil.Get(id);
+            return cfg != null && cfg.Id == id && cfg.Category == "Terrain";
         }
 
         /// <summary>

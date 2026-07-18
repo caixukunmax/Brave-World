@@ -21,7 +21,7 @@ const TERRAIN_GRASS = 2;
 const TERRAIN_ROCK = 4;
 
 const DECO_TREE = 10000;
-const DECO_ROCK = 10002;
+const DECO_ROCK = 90000;
 const DECO_SPAWN = 60000;
 const DECO_PORTAL = 70000;
 

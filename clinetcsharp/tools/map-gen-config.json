@@ -20,9 +20,9 @@
     "high": 0.12
   },
   "decorations": {
-    "tree": { "id": 10000, "walkable": true, "biomes": ["forest", "mixed", "swamp"] },
-    "grass": { "id": 10003, "walkable": true, "biomes": ["forest", "mixed", "swamp", "snow"] },
-    "palm": { "id": 10003, "walkable": true, "biomes": ["desert", "swamp"] },
+    "tree": { "id": 100000, "walkable": true, "biomes": ["forest", "mixed", "swamp"] },
+    "grass": { "id": 110000, "walkable": true, "biomes": ["forest", "mixed", "swamp", "snow"] },
+    "palm": { "id": 120000, "walkable": true, "biomes": ["desert", "swamp"] },
     "rock": { "id": 90000, "walkable": false, "biomes": ["desert", "ruins", "snow", "mixed"] },
     "water": { "id": 80000, "walkable": false, "biomes": ["forest", "mixed", "swamp", "ruins", "snow", "desert"] }
   },

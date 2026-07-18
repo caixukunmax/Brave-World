@@ -1,0 +1,9 @@
+<linker>
+  <!-- 防止 IL2CPP / 代码裁剪 把这两个 netstandard2.0 shim 程序集的类型裁掉 -->
+  <assembly fullname="System.Collections.Immutable">
+    <namespace fullname="System.Collections.Immutable" preserve="all" />
+  </assembly>
+  <assembly fullname="System.Runtime.CompilerServices.Unsafe">
+    <namespace fullname="System.Runtime.CompilerServices" preserve="all" />
+  </assembly>
+</linker>

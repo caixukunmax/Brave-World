@@ -32,7 +32,6 @@ function assertContained(childPath, parentPath, label) {
 
 function createCell(x, y, terrain = 0) {
   return {
-    uid: `${x}_${y}`,
     terrain,
     height: 0,
     custom: ''
@@ -43,8 +42,8 @@ function createMapData(width, height, displayName) {
   const cells = {};
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
-      const cell = createCell(x, y, 0);
-      cells[cell.uid] = cell;
+      const key = `${x}_${y}`;
+      cells[key] = createCell(x, y, 0);
     }
   }
   return {
@@ -59,7 +58,16 @@ function createMapData(width, height, displayName) {
 function saveMapJson(mapData, filePath) {
   const dir = path.dirname(filePath);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(filePath, JSON.stringify(mapData, null, '  '), 'utf8');
+
+  // 清理冗余默认值：省略 decoration=0，去除 uid 字段，与落叶乡格式对齐
+  const cells = {};
+  for (const [key, cell] of Object.entries(mapData.cells)) {
+    const c = { terrain: cell.terrain || 0, height: cell.height || 0, custom: cell.custom || '' };
+    if (cell.decoration) c.decoration = cell.decoration;
+    cells[key] = c;
+  }
+
+  fs.writeFileSync(filePath, JSON.stringify({ ...mapData, cells }, null, '  '), 'utf8');
 }
 
 function loadMapJson(filePath) {

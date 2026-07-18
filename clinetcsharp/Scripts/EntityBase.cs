@@ -139,6 +139,16 @@ namespace ClinetCSharp
         public bool[] LabelCenterX = new bool[4] { true, true, true, true };
         public float[] LabelYOffsets = new float[4] { 0, 0, 0, 0 };
 
+        // ========== 铭牌背景 ==========
+        public bool NameplateVisible { get; set; } = false;
+        public float NameplateYOffset { get; set; } = -80f;
+        public float NameplateSpacing { get; set; } = 4f;
+        public float NameplateBarHeight { get; set; } = 6f;
+        public Color NameplateBarColor { get; set; } = new Color(0.1f, 0.1f, 0.1f, 0.7f);
+        public float NameplateCenterBoxHeight { get; set; } = 24f;
+        public float NameplateCenterBoxWidthScale { get; set; } = 0.6f;
+        public Color NameplateCenterBoxColor { get; set; } = new Color(0.1f, 0.1f, 0.1f, 0.85f);
+
         // ========== 全局标签可见性开关 ==========
         /// <summary>全局标签可见性（调试面板控制，影响所有实体的 RichTextLabel）</summary>
         public static bool GlobalLabelsVisible = true;

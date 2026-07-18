@@ -1,0 +1,16 @@
+{
+    "name": "BraveWorld.DebugPanel",
+    "rootNamespace": "UnityClientSharp",
+    "references": [
+        "BraveWorld.Runtime",
+        "Unity.TextMeshPro",
+        "UnityEngine.UI"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

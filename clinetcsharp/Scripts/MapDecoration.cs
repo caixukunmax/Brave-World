@@ -52,7 +52,12 @@ namespace ClinetCSharp
         protected override int GetGridSize() => _gridSize;
         protected override void SetGridSizeValue(int value) => _gridSize = value;
 
-        public void Setup(int profileId, int gridX, int gridY, int gridSize, int buildingUid = -1, int sizeX = 1, int sizeY = 1)
+        /// <param name="registerInDecorationGroup">
+        /// 是否加入 map_decoration / decoration 组。真实放置在地图上的建筑应加入，
+        /// 以便 ApplyProfileToAll 等按组逻辑命中；预览实体必须传 false，
+        /// 否则会被当成“已放置的建筑”计入 applied，并可能干扰组相关的真实逻辑。
+        /// </param>
+        public void Setup(int profileId, int gridX, int gridY, int gridSize, int buildingUid = -1, int sizeX = 1, int sizeY = 1, bool registerInDecorationGroup = true)
         {
             ProfileId = profileId;
             BuildingUid = buildingUid;
@@ -62,8 +67,11 @@ namespace ClinetCSharp
             GridSizeX = sizeX > 0 ? sizeX : 1;
             GridSizeY = sizeY > 0 ? sizeY : 1;
 
-            AddToGroup("map_decoration");
-            AddToGroup("decoration");
+            if (registerInDecorationGroup)
+            {
+                AddToGroup("map_decoration");
+                AddToGroup("decoration");
+            }
 
             Name = $"MapDecoration_{gridX}_{gridY}_{profileId}_{buildingUid}";
             VisualSizeScale = 1.0f; // 填满整个 footprint

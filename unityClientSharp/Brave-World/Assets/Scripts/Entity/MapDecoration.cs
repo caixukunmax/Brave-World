@@ -1,0 +1,117 @@
+using TMPro;
+using UnityClientSharp.Map.Core;
+using UnityClientSharp.Map.Rendering;
+using UnityEngine;
+
+namespace UnityClientSharp.Entity
+{
+    /// <summary>
+    /// 地图装饰实体（房舍等静态摆件）。
+    /// 移植自 clinetcsharp/Scripts/MapDecoration.cs 的显示部分：
+    /// 由 entityType="decoration" 的 EntityProfile 驱动外观（程序生成圆角色块）/ 名称标签 / 障碍属性。
+    /// 裁剪（后续阶段）：传送门菜单/酒馆按钮交互、编辑模式拖拽、HitTest。
+    /// </summary>
+    public class MapDecoration : MonoBehaviour
+    {
+        /// <summary>建筑配置 ID（即 map.json 的 decoration 字段 / ProfileId）</summary>
+        public int ProfileId { get; private set; }
+        /// <summary>建筑实例唯一 UID</summary>
+        public int BuildingUid { get; private set; } = -1;
+        /// <summary>footprint 左上角锚点格子</summary>
+        public int GridX { get; private set; }
+        public int GridY { get; private set; }
+        /// <summary>占地宽度（格子数）</summary>
+        public int SizeX { get; private set; } = 1;
+        /// <summary>占地高度（格子数）</summary>
+        public int SizeY { get; private set; } = 1;
+        /// <summary>是否阻塞移动（由 obstacle 组件控制）</summary>
+        public bool BlockMovement { get; private set; }
+
+        private int _gridSize = 111;
+
+        public void Setup(int profileId, int gridX, int gridY, int gridSize, int buildingUid = -1, int sizeX = 1, int sizeY = 1)
+        {
+            ProfileId = profileId;
+            BuildingUid = buildingUid;
+            GridX = gridX;
+            GridY = gridY;
+            _gridSize = gridSize;
+            SizeX = Mathf.Max(1, sizeX);
+            SizeY = Mathf.Max(1, sizeY);
+
+            name = $"MapDecoration_{gridX}_{gridY}_{profileId}_{buildingUid}";
+
+            // 从 EntityProfile 应用配置；profile 不存在时回退到同建筑类型 base id（对齐 Godot 防御逻辑）
+            var profile = EntityProfileManager.GetProfile(profileId);
+            if (profile == null)
+            {
+                int fallbackId = BuildingType.GetConfigBaseId(BuildingType.GetTypeFromConfigId(profileId));
+                if (fallbackId != profileId && EntityProfileManager.GetProfile(fallbackId) != null)
+                {
+                    Debug.LogWarning($"[MapDecoration] Profile {profileId} 不存在，fallback 到 {fallbackId} (grid={gridX},{gridY})");
+                    ProfileId = fallbackId;
+                    profile = EntityProfileManager.GetProfile(fallbackId);
+                }
+            }
+
+            var app = profile?.GetData<AppearanceData>("appearance");
+            if (app != null)
+            {
+                SizeX = Mathf.Max(1, app.SizeX);
+                SizeY = Mathf.Max(1, app.SizeY);
+            }
+            BlockMovement = profile?.GetData<ObstacleData>("obstacle")?.BlockMovement ?? false;
+
+            // 定位：footprint 中心（Y 翻转统一走 GridMath，AGENTS.md 第 1 条）
+            transform.localPosition = GridMath.FootprintCenterWorld(GridX, GridY, SizeX, SizeY, _gridSize);
+
+            BuildBody(app);
+            BuildLabel(profile, app);
+        }
+
+        private void BuildBody(AppearanceData app)
+        {
+            float scale = app?.VisualSizeScale ?? 1.0f;
+            float borderScale = app?.BorderWidthScale ?? 3.0f / 111.0f;
+
+            // 尺寸公式与 Godot EntityBase 一致
+            int outerW = Mathf.Clamp(Mathf.RoundToInt(_gridSize * SizeX * scale), 10, _gridSize * SizeX);
+            int outerH = Mathf.Clamp(Mathf.RoundToInt(_gridSize * SizeY * scale), 10, _gridSize * SizeY);
+            int outerRef = Mathf.Clamp(Mathf.RoundToInt(_gridSize * scale), 10, _gridSize);
+            int border = Mathf.Clamp(Mathf.RoundToInt(_gridSize * borderScale), 1, Mathf.Max(1, outerRef / 2));
+
+            var go = new GameObject("Body");
+            go.transform.SetParent(transform, false);
+            var sr = go.AddComponent<SpriteRenderer>();
+            sr.sprite = EntityBodySprite.Get(outerW, outerH, border, app?.CornerRadius ?? 8f,
+                app?.BorderColor ?? Color.white, app?.BgColor ?? Color.white, app?.BgOpacity ?? 0.9f);
+            sr.sortingOrder = 1; // 地图 Quad（Opaque 队列）之上
+        }
+
+        private void BuildLabel(EntityProfile profile, AppearanceData app)
+        {
+            var labels = profile?.GetData<LabelGroupData>("labels");
+            string text = labels != null && labels.Visible[0] ? labels.ContentPreview[0] : "";
+            if (string.IsNullOrEmpty(text)) return;
+
+            // 字号公式与 Godot RenderComponents.LabelComponent 一致：基于 1x1 内尺寸
+            int border = Mathf.Clamp(Mathf.RoundToInt(_gridSize * (app?.BorderWidthScale ?? 3.0f / 111.0f)), 1, _gridSize / 2);
+            int innerRef = Mathf.Max(2, Mathf.Clamp(Mathf.RoundToInt(_gridSize * (app?.VisualSizeScale ?? 1.0f)), 10, _gridSize) - border * 2);
+            int fs = (app?.FontSize ?? 0) > 0 ? app.FontSize : Mathf.Max((int)(innerRef / 4.0f * 0.7f), 8);
+            // 4 行标签块的第 0 行位置（Godot y 向下为负 = 上方；Unity 世界 y 取正）
+            float lineHeight = fs * 1.1f;
+            float line0Y = -(lineHeight * 4 / 2f) + lineHeight * 0.5f;
+
+            var go = new GameObject("Label");
+            go.transform.SetParent(transform, false);
+            go.transform.localPosition = new Vector3(0, -line0Y, 0);
+            var tmp = go.AddComponent<TextMeshPro>();
+            tmp.text = text;
+            tmp.fontSize = fs;
+            tmp.alignment = TextAlignmentOptions.Center;
+            tmp.color = app?.TextColor ?? new Color(1, 1, 0.9f);
+            FontUtil.ApplyCjkFont(tmp);
+            tmp.GetComponent<MeshRenderer>().sortingOrder = 2;
+        }
+    }
+}

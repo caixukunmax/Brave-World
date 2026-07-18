@@ -14,15 +14,18 @@ function generateTerrain(mapData, options) {
 
   // Only operate on cells that have not been pre-set by a blueprint.
   // Blueprint regions take precedence; noise fills the remaining default cells.
-  const cells = Object.values(mapData.cells).filter(c => c.terrain === 0);
-  const values = cells.map(c => ({ c, v: noise(c.uid.split('_').map(Number)[0] * 0.1, c.uid.split('_').map(Number)[1] * 0.1) }));
+  const entries = Object.entries(mapData.cells).filter(([_, c]) => c.terrain === 0);
+  const values = entries.map(([key, c]) => {
+    const [x, y] = key.split('_').map(Number);
+    return { c, v: noise(x * 0.1, y * 0.1) };
+  });
   values.sort((a, b) => a.v - b.v);
 
-  const waterCount = Math.floor(cells.length * waterRatio);
-  const obstacleCount = Math.floor(cells.length * obstacleRatio);
+  const waterCount = Math.floor(entries.length * waterRatio);
+  const obstacleCount = Math.floor(entries.length * obstacleRatio);
 
   // Reset default cells so previously generated terrain does not leak through.
-  cells.forEach(c => { c.terrain = 0; c.decoration = 0; });
+  values.forEach(({ c }) => { c.terrain = 0; c.decoration = 0; });
 
   // Water lowest values
   for (let i = 0; i < waterCount; i++) {
@@ -32,17 +35,6 @@ function generateTerrain(mapData, options) {
   // Obstacles next lowest values among land
   for (let i = waterCount; i < waterCount + obstacleCount && i < values.length; i++) {
     values[i].c.terrain = config.terrains.rock.id;
-  }
-
-  // Apply style bias for remaining land
-  const bias = style.terrainBias;
-  for (const { c } of values.slice(waterCount + obstacleCount)) {
-    if (bias && bias.length > 0) {
-      const pick = bias[Math.floor(Math.abs(noise(c.uid.split('_').map(Number)[0], c.uid.split('_').map(Number)[1])) * bias.length) % bias.length];
-      if (config.terrains[pick]) {
-        c.terrain = config.terrains[pick].id;
-      }
-    }
   }
 }
 

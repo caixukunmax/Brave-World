@@ -129,15 +129,36 @@ namespace ClinetCSharp
 
             int centerX = PreviewMapWidth / 2;
             int centerY = PreviewMapHeight / 2;
-            entity.Position = UiUtils.GridToWorld(new Vector2I(centerX, centerY), _gridManager.GridSize);
+
+            // 占地型建筑（MapDecoration）的 Position 是左上角锚点的渲染中心，
+            // 不能直接用格子中心，否则会根据占地大小偏移到错误位置。
+            if (entity is MapDecoration decoration)
+                decoration.Position = decoration.GetWorldPositionForGridPos(new Vector2I(centerX, centerY));
+            else
+                entity.Position = UiUtils.GridToWorld(new Vector2I(centerX, centerY), _gridManager.GridSize);
 
             // 禁用所有交互和逻辑，仅保留渲染
             entity.SetProcessInput(false);
+            entity.SetProcessUnhandledInput(false);
             entity.SetProcess(false);
             entity.SetPhysicsProcess(false);
 
             if (entity is Player player)
                 player.SetProcessUnhandledInput(false);
+        }
+
+        /// <summary>以地图中心为锚点进行缩放（供外部面板转发滚轮事件）</summary>
+        public void ApplyZoom(int direction)
+        {
+            if (_camera == null) return;
+
+            float zoomFactor = 1f + ZoomStep;
+            float newZoom = direction < 0
+                ? _camera.Zoom.X * zoomFactor
+                : _camera.Zoom.X / zoomFactor;
+
+            newZoom = Mathf.Clamp(newZoom, MinZoom, MaxZoom);
+            _camera.Zoom = new Vector2(newZoom, newZoom);
         }
 
         /// <summary>清除当前实体</summary>

@@ -260,6 +260,20 @@ public class MapDataProvider
         return (map.Width, map.Height, decorationTypes);
     }
 
+    /// <summary>获取地图地形数据（用于进入/切地图时同步给客户端）</summary>
+    public (int width, int height, int[,] terrainTypes)? GetMapTerrainData(string mapName)
+    {
+        mapName = ResolveMapName(mapName);
+        if (!_maps.TryGetValue(mapName, out var map)) return null;
+
+        var terrainTypes = new int[map.Width, map.Height];
+        for (int x = 0; x < map.Width; x++)
+            for (int y = 0; y < map.Height; y++)
+                terrainTypes[x, y] = map.TerrainType[x, y];
+
+        return (map.Width, map.Height, terrainTypes);
+    }
+
     /// <summary>获取地图中被建筑 footprint 阻塞的所有格子（调试用）</summary>
     public List<(int x, int y)>? GetBlockedCells(string mapName)
     {

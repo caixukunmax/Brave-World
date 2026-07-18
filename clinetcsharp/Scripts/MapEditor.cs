@@ -49,7 +49,7 @@ namespace ClinetCSharp
         public int PaintTerrain { get; set; } = 0;
         public int PaintDecoration { get; set; } = BuildingType.GetConfigBaseId(BuildingType.House) + 1; // 默认房舍 build_cfg_id=10001
         /// <summary>刷地形工具当前选中的"地形类建筑" decoration ID（如树、草地、水、岩石）</summary>
-        public int PaintTerrainDecoration { get; set; } = BuildingType.GetConfigBaseId(BuildingType.House); // 默认树 10000
+        public int PaintTerrainDecoration { get; set; } = BuildingType.GetConfigBaseId(BuildingType.Tree); // 默认树 100000
 
         // 编辑器工具模式（只保留刷地形和放置建筑）
         public enum EditorTool

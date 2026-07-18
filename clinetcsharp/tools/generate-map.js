@@ -2,6 +2,7 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { execSync } = require('child_process');
 const { createMapData, saveMapJson, loadMapJson, validateMapName, assertContained } = require('./lib/map-core');
 const { generateTerrain, convertTerrainToDecorations, ensureConnectivity, placeSpawn, placeDecorations } = require('./lib/generator');
 const { applyBlueprint } = require('./lib/blueprint');
@@ -41,7 +42,8 @@ const BACKUP_FILE_NAMES = ['map.json', 'map-gen-form.md', 'map-blueprint.json'];
 function cloneCells(cells) {
   const out = {};
   for (const [k, v] of Object.entries(cells)) {
-    out[k] = { uid: k, terrain: 0, height: 0, custom: '', decoration: 0, ...v };
+    out[k] = { terrain: 0, height: 0, custom: '', decoration: 0, ...v };
+    delete out[k].uid;
   }
   return out;
 }
@@ -78,10 +80,11 @@ function parseSize(value, defaultValue, label, allowOversize) {
   if (!/^\d+$/.test(raw) || !Number.isFinite(n) || n <= 0) {
     throw new Error(`Invalid ${label}: "${value !== undefined ? value : defaultValue}". Must be a positive integer.`);
   }
-  if (n > 50 && !allowOversize) {
+  const maxSize = config.sizeLevels?.large?.max ?? 50;
+  if (n > maxSize && !allowOversize) {
     throw new Error(
-      `Map ${label} ${n} exceeds the default maximum size of 50. ` +
-      `To generate a map larger than 50, confirm with the user and pass --allow-oversize.`
+      `Map ${label} ${n} exceeds the default maximum size of ${maxSize}. ` +
+      `To generate a map larger than ${maxSize}, confirm with the user and pass --allow-oversize.`
     );
   }
   return n;

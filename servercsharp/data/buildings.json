@@ -1,9 +1,10 @@
 {
   "1": { "sizeX": 1, "sizeY": 1, "blockMovement": true },
-  "10000": { "sizeX": 1, "sizeY": 1, "blockMovement": false, "name": "tree" },
+  "100000": { "sizeX": 1, "sizeY": 1, "blockMovement": false, "name": "tree" },
   "10001": { "sizeX": 2, "sizeY": 2, "blockMovement": true, "name": "house" },
   "10002": { "sizeX": 1, "sizeY": 1, "blockMovement": true, "name": "rock_legacy" },
-  "10003": { "sizeX": 1, "sizeY": 1, "blockMovement": false, "name": "grass" },
+  "110000": { "sizeX": 1, "sizeY": 1, "blockMovement": false, "name": "grass" },
+  "120000": { "sizeX": 1, "sizeY": 1, "blockMovement": false, "name": "palm" },
   "20000": { "sizeX": 1, "sizeY": 1, "blockMovement": false },
   "20001": { "sizeX": 1, "sizeY": 1, "blockMovement": false },
   "20002": { "sizeX": 1, "sizeY": 1, "blockMovement": false },
