@@ -55,6 +55,14 @@ namespace UnityClientSharp.Map.Rendering
         public string CurrentMapName = "落叶乡";
         public RectInt MapBounds = new RectInt(0, 0, 50, 50);
 
+        /// <summary>map.json 的 display_name/spawn（LoadMap 时保留原值，SaveCurrentMap 原样回写；勿丢，否则保存会把它们重置成默认值）。</summary>
+        private string _displayName = "";
+        private Vector2Int _spawn = new Vector2Int(25, 25);
+        public string DisplayName => string.IsNullOrEmpty(_displayName) ? CurrentMapName : _displayName;
+        public Vector2Int Spawn => _spawn;
+        /// <summary>地图编辑器重命名地图后同步 display_name。</summary>
+        public void SetDisplayName(string name) => _displayName = name;
+
         // 编辑模式 / 标注
         public bool IsEditMode;
         public bool ShowGridCoords;
@@ -88,14 +96,45 @@ namespace UnityClientSharp.Map.Rendering
 
         public void LoadMap(string mapName)
         {
-            var data = MapDataManager.LoadMapFromJson(mapName, out var bounds, out _, out _);
+            var data = MapDataManager.LoadMapFromJson(mapName, out var bounds, out var spawn, out var displayName);
             // 信任 map.json 的 bounds：稀疏地图不按已有格子缩水；文件缺失/加载失败时回退默认 (0,0,50,50)
             MapBounds = bounds;
+            _spawn = spawn;
+            _displayName = displayName;
             GridData = data.Count > 0
                 ? data
                 : MapDataManager.CreateDefaultGridData(bounds.width, bounds.height, bounds.x, bounds.y);
             CurrentMapName = mapName;
             UpdateTerrainMask();
+        }
+
+        /// <summary>保存当前地图到 map.json（保留 LoadMap 时的 display_name/spawn；地图编辑器用，保存为显式动作）。</summary>
+        public bool SaveCurrentMap()
+        {
+            return MapDataManager.SaveMapToJson(CurrentMapName, GridData, DisplayName, MapBounds, _spawn);
+        }
+
+        /// <summary>
+        /// 开辟地图：把界外格加入 GridData（默认普通地形）并重算 bounds（移植 Godot GridManager.ExtendMap）。
+        /// 不自动落盘（保存是显式动作）。返回实际新增格数。
+        /// </summary>
+        public int ExtendMap(IEnumerable<Vector2Int> cellsToAdd)
+        {
+            int added = 0;
+            foreach (var pos in cellsToAdd)
+            {
+                if (GridData.ContainsKey(pos)) continue;
+                var cell = new GridCell(pos.x, pos.y) { TerrainType = 0 };
+                cell.RefreshTerrainConfig();
+                GridData[pos] = cell;
+                added++;
+            }
+            if (added > 0)
+            {
+                RecalculateMapBounds();
+                UpdateTerrainMask();
+            }
+            return added;
         }
 
         /// <summary>根据当前 GridData 所有存在格子的坐标重算 MapBounds。</summary>
@@ -298,11 +337,18 @@ namespace UnityClientSharp.Map.Rendering
             Debug.Log($"[GridManager] UpdateTerrainMask: 已更新 terrain/water mask {w}x{h}, bounds={bounds}");
         }
 
+        /// <summary>Edit 模式下 Destroy 非法（编辑器地图编辑会话会重建遮罩纹理），走 DestroyImmediate。</summary>
+        private static void DestroyEditSafe(Object o)
+        {
+            if (Application.isPlaying) Destroy(o);
+            else DestroyImmediate(o);
+        }
+
         private void EnsureMaskTextures(int w, int h)
         {
             if (_terrainMask == null || _terrainMask.width != w || _terrainMask.height != h)
             {
-                if (_terrainMask != null) Destroy(_terrainMask);
+                if (_terrainMask != null) DestroyEditSafe(_terrainMask);
                 _terrainMask = new Texture2D(w, h, TextureFormat.RGBA32, false)
                 {
                     filterMode = FilterMode.Point,
@@ -312,7 +358,7 @@ namespace UnityClientSharp.Map.Rendering
             }
             if (_waterMask == null || _waterMask.width != w || _waterMask.height != h)
             {
-                if (_waterMask != null) Destroy(_waterMask);
+                if (_waterMask != null) DestroyEditSafe(_waterMask);
                 _waterMask = new Texture2D(w, h, TextureFormat.RGBA32, false)
                 {
                     filterMode = FilterMode.Point,

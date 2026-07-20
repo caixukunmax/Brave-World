@@ -37,6 +37,13 @@ namespace UnityClientSharp.Entity
             set => _gridSize = value;
         }
 
+        /// <summary>Edit 模式下 Destroy 非法（编辑器地图编辑会话会清空重建装饰），走 DestroyImmediate。</summary>
+        private static void DestroyEditSafe(Object o)
+        {
+            if (Application.isPlaying) Destroy(o);
+            else DestroyImmediate(o);
+        }
+
         /// <summary>从稀疏格子数据生成装饰摆件。</summary>
         public void SpawnDecorations(Dictionary<Vector2Int, GridCell> gridData)
         {
@@ -129,7 +136,7 @@ namespace UnityClientSharp.Entity
             var anchor = new Vector2Int(dec.GridX, dec.GridY);
             _decorations.Remove(anchor);
             if (dec != null)
-                Destroy(dec.gameObject);
+                DestroyEditSafe(dec.gameObject);
             return true;
         }
 
@@ -138,7 +145,7 @@ namespace UnityClientSharp.Entity
             foreach (var dec in _decorations.Values)
             {
                 if (dec != null)
-                    Destroy(dec.gameObject);
+                    DestroyEditSafe(dec.gameObject);
             }
             _decorations.Clear();
             _uidCounters.Clear();

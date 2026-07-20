@@ -25,6 +25,16 @@ namespace UnityClientSharp.Map.Rendering
 
         private void Awake()
         {
+            EnsureInit();
+        }
+
+        /// <summary>
+        /// 初始化渲染 Quad 与材质（幂等）。编辑器地图编辑会话在 Edit 模式手动调用——
+        /// Awake 在 Edit 模式不执行（AGENTS.md 编译验证节）。
+        /// </summary>
+        public void EnsureInit()
+        {
+            if (_material != null) return;
             _gm = GetComponent<GridManager>();
 
             var quadGo = new GameObject("MapQuad");
@@ -80,10 +90,19 @@ namespace UnityClientSharp.Map.Rendering
 
         private void Update()
         {
+            RefreshFrame(null);
+        }
+
+        /// <summary>
+        /// 把 GridManager 的网格参数与遮罩纹理推给材质。
+        /// zoomOverride 供编辑器地图编辑会话传入（Edit 模式无 MapCameraController）；为空时照旧取相机 zoom。
+        /// </summary>
+        public void RefreshFrame(float? zoomOverride = null)
+        {
             if (_gm == null || _material == null) return;
             EnsureLayout();
 
-            float zoom = MapCameraController.Instance != null ? MapCameraController.Instance.Zoom : 1f;
+            float zoom = zoomOverride ?? (MapCameraController.Instance != null ? MapCameraController.Instance.Zoom : 1f);
             zoom = Mathf.Clamp(zoom, GridManager.GridRenderMinZoom, GridManager.GridRenderMaxZoom);
 
             var (lineWidthWorld, lineColor) = _gm.ComputeGridLineRenderStyle(zoom);

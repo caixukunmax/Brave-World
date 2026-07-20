@@ -42,6 +42,42 @@ namespace UnityClientSharp.Map.Core
             return Directory.Exists(Path.Combine(MapsRoot, mapName));
         }
 
+        /// <summary>获取所有地图列表（含 map.json 的目录名；移植自 Godot GetMapList）。</summary>
+        public static List<string> GetMapList()
+        {
+            var maps = new List<string>();
+            if (!Directory.Exists(MapsRoot))
+            {
+                Directory.CreateDirectory(MapsRoot);
+                return maps;
+            }
+            foreach (string dir in Directory.GetDirectories(MapsRoot))
+            {
+                string name = Path.GetFileName(dir);
+                if (name.StartsWith(".")) continue;
+                if (File.Exists(Path.Combine(dir, JsonFilename)))
+                    maps.Add(name);
+            }
+            return maps;
+        }
+
+        /// <summary>创建新地图（目录 + 默认 map.json；移植自 Godot CreateNewMap）。</summary>
+        public static bool CreateNewMap(string mapName, int width = 50, int height = 50)
+        {
+            if (MapExists(mapName))
+            {
+                Debug.LogError($"[MapDataManager] 地图已存在: {mapName}");
+                return false;
+            }
+            var gridData = CreateDefaultGridData(width, height);
+            var bounds = new RectInt(0, 0, width, height);
+            var spawn = new Vector2Int(width / 2, height / 2);
+            if (!SaveMapToJson(mapName, gridData, mapName, bounds, spawn))
+                return false;
+            Debug.Log($"[MapDataManager] 创建新地图成功: {mapName} {width}x{height}");
+            return true;
+        }
+
         /// <summary>从 map.json 加载地图，返回稀疏字典。</summary>
         public static Dictionary<Vector2Int, GridCell> LoadMapFromJson(
             string mapName, out RectInt bounds, out Vector2Int spawn, out string displayName)

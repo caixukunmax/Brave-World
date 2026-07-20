@@ -88,6 +88,21 @@ namespace UnityClientSharp.Entity
             sr.sortingOrder = 1; // 地图 Quad（Opaque 队列）之上
         }
 
+        /// <summary>
+        /// 按当前 ProfileId 重新应用配置外观（ProfileRefreshUtil.RefreshAll / 调试面板手动同步用）。
+        /// 重建 Body/Label；注意占地(SizeX/Y)/阻挡(BlockMovement)变更对地图阻挡格的登记需重新进图才完全生效。
+        /// </summary>
+        public void RefreshFromProfile()
+        {
+            for (int i = transform.childCount - 1; i >= 0; i--)
+            {
+                string n = transform.GetChild(i).name;
+                if (n == "Body" || n == "Label")
+                    Destroy(transform.GetChild(i).gameObject);
+            }
+            Setup(ProfileId, GridX, GridY, _gridSize, BuildingUid, SizeX, SizeY);
+        }
+
         private void BuildLabel(EntityProfile profile, AppearanceData app)
         {
             var labels = profile?.GetData<LabelGroupData>("labels");

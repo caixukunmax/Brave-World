@@ -240,6 +240,59 @@ namespace UnityClientSharp.Entity
             _mpFill.transform.localPosition = new Vector3(-_mpLen / 2f + _mpLen * p / 2f, 0, 0);
         }
 
+        /// <summary>
+        /// 按当前 ProfileId 重新应用配置外观（ProfileRefreshUtil.RefreshAll / 调试面板手动同步用）。
+        /// 重建 Body/标签/HP/MP/Cast 条，保留运行时状态（标签文本、血条填充与可见性）与运行时视觉件（如 CombatAura）。
+        /// </summary>
+        public virtual void RefreshFromProfile()
+        {
+            if (_dying) return;
+
+            // 1) 记录运行时状态
+            var labelTexts = new string[LabelGroupData.LabelCount];
+            var labelColors = new Color[LabelGroupData.LabelCount];
+            for (int i = 0; i < _labels.Length; i++)
+            {
+                labelTexts[i] = _labels[i] != null ? _labels[i].text : null;
+                labelColors[i] = _labels[i] != null ? _labels[i].color : Color.white;
+            }
+            float hpFill = _hpFill != null ? _hpFill.size.x / Mathf.Max(1e-5f, _hpLen) : -1f;
+            float mpFill = _mpFill != null ? _mpFill.size.x / Mathf.Max(1e-5f, _mpLen) : -1f;
+            bool hpVis = _hpBarRoot != null && _hpBarRoot.activeSelf;
+            bool mpVis = _mpBarRoot != null && _mpBarRoot.activeSelf;
+
+            // 2) 销毁 Profile 驱动的视觉子物体（保留 CombatAura 等运行时件）
+            for (int i = transform.childCount - 1; i >= 0; i--)
+            {
+                string n = transform.GetChild(i).name;
+                if (n == "Body" || n.StartsWith("Label") || n == "HpBar" || n == "MpBar" || n == "CastBar")
+                    Destroy(transform.GetChild(i).gameObject);
+            }
+            _body = null;
+            for (int i = 0; i < _labels.Length; i++) _labels[i] = null;
+            _hpBg = _hpFill = _mpBg = _mpFill = null;
+            _hpBarRoot = _mpBarRoot = null;
+            _castBg = _castFill = null;
+            _castBarRoot = null;
+
+            // 3) 按当前 Profile 重建（Setup 会重读配置并重新定位）
+            Setup(ProfileId, GridPos, _gridSize, SizeX, SizeY, _sortingOrder);
+
+            // 4) 恢复运行时状态（不重建的项保持 null，SetHpFill/SetMpFill 内部有判空）
+            for (int i = 0; i < _labels.Length; i++)
+            {
+                if (labelTexts[i] != null && _labels[i] != null)
+                {
+                    _labels[i].text = labelTexts[i];
+                    _labels[i].color = labelColors[i];
+                }
+            }
+            if (hpFill >= 0f) SetHpFill(hpFill);
+            if (mpFill >= 0f) SetMpFill(mpFill);
+            if (_hpBarRoot != null) _hpBarRoot.SetActive(hpVis);
+            if (_mpBarRoot != null) _mpBarRoot.SetActive(mpVis);
+        }
+
         /// <summary>死亡淡出：缩放+透明到 0 后销毁（对齐 Godot 怪物 DeathEffectMode 1）。</summary>
         public void PlayDeathFade(float duration = 0.5f)
         {
