@@ -1,4 +1,4 @@
-[gd_scene load_steps=24 format=3]
+[gd_scene load_steps=25 format=3]
 
 [ext_resource type="Script" path="res://Scripts/GridManager.cs" id="1_grid"]
 [ext_resource type="Script" path="res://Scripts/Player.cs" id="2_player"]
@@ -28,6 +28,7 @@
 [ext_resource type="PackedScene" path="res://scenes/big_map_panel.tscn" id="26_bigmap"]
 [ext_resource type="Script" path="res://Scripts/ScreenTransition.cs" id="27_transition"]
 [ext_resource type="PackedScene" path="res://scenes/tavern_interior_panel.tscn" id="28_tavern"]
+[ext_resource type="Script" path="res://Scripts/Cutscene/CutsceneDirector.cs" id="29_cutscene"]
 
 [node name="Main" type="Node2D"]
 
@@ -92,6 +93,9 @@ script = ExtResource("12_map")
 
 [node name="ScreenTransition" type="CanvasLayer" parent="."]
 script = ExtResource("27_transition")
+
+[node name="CutsceneDirector" type="Node2D" parent="." groups=["cutscene_director"]]
+script = ExtResource("29_cutscene")
 
 [node name="TavernInteriorPanel" parent="." instance=ExtResource("28_tavern")]
 

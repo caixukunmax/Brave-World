@@ -15,7 +15,7 @@ namespace ClinetCSharp
         private Action _onChanged;
 
         private HSlider _fontSizeSlider;
-        private Label _fontSizeValue;
+        private Button _fontSizeValue;
         private CheckButton _boldCheck;
         private CheckButton _italicCheck;
         private CheckButton _shadowCheck;
@@ -26,12 +26,12 @@ namespace ClinetCSharp
         private readonly LineEdit[] _texts = new LineEdit[N];
         private readonly CheckButton[] _useGlobalFontChecks = new CheckButton[N];
         private readonly HSlider[] _fontSizeSliders = new HSlider[N];
-        private readonly Label[] _fontSizeValues = new Label[N];
+        private readonly Button[] _fontSizeValues = new Button[N];
         private readonly HSlider[] _offsetXSliders = new HSlider[N];
-        private readonly Label[] _offsetXValues = new Label[N];
+        private readonly Button[] _offsetXValues = new Button[N];
         private readonly CheckButton[] _centerXChecks = new CheckButton[N];
         private readonly HSlider[] _offsetYSliders = new HSlider[N];
-        private readonly Label[] _offsetYValues = new Label[N];
+        private readonly Button[] _offsetYValues = new Button[N];
         private readonly Button[] _resetButtons = new Button[N];
         private HashSet<string> _locked = new();
 
@@ -107,19 +107,19 @@ namespace ClinetCSharp
             offsetXRow.AddChild(_centerXChecks[index]);
             _offsetXSliders[index] = CreateSlider(-150, 150, 0, 1);
             offsetXRow.AddChild(_offsetXSliders[index]);
-            _offsetXValues[index] = CreateValueLabel("0");
-            offsetXRow.AddChild(_offsetXValues[index]);
+            var offsetXValLbl = CreateValueLabel("0");
+            offsetXRow.AddChild(offsetXValLbl);
             content.AddChild(offsetXRow);
-            SliderValueInput.Attach(_offsetXSliders[index], _offsetXValues[index], v => ((int)v).ToString());
+            _offsetXValues[index] = SliderValueInput.Attach(_offsetXSliders[index], offsetXValLbl, v => ((int)v).ToString());
 
             var offsetYRow = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
             offsetYRow.AddChild(new Label { Text = "Y偏移", CustomMinimumSize = new Vector2(52, 0) });
             _offsetYSliders[index] = CreateSlider(-150, 150, 0, 1);
             offsetYRow.AddChild(_offsetYSliders[index]);
-            _offsetYValues[index] = CreateValueLabel("0");
-            offsetYRow.AddChild(_offsetYValues[index]);
+            var offsetYValLbl = CreateValueLabel("0");
+            offsetYRow.AddChild(offsetYValLbl);
             content.AddChild(offsetYRow);
-            SliderValueInput.Attach(_offsetYSliders[index], _offsetYValues[index], v => ((int)v).ToString());
+            _offsetYValues[index] = SliderValueInput.Attach(_offsetYSliders[index], offsetYValLbl, v => ((int)v).ToString());
 
             _centerXChecks[index].Toggled += centered => ApplyCenterXState(index, centered);
             _useGlobalFontChecks[index].Toggled += useGlobal => ApplyGlobalFontState(index, useGlobal);
@@ -349,7 +349,7 @@ namespace ClinetCSharp
             _onChanged?.Invoke();
         }
 
-        private static (HSlider slider, Label valueLabel) CreateSliderRow(
+        private static (HSlider slider, Button valueDisplay) CreateSliderRow(
             Container parent,
             string label,
             double min,
@@ -370,11 +370,10 @@ namespace ClinetCSharp
 
             var valueLabel = CreateValueLabel(formatter(value));
             row.AddChild(valueLabel);
-            slider.ValueChanged += current => valueLabel.Text = formatter(current);
 
             parent.AddChild(row);
-            SliderValueInput.Attach(slider, valueLabel, formatter);
-            return (slider, valueLabel);
+            var valueDisplay = SliderValueInput.Attach(slider, valueLabel, formatter);
+            return (slider, valueDisplay);
         }
 
         private static HSlider CreateSlider(double min, double max, double value, double step)
@@ -402,7 +401,7 @@ namespace ClinetCSharp
             };
         }
 
-        private static void SetSliderSilent(HSlider slider, double value, Label valueLabel, string text)
+        private static void SetSliderSilent(HSlider slider, double value, Button valueLabel, string text)
         {
             slider?.SetBlockSignals(true);
             if (slider != null)

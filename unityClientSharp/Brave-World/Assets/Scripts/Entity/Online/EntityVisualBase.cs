@@ -7,7 +7,7 @@ using UnityEngine;
 namespace UnityClientSharp.Entity
 {
     /// <summary>
-    /// 在线实体视觉基类：身体（程序生成圆角色块）+ 4 行标签 + HP/MP 条 + 死亡淡出。
+    /// 在线实体视觉基类：身体（程序生成圆角色块）+ 标签行（行数随 Profile 配置）+ HP/MP 条 + 死亡淡出。
     /// 移植自 Godot EntityBase 的显示部分（AppearanceComponent/LabelComponent/HealthBar/MpBar）。
     /// 玩家/怪物/NPC 继承；宝箱/掉落不是 EntityBase（Godot 亦然），不继承本类。
     /// </summary>
@@ -36,7 +36,8 @@ namespace UnityClientSharp.Entity
 
         private static Sprite s_unitSprite;
         private SpriteRenderer _body;
-        private readonly TextMeshPro[] _labels = new TextMeshPro[LabelGroupData.LabelCount];
+        private TextMeshPro[] _labels = new TextMeshPro[LabelGroupData.DefaultRowCount];
+        private TextMeshPro[] _labelShadows = new TextMeshPro[LabelGroupData.DefaultRowCount];
         private SpriteRenderer _hpBg, _hpFill, _mpBg, _mpFill;
         private float _hpLen, _mpLen;
         private bool _dying;
@@ -88,13 +89,10 @@ namespace UnityClientSharp.Entity
 
         private void BuildBody(AppearanceData app)
         {
-            float scale = app?.VisualSizeScale ?? 1.0f;
-            float borderScale = app?.BorderWidthScale ?? 3.0f / 111.0f;
-
-            int outerW = Mathf.Clamp(Mathf.RoundToInt(_gridSize * SizeX * scale), 10, _gridSize * SizeX);
-            int outerH = Mathf.Clamp(Mathf.RoundToInt(_gridSize * SizeY * scale), 10, _gridSize * SizeY);
-            int outerRef = Mathf.Clamp(Mathf.RoundToInt(_gridSize * scale), 10, _gridSize);
-            int border = Mathf.Clamp(Mathf.RoundToInt(_gridSize * borderScale), 1, Mathf.Max(1, outerRef / 2));
+            // 尺寸公式统一走 EntityAppearanceLayout（与编辑器预览/地图装饰一致）
+            EntityAppearanceLayout.ComputeBody(_gridSize, SizeX, SizeY,
+                app?.VisualSizeScale ?? 1.0f, app?.BorderWidthScale ?? EntityAppearanceLayout.DefaultBorderWidthScale,
+                out int outerW, out int outerH, out int border);
 
             var go = new GameObject("Body");
             go.transform.SetParent(transform, false);
@@ -106,38 +104,44 @@ namespace UnityClientSharp.Entity
 
         private void BuildLabels(EntityProfile profile, AppearanceData app)
         {
-            var labels = profile?.GetData<LabelGroupData>("labels");
+            // 「停用」语义与调试面板预览一致：labels 组件停用时不生成任何标签
+            if (profile == null || profile.IsComponentDisabled("labels"))
+            {
+                _labels = new TextMeshPro[0];
+                _labelShadows = new TextMeshPro[0];
+                return;
+            }
+            var labels = profile.GetData<LabelGroupData>("labels");
             if (labels == null) return;
+            _labels = new TextMeshPro[labels.Count];
+            _labelShadows = new TextMeshPro[labels.Count];
 
-            // 字号/行高公式与 Godot EntityLabelLayout 一致（基于 1x1 内尺寸）
-            int border = Mathf.Clamp(Mathf.RoundToInt(_gridSize * (app?.BorderWidthScale ?? 3.0f / 111.0f)), 1, _gridSize / 2);
-            int innerRef = Mathf.Max(2, Mathf.Clamp(Mathf.RoundToInt(_gridSize * (app?.VisualSizeScale ?? 1.0f)), 10, _gridSize) - border * 2);
-            int fs = (app?.FontSize ?? 0) > 0 ? app.FontSize : Mathf.Max((int)(innerRef / 4.0f * 0.7f), 8);
-            float lineH = fs * 1.1f;
-            var textColor = app?.TextColor ?? Color.white;
-
-            for (int i = 0; i < LabelGroupData.LabelCount; i++)
+            for (int i = 0; i < labels.Count; i++)
             {
                 if (!labels.Visible[i]) continue;
+                // 字号/颜色/样式统一走 EntityAppearanceLayout（与编辑器预览/地图装饰一致）
+                int fs = EntityAppearanceLayout.RowFontSize(_gridSize, labels, i,
+                    app?.VisualSizeScale ?? 1.0f, app?.BorderWidthScale ?? EntityAppearanceLayout.DefaultBorderWidthScale);
                 var go = new GameObject($"Label{i}");
                 go.transform.SetParent(transform, false);
-                // Godot 第 i 行中心 y = -(lineH*4)/2 + lineH*0.5 + i*lineH + YOffset[i]（y 向下）；世界 y 取负
-                float godotY = -(lineH * 4 / 2f) + lineH * 0.5f + i * lineH + labels.YOffset[i];
-                go.transform.localPosition = new Vector3(labels.CenterX[i] ? 0 : labels.XOffset[i], -godotY, 0);
+                go.transform.localPosition = new Vector3(labels.CenterX[i] ? 0 : labels.XOffset[i],
+                    EntityAppearanceLayout.LineWorldOffsetY(i, fs, labels.YOffset[i], labels.Count), 0);
                 var tmp = go.AddComponent<TextMeshPro>();
-                tmp.fontSize = fs;
+                FontUtil.SetWorldFontSize(tmp, fs);
                 tmp.alignment = TextAlignmentOptions.Center;
-                tmp.color = textColor;
+                tmp.fontStyle = EntityAppearanceLayout.RowFontStyle(labels);
+                tmp.color = EntityAppearanceLayout.RowTextColor(labels, i);
                 FontUtil.ApplyCjkFont(tmp);
-                tmp.GetComponent<MeshRenderer>().sortingOrder = _sortingOrder + 3;
+                int order = _sortingOrder + 4; // 条=+2，阴影=+3，主标签=+4
+                tmp.GetComponent<MeshRenderer>().sortingOrder = order;
                 _labels[i] = tmp;
+                if (labels.Shadow) _labelShadows[i] = EntityLabelShadow.Create(tmp, $"Label{i}Shadow", order - 1);
             }
         }
 
         private void BuildBars(EntityProfile profile, AppearanceData app)
         {
-            float scale = app?.VisualSizeScale ?? 1.0f;
-            int outerRef = Mathf.Clamp(Mathf.RoundToInt(_gridSize * scale), 10, _gridSize);
+            int outerRef = EntityAppearanceLayout.ComputeOuterRef(_gridSize, app?.VisualSizeScale ?? 1.0f);
             var hp = profile?.GetData<BarData>("healthbar");
             var mp = profile?.GetData<BarData>("mpbar");
             if (hp != null)
@@ -213,6 +217,8 @@ namespace UnityClientSharp.Entity
         {
             if (index < 0 || index >= _labels.Length) return;
             if (_labels[index] != null) _labels[index].text = text ?? "";
+            // 阴影是独立文本副本，必须同步（EntityLabelShadow 注释）
+            if (index < _labelShadows.Length && _labelShadows[index] != null) _labelShadows[index].text = text ?? "";
         }
 
         public void SetLabelColor(int index, Color color)
@@ -249,8 +255,8 @@ namespace UnityClientSharp.Entity
             if (_dying) return;
 
             // 1) 记录运行时状态
-            var labelTexts = new string[LabelGroupData.LabelCount];
-            var labelColors = new Color[LabelGroupData.LabelCount];
+            var labelTexts = new string[_labels.Length];
+            var labelColors = new Color[_labels.Length];
             for (int i = 0; i < _labels.Length; i++)
             {
                 labelTexts[i] = _labels[i] != null ? _labels[i].text : null;
@@ -270,6 +276,7 @@ namespace UnityClientSharp.Entity
             }
             _body = null;
             for (int i = 0; i < _labels.Length; i++) _labels[i] = null;
+            for (int i = 0; i < _labelShadows.Length; i++) _labelShadows[i] = null;
             _hpBg = _hpFill = _mpBg = _mpFill = null;
             _hpBarRoot = _mpBarRoot = null;
             _castBg = _castFill = null;
@@ -279,12 +286,17 @@ namespace UnityClientSharp.Entity
             Setup(ProfileId, GridPos, _gridSize, SizeX, SizeY, _sortingOrder);
 
             // 4) 恢复运行时状态（不重建的项保持 null，SetHpFill/SetMpFill 内部有判空）
-            for (int i = 0; i < _labels.Length; i++)
+            // 行数可能因配置增删而变化，只恢复两边都存在的下标
+            int restoreCount = System.Math.Min(labelTexts.Length, _labels.Length);
+            for (int i = 0; i < restoreCount; i++)
             {
                 if (labelTexts[i] != null && _labels[i] != null)
                 {
                     _labels[i].text = labelTexts[i];
                     _labels[i].color = labelColors[i];
+                    // 阴影文本同步恢复（颜色保持阴影色，不跟随标签色）
+                    if (i < _labelShadows.Length && _labelShadows[i] != null)
+                        _labelShadows[i].text = labelTexts[i];
                 }
             }
             if (hpFill >= 0f) SetHpFill(hpFill);

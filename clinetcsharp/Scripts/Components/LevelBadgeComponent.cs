@@ -16,14 +16,14 @@ namespace ClinetCSharp
 
         private CheckButton _visibleCheck;
         private HSlider _fontSizeSlider;
-        private Label _fontSizeValue;
+        private Button _fontSizeValue;
         private Button _textColorBtn;
         private LineEdit _textEdit;
         private HSlider _offsetXSlider;
-        private Label _offsetXValue;
+        private Button _offsetXValue;
         private CheckButton _offsetXCenterCheck;
         private HSlider _offsetYSlider;
-        private Label _offsetYValue;
+        private Button _offsetYValue;
 
         private static readonly Color[] BadgeColors = {
             Colors.Yellow, Colors.Red, Colors.Blue, Colors.Green, Colors.White,
@@ -54,10 +54,10 @@ namespace ClinetCSharp
             fsRow.AddChild(new Label { Text = "字号", CustomMinimumSize = new Vector2(35, 0) });
             _fontSizeSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = 6, MaxValue = 24, Step = 1, Value = 12, Scrollable = false, FocusMode = Control.FocusModeEnum.Click };
             fsRow.AddChild(_fontSizeSlider);
-            _fontSizeValue = new Label { Text = "12", CustomMinimumSize = new Vector2(25, 0), HorizontalAlignment = HorizontalAlignment.Right };
-            fsRow.AddChild(_fontSizeValue);
-            SliderValueInput.Attach(_fontSizeSlider, _fontSizeValue, v => ((int)v).ToString());
+            var fontSizeValLbl = new Label { Text = "12", CustomMinimumSize = new Vector2(25, 0), HorizontalAlignment = HorizontalAlignment.Right };
+            fsRow.AddChild(fontSizeValLbl);
             parent.AddChild(fsRow);
+            _fontSizeValue = SliderValueInput.Attach(_fontSizeSlider, fontSizeValLbl, v => ((int)v).ToString());
 
             // X offset + center
             var oxRow = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
@@ -66,20 +66,20 @@ namespace ClinetCSharp
             oxRow.AddChild(_offsetXCenterCheck);
             _offsetXSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = -150, MaxValue = 150, Step = 1, Value = -35, Scrollable = false, FocusMode = Control.FocusModeEnum.Click };
             oxRow.AddChild(_offsetXSlider);
-            _offsetXValue = new Label { Text = "-35", CustomMinimumSize = new Vector2(30, 0), HorizontalAlignment = HorizontalAlignment.Right };
-            oxRow.AddChild(_offsetXValue);
-            SliderValueInput.Attach(_offsetXSlider, _offsetXValue, v => ((int)v).ToString());
+            var offsetXValLbl = new Label { Text = "-35", CustomMinimumSize = new Vector2(30, 0), HorizontalAlignment = HorizontalAlignment.Right };
+            oxRow.AddChild(offsetXValLbl);
             parent.AddChild(oxRow);
+            _offsetXValue = SliderValueInput.Attach(_offsetXSlider, offsetXValLbl, v => ((int)v).ToString());
 
             // Y offset
             var oyRow = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
             oyRow.AddChild(new Label { Text = "Y偏移", CustomMinimumSize = new Vector2(45, 0) });
             _offsetYSlider = new HSlider { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MinValue = -150, MaxValue = 150, Step = 1, Value = -35, Scrollable = false, FocusMode = Control.FocusModeEnum.Click };
             oyRow.AddChild(_offsetYSlider);
-            _offsetYValue = new Label { Text = "-35", CustomMinimumSize = new Vector2(30, 0), HorizontalAlignment = HorizontalAlignment.Right };
-            oyRow.AddChild(_offsetYValue);
-            SliderValueInput.Attach(_offsetYSlider, _offsetYValue, v => ((int)v).ToString());
+            var offsetYValLbl = new Label { Text = "-35", CustomMinimumSize = new Vector2(30, 0), HorizontalAlignment = HorizontalAlignment.Right };
+            oyRow.AddChild(offsetYValLbl);
             parent.AddChild(oyRow);
+            _offsetYValue = SliderValueInput.Attach(_offsetYSlider, offsetYValLbl, v => ((int)v).ToString());
 
             // Center X linkage
             _offsetXCenterCheck.Toggled += (centered) =>
@@ -176,7 +176,7 @@ namespace ClinetCSharp
             _onChanged?.Invoke();
         }
 
-        static void SetSliderSilent(HSlider s, double v, Label l, string t)
+        static void SetSliderSilent(HSlider s, double v, Button l, string t)
         { s?.SetBlockSignals(true); if (s != null) s.Value = v; s?.SetBlockSignals(false); if (l != null) l.Text = t; }
         static void SetCheckSilent(CheckButton c, bool v)
         { c?.SetBlockSignals(true); if (c != null) c.ButtonPressed = v; c?.SetBlockSignals(false); }

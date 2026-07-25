@@ -2,6 +2,9 @@ using Godot;
 
 namespace ClinetCSharp
 {
+    // [Tool]：本类由 GridManager 动态创建；地图编辑器插件在编辑器下复用 GridManager 渲染地形/网格，
+    // 需要 _EnterTree（创建 ShaderMaterial）与 _Draw（画 shader 矩形）在编辑器下执行。
+    [Tool]
     [GlobalClass]
     public partial class GridShaderOverlay : Node2D
     {
@@ -112,10 +115,33 @@ namespace ClinetCSharp
         public override void _Draw()
         {
             if (_shaderMaterial == null || _mapWidthWorld <= 0.0f || _mapHeightWorld <= 0.0f)
+            {
+#if DEBUG
+                // 编辑器下一次性诊断：_Draw 被调用但提前返回，说明材质未建或尺寸为 0
+                if (!_earlyReturnLogged && Engine.IsEditorHint())
+                {
+                    _earlyReturnLogged = true;
+                    GD.Print($"[GridShaderOverlay] _Draw 提前返回: material={_shaderMaterial != null}, size={_mapWidthWorld}x{_mapHeightWorld}");
+                }
+#endif
                 return;
+            }
 
+#if DEBUG
+            // 编辑器下一次性诊断：确认 _Draw 真的被引擎调用（验证 [Tool] 是否生效）
+            if (!_drawLogged && Engine.IsEditorHint())
+            {
+                _drawLogged = true;
+                GD.Print($"[GridShaderOverlay] _Draw 正常执行: rect={_mapWidthWorld}x{_mapHeightWorld}");
+            }
+#endif
             DrawRect(new Rect2(0.0f, 0.0f, _mapWidthWorld, _mapHeightWorld), Colors.White, true);
         }
+
+#if DEBUG
+        private bool _drawLogged;
+        private bool _earlyReturnLogged;
+#endif
 
         /// <summary>
         /// 更新水面遮罩纹理。R=1 表示该格子是水域，R=0 表示非水域。

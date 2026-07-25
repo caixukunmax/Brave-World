@@ -7,6 +7,10 @@ namespace ClinetCSharp
     /// <summary>
     /// 怪物实体，渲染在地图格子上。
     /// </summary>
+    // [Tool]：编辑器插件「实体配置」面板用真实 Monster 渲染 monster 类型 Profile 的预览。
+    // 本类没有覆写 _Ready/_Process/_PhysicsProcess，编辑器下不会跑任何 tick/AI 逻辑，
+    // 只有 _Draw 会在 QueueRedraw 后执行（预览正是要这个）；输入已被预览侧 SetProcessInput(false) 关闭。
+    [Tool]
     public partial class Monster : EntityBase
     {
         public event System.Action<Monster, Vector2I, Vector2I>? MoveVisualCompleted;
@@ -125,14 +129,18 @@ namespace ClinetCSharp
 
         private void EnsureRenderComponents()
         {
-            if (_renderComponents.Count > 0)
-                return;
-
-            AddRenderComponent(new RenderComponents.CombatAuraComponent());
-            AddRenderComponent(new RenderComponents.AppearanceComponent());
-            AddRenderComponent(new RenderComponents.HealthBarComponent());
-            AddRenderComponent(new RenderComponents.MpBarComponent());
-            AddRenderComponent(new RenderComponents.DebugOverlayComponent());
+            // 按类型幂等补齐；禁止 Count>0 早退（ApplyProfileToEntity 会先行加入
+            // castbar/actionbar/nameplate 组件，早退会丢基础组件，见 AGENTS.md）
+            if (GetRenderComponent<RenderComponents.CombatAuraComponent>() == null)
+                AddRenderComponent(new RenderComponents.CombatAuraComponent());
+            if (GetRenderComponent<RenderComponents.AppearanceComponent>() == null)
+                AddRenderComponent(new RenderComponents.AppearanceComponent());
+            if (GetRenderComponent<RenderComponents.HealthBarComponent>() == null)
+                AddRenderComponent(new RenderComponents.HealthBarComponent());
+            if (GetRenderComponent<RenderComponents.MpBarComponent>() == null)
+                AddRenderComponent(new RenderComponents.MpBarComponent());
+            if (GetRenderComponent<RenderComponents.DebugOverlayComponent>() == null)
+                AddRenderComponent(new RenderComponents.DebugOverlayComponent());
             // 施法条/动作栏由 Profile 组件动态驱动，不再硬编码
         }
 

@@ -52,9 +52,15 @@ namespace ClinetCSharp
         private bool TryHandleLocalGmCommand(string commandLine)
         {
             string lower = commandLine.ToLower();
-            if (!lower.StartsWith("story,"))
-                return false;
+            if (lower.StartsWith("story,"))
+                return TryHandleStoryCommand(commandLine);
+            if (lower.StartsWith("cutscene,"))
+                return TryHandleCutsceneCommand(commandLine);
+            return false;
+        }
 
+        private bool TryHandleStoryCommand(string commandLine)
+        {
             string arg = commandLine.Substring("story,".Length).StripEdges();
             if (!int.TryParse(arg, out int chapterId))
             {
@@ -71,6 +77,48 @@ namespace ClinetCSharp
 
             panel.ShowChapter(chapterId);
             AppendLog($"[color=green]播放剧情章节 {chapterId}[/color]");
+            return true;
+        }
+
+        /// <summary>
+        /// 导演模式：cutscene,演出ID —— 触发时强制热重读 JSON（插件保存后立即生效，无需重启）。
+        /// GM 手动触发不受进度限制、不看触发区域，可重复播；演出播放期间拒绝再次触发（互斥）。
+        /// </summary>
+        private bool TryHandleCutsceneCommand(string commandLine)
+        {
+            string arg = commandLine.Substring("cutscene,".Length).StripEdges();
+            if (!int.TryParse(arg, out int cutsceneId))
+            {
+                AppendLog("[color=red]用法：cutscene,演出ID[/color]");
+                return true;
+            }
+
+            var director = GetTree()?.GetFirstNodeInGroup("cutscene_director") as Cutscene.CutsceneDirector;
+            if (director == null)
+            {
+                AppendLog("[color=red]演出导演（CutsceneDirector）未挂载[/color]");
+                return true;
+            }
+
+            if (director.IsPlaying)
+            {
+                AppendLog($"[color=red]演出 {director.CurrentId} 播放中，无法再次触发[/color]");
+                return true;
+            }
+
+            // 热重载：重新扫描 data/cutscenes/*.json
+            Cutscene.CutsceneConfigUtil.Reload();
+            if (!Cutscene.CutsceneConfigUtil.TryGet(cutsceneId, out _))
+            {
+                string detail = Cutscene.CutsceneConfigUtil.LastErrors.Count > 0
+                    ? $"：{string.Join("；", Cutscene.CutsceneConfigUtil.LastErrors)}"
+                    : "（检查 data/cutscenes/ 下的 JSON）";
+                AppendLog($"[color=red]演出 {cutsceneId} 不存在{detail}[/color]");
+                return true;
+            }
+
+            director.PlayById(cutsceneId, manual: true);
+            AppendLog($"[color=green]播放演出 {cutsceneId}（ESC 跳过）[/color]");
             return true;
         }
 

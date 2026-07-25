@@ -13,8 +13,9 @@ namespace UnityClientSharp.UI
     /// 三列（已装备 4 槽 / 已学习未装备 / 当前职业可学未学）+ 底部详情条；点名字选中刷新详情，
     /// "+" 装备到第一个空槽（395）、"-" 卸下（397，只填 slot_index）、"L" 学习（GM 后门 learnskill,id）。
     /// 普攻 id=1 在装备列强制显示空槽；响应后全量重建三列。
+    /// 热键统一由 GamePanelManager 分发（对齐 Godot PanelManager.RegisterToggleKey(F4)）。
     /// </summary>
-    public class SkillPanelHud : MonoBehaviour
+    public class SkillPanelHud : MonoBehaviour, IGamePanel
     {
         private const int MaxSlots = 4;
 
@@ -32,6 +33,7 @@ namespace UnityClientSharp.UI
         public TextMeshProUGUI Detail => _detail;
         public uint SelectedSkillId => _selectedSkillId;
         public bool PanelVisible => _panelRoot != null && _panelRoot.activeSelf;
+        public string PanelName => "技能";
 
         public static SkillPanelHud Create()
         {
@@ -102,6 +104,10 @@ namespace UnityClientSharp.UI
 
             RefreshUI();
             SetVisible(false); // 默认隐藏，F4 唤出（对齐 Godot Visible=false）
+
+            // 热键统一注册到 GamePanelManager（对齐 Godot SetToggleKey(Key.F4)）；无管理器时静默跳过
+            GamePanelManager.Instance?.RegisterPanel(this);
+            GamePanelManager.Instance?.RegisterHotkey(KeyCode.F4, this);
         }
 
         /// <summary>构建一列（标题 + 滚动列表），返回列表内容根。</summary>
@@ -115,7 +121,9 @@ namespace UnityClientSharp.UI
             vlg.childForceExpandWidth = true;
             vlg.childForceExpandHeight = false;
             vlg.childControlWidth = true;
-            vlg.childControlHeight = false;
+            // 必须 true：controlSize=false 时 uGUI 取 child.sizeDelta（恒 0），
+            // 列头/滚动区塌缩（同 GMPanel 布局事故根因）
+            vlg.childControlHeight = true;
 
             var headerTmp = CreateText(colGo.transform, "Header", header, 14, new Color(1f, 0.9f, 0.6f));
             headerTmp.gameObject.AddComponent<LayoutElement>().preferredHeight = 20;
@@ -124,6 +132,7 @@ namespace UnityClientSharp.UI
             var scrollGo = CreateUI(colGo.transform, "Scroll");
             var scrollLe = scrollGo.AddComponent<LayoutElement>();
             scrollLe.flexibleHeight = 1;
+            scrollLe.minHeight = 40;
             var scrollBg = scrollGo.AddComponent<Image>();
             scrollBg.color = new Color(0, 0, 0, 0.2f);
             scrollGo.AddComponent<RectMask2D>();
@@ -142,7 +151,8 @@ namespace UnityClientSharp.UI
             cvlg.childForceExpandWidth = true;
             cvlg.childForceExpandHeight = false;
             cvlg.childControlWidth = true;
-            cvlg.childControlHeight = false;
+            // 必须 true：false 会让技能行高度塌缩为 0，ContentSizeFitter 读到的内容高恒为 0
+            cvlg.childControlHeight = true;
             var csf = contentGo.AddComponent<ContentSizeFitter>();
             csf.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
             scroll.content = contentRt;
@@ -366,7 +376,7 @@ namespace UnityClientSharp.UI
             });
         }
 
-        // ============ 显隐与热键 ============
+        // ============ 显隐 ============
 
         public void SetVisible(bool visible)
         {
@@ -375,13 +385,6 @@ namespace UnityClientSharp.UI
         }
 
         public void Toggle() => SetVisible(!PanelVisible);
-
-        private void Update()
-        {
-            // 工程当前只此一个热键面板，单点处理（后续面板多了再抽象 PanelManager）
-            if (Input.GetKeyDown(KeyCode.F4))
-                Toggle();
-        }
 
         // ============ 事件 ============
 
@@ -398,6 +401,8 @@ namespace UnityClientSharp.UI
 
         private void OnDestroy()
         {
+            GamePanelManager.Instance?.UnregisterPanel(this);
+
             var nm = NetworkManager.Instance;
             if (nm == null) return;
             nm.RoleAttrUpdated -= OnRoleAttrUpdated;
@@ -442,6 +447,8 @@ namespace UnityClientSharp.UI
         {
             var go = new GameObject(name, typeof(RectTransform));
             go.transform.SetParent(parent, false);
+            // 本引擎新建 RectTransform 的 sizeDelta 默认 (100,100)：清零防溢出（见 GMPanelHud）
+            ((RectTransform)go.transform).sizeDelta = Vector2.zero;
             return go;
         }
 

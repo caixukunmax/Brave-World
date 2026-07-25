@@ -11,21 +11,29 @@ namespace ClinetCSharp
             EntityDrawUtils.DrawDirectionArrow(this);
         }
 
-        /// <summary>确保渲染组件已添加（幂等，只添加一次）</summary>
+        /// <summary>确保渲染组件已添加（按类型幂等补齐；禁止 Count>0 早退——
+        /// ApplyProfileToEntity 会先行加入 castbar/actionbar/nameplate 组件，
+        /// 早退会导致 Appearance/血条/标签等基础组件丢失，见 AGENTS.md）</summary>
         protected void EnsureRenderComponents()
         {
-            if (_renderComponents.Count > 0)
-                return;
-
-            AddRenderComponent(new RenderComponents.CombatAuraComponent());
-            AddRenderComponent(new RenderComponents.AppearanceComponent());
-            AddRenderComponent(new RenderComponents.HealthBarComponent());
-            AddRenderComponent(new RenderComponents.MpBarComponent());
-            AddRenderComponent(new RenderComponents.CastBarComponent());
-            AddRenderComponent(new RenderComponents.ActionBarComponent());
-            AddRenderComponent(new RenderComponents.RichLabelComponent());
-            AddRenderComponent(new RenderComponents.LevelBadgeComponent());
-            AddRenderComponent(new RenderComponents.DebugOverlayComponent());
+            if (GetRenderComponent<RenderComponents.CombatAuraComponent>() == null)
+                AddRenderComponent(new RenderComponents.CombatAuraComponent());
+            if (GetRenderComponent<RenderComponents.AppearanceComponent>() == null)
+                AddRenderComponent(new RenderComponents.AppearanceComponent());
+            if (GetRenderComponent<RenderComponents.HealthBarComponent>() == null)
+                AddRenderComponent(new RenderComponents.HealthBarComponent());
+            if (GetRenderComponent<RenderComponents.MpBarComponent>() == null)
+                AddRenderComponent(new RenderComponents.MpBarComponent());
+            if (GetRenderComponent<RenderComponents.CastBarComponent>() == null)
+                AddRenderComponent(new RenderComponents.CastBarComponent());
+            if (GetRenderComponent<RenderComponents.ActionBarComponent>() == null)
+                AddRenderComponent(new RenderComponents.ActionBarComponent());
+            if (GetRenderComponent<RenderComponents.RichLabelComponent>() == null)
+                AddRenderComponent(new RenderComponents.RichLabelComponent());
+            if (GetRenderComponent<RenderComponents.LevelBadgeComponent>() == null)
+                AddRenderComponent(new RenderComponents.LevelBadgeComponent());
+            if (GetRenderComponent<RenderComponents.DebugOverlayComponent>() == null)
+                AddRenderComponent(new RenderComponents.DebugOverlayComponent());
         }
     }
 }

@@ -221,6 +221,15 @@ namespace ClinetCSharp
         protected Tween _currentTween;
         public bool IsMoving { get; set; } = false;
 
+        /// <summary>
+        /// Tween 宿主覆盖（导演模式用）：演出期间整棵树被暂停，被暂停节点创建的 Tween 会冻结，
+        /// 由 CutsceneDirector（ProcessMode=Always）在驱动本实体 MoveTo 前临时设置，移动完成后还原。
+        /// </summary>
+        public Node TweenHostOverride { get; set; }
+
+        /// <summary>当前移动 Tween（演出编排等待移动完成用，可能为 null）</summary>
+        public Tween CurrentTween => _currentTween;
+
         // ========== 施法条（从 Player 下沉） ==========
         public Vector2 CastBarOffset { get; set; } = new Vector2(0, -80);
         public bool CastBarCenterX { get; set; } = true;
@@ -677,7 +686,8 @@ namespace ClinetCSharp
         {
             IsMoving = true;
             _currentTween?.Kill();
-            _currentTween = CreateTween();
+            // 演出期间 TweenHostOverride 指向 Always 节点，避免实体被暂停时 Tween 一并冻结
+            _currentTween = (TweenHostOverride ?? this).CreateTween();
             _currentTween.SetTrans(Tween.TransitionType.Quad);
             _currentTween.SetEase(Tween.EaseType.Out);
             _currentTween.TweenProperty(this, "position", GetWorldPositionForGridPos(targetGridPos), duration);

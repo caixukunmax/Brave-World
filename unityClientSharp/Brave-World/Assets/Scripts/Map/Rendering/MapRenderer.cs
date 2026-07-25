@@ -114,13 +114,14 @@ namespace UnityClientSharp.Map.Rendering
             _material.SetColor("_OutsideMapColor", _gm.ShowOutsideMapGray ? _gm.OutsideMapColor : new Color(0, 0, 0, 0));
             _material.SetFloat("_GridSize", _gm.GridSize);
 
-            if (_gm.TerrainMask != _lastTerrainMask && _gm.TerrainMask != null)
+            if (_gm.TerrainMask != null)
             {
+                // 无条件推：Edit 模式会话里遮罩纹理可能被销毁重建，引用比较会漏同步
                 _lastTerrainMask = _gm.TerrainMask;
                 _material.SetTexture("_TerrainMask", _gm.TerrainMask);
                 _material.SetVector("_TerrainMaskSize", new Vector4(_gm.TerrainMaskSize.x, _gm.TerrainMaskSize.y, 0, 0));
             }
-            if (_gm.WaterMask != _lastWaterMask && _gm.WaterMask != null)
+            if (_gm.WaterMask != null)
             {
                 _lastWaterMask = _gm.WaterMask;
                 _material.SetTexture("_WaterMask", _gm.WaterMask);

@@ -26,24 +26,24 @@ namespace UnityClientSharp.Entity
                     store.SetValue(section, "border_width_scale", app.BorderWidthScale);
                     store.SetValue(section, "corner_radius", app.CornerRadius);
                     store.SetValue(section, "bg_opacity", app.BgOpacity);
-                    store.SetValue(section, "font_size", app.FontSize);
                     store.SetValue(section, "border_color_r", app.BorderColor.r);
                     store.SetValue(section, "border_color_g", app.BorderColor.g);
                     store.SetValue(section, "border_color_b", app.BorderColor.b);
                     store.SetValue(section, "bg_color_r", app.BgColor.r);
                     store.SetValue(section, "bg_color_g", app.BgColor.g);
                     store.SetValue(section, "bg_color_b", app.BgColor.b);
-                    store.SetValue(section, "text_color_r", app.TextColor.r);
-                    store.SetValue(section, "text_color_g", app.TextColor.g);
-                    store.SetValue(section, "text_color_b", app.TextColor.b);
                     break;
 
                 case LabelGroupData labels:
                     store.SetValue(section, "default_font_size", labels.DefaultFontSize);
+                    store.SetValue(section, "default_text_color_r", labels.DefaultTextColor.r);
+                    store.SetValue(section, "default_text_color_g", labels.DefaultTextColor.g);
+                    store.SetValue(section, "default_text_color_b", labels.DefaultTextColor.b);
                     store.SetValue(section, "bold", labels.Bold);
                     store.SetValue(section, "italic", labels.Italic);
                     store.SetValue(section, "shadow", labels.Shadow);
-                    for (int i = 0; i < LabelGroupData.LabelCount; i++)
+                    store.SetValue(section, "label_count", labels.Count);
+                    for (int i = 0; i < labels.Count; i++)
                     {
                         string prefix = $"label_{i}";
                         store.SetValue(section, $"{prefix}_visible", labels.Visible[i]);
@@ -51,6 +51,9 @@ namespace UnityClientSharp.Entity
                         store.SetValue(section, $"{prefix}_content", labels.ContentPreview[i] ?? "");
                         store.SetValue(section, $"{prefix}_use_global_font_size", labels.UseGlobalFontSize[i]);
                         store.SetValue(section, $"{prefix}_font_size", labels.FontSizes[i]);
+                        store.SetValue(section, $"{prefix}_text_color_r", labels.TextColors[i].r);
+                        store.SetValue(section, $"{prefix}_text_color_g", labels.TextColors[i].g);
+                        store.SetValue(section, $"{prefix}_text_color_b", labels.TextColors[i].b);
                         store.SetValue(section, $"{prefix}_x_offset", labels.XOffset[i]);
                         store.SetValue(section, $"{prefix}_center_x", labels.CenterX[i]);
                         store.SetValue(section, $"{prefix}_y_offset", labels.YOffset[i]);
@@ -155,7 +158,6 @@ namespace UnityClientSharp.Entity
                         BorderWidthScale = store.GetValue(section, "border_width_scale", 3.0f / 111.0f),
                         CornerRadius = store.GetValue(section, "corner_radius", 12.0f),
                         BgOpacity = store.GetValue(section, "bg_opacity", 0.9f),
-                        FontSize = store.GetValue(section, "font_size", 0),
                         BorderColor = new Color(
                             store.GetValue(section, "border_color_r", 1.0f),
                             store.GetValue(section, "border_color_g", 1.0f),
@@ -164,21 +166,23 @@ namespace UnityClientSharp.Entity
                             store.GetValue(section, "bg_color_r", 1.0f),
                             store.GetValue(section, "bg_color_g", 1.0f),
                             store.GetValue(section, "bg_color_b", 1.0f)),
-                        TextColor = new Color(
-                            store.GetValue(section, "text_color_r", 0.0f),
-                            store.GetValue(section, "text_color_g", 0.0f),
-                            store.GetValue(section, "text_color_b", 0.0f)),
                     };
 
                 case "labels":
                     var labels = new LabelGroupData
                     {
                         DefaultFontSize = store.GetValue(section, "default_font_size", 0),
+                        DefaultTextColor = new Color(
+                            store.GetValue(section, "default_text_color_r", 1.0f),
+                            store.GetValue(section, "default_text_color_g", 1.0f),
+                            store.GetValue(section, "default_text_color_b", 1.0f)),
                         Bold = store.GetValue(section, "bold", false),
                         Italic = store.GetValue(section, "italic", false),
                         Shadow = store.GetValue(section, "shadow", false),
                     };
-                    for (int i = 0; i < LabelGroupData.LabelCount; i++)
+                    // 行数可变：label_count 缺省按默认 4 行（兼容旧配置）
+                    labels.ResizeRows(store.GetValue(section, "label_count", LabelGroupData.DefaultRowCount));
+                    for (int i = 0; i < labels.Count; i++)
                     {
                         string prefix = $"label_{i}";
                         labels.Visible[i] = store.GetValue(section, $"{prefix}_visible", true);
@@ -186,6 +190,10 @@ namespace UnityClientSharp.Entity
                         labels.ContentPreview[i] = store.GetValue(section, $"{prefix}_content", "");
                         labels.FontSizes[i] = store.GetValue(section, $"{prefix}_font_size", 0);
                         labels.UseGlobalFontSize[i] = store.GetValue(section, $"{prefix}_use_global_font_size", labels.FontSizes[i] <= 0);
+                        labels.TextColors[i] = new Color(
+                            store.GetValue(section, $"{prefix}_text_color_r", 1.0f),
+                            store.GetValue(section, $"{prefix}_text_color_g", 1.0f),
+                            store.GetValue(section, $"{prefix}_text_color_b", 1.0f));
                         labels.XOffset[i] = store.GetValue(section, $"{prefix}_x_offset", 0f);
                         labels.CenterX[i] = store.GetValue(section, $"{prefix}_center_x", true);
                         labels.YOffset[i] = store.GetValue(section, $"{prefix}_y_offset", 0f);

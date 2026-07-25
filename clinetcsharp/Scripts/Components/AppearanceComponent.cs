@@ -16,29 +16,29 @@ namespace ClinetCSharp
 
         // Size + Scale (linked)
         private HSlider _sizeSlider;
-        private Label _sizeValue;
+        private Button _sizeValue;
         private HSlider _sizeScaleSlider;
-        private Label _sizeScaleValue;
+        private Button _sizeScaleValue;
 
         // BorderWidth + Scale (linked)
         private HSlider _borderWidthSlider;
-        private Label _borderWidthValue;
+        private Button _borderWidthValue;
         private HSlider _borderWidthScaleSlider;
-        private Label _borderWidthScaleValue;
+        private Button _borderWidthScaleValue;
 
         // Other
         private HSlider _cornerRadiusSlider;
-        private Label _cornerRadiusValue;
+        private Button _cornerRadiusValue;
         private HSlider _bgOpacitySlider;
-        private Label _bgOpacityValue;
+        private Button _bgOpacityValue;
         private HSlider _fontSizeSlider;
-        private Label _fontSizeValue;
+        private Button _fontSizeValue;
 
         // Size on grid
         private HSlider _sizeXSlider;
-        private Label _sizeXValue;
+        private Button _sizeXValue;
         private HSlider _sizeYSlider;
-        private Label _sizeYValue;
+        private Button _sizeYValue;
 
         // Colors
         private ColorPickerButton _borderColorPicker;
@@ -261,7 +261,7 @@ namespace ClinetCSharp
         #endregion
 
         #region Helpers
-        private static (HSlider slider, Label valueLabel) CreateSliderRow(
+        private static (HSlider slider, Button valueDisplay) CreateSliderRow(
             Container parent, string label, float min, float max, float def, float step)
         {
             float actualStep = step > 0 ? step : (max <= 1.0f ? 0.05f : 1f);
@@ -288,13 +288,12 @@ namespace ClinetCSharp
             Func<double, string> fmt = actualStep < 1.0f
                 ? (v => v.ToString(DebugPanelLengthScalePolicy.FormatStr))
                 : (v => ((int)v).ToString());
-            slider.ValueChanged += (v) => valLbl.Text = fmt(v);
             parent.AddChild(row);
-            SliderValueInput.Attach(slider, valLbl, fmt);
-            return (slider, valLbl);
+            var valueDisplay = SliderValueInput.Attach(slider, valLbl, fmt);
+            return (slider, valueDisplay);
         }
 
-        private static void SetSliderSilent(HSlider slider, double value, Label label, string text)
+        private static void SetSliderSilent(HSlider slider, double value, Button label, string text)
         {
             slider.SetBlockSignals(true);
             slider.Value = value;

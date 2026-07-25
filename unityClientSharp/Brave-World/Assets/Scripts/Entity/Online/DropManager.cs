@@ -74,7 +74,7 @@ namespace UnityClientSharp.Entity
                 cntGo.transform.localPosition = new Vector3(box * 0.4f, -box * 0.4f, 0);
                 var tmp = cntGo.AddComponent<TextMeshPro>();
                 tmp.text = $"x{count}";
-                tmp.fontSize = 11;
+                FontUtil.SetWorldFontSize(tmp, 11);
                 tmp.color = Color.white;
                 tmp.alignment = TextAlignmentOptions.Center;
                 FontUtil.ApplyCjkFont(tmp);

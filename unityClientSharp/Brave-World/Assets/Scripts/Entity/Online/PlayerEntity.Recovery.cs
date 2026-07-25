@@ -64,5 +64,26 @@ namespace UnityClientSharp.Entity
             _collisionMove = false;
             base.PlayBumpAnimation(fromPos, toPos);
         }
+
+        /// <summary>
+        /// GM 瞬移（移植自 Godot Player.TeleportToGrid）：清矫正/停检查点/杀 tween、
+        /// 复位在途计数与碰撞/弹回标记，逻辑格与视觉位置一次性吸附到目标格。
+        /// 由 GM 面板在收到 TELEPORT:/RETURN: 响应时调用。
+        /// </summary>
+        public void TeleportToGrid(Vector2Int gridPos)
+        {
+            ClearPendingServerGridCorrection();
+            StopMoveCheckpoint();
+            KillMoveTween();
+
+            IsMoving = false;
+            _bouncingBack = false;
+            _collisionMove = false;
+            _moveSentCount = 0;
+
+            GridPos = gridPos;
+            _moveFromPos = gridPos;
+            transform.position = PositionForGridPos(gridPos);
+        }
     }
 }

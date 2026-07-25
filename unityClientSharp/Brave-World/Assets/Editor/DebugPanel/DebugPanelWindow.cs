@@ -46,8 +46,12 @@ namespace BraveWorld.Editor
 
         private void OnFocus() => _profileTab?.RefreshIfNeeded();
 
-        /// <summary>配置已改：0.5s 防抖自动落盘（拖 slider 时不会每帧写盘）。</summary>
-        public void MarkDirty() => _dirtyAt = EditorApplication.timeSinceStartup;
+        /// <summary>配置已改：0.5s 防抖自动落盘（拖 slider 时不会每帧写盘）；同时立即重绘窗口让预览实时刷新。</summary>
+        public void MarkDirty()
+        {
+            _dirtyAt = EditorApplication.timeSinceStartup;
+            Repaint();
+        }
 
         private void Update()
         {
@@ -62,6 +66,18 @@ namespace BraveWorld.Editor
         {
             EntityProfileManager.SaveConfig();
             EditorDebugSettings.Save();
+            RefreshMapEditorSession();
+        }
+
+        /// <summary>
+        /// 配置变更后同步重建地图编辑器会话里的装饰摆件（字号/样式/停用立即生效），
+        /// 否则地图编辑器里看到的还是进入会话时的旧配置，与调试面板预览不一致。
+        /// </summary>
+        private static void RefreshMapEditorSession()
+        {
+            var mapEditor = MapEditing.MapEditorWindow.Active;
+            if (mapEditor != null && mapEditor.Session.IsActive)
+                mapEditor.Session.RefreshAll();
         }
 
         private void OnGUI()
@@ -92,6 +108,7 @@ namespace BraveWorld.Editor
                     EntityProfileManager.LoadConfig();
                     EditorDebugSettings.Reload();
                     _profileTab.Invalidate();
+                    RefreshMapEditorSession();
                 }
                 using (new EditorGUI.DisabledScope(!Application.isPlaying))
                 {

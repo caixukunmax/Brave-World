@@ -11,20 +11,18 @@ namespace UnityClientSharp.Entity
         IComponentData Clone();
     }
 
-    /// <summary>外观组件数据 — 大小/比例/边框/圆角/背景/颜色。</summary>
+    /// <summary>外观组件数据 — 大小/比例/边框/圆角/背景/颜色（标签字号/文字颜色在 LabelGroupData）。</summary>
     public class AppearanceData : IComponentData
     {
         public float VisualSizeScale = 1.0f;
         public float BorderWidthScale = 3.0f / 111.0f;
         public float CornerRadius = 12.0f;
         public float BgOpacity = 0.9f;
-        public int FontSize = 0; // 0 = 自动
         public int SizeX = 1;    // 占地宽度（格子数）
         public int SizeY = 1;    // 占地高度（格子数）
 
         public Color BorderColor = Color.white;
         public Color BgColor = Color.white;
-        public Color TextColor = Color.black;
 
         public IComponentData Clone() => (AppearanceData)MemberwiseClone();
     }
@@ -32,21 +30,72 @@ namespace UnityClientSharp.Entity
     /// <summary>标签组组件数据 — 4 行文字标签（装饰只用第 0 行名称）。</summary>
     public class LabelGroupData : IComponentData
     {
-        public const int LabelCount = 4;
+        /// <summary>新建时的默认行数（运行时代码按行下标绑定内容：0=名字/1=副标题/3=状态等）。</summary>
+        public const int DefaultRowCount = 4;
 
         public int DefaultFontSize = 0; // 0 = 自动
+        public Color DefaultTextColor = Color.white; // 标签默认文字颜色
         public bool Bold;
         public bool Italic;
         public bool Shadow;
 
+        // 行数可变（AddRow/RemoveRow）；Names[i] 只是给配置者看的备注，代码一律按下标 i 与内容关联
         public bool[] Visible = { true, true, true, true };
-        public string[] Names = { "", "", "", "" };
+        public string[] Names = { "", "", "", "" }; // 备注，不参与任何逻辑
         public string[] ContentPreview = { "", "", "", "" };
         public bool[] UseGlobalFontSize = { true, true, true, true };
         public int[] FontSizes = { 0, 0, 0, 0 };
+        public Color[] TextColors = { Color.white, Color.white, Color.white, Color.white };
         public float[] XOffset = { 0, 0, 0, 0 };
         public bool[] CenterX = { true, true, true, true };
         public float[] YOffset = { 0, 0, 0, 0 };
+
+        /// <summary>当前行数（各行属性数组等长，以其长度为准）。</summary>
+        public int Count => ContentPreview.Length;
+
+        /// <summary>末尾追加一行（默认可见/用全局字号/水平居中）。</summary>
+        public void AddRow()
+        {
+            int n = Count;
+            System.Array.Resize(ref Visible, n + 1); Visible[n] = true;
+            System.Array.Resize(ref Names, n + 1); Names[n] = "";
+            System.Array.Resize(ref ContentPreview, n + 1); ContentPreview[n] = "";
+            System.Array.Resize(ref UseGlobalFontSize, n + 1); UseGlobalFontSize[n] = true;
+            System.Array.Resize(ref FontSizes, n + 1); FontSizes[n] = 0;
+            System.Array.Resize(ref TextColors, n + 1); TextColors[n] = Color.white;
+            System.Array.Resize(ref XOffset, n + 1); XOffset[n] = 0f;
+            System.Array.Resize(ref CenterX, n + 1); CenterX[n] = true;
+            System.Array.Resize(ref YOffset, n + 1); YOffset[n] = 0f;
+        }
+
+        /// <summary>删除第 index 行；后续行下标前移（调用方按 idx 绑定时需注意）。</summary>
+        public void RemoveRow(int index)
+        {
+            if (index < 0 || index >= Count) return;
+            RemoveAt(ref Visible, index);
+            RemoveAt(ref Names, index);
+            RemoveAt(ref ContentPreview, index);
+            RemoveAt(ref UseGlobalFontSize, index);
+            RemoveAt(ref FontSizes, index);
+            RemoveAt(ref TextColors, index);
+            RemoveAt(ref XOffset, index);
+            RemoveAt(ref CenterX, index);
+            RemoveAt(ref YOffset, index);
+        }
+
+        /// <summary>序列化读取时按存储的行数调整数组长度。</summary>
+        public void ResizeRows(int count)
+        {
+            while (Count < count) AddRow();
+            while (Count > count) RemoveRow(Count - 1);
+        }
+
+        private static void RemoveAt<T>(ref T[] arr, int index)
+        {
+            var list = new System.Collections.Generic.List<T>(arr);
+            list.RemoveAt(index);
+            arr = list.ToArray();
+        }
 
         public IComponentData Clone()
         {
@@ -56,6 +105,7 @@ namespace UnityClientSharp.Entity
             c.ContentPreview = (string[])ContentPreview.Clone();
             c.UseGlobalFontSize = (bool[])UseGlobalFontSize.Clone();
             c.FontSizes = (int[])FontSizes.Clone();
+            c.TextColors = (Color[])TextColors.Clone();
             c.XOffset = (float[])XOffset.Clone();
             c.CenterX = (bool[])CenterX.Clone();
             c.YOffset = (float[])YOffset.Clone();
@@ -207,6 +257,19 @@ namespace UnityClientSharp.Entity
         public IComponentData GetData(string name)
             => _componentData.TryGetValue(name, out var d) ? d : null;
 
+        /// <summary>展示用中文名（labels 第 0 行预览文本）；未配置时回退到内部 Name。</summary>
+        public string DisplayName
+        {
+            get
+            {
+                var labels = GetData<LabelGroupData>("labels");
+                var preview = labels?.ContentPreview;
+                return preview != null && preview.Length > 0 && !string.IsNullOrEmpty(preview[0])
+                    ? preview[0]
+                    : Name;
+            }
+        }
+
         public void SetData(string name, IComponentData data) => _componentData[name] = data;
 
         public void RemoveComponent(string name) => _componentData.Remove(name);
@@ -253,15 +316,14 @@ namespace UnityClientSharp.Entity
                 BorderWidthScale = 3.0f / 111.0f,
                 CornerRadius = 8.0f,
                 BgOpacity = bgColor.a,
-                FontSize = 0,
                 SizeX = sizeX,
                 SizeY = sizeY,
                 BorderColor = borderColor,
                 BgColor = new Color(bgColor.r, bgColor.g, bgColor.b, 1.0f),
-                TextColor = new Color(1, 1, 0.9f),
             });
 
             var labels = new LabelGroupData();
+            labels.DefaultTextColor = new Color(1, 1, 0.9f);
             labels.ContentPreview[0] = displayName;
             labels.Names[0] = "名称";
             labels.Visible[0] = true;
@@ -286,13 +348,11 @@ namespace UnityClientSharp.Entity
                 BorderWidthScale = 3.0f / 111.0f,
                 CornerRadius = 12.0f,
                 BgOpacity = 0.35f,
-                FontSize = 0,
                 BorderColor = Color.white,
                 BgColor = Color.white,
-                TextColor = Color.black,
             });
 
-            profile.SetData("labels", new LabelGroupData());
+            profile.SetData("labels", new LabelGroupData { DefaultTextColor = Color.black });
             profile.SetData("healthbar", BarData.CreateHealthBarDefault());
             profile.SetData("mpbar", BarData.CreateMpBarDefault());
             profile.SetData("castbar", BarData.CreateCastBarDefault());
@@ -312,14 +372,13 @@ namespace UnityClientSharp.Entity
                 BorderWidthScale = 3.0f / 111.0f,
                 CornerRadius = 12.0f,
                 BgOpacity = 0.9f,
-                FontSize = 0,
                 BorderColor = new Color(0.9f, 0.3f, 0.3f),
                 BgColor = new Color(0.8f, 0.2f, 0.2f),
-                TextColor = new Color(1f, 0.95f, 0.95f),
             });
 
             // 标签行绑定（对齐 ConfigureMonsterLabelBindings）：0 名字 / 1 品质 / 2 预留(隐藏) / 3 状态
             var labelData = new LabelGroupData();
+            labelData.DefaultTextColor = new Color(1f, 0.95f, 0.95f);
             labelData.Names[0] = "名字";
             labelData.Names[1] = "品质";
             labelData.Names[2] = "预留";
@@ -349,13 +408,11 @@ namespace UnityClientSharp.Entity
                 BorderWidthScale = 3.0f / 111.0f,
                 CornerRadius = 12.0f,
                 BgOpacity = 0.9f,
-                FontSize = 0,
                 BorderColor = new Color(0.3f, 0.5f, 0.9f),
                 BgColor = new Color(0.2f, 0.4f, 0.8f),
-                TextColor = new Color(0.95f, 0.97f, 1.0f),
             });
 
-            profile.SetData("labels", new LabelGroupData());
+            profile.SetData("labels", new LabelGroupData { DefaultTextColor = new Color(0.95f, 0.97f, 1.0f) });
             var hp = BarData.CreateHealthBarDefault();
             hp.Visible = false;
             var mp = BarData.CreateMpBarDefault();

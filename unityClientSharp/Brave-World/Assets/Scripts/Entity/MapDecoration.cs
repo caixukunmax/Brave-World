@@ -71,14 +71,10 @@ namespace UnityClientSharp.Entity
 
         private void BuildBody(AppearanceData app)
         {
-            float scale = app?.VisualSizeScale ?? 1.0f;
-            float borderScale = app?.BorderWidthScale ?? 3.0f / 111.0f;
-
-            // 尺寸公式与 Godot EntityBase 一致
-            int outerW = Mathf.Clamp(Mathf.RoundToInt(_gridSize * SizeX * scale), 10, _gridSize * SizeX);
-            int outerH = Mathf.Clamp(Mathf.RoundToInt(_gridSize * SizeY * scale), 10, _gridSize * SizeY);
-            int outerRef = Mathf.Clamp(Mathf.RoundToInt(_gridSize * scale), 10, _gridSize);
-            int border = Mathf.Clamp(Mathf.RoundToInt(_gridSize * borderScale), 1, Mathf.Max(1, outerRef / 2));
+            // 尺寸公式统一走 EntityAppearanceLayout（与编辑器预览/游戏内实体一致）
+            EntityAppearanceLayout.ComputeBody(_gridSize, SizeX, SizeY,
+                app?.VisualSizeScale ?? 1.0f, app?.BorderWidthScale ?? EntityAppearanceLayout.DefaultBorderWidthScale,
+                out int outerW, out int outerH, out int border);
 
             var go = new GameObject("Body");
             go.transform.SetParent(transform, false);
@@ -97,7 +93,7 @@ namespace UnityClientSharp.Entity
             for (int i = transform.childCount - 1; i >= 0; i--)
             {
                 string n = transform.GetChild(i).name;
-                if (n == "Body" || n == "Label")
+                if (n == "Body" || n == "Label" || n == "LabelShadow")
                     Destroy(transform.GetChild(i).gameObject);
             }
             Setup(ProfileId, GridX, GridY, _gridSize, BuildingUid, SizeX, SizeY);
@@ -105,28 +101,30 @@ namespace UnityClientSharp.Entity
 
         private void BuildLabel(EntityProfile profile, AppearanceData app)
         {
-            var labels = profile?.GetData<LabelGroupData>("labels");
-            string text = labels != null && labels.Visible[0] ? labels.ContentPreview[0] : "";
+            // 「停用」语义与调试面板预览一致：labels 组件停用时不生成任何标签
+            if (profile == null || profile.IsComponentDisabled("labels")) return;
+            var labels = profile.GetData<LabelGroupData>("labels");
+            string text = labels != null && labels.Count > 0 && labels.Visible[0] ? labels.ContentPreview[0] : "";
             if (string.IsNullOrEmpty(text)) return;
 
-            // 字号公式与 Godot RenderComponents.LabelComponent 一致：基于 1x1 内尺寸
-            int border = Mathf.Clamp(Mathf.RoundToInt(_gridSize * (app?.BorderWidthScale ?? 3.0f / 111.0f)), 1, _gridSize / 2);
-            int innerRef = Mathf.Max(2, Mathf.Clamp(Mathf.RoundToInt(_gridSize * (app?.VisualSizeScale ?? 1.0f)), 10, _gridSize) - border * 2);
-            int fs = (app?.FontSize ?? 0) > 0 ? app.FontSize : Mathf.Max((int)(innerRef / 4.0f * 0.7f), 8);
-            // 4 行标签块的第 0 行位置（Godot y 向下为负 = 上方；Unity 世界 y 取正）
-            float lineHeight = fs * 1.1f;
-            float line0Y = -(lineHeight * 4 / 2f) + lineHeight * 0.5f;
+            // 字号/颜色/样式统一走 EntityAppearanceLayout（与编辑器预览/游戏内实体一致）
+            int fs = EntityAppearanceLayout.RowFontSize(_gridSize, labels, 0,
+                app?.VisualSizeScale ?? 1.0f, app?.BorderWidthScale ?? EntityAppearanceLayout.DefaultBorderWidthScale);
 
             var go = new GameObject("Label");
             go.transform.SetParent(transform, false);
-            go.transform.localPosition = new Vector3(0, -line0Y, 0);
+            go.transform.localPosition = new Vector3(labels.CenterX[0] ? 0 : labels.XOffset[0],
+                EntityAppearanceLayout.LineWorldOffsetY(0, fs, labels.YOffset[0], labels.Count), 0);
             var tmp = go.AddComponent<TextMeshPro>();
             tmp.text = text;
-            tmp.fontSize = fs;
+            FontUtil.SetWorldFontSize(tmp, fs);
             tmp.alignment = TextAlignmentOptions.Center;
-            tmp.color = app?.TextColor ?? new Color(1, 1, 0.9f);
+            tmp.fontStyle = EntityAppearanceLayout.RowFontStyle(labels);
+            tmp.color = EntityAppearanceLayout.RowTextColor(labels, 0);
             FontUtil.ApplyCjkFont(tmp);
-            tmp.GetComponent<MeshRenderer>().sortingOrder = 2;
+            const int order = 3; // Body=1，阴影=2，主标签=3
+            tmp.GetComponent<MeshRenderer>().sortingOrder = order;
+            if (labels.Shadow) EntityLabelShadow.Create(tmp, "LabelShadow", order - 1);
         }
     }
 }

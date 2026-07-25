@@ -6,20 +6,17 @@ using UnityEngine;
 namespace BraveWorld.Editor.MapEditing
 {
     /// <summary>
-    /// Scene 视图交互层：三工具鼠标逻辑（刷地形连刷 / 框选 / 放建筑拖放）、
-    /// Handles 高亮（悬停格/选区/footprint 幽灵）、快捷键（Ctrl+Z/Y、Ctrl+A、Delete、Esc）。
+    /// Scene 视图交互层：双工具鼠标逻辑（刷地形拖框框刷 / 放建筑拖放）、
+    /// Handles 高亮（悬停格/选区/footprint 幽灵）、快捷键（Ctrl+Z/Y、Delete、Esc）。
     /// 鼠标→格子换算：世界 y 向上、逻辑 y 向下，翻转统一走 GridMath.LogicToWorld（AGENTS.md 第 1 条）。
     /// </summary>
     [InitializeOnLoad]
     public static class MapEditSceneGui
     {
-        private enum DragState { None, Painting, Selecting, MovingDecoration }
+        private enum DragState { None, Selecting, MovingDecoration }
 
         private static DragState _drag = DragState.None;
-        private static CellEditCommand _strokeCmd;
-        private static HashSet<Vector2Int> _strokeSeen;
         private static Vector2Int _selStart, _selEnd;
-        private static bool _selCtrl;
         private static Vector2Int _moveSrc;
         private static int _moveType;
 
@@ -76,7 +73,7 @@ namespace BraveWorld.Editor.MapEditing
             {
                 case EventType.MouseDown:
                     if (!hit) break;
-                    if (e.button == 0) { OnLeftDown(win, hover, e); e.Use(); }
+                    if (e.button == 0) { OnLeftDown(win, hover); e.Use(); }
                     else if (e.button == 1) { OnRightDown(win, hover); e.Use(); }
                     break;
                 case EventType.MouseDrag:
@@ -96,15 +93,14 @@ namespace BraveWorld.Editor.MapEditing
 
         // ============ 左键 ============
 
-        private static void OnLeftDown(MapEditorWindow win, Vector2Int hover, Event e)
+        private static void OnLeftDown(MapEditorWindow win, Vector2Int hover)
         {
             switch (win.CurrentTool)
             {
                 case MapEditTool.PaintTerrain:
-                    _drag = DragState.Painting;
-                    _strokeCmd = new CellEditCommand();
-                    _strokeSeen = new HashSet<Vector2Int>();
-                    PaintAt(win, hover);
+                    // 刷地形 = 框刷：拖出矩形，松开时把当前装饰刷子应用到框内格子
+                    _drag = DragState.Selecting;
+                    _selStart = _selEnd = hover;
                     break;
 
                 case MapEditTool.PlaceDecoration:
@@ -123,12 +119,6 @@ namespace BraveWorld.Editor.MapEditing
                             win.ShowNotification(new GUIContent(err));
                     }
                     break;
-
-                case MapEditTool.Select:
-                    _drag = DragState.Selecting;
-                    _selStart = _selEnd = hover;
-                    _selCtrl = e.control;
-                    break;
             }
         }
 
@@ -136,9 +126,6 @@ namespace BraveWorld.Editor.MapEditing
         {
             switch (_drag)
             {
-                case DragState.Painting:
-                    PaintAt(win, hover);
-                    break;
                 case DragState.Selecting:
                     _selEnd = hover;
                     break;
@@ -151,16 +138,10 @@ namespace BraveWorld.Editor.MapEditing
         {
             switch (_drag)
             {
-                case DragState.Painting:
-                    if (_strokeCmd != null && _strokeCmd.Changes.Count > 0)
-                        MapEditUndoStack.Push(_strokeCmd);
-                    _strokeCmd = null;
-                    _strokeSeen = null;
-                    win.Session.RefreshAll(); // 地形装饰变化需重建装饰摆件
-                    break;
-
                 case DragState.Selecting:
                     FinishSelection(win);
+                    int n = MapEditOps.ApplyPaintToSelection(win.Session.Grid, win.Selection, win.PaintDecorationId);
+                    if (n > 0) win.Session.RefreshAll(); // 地形装饰变化需重建装饰摆件
                     break;
 
                 case DragState.MovingDecoration:
@@ -176,36 +157,10 @@ namespace BraveWorld.Editor.MapEditing
             _drag = DragState.None;
         }
 
-        private static void PaintAt(MapEditorWindow win, Vector2Int pos)
-        {
-            var grid = win.Session.Grid;
-            var cell = grid.GetCell(pos);
-            if (cell == null || _strokeSeen.Contains(pos)) return;
-
-            int newT = cell.TerrainType, newD = cell.DecorationType;
-            if (win.TerrainPaintMode == TerrainPaintMode.TerrainType)
-            {
-                if (cell.TerrainType == win.PaintTerrainType) return;
-                newT = win.PaintTerrainType;
-            }
-            else
-            {
-                if (cell.DecorationType == win.PaintDecorationId) return;
-                newD = win.PaintDecorationId;
-            }
-
-            _strokeSeen.Add(pos);
-            _strokeCmd.Changes.Add((pos, cell.TerrainType, newT, cell.DecorationType, newD));
-            cell.TerrainType = newT;
-            cell.RefreshTerrainConfig();
-            cell.DecorationType = newD;
-            win.Session.RefreshMask(); // 轻量刷新（笔刷过程中不重建装饰）
-        }
-
         private static void FinishSelection(MapEditorWindow win)
         {
             var sel = win.Selection;
-            if (!_selCtrl) sel.Clear();
+            sel.Clear();
             if (_selStart == _selEnd)
             {
                 sel.Add(_selStart);
@@ -232,7 +187,7 @@ namespace BraveWorld.Editor.MapEditing
                     if (MapEditOps.TryDelete(win.Session.Grid, win.Session.Decorations, hover))
                         win.Session.RefreshAll();
                     break;
-                case MapEditTool.Select:
+                case MapEditTool.PaintTerrain:
                     win.Selection.Clear();
                     win.Repaint();
                     break;
@@ -245,7 +200,6 @@ namespace BraveWorld.Editor.MapEditing
         {
             if (e.control && e.keyCode == KeyCode.Z) { win.DoUndo(); e.Use(); }
             else if (e.control && e.keyCode == KeyCode.Y) { win.DoRedo(); e.Use(); }
-            else if (e.control && e.keyCode == KeyCode.A && win.CurrentTool == MapEditTool.Select) { win.SelectAll(); e.Use(); }
             else if ((e.keyCode == KeyCode.Delete || e.keyCode == KeyCode.Backspace)
                      && win.CurrentTool == MapEditTool.PlaceDecoration)
             {
@@ -256,8 +210,6 @@ namespace BraveWorld.Editor.MapEditing
             else if (e.keyCode == KeyCode.Escape)
             {
                 _drag = DragState.None;
-                _strokeCmd = null;
-                _strokeSeen = null;
                 e.Use();
             }
         }

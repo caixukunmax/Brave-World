@@ -24,5 +24,6 @@
     <Compile Include="..\Scripts\PlayerRoleInfoPositionSyncPolicy.cs" Link="PlayerRoleInfoPositionSyncPolicy.cs" Condition="Exists('..\Scripts\PlayerRoleInfoPositionSyncPolicy.cs')" />
     <Compile Include="..\Scripts\TextInventoryLayout.cs" Link="TextInventoryLayout.cs" Condition="Exists('..\Scripts\TextInventoryLayout.cs')" />
     <Compile Include="..\Scripts\ItemIconCatalog.cs" Link="ItemIconCatalog.cs" Condition="Exists('..\Scripts\ItemIconCatalog.cs')" />
+    <Compile Include="..\Scripts\EntityPreviewPolicy.cs" Link="EntityPreviewPolicy.cs" Condition="Exists('..\Scripts\EntityPreviewPolicy.cs')" />
   </ItemGroup>
 </Project>

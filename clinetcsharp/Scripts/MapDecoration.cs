@@ -10,6 +10,9 @@ namespace ClinetCSharp
     /// 地图装饰实体（房舍等静态摆件）。
     /// 作为 entityType="decoration" 的 EntityProfile 运行时表现，通过 ProfileId 驱动外观/标签/障碍属性。
     /// </summary>
+    // [Tool]：地图编辑器插件用真实 MapDecoration 节点渲染建筑外观（全靠 _Draw 里的 RenderComponent），
+    // 需要 _Draw 在编辑器下执行；插件侧已 SetProcess(false)/SetProcessInput(false)，_Process/_Input 不会在编辑器触发。
+    [Tool]
     public partial class MapDecoration : EntityBase
     {
         private int _gridSize = 111;
@@ -120,6 +123,38 @@ namespace ClinetCSharp
 
             // 判断是否为酒馆
             _isTavern = BuildingType.GetTypeFromConfigId(ProfileId) == BuildingType.Tavern;
+
+            EnsureRenderComponents();
+            QueueRedraw();
+        }
+
+        /// <summary>
+        /// 预览专用：直接从一个 EntityProfile 对象套用配置，不依赖运行时 EntityProfileManager 单例。
+        /// 复用与游戏中相同的 ApplyProfileToEntity 核心逻辑 + 同一套 IRenderComponent，保证预览与游戏 1:1 一致。
+        /// 用于编辑器插件「实体配置」面板的实时预览。
+        /// </summary>
+        /// <param name="registerInDecorationGroup">
+        /// 预览实体必须传 false，避免被当成“已放置的建筑”计入 Applied/干扰组相关逻辑。
+        /// </param>
+        public void SetupFromProfile(EntityProfile profile, bool registerInDecorationGroup = false, int gridX = -1, int gridY = -1, int gridSize = 0)
+        {
+            IsEditable = true;
+            ProfileId = profile.Id;
+            Name = $"PreviewMapDecoration_{profile.Id}";
+
+            if (gridX >= 0) { _gridX = gridX; _gridY = gridY; }
+            if (gridSize > 0) SetGridSize(gridSize);
+
+            // 与游戏同一套套用逻辑：设置视觉/尺寸/标签/血条/铭牌等并同步渲染组件
+            EntityProfileManager.ApplyProfileToEntity(this, profile);
+
+            if (registerInDecorationGroup)
+            {
+                AddToGroup("map_decoration");
+                AddToGroup("decoration");
+            }
+
+            if (gridX >= 0) Position = GetWorldPositionForGridAnchor(new Vector2I(_gridX, _gridY));
 
             EnsureRenderComponents();
             QueueRedraw();
@@ -379,11 +414,15 @@ namespace ClinetCSharp
 
         private void EnsureRenderComponents()
         {
-            if (_renderComponents.Count > 0)
-                return;
-
-            AddRenderComponent(new Render.AppearanceComponent());
-            AddRenderComponent(new Render.LabelComponent());
+            // 禁止用 _renderComponents.Count > 0 早退：Setup/SetupFromProfile 先走
+            // ApplyProfileToEntity，它会按 Profile 组件先行加入 nameplate/castbar/actionbar
+            // 渲染组件——此时 Count 已 >0，但 Appearance/Label 还没加，早退会让实体
+            // 只剩铭牌、身体和文字标签丢失（狗-旺财只渲染出铭牌的根因）。
+            // 改为按类型幂等补齐；AddRenderComponent 自动按 DrawOrder 排序，后加不影响层级。
+            if (GetRenderComponent<Render.AppearanceComponent>() == null)
+                AddRenderComponent(new Render.AppearanceComponent());
+            if (GetRenderComponent<Render.LabelComponent>() == null)
+                AddRenderComponent(new Render.LabelComponent());
         }
     }
 }

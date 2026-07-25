@@ -39,7 +39,7 @@ namespace UnityClientSharp.Map.Rendering
             go.transform.SetParent(_container, false);
             var tmp = go.AddComponent<TextMeshPro>();
             tmp.alignment = TextAlignmentOptions.Center;
-            tmp.fontSize = 14;
+            FontUtil.SetWorldFontSize(tmp, 14);
             tmp.color = Color.white;
             FontUtil.ApplyCjkFont(tmp);
             _pool.Add(tmp);

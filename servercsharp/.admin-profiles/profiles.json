@@ -1,0 +1,14 @@
+[
+  {
+    "id": "w",
+    "name": "我的",
+    "repoRoot": "C:\\code\\codeBrave-World-node2",
+    "serverExePath": "servercsharp\\src\\GameServer\\bin\\Debug\\net8.0\\GameServer.exe",
+    "mongoHost": "127.0.0.1",
+    "mongoPort": 27017,
+    "mongoDb": "tslua2",
+    "httpApiPort": 8890,
+    "gatewayPort": 8889,
+    "autoRestart": false
+  }
+]

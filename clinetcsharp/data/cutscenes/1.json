@@ -1,0 +1,20 @@
+{
+  "id": 1,
+  "name": "第一章开场",
+  "letterbox": true,
+  "skippable": true,
+  "trigger": null,
+  "actors": [
+    { "id": 1, "type": 1 },
+    { "id": 2, "type": 2, "monsterConfigId": 1001 }
+  ],
+  "cues": [
+    { "seq": 1, "group": 0, "type": "fade",         "actor": "", "params": { "dir": "out", "sec": 0.5 } },
+    { "seq": 2, "group": 0, "type": "actor_enter",  "actor": "2", "params": { "x": 12, "y": 8 } },
+    { "seq": 3, "group": 0, "type": "camera_focus", "actor": "2", "params": { "zoom": 1.5, "sec": 0.5 } },
+    { "seq": 4, "group": 0, "type": "fade",         "actor": "",  "params": { "dir": "in", "sec": 0.5 } },
+    { "seq": 5, "group": 0, "type": "move",         "actor": "2", "params": { "x": 8, "y": 8, "sec": 1.2 } },
+    { "seq": 6, "group": 0, "type": "actor_enter",  "actor": "1", "params": { "x": 10, "y": 10 } },
+    { "seq": 7, "group": 0, "type": "camera_reset", "actor": "",  "params": { "sec": 0.8 } }
+  ]
+}

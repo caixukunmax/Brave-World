@@ -104,6 +104,26 @@ namespace UnityClientSharp.Map.Rendering
             if (text != null && font != null) text.font = font;
         }
 
+        /// <summary>
+        /// 设置世界空间 TextMeshPro 的字号（单位 = 世界单位像素，与 Godot 1px=1世界单位、
+        /// EntityAppearanceLayout 的字号公式对齐）。
+        /// 坑：世界空间 TMP 对非正交文本内建 0.1 缩放
+        /// （TMP 源码 m_fontScale = fontSize/pointSize × (m_isOrthographic ? 1 : 0.1f)，
+        /// TextMeshPro 的 m_isOrthographic 默认 false），直接 fontSize=18 只渲染 1.8 世界单位高。
+        /// 本项目相机就是正交 2D，故统一 isOrthographic=true，fontSize 即世界单位。
+        /// 世界空间 TMP 一律走这里，禁止直接给 fontSize 赋世界单位值。
+        /// 另：运行时 AddComponent 的 TMP 其 RectTransform 宽度为 0，enableWordWrapping 默认 true
+        /// 会导致多字标签（如"岩石"）逐字换行，与调试面板实体预览（IMGUI 单行）不一致，
+        /// 故统一关闭换行；显式 \n（如坐标标注）不受影响。
+        /// </summary>
+        public static void SetWorldFontSize(TextMeshPro tmp, float worldSize)
+        {
+            if (tmp == null) return;
+            tmp.isOrthographic = true;
+            tmp.fontSize = worldSize;
+            tmp.enableWordWrapping = false;
+        }
+
         /// <summary>按字体文件路径加载（带数据，TMP FontEngine 可识别）并实测中文字形。</summary>
         private static bool TryCreateFromFile(string path, string family, out TMP_FontAsset asset)
         {

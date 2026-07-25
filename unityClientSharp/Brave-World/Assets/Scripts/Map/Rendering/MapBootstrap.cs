@@ -176,6 +176,10 @@ namespace UnityClientSharp.Map.Rendering
             decoMgr.SpawnEditable = EditMode;
             decoMgr.SpawnDecorations(gm.GridData);
 
+            // 面板管理器：统一热键分发 / ESC 关闭 / 层级，必须先于各面板创建（面板 Build 时注册）
+            var panelMgr = UnityClientSharp.UI.GamePanelManager.Ensure();
+            _gameRoots.Add(panelMgr.gameObject);
+
             if (online)
             {
                 EnsureNetworkObjects();
@@ -209,6 +213,22 @@ namespace UnityClientSharp.Map.Rendering
             // 小地图 HUD（离线也可用：显示地形 + 相机框）
             var minimap = MinimapHud.Create(gm);
             _gameRoots.Add(minimap.gameObject);
+
+            // 背包面板（I）：离线也可打开，显示空背包、不发请求（AGENTS.md 第 18 条）
+            var inventoryPanel = UnityClientSharp.UI.InventoryPanelHud.Create();
+            _gameRoots.Add(inventoryPanel.gameObject);
+
+            // 角色属性面板（无热键，功能按钮栏入口；离线显示空值、应用静默降级）
+            var characterPanel = UnityClientSharp.UI.CharacterPanelHud.Create();
+            _gameRoots.Add(characterPanel.gameObject);
+
+            // GM 面板（F2，开发工具；离线执行只在响应区提示"未连接服务器"，不发包）
+            var gmPanel = UnityClientSharp.UI.GMPanelHud.Create();
+            _gameRoots.Add(gmPanel.gameObject);
+
+            // 功能按钮栏（左上角常驻，离线也可用；未迁移面板的按钮不摆）
+            var functionBar = UnityClientSharp.UI.FunctionButtonBarHud.Create();
+            _gameRoots.Add(functionBar.gameObject);
 
             float w = gm.MapBounds.width * gm.GridSize;
             float h = gm.MapBounds.height * gm.GridSize;

@@ -61,7 +61,11 @@
   <ItemGroup>
     <Compile Include="Assets\Tests\EditMode\NpcInteractTests.cs" />
     <Compile Include="Assets\Tests\EditMode\MovementTests.cs" />
+    <Compile Include="Assets\Tests\EditMode\GamePanelManagerTests.cs" />
     <Compile Include="Assets\Tests\EditMode\MapMigrationEditModeTests.cs" />
+    <Compile Include="Assets\Tests\EditMode\PanelRenderVisualTests.cs" />
+    <Compile Include="Assets\Tests\EditMode\EntityLabelStyleTests.cs" />
+    <Compile Include="Assets\Tests\EditMode\GmCommandSuggesterTests.cs" />
     <Compile Include="Assets\Tests\EditMode\CombatTests.cs" />
     <Compile Include="Assets\Tests\EditMode\OnlineEntityTests.cs" />
     <Compile Include="Assets\Tests\EditMode\FontUtilEditModeTests.cs" />
@@ -69,6 +73,8 @@
     <Compile Include="Assets\Tests\EditMode\NetworkFramingTests.cs" />
     <Compile Include="Assets\Tests\EditMode\SkillPanelTests.cs" />
     <Compile Include="Assets\Tests\EditMode\MapEditingEditModeTests.cs" />
+    <Compile Include="Assets\Tests\EditMode\TextInventoryLayoutTests.cs" />
+    <Compile Include="Assets\Tests\EditMode\GMPanelLayoutTests.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Assets\Tests\EditMode\BraveWorld.EditModeTests.asmdef" />

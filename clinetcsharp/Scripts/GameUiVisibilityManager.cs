@@ -27,6 +27,8 @@ namespace ClinetCSharp
         private readonly List<DraggablePanel> _visiblePanels = new();
         private bool _wasPlayerVisible;
         private bool _wasPatrolOverlayEnabled;
+        /// <summary>本次 HideGameUi 是否隐藏了实体（巡逻层/玩家/怪物等），ShowGameUi 按此对称恢复</summary>
+        private bool _entitiesHidden;
 
         public override void _Ready()
         {
@@ -41,8 +43,10 @@ namespace ClinetCSharp
 
         /// <summary>
         /// 隐藏游戏 UI 与实体，并保存快照用于后续恢复。
+        /// includeEntities=false 时只隐藏 HUD 与面板，保留玩家/怪物/NPC 等实体可见
+        /// （导演模式演出需要实体出镜）。
         /// </summary>
-        public void HideGameUi()
+        public void HideGameUi(bool includeEntities = true)
         {
             if (_hudSnapshot.Count > 0 || _visiblePanels.Count > 0)
             {
@@ -50,6 +54,8 @@ namespace ClinetCSharp
                 _hudSnapshot.Clear();
                 _visiblePanels.Clear();
             }
+
+            _entitiesHidden = includeEntities;
 
             // 1. 隐藏常驻 HUD
             foreach (var group in HudGroups)
@@ -63,7 +69,7 @@ namespace ClinetCSharp
 
             // 2. 隐藏巡逻覆盖层
             var patrolOverlay = GetTree()?.GetFirstNodeInGroup("monster_patrol_overlay") as MonsterPatrolOverlay;
-            if (patrolOverlay != null && IsInstanceValid(patrolOverlay))
+            if (includeEntities && patrolOverlay != null && IsInstanceValid(patrolOverlay))
             {
                 _wasPatrolOverlayEnabled = patrolOverlay.OverlayEnabled;
                 patrolOverlay.SetOverlayEnabled(false);
@@ -71,28 +77,31 @@ namespace ClinetCSharp
 
             // 3. 隐藏玩家
             var player = GetTree()?.GetFirstNodeInGroup("player") as Node2D;
-            if (player != null && IsInstanceValid(player))
+            if (includeEntities && player != null && IsInstanceValid(player))
             {
                 _wasPlayerVisible = player.Visible;
                 player.Visible = false;
             }
 
             // 4. 隐藏各类实体管理器下的对象
-            var monsterMgr = GetTree()?.GetFirstNodeInGroup("monster_manager") as MonsterManager;
-            monsterMgr?.SetAllMonstersVisible(false);
+            if (includeEntities)
+            {
+                var monsterMgr = GetTree()?.GetFirstNodeInGroup("monster_manager") as MonsterManager;
+                monsterMgr?.SetAllMonstersVisible(false);
 
-            var npcMgr = GetTree()?.GetFirstNodeInGroup("npc_manager") as NpcManager;
-            npcMgr?.SetAllNpcsVisible(false);
-            npcMgr?.CloseInteractMenu();
+                var npcMgr = GetTree()?.GetFirstNodeInGroup("npc_manager") as NpcManager;
+                npcMgr?.SetAllNpcsVisible(false);
+                npcMgr?.CloseInteractMenu();
 
-            var chestMgr = GetTree()?.GetFirstNodeInGroup("chest_manager") as ChestManager;
-            chestMgr?.SetAllChestsVisible(false);
+                var chestMgr = GetTree()?.GetFirstNodeInGroup("chest_manager") as ChestManager;
+                chestMgr?.SetAllChestsVisible(false);
 
-            var dropMgr = GetTree()?.GetFirstNodeInGroup("drop_manager") as DropManager;
-            dropMgr?.SetAllDropsVisible(false);
+                var dropMgr = GetTree()?.GetFirstNodeInGroup("drop_manager") as DropManager;
+                dropMgr?.SetAllDropsVisible(false);
 
-            var decMgr = GetTree()?.GetFirstNodeInGroup("map_decoration_manager") as MapDecorationManager;
-            decMgr?.SetAllDecorationsVisible(false);
+                var decMgr = GetTree()?.GetFirstNodeInGroup("map_decoration_manager") as MapDecorationManager;
+                decMgr?.SetAllDecorationsVisible(false);
+            }
 
             // 5. 隐藏所有 DraggablePanel
             var panelMgr = PanelManager.Instance;
@@ -132,30 +141,34 @@ namespace ClinetCSharp
             _hudSnapshot.Clear();
 
             // 2. 恢复巡逻覆盖层
-            var patrolOverlay = GetTree()?.GetFirstNodeInGroup("monster_patrol_overlay") as MonsterPatrolOverlay;
-            if (patrolOverlay != null && IsInstanceValid(patrolOverlay))
-                patrolOverlay.SetOverlayEnabled(_wasPatrolOverlayEnabled);
+            if (_entitiesHidden)
+            {
+                var patrolOverlay = GetTree()?.GetFirstNodeInGroup("monster_patrol_overlay") as MonsterPatrolOverlay;
+                if (patrolOverlay != null && IsInstanceValid(patrolOverlay))
+                    patrolOverlay.SetOverlayEnabled(_wasPatrolOverlayEnabled);
 
-            // 3. 恢复玩家
-            var player = GetTree()?.GetFirstNodeInGroup("player") as Node2D;
-            if (player != null && IsInstanceValid(player))
-                player.Visible = _wasPlayerVisible;
+                // 3. 恢复玩家
+                var player = GetTree()?.GetFirstNodeInGroup("player") as Node2D;
+                if (player != null && IsInstanceValid(player))
+                    player.Visible = _wasPlayerVisible;
 
-            // 4. 恢复各类实体
-            var monsterMgr = GetTree()?.GetFirstNodeInGroup("monster_manager") as MonsterManager;
-            monsterMgr?.SetAllMonstersVisible(true);
+                // 4. 恢复各类实体
+                var monsterMgr = GetTree()?.GetFirstNodeInGroup("monster_manager") as MonsterManager;
+                monsterMgr?.SetAllMonstersVisible(true);
 
-            var npcMgr = GetTree()?.GetFirstNodeInGroup("npc_manager") as NpcManager;
-            npcMgr?.SetAllNpcsVisible(true);
+                var npcMgr = GetTree()?.GetFirstNodeInGroup("npc_manager") as NpcManager;
+                npcMgr?.SetAllNpcsVisible(true);
 
-            var chestMgr = GetTree()?.GetFirstNodeInGroup("chest_manager") as ChestManager;
-            chestMgr?.SetAllChestsVisible(true);
+                var chestMgr = GetTree()?.GetFirstNodeInGroup("chest_manager") as ChestManager;
+                chestMgr?.SetAllChestsVisible(true);
 
-            var dropMgr = GetTree()?.GetFirstNodeInGroup("drop_manager") as DropManager;
-            dropMgr?.SetAllDropsVisible(true);
+                var dropMgr = GetTree()?.GetFirstNodeInGroup("drop_manager") as DropManager;
+                dropMgr?.SetAllDropsVisible(true);
 
-            var decMgr = GetTree()?.GetFirstNodeInGroup("map_decoration_manager") as MapDecorationManager;
-            decMgr?.SetAllDecorationsVisible(true);
+                var decMgr = GetTree()?.GetFirstNodeInGroup("map_decoration_manager") as MapDecorationManager;
+                decMgr?.SetAllDecorationsVisible(true);
+            }
+            _entitiesHidden = false;
 
             // 5. 恢复面板
             foreach (var panel in _visiblePanels)

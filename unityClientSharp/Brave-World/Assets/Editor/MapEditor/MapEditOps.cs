@@ -120,30 +120,20 @@ namespace BraveWorld.Editor.MapEditing
             return true;
         }
 
-        /// <summary>把当前刷子（地形类型或地形装饰）应用到选区，一条命令。返回实际修改格数。</summary>
-        public static int ApplyPaintToSelection(GridManager grid, HashSet<Vector2Int> selection,
-            bool paintTerrainType, int terrainType, int decoId)
+        /// <summary>把当前地形装饰刷子应用到选区（界外格自动跳过），一条命令。返回实际修改格数。</summary>
+        public static int ApplyPaintToSelection(GridManager grid, HashSet<Vector2Int> selection, int decoId)
         {
             var cmd = new CellEditCommand();
             foreach (var pos in selection)
             {
                 var cell = grid.GetCell(pos);
-                if (cell == null) continue;
-                int newT = cell.TerrainType, newD = cell.DecorationType;
-                if (paintTerrainType) newT = terrainType;
-                else newD = decoId;
-                if (newT == cell.TerrainType && newD == cell.DecorationType) continue;
-                cmd.Changes.Add((pos, cell.TerrainType, newT, cell.DecorationType, newD));
+                if (cell == null || cell.DecorationType == decoId) continue;
+                cmd.Changes.Add((pos, cell.TerrainType, cell.TerrainType, cell.DecorationType, decoId));
             }
             if (cmd.Changes.Count == 0) return 0;
 
-            foreach (var (pos, _, newT, _, newD) in cmd.Changes)
-            {
-                var cell = grid.GetCell(pos);
-                cell.TerrainType = newT;
-                cell.RefreshTerrainConfig();
-                cell.DecorationType = newD;
-            }
+            foreach (var (pos, _, _, _, newD) in cmd.Changes)
+                grid.GetCell(pos).DecorationType = newD;
             MapEditUndoStack.Push(cmd);
             return cmd.Changes.Count;
         }

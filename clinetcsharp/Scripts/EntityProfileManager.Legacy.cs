@@ -163,7 +163,7 @@ namespace ClinetCSharp
                 _profiles[id] = profile;
             }
 
-            EnsureDefaultProfiles();
+            ProfileConfigIO.EnsureDefaultProfiles(_profiles);
             GD.Print($"[EntityProfileManager] Loaded {_profiles.Count} profiles (legacy format migration)");
         }
     }

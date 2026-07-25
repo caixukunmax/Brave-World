@@ -89,7 +89,7 @@ namespace BraveWorld.Editor
                 foreach (var p in _profiles)
                 {
                     bool selected = p.Id == _selectedId;
-                    string text = (selected ? "● " : "　") + $"[{p.Id}] {p.Name}";
+                    string text = (selected ? "● " : "　") + $"[{p.Id}] {p.DisplayName}";
                     if (GUILayout.Button(text, EditorStyles.label))
                     {
                         _selectedId = p.Id;
@@ -132,6 +132,8 @@ namespace BraveWorld.Editor
                 EditorGUILayout.LabelField("ID", _current.Id.ToString());
                 EditorGUILayout.LabelField("实体类型", _current.EntityType);
 
+                DrawPreview();
+
                 EditorGUILayout.Space(6);
                 EditorGUILayout.LabelField("组件", EditorStyles.boldLabel);
                 // ToList：遍历中可能移除组件
@@ -140,6 +142,79 @@ namespace BraveWorld.Editor
 
                 DrawAddComponent();
                 EditorGUILayout.EndScrollView();
+            }
+        }
+
+        /// <summary>
+        /// 编辑模式外观预览：贴图走 EntityBodySprite、尺寸/字号/行位置走 EntityAppearanceLayout，
+        /// 与运行时 MapDecoration / EntityVisualBase 完全同源，改字段即时可见，无需进 Play。
+        /// 字体也用游戏同款内置字体资产（NotoSansSC-VF/SimHei），避免预览与运行时字形不一致。
+        /// </summary>
+        private static Font s_previewFont;
+        private static Font PreviewFont
+        {
+            get
+            {
+                if (s_previewFont == null)
+                    s_previewFont = Resources.Load<Font>("Fonts/NotoSansSC-VF") ?? Resources.Load<Font>("Fonts/SimHei");
+                return s_previewFont;
+            }
+        }
+
+        private void DrawPreview()
+        {
+            var app = _current.GetData<AppearanceData>("appearance");
+            if (app == null || _current.IsComponentDisabled("appearance")) return;
+            var labels = _current.GetData<LabelGroupData>("labels");
+            bool labelsOn = labels != null && !_current.IsComponentDisabled("labels");
+
+            EditorGUILayout.Space(6);
+            EditorGUILayout.LabelField("预览", EditorStyles.boldLabel);
+            Rect box = GUILayoutUtility.GetRect(GUIContent.none, GUIStyle.none,
+                GUILayout.Height(200), GUILayout.ExpandWidth(true));
+            EditorGUI.DrawRect(box, new Color(0.16f, 0.16f, 0.16f));
+
+            const int grid = EntityAppearanceLayout.DefaultGridSize;
+            EntityAppearanceLayout.ComputeBody(grid, Mathf.Max(1, app.SizeX), Mathf.Max(1, app.SizeY),
+                app.VisualSizeScale, app.BorderWidthScale, out int outerW, out int outerH, out int border);
+
+            var sprite = EntityBodySprite.Get(outerW, outerH, border, app.CornerRadius,
+                app.BorderColor, app.BgColor, app.BgOpacity);
+
+            float fit = Mathf.Min((box.width - 16f) / outerW, (box.height - 16f) / outerH);
+            var bodyRect = new Rect(box.center.x - outerW * fit / 2f, box.center.y - outerH * fit / 2f,
+                outerW * fit, outerH * fit);
+            GUI.DrawTexture(bodyRect, sprite.texture, ScaleMode.StretchToFill, true);
+
+            if (!labelsOn) return;
+
+            for (int i = 0; i < labels.Count; i++)
+            {
+                if (!labels.Visible[i]) continue;
+                string text = labels.ContentPreview[i];
+                if (string.IsNullOrEmpty(text)) continue;
+                int fs = EntityAppearanceLayout.RowFontSize(grid, labels, i, app.VisualSizeScale, app.BorderWidthScale);
+                float lh = EntityAppearanceLayout.LineHeight(fs) * fit;
+                // 行中心：实体中心 - 世界Y偏移（上为正）× 缩放；GUI y 向下
+                float centerX = bodyRect.center.x + (labels.CenterX[i] ? 0f : labels.XOffset[i] * fit);
+                float centerY = bodyRect.center.y - EntityAppearanceLayout.LineWorldOffsetY(i, fs, labels.YOffset[i], labels.Count) * fit;
+                var style = new GUIStyle(GUI.skin.label)
+                {
+                    alignment = TextAnchor.MiddleCenter,
+                    fontSize = Mathf.Max(6, Mathf.RoundToInt(fs * fit)),
+                    fontStyle = (labels.Bold ? FontStyle.Bold : FontStyle.Normal)
+                                | (labels.Italic ? FontStyle.Italic : FontStyle.Normal),
+                };
+                if (PreviewFont != null) style.font = PreviewFont;
+                style.normal.textColor = EntityAppearanceLayout.RowTextColor(labels, i);
+                var lineRect = new Rect(centerX - box.width / 2f, centerY - lh / 2f, box.width, lh);
+                if (labels.Shadow)
+                {
+                    var shadowStyle = new GUIStyle(style);
+                    shadowStyle.normal.textColor = new Color(0, 0, 0, 0.8f);
+                    GUI.Label(new Rect(lineRect.x + 1, lineRect.y + 1, lineRect.width, lineRect.height), text, shadowStyle);
+                }
+                GUI.Label(lineRect, text, style);
             }
         }
 

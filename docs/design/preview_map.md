@@ -119,3 +119,4 @@ Color lineColor = mainGrid?.LineColor ?? new Color(0.7f, 0.7f, 0.7f);
 2. **禁止在 PreviewMap 中添加 AI 行为**
 3. **禁止修改主地图 GridManager 的参数**
 4. **PreviewMap 必须使用独立地图名**（`__preview_map__`），避免加载真实地图数据
+5. **编辑器插件内嵌预览必须对齐宿主渲染环境**（统一走 `addons/debug_panel_editor/EditorPreviewEnvironment`）：实体/渲染组件与游戏同源只是前提，宿主环境两处偏差必须校准——①像素密度：编辑器显示缩放会把 SubViewport 纹理双线性放大到物理屏（整体发虚），需按 `EditorInterface.GetEditorScale()` 向上取整倍率 N 做 N× 超采样渲染 + `StretchShrink=N` 按 1/N 显示；②主题：SubViewport 内 Control 主题解析会穿过 SubViewport 落到编辑器主题，预览容器须显式赋游戏主题（`ThemeDB.GetProjectTheme() ?? ThemeDB.GetDefaultTheme()`）。

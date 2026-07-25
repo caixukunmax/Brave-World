@@ -34,7 +34,7 @@ project/assembly_name="clinetcsharp"
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/openclaw/plugin.cfg")
+enabled=PackedStringArray("res://addons/cutscene_editor/plugin.cfg", "res://addons/debug_panel_editor/plugin.cfg", "res://addons/map_editor_editor/plugin.cfg")
 
 [input]
 

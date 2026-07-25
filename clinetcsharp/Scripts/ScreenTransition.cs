@@ -56,6 +56,16 @@ namespace ClinetCSharp
             FadeTo(new Color(0, 0, 0, 0), onFinished, duration);
         }
 
+        /// <summary>立即结束过渡并恢复全透明（导演模式中断/跳过的兜底，保证不残留黑屏）</summary>
+        public void ResetInstant()
+        {
+            _activeTween?.Kill();
+            _activeTween = null;
+            _isFading = false;
+            if (_overlay != null)
+                _overlay.Color = new Color(0, 0, 0, 0);
+        }
+
         /// <summary>从当前颜色渐变到目标颜色，到达目标后调用回调。</summary>
         private void FadeTo(Color targetColor, Action onFinished, float? duration)
         {

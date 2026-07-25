@@ -19,41 +19,91 @@ namespace BraveWorld.Editor
             d.BorderWidthScale = EditorGUILayout.Slider("边框比例", d.BorderWidthScale, 0f, 0.2f);
             d.CornerRadius = EditorGUILayout.IntSlider("圆角半径", Mathf.RoundToInt(d.CornerRadius), 0, 60);
             d.BgOpacity = EditorGUILayout.Slider("背景不透明度", d.BgOpacity, 0f, 1f);
-            d.FontSize = EditorGUILayout.IntSlider("字体大小(0=自动)", d.FontSize, 0, 48);
             d.SizeX = EditorGUILayout.IntSlider("占地宽度", d.SizeX, 1, 4);
             d.SizeY = EditorGUILayout.IntSlider("占地高度", d.SizeY, 1, 4);
             d.BorderColor = EditorGUILayout.ColorField("边框颜色", d.BorderColor);
             d.BgColor = EditorGUILayout.ColorField("背景颜色", d.BgColor);
-            d.TextColor = EditorGUILayout.ColorField("文字颜色", d.TextColor);
         }
+
+        // 折叠状态随行数伸缩（增删行后下标对齐）
+        private static readonly System.Collections.Generic.List<bool> s_rowFolds = new() { true, true, true, true };
 
         public static void LabelGroup(LabelGroupData d)
         {
-            d.DefaultFontSize = EditorGUILayout.IntSlider("默认字号(0=自动)", d.DefaultFontSize, 0, 48);
+            d.DefaultFontSize = EditorGUILayout.IntSlider("字体大小(0=自动)", d.DefaultFontSize, 0, 48);
             using (new EditorGUILayout.HorizontalScope())
             {
-                d.Bold = EditorGUILayout.ToggleLeft("粗体", d.Bold, GUILayout.Width(60));
-                d.Italic = EditorGUILayout.ToggleLeft("斜体", d.Italic, GUILayout.Width(60));
-                d.Shadow = EditorGUILayout.ToggleLeft("阴影", d.Shadow, GUILayout.Width(60));
+                d.DefaultTextColor = EditorGUILayout.ColorField("文字颜色", d.DefaultTextColor);
+                d.Bold = EditorGUILayout.ToggleLeft("粗体", d.Bold, GUILayout.Width(50));
+                d.Italic = EditorGUILayout.ToggleLeft("斜体", d.Italic, GUILayout.Width(50));
+                d.Shadow = EditorGUILayout.ToggleLeft("阴影", d.Shadow, GUILayout.Width(50));
             }
-            for (int i = 0; i < LabelGroupData.LabelCount; i++)
+            EditorGUILayout.LabelField("（全局默认：下面每行勾选「使用默认」时，采用此处的字号 / 颜色 / 粗斜体 / 阴影）", EditorStyles.miniLabel);
+            EditorGUILayout.LabelField("（「备注」只是给配置者看的说明，代码按行下标绑定内容：0=名字 / 1=副标题 / 3=状态）", EditorStyles.miniLabel);
+
+            while (s_rowFolds.Count < d.Count) s_rowFolds.Add(true);
+            if (s_rowFolds.Count > d.Count) s_rowFolds.RemoveRange(d.Count, s_rowFolds.Count - d.Count);
+
+            int removeIdx = -1;
+            for (int i = 0; i < d.Count; i++)
             {
-                EditorGUILayout.LabelField($"行{i}", EditorStyles.miniBoldLabel);
+                // 折叠头：标题（含备注/内容预览便于辨识）占满左侧，右侧「显示」开关 + 删除按钮，不被标题挤掉
                 using (new EditorGUILayout.HorizontalScope())
                 {
+                    string title = $"行{i}";
+                    if (!string.IsNullOrEmpty(d.Names[i])) title += $"  {d.Names[i]}";
+                    if (!string.IsNullOrEmpty(d.ContentPreview[i])) title += $"：{d.ContentPreview[i]}";
+                    s_rowFolds[i] = EditorGUILayout.Foldout(s_rowFolds[i], title, true, EditorStyles.foldoutHeader);
                     d.Visible[i] = EditorGUILayout.ToggleLeft("显示", d.Visible[i], GUILayout.Width(50));
-                    GUILayout.Label("名称", GUILayout.Width(30));
-                    d.Names[i] = EditorGUILayout.TextField(d.Names[i] ?? "");
+                    if (GUILayout.Button("×", EditorStyles.miniButton, GUILayout.Width(22))) removeIdx = i;
                 }
-                using (new EditorGUILayout.HorizontalScope())
+                if (!s_rowFolds[i]) continue;
+                using (new EditorGUI.IndentLevelScope())
                 {
-                    d.CenterX[i] = EditorGUILayout.ToggleLeft("居中", d.CenterX[i], GUILayout.Width(50));
-                    GUILayout.Label("X", GUILayout.Width(14));
-                    d.XOffset[i] = EditorGUILayout.FloatField(d.XOffset[i], GUILayout.Width(56));
-                    GUILayout.Label("Y", GUILayout.Width(14));
-                    d.YOffset[i] = EditorGUILayout.FloatField(d.YOffset[i], GUILayout.Width(56));
-                    GUILayout.Label("字号", GUILayout.Width(30));
-                    d.FontSizes[i] = EditorGUILayout.IntField(d.FontSizes[i], GUILayout.Width(44));
+                    // 行标识：备注（仅配置用说明）/ 内容（实际显示文字），内容不会很长，输入框限制宽度
+                    using (new EditorGUILayout.HorizontalScope())
+                    {
+                        d.Names[i] = LabeledTextField("备注", d.Names[i], 90f);
+                        d.ContentPreview[i] = LabeledTextField("内容", d.ContentPreview[i], 160f);
+                        GUILayout.FlexibleSpace();
+                    }
+                    // 位置：X/Y 偏移（标签可左右拖拽调值，同 Transform 的 X/Y/Z）等宽 + 右侧「水平居中」
+                    // 勾选「水平居中」时预览/运行时都忽略 X 偏移，禁用 X 字段避免"改了没效果"的误解
+                    using (new EditorGUILayout.HorizontalScope())
+                    {
+                        using (new EditorGUI.DisabledScope(d.CenterX[i]))
+                            d.XOffset[i] = DragFloatField("X偏移", d.XOffset[i], 50f, 90f);
+                        d.YOffset[i] = DragFloatField("Y偏移", d.YOffset[i], 50f, 90f);
+                        d.CenterX[i] = EditorGUILayout.ToggleLeft("水平居中", d.CenterX[i], GUILayout.Width(76));
+                    }
+                    // 样式：勾选「使用默认」时该行字号/颜色取区块全局默认值，行内字段禁用
+                    using (new EditorGUILayout.HorizontalScope())
+                    {
+                        using (new EditorGUI.DisabledScope(d.UseGlobalFontSize[i]))
+                        {
+                            d.FontSizes[i] = DragIntField("字号", d.FontSizes[i], 40f, 90f);
+                            GUILayout.Label("颜色", GUILayout.Width(40));
+                            d.TextColors[i] = EditorGUILayout.ColorField(GUIContent.none, d.TextColors[i],
+                                GUILayout.MinWidth(48), GUILayout.ExpandWidth(true));
+                        }
+                        d.UseGlobalFontSize[i] = EditorGUILayout.ToggleLeft("使用默认", d.UseGlobalFontSize[i], GUILayout.Width(82));
+                    }
+                }
+            }
+
+            // 增删行：数据已直接改，置 GUI.changed 让外层 ChangeCheck 触发脏标记与重绘
+            if (removeIdx >= 0)
+            {
+                d.RemoveRow(removeIdx);
+                GUI.changed = true;
+            }
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                GUILayout.FlexibleSpace();
+                if (GUILayout.Button("＋ 添加行", GUILayout.Width(80)))
+                {
+                    d.AddRow();
+                    GUI.changed = true;
                 }
             }
         }
@@ -131,6 +181,55 @@ namespace BraveWorld.Editor
             if (idx < 0) idx = 0;
             idx = EditorGUILayout.Popup("类型", idx, names);
             d.Type = types[idx];
+        }
+
+        /// <summary>带小标签的 TextField：标签固定 40 宽，输入框固定 width（备注/内容类短文本用，不随窗口拉伸）。</summary>
+        private static string LabeledTextField(string label, string value, float width)
+        {
+            float oldLabelWidth = EditorGUIUtility.labelWidth;
+            EditorGUIUtility.labelWidth = 40f;
+            try
+            {
+                return EditorGUILayout.TextField(label, value ?? "", GUILayout.Width(width));
+            }
+            finally
+            {
+                EditorGUIUtility.labelWidth = oldLabelWidth;
+            }
+        }
+
+        /// <summary>
+        /// 紧凑布局用的带标签 FloatField：标签区域可按住左右拖拽调值（Unity 内置行为，
+        /// 与 Inspector 中 Transform 的 X/Y/Z 一致）。labelWidth 控制标签宽，minWidth 为最小总宽，
+        /// 字段在水平布局中弹性占满剩余空间。
+        /// </summary>
+        private static float DragFloatField(string label, float value, float labelWidth, float minWidth)
+        {
+            float oldLabelWidth = EditorGUIUtility.labelWidth;
+            EditorGUIUtility.labelWidth = labelWidth;
+            try
+            {
+                return EditorGUILayout.FloatField(label, value, GUILayout.MinWidth(minWidth));
+            }
+            finally
+            {
+                EditorGUIUtility.labelWidth = oldLabelWidth;
+            }
+        }
+
+        /// <summary>同 <see cref="DragFloatField"/>，整数值版本（字号等）。</summary>
+        private static int DragIntField(string label, int value, float labelWidth, float minWidth)
+        {
+            float oldLabelWidth = EditorGUIUtility.labelWidth;
+            EditorGUIUtility.labelWidth = labelWidth;
+            try
+            {
+                return EditorGUILayout.IntField(label, value, GUILayout.MinWidth(minWidth));
+            }
+            finally
+            {
+                EditorGUIUtility.labelWidth = oldLabelWidth;
+            }
         }
 
         public static void Category(CategoryData d)

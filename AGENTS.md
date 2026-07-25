@@ -66,12 +66,22 @@
 **层级二：流程级免疫**
 - 补充**单元测试**（特别是触发此次 Bug 的边界条件）。
 - 在 `AGENTS.md` 中增加**约束规则**（如"禁止在 init 中预热未启动的服务"）。
-- **本项目特殊**：所有服务器代码修改必须经过 `restart.bat` 编译运行验证；数值配置优先放 Luban 配置表而非硬编码。
-- **本项目特殊**：怪物 AI 新增能力时，必须先区分 `Overworld/Combat` 高层模式；禁止把战斗态追击、贴身、脱战分支继续堆进 `patrol/patrol_chase` 这类非战斗 AI。
-- **本项目特殊**：所有会修改游戏核心状态（`WorldState`、移动预占、`CombatManager`/`MonsterManager` 内集合、`PlayerSessionManager` 在线状态）的代码必须通过 `IGameLoopScheduler` 入队，在单一逻辑线程串行执行；禁止直接在多线程 handler/tick/callback 中修改这些状态。
-- **本项目特殊**：Godot `CanvasItem` shader 的 `fragment()` 中**禁止使用 `return`**，否则会导致未定义行为（在某些设备上直接不渲染/输出透明）。分支逻辑统一用 `if-else-if-else` 链；同时避免把无地形颜色的格子背景设为透明，防止网格线看不清。
-- **本项目特殊**：服务器高频 tick（如 `MonsterTick`、`CombatTick`）等热路径禁止输出 `LogInformation` 级别日志，避免刷屏和 IO 压力；如需定位问题，应使用 `LogDebug` 并在调试配置中临时开启。
-- **本项目特殊**：所有会触发 `MapService.PlayerEnter` 的入口（登录、切换地图、死亡重生等）必须完整填充 `PlayerSnapshot` 的 `EquippedSkills`、`Job`、`MoveSpeedMs` 等字段；新增 `MapPlayerState` 字段时，要同步检查并更新所有 `PlayerEnter` 调用点，防止运行时状态丢失。
+
+**本项目特有问题清单（规则已浓缩，详细背景见对应 Memory）**
+- 服务器代码改动须过 `restart.bat` 编译运行验证；数值优先放 Luban 表而非硬编码。
+- 怪物 AI 新增能力须先分 `Overworld/Combat` 高层模式，禁止把战斗分支堆进 `patrol/patrol_chase` 非战斗 AI。
+- 改游戏核心状态（`WorldState`、移动预占、`CombatManager`/`MonsterManager` 集合、在线状态）必须经 `IGameLoopScheduler` 入队串行执行，禁止在多线程 handler/tick/callback 直接改。
+- Godot `CanvasItem` shader 的 `fragment()` **禁止 `return`**，统一 `if-else` 链；无地形格子背景勿设透明，免网格线看不清。
+- 服务器高频 tick（`MonsterTick`/`CombatTick`）热路径禁 `LogInformation`，定位用 `LogDebug`。
+- 所有 `MapService.PlayerEnter` 入口须完整填 `PlayerSnapshot`（`EquippedSkills`/`Job`/`MoveSpeedMs`）；新增 `MapPlayerState` 字段同步更新所有调用点。
+- 被编辑器插件/预览复用的运行时 Node 脚本须加 `[Tool]`；运行时副作用用 `Engine.IsEditorHint()` 守卫。
+- 编辑器内嵌 `SubViewport` 画布禁 `Stretch=true+StretchShrink=1` 跟容器；监听 `Resized` 手动同步 `Size`，初始 `Size` 给小值并重写 `_GetMinimumSize()`。
+- 编辑器 Dock 主面板若继承普通 `Control`，根容器须 `SetAnchorsPreset(FullRect)`；固定宽高比视口外包 `AspectRatioContainer`。
+- 底部 Dock 内容超高会向下溢出盖住标签栏；主面板须 FullRect + `ClipContents=true` + 内容列外包 `ScrollContainer`。
+- 实体 `EnsureRenderComponents` **禁止 `_renderComponents.Count>0` 早退**，须按类型幂等补齐（`GetRenderComponent<T>()==null` 才加）。
+- 实体预览必须走 `EntityPreviewFactory.CreatePreviewEntity`，类型判定走 `EntityPreviewPolicy.ResolveKind`；禁各面板 new 预览实体或重复 switch。
+- 编辑器 `SubViewport` 预览须对齐宿主渲染环境（像素密度/主题），统一走 `EditorPreviewEnvironment`。
+- 滑条数值显示须持有 `SliderValueInput.Attach` 返回的 `Button`，禁保留被替换的旧 `Label`（否则值脱节、点一下跳变）。
 
 **层级三：认知级免疫（Memory / Skill 沉淀）——【重点执行项】**
 - **判断是否需要写入 Memory（记忆）**：如果这是一个认知盲区、架构原则或业务陷阱，立即将其写入记忆文件。

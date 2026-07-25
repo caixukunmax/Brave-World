@@ -46,8 +46,65 @@ namespace BraveWorld.Editor.MapEditing
 
             ApplyHideFlags();
             MapEditUndoStack.Clear();
+            FrameSceneView();
             SceneView.RepaintAll();
             Debug.Log($"[MapEditSession] 进入编辑: {mapName} 格子数={Grid.GridData.Count} bounds={Grid.MapBounds}");
+            LogRenderDiag();
+        }
+
+        /// <summary>渲染链路诊断（进入编辑后输出一次，便于定位"地图看不见"类问题）。</summary>
+        private void LogRenderDiag()
+        {
+            var quad = Grid.transform.Find("MapQuad");
+            var mr = quad != null ? quad.GetComponent<MeshRenderer>() : null;
+            var mat = mr != null ? mr.sharedMaterial : null;
+            Debug.Log($"[MapEditSession][Diag] quad={(quad != null ? $"pos={quad.position} scale={quad.lossyScale}" : "NULL")} " +
+                      $"shader={(mat != null && mat.shader != null ? mat.shader.name : "NULL")} " +
+                      $"mask={(Grid.TerrainMask != null ? $"{Grid.TerrainMask.width}x{Grid.TerrainMask.height}" : "NULL")} " +
+                      $"gridSize={Grid.GridSize}");
+            if (mat != null)
+            {
+                Debug.Log($"[MapEditSession][Diag] _MapSizeWorld={mat.GetVector("_MapSizeWorld")} " +
+                          $"_GridSize={mat.GetFloat("_GridSize")} _TerrainMaskSize={mat.GetVector("_TerrainMaskSize")} " +
+                          $"_TerrainMask={(mat.GetTexture("_TerrainMask") != null ? "set" : "NULL")}");
+            }
+        }
+
+        /// <summary>
+        /// 将当前 Scene 视图相机以 2D 正交俯视方式定位到整张地图。
+        /// 地图 Quad 由 MapRenderer.LayoutQuad 居中于世界 (cx, cy)（Y 取负），远离默认原点，
+        /// 不主动定位则进入编辑后 Scene 视图一片空白（看不见地图）。
+        /// 不用 SceneView.Frame（对 instant/bounds 的行为版本差异大），直接设 pivot/size；
+        /// 立即一次 + delayCall 一次（进入编辑时 Scene 视图可能尚未完成布局）。
+        /// </summary>
+        private void FrameSceneView()
+        {
+            if (Grid == null) return;
+            var b = Grid.MapBounds;
+            int gs = Grid.GridSize;
+            // 与 MapRenderer.LayoutQuad 保持一致：中心 X 正、Y 取负
+            var center = new Vector3((b.x + b.width / 2f) * gs, -((b.y + b.height / 2f) * gs), 0f);
+            // SceneView.size = 视口半高，留 10% 边距
+            float size = Mathf.Max(b.width * gs, b.height * gs) * 0.55f;
+
+            Apply();
+            EditorApplication.delayCall += () => { if (IsActive) Apply(); };
+            return;
+
+            void Apply()
+            {
+                var sv = SceneView.lastActiveSceneView;
+                if (sv == null && SceneView.sceneViews.Count > 0)
+                    sv = SceneView.sceneViews[0] as SceneView;
+                if (sv == null) return; // batchmode 等无 Scene 视图场景
+                sv.in2DMode = true;
+                sv.pivot = center;
+                sv.rotation = Quaternion.identity;
+                sv.orthographic = true;
+                sv.size = size;
+                sv.Repaint();
+                Debug.Log($"[MapEditSession][Diag] SceneView 定位: pivot={sv.pivot} size={sv.size} 2D={sv.in2DMode} ortho={sv.orthographic}");
+            }
         }
 
         /// <summary>轻量刷新：只重建地形遮罩并推给材质（刷地形过程中每格调用）。</summary>

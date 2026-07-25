@@ -15,13 +15,13 @@ namespace ClinetCSharp
         private Action _onChanged;
 
         private HSlider _moveSpeedSlider;
-        private Label _moveSpeedValue;
+        private Button _moveSpeedValue;
         private HSlider _patrolRangeSlider;
-        private Label _patrolRangeValue;
+        private Button _patrolRangeValue;
         private HSlider _aggroRangeSlider;
-        private Label _aggroRangeValue;
+        private Button _aggroRangeValue;
         private HSlider _moveIntervalSlider;
-        private Label _moveIntervalValue;
+        private Button _moveIntervalValue;
         private Button _saveConfigBtn;
 
         public void BuildUI(VBoxContainer parent)
@@ -130,7 +130,7 @@ namespace ClinetCSharp
             GD.Print("[MonsterAiComponent] Monster config saved to JSON");
         }
 
-        static (HSlider, Label) MakeSR(Container p, string lbl, double min, double max, double def, double step)
+        static (HSlider, Button) MakeSR(Container p, string lbl, double min, double max, double def, double step)
         {
             var row = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
             row.AddChild(new Label { Text = lbl + ":", CustomMinimumSize = new Vector2(80, 0) });
@@ -139,13 +139,12 @@ namespace ClinetCSharp
             Func<double, string> fmt = max <= 1 ? (v => v.ToString("F2")) : (Func<double, string>)(v => ((int)v).ToString());
             var v = new Label { Text = fmt(def), CustomMinimumSize = new Vector2(36, 0) };
             row.AddChild(v);
-            s.ValueChanged += (val) => v.Text = fmt(val);
             p.AddChild(row);
-            SliderValueInput.Attach(s, v, fmt);
-            return (s, v);
+            var valueDisplay = SliderValueInput.Attach(s, v, fmt);
+            return (s, valueDisplay);
         }
 
-        static void SetSliderSilent(HSlider s, double v, Label l, string t)
+        static void SetSliderSilent(HSlider s, double v, Button l, string t)
         { s?.SetBlockSignals(true); if (s != null) s.Value = v; s?.SetBlockSignals(false); if (l != null) l.Text = t; }
     }
 }

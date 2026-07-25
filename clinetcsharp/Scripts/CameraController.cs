@@ -57,6 +57,62 @@ namespace ClinetCSharp
         // 保存编辑模式前的状态
         private Godot.Collections.Dictionary _savedState;
 
+        // ============ 演出模式（导演模式） ============
+        /// <summary>演出模式：屏蔽拖拽/滚轮输入、停止跟随插值，镜头位置由 CutsceneDirector 驱动</summary>
+        public bool IsCutsceneMode { get; private set; } = false;
+        private Vector2 _cutsceneSavedZoom;
+        private Vector2 _cutsceneSavedPosition;
+        private ProcessModeEnum _cutsceneSavedProcessMode;
+
+        /// <summary>进入演出时的镜头位置快照（camera_reset 回归目标）</summary>
+        public Vector2 CutsceneHomePosition => _cutsceneSavedPosition;
+        /// <summary>进入演出时的镜头缩放快照</summary>
+        public Vector2 CutsceneHomeZoom => _cutsceneSavedZoom;
+
+        // 震动状态（用 Camera2D.Offset 实现，不干扰 Position 的跟随/演出插值）
+        private float _shakeStrength;
+        private float _shakeDuration;
+        private float _shakeTimeLeft;
+
+        /// <summary>
+        /// 进入演出模式：保存状态快照（参照 SetEditorMode 的做法），屏蔽输入与跟随。
+        /// 同时把 ProcessMode 切到 Always —— 演出期间整棵树被暂停，震动等相机逻辑需继续处理。
+        /// </summary>
+        public void EnterCutsceneMode()
+        {
+            if (IsCutsceneMode) return;
+            IsCutsceneMode = true;
+            _cutsceneSavedZoom = Zoom;
+            _cutsceneSavedPosition = Position;
+            IsDragging = false;
+            IsReturning = false;
+            _dragTimer = 0.0f;
+            _cutsceneSavedProcessMode = ProcessMode;
+            ProcessMode = ProcessModeEnum.Always;
+            GD.Print("[Camera] 进入演出模式 - 已保存状态快照，屏蔽拖拽/滚轮");
+        }
+
+        /// <summary>退出演出模式：还原缩放快照、清掉震动残留、恢复跟随与输入。</summary>
+        public void ExitCutsceneMode()
+        {
+            if (!IsCutsceneMode) return;
+            IsCutsceneMode = false;
+            Zoom = _cutsceneSavedZoom;
+            Offset = Vector2.Zero;
+            _shakeTimeLeft = 0f;
+            ProcessMode = _cutsceneSavedProcessMode;
+            // Position 不瞬移：退出后 _Process 的跟随插值会把镜头平滑拉回玩家
+            GD.Print("[Camera] 退出演出模式 - 恢复状态和跟随");
+        }
+
+        /// <summary>镜头震动（演出 cue 用）：强度像素、持续秒数，强度随时间线性衰减</summary>
+        public void Shake(float strength, float duration)
+        {
+            _shakeStrength = Mathf.Max(0f, strength);
+            _shakeDuration = Mathf.Max(0.01f, duration);
+            _shakeTimeLeft = _shakeDuration;
+        }
+
         public override async void _Ready()
         {
             Enabled = true;
@@ -89,6 +145,10 @@ namespace ClinetCSharp
 
         public override void _Input(InputEvent @event)
         {
+            // 演出模式下屏蔽一切相机输入
+            if (IsCutsceneMode)
+                return;
+
             // 拖拽结束：必须在 _Input 处理（即使鼠标在 UI 上释放也要结束，防止状态卡住）
             if (@event is InputEventMouseButton mb && !mb.Pressed)
             {
@@ -108,6 +168,10 @@ namespace ClinetCSharp
 
         public override void _UnhandledInput(InputEvent @event)
         {
+            // 演出模式下屏蔽拖拽与滚轮缩放
+            if (IsCutsceneMode)
+                return;
+
             // 拖拽开始与滚轮缩放都只在 _UnhandledInput 处理，
             // 这样 GUI 控件（面板标题栏、按钮、滚动容器）先在 _GuiInput 层消费事件，
             // 不会与相机/地图操作冲突。
@@ -339,6 +403,28 @@ namespace ClinetCSharp
 
         public override void _Process(double delta)
         {
+            // 镜头震动：用 Offset 叠加，不干扰 Position 的跟随/演出插值
+            if (_shakeTimeLeft > 0f)
+            {
+                _shakeTimeLeft -= (float)delta;
+                if (_shakeTimeLeft <= 0f)
+                {
+                    _shakeTimeLeft = 0f;
+                    Offset = Vector2.Zero;
+                }
+                else
+                {
+                    float k = _shakeTimeLeft / _shakeDuration;
+                    Offset = new Vector2(
+                        (float)GD.RandRange(-1.0, 1.0),
+                        (float)GD.RandRange(-1.0, 1.0)) * _shakeStrength * k;
+                }
+            }
+
+            // 演出模式：位置/缩放由 CutsceneDirector 的 Tween 驱动，跳过拖拽与跟随逻辑
+            if (IsCutsceneMode)
+                return;
+
             if (IsEditorMode)
             {
                 if (IsDragging)

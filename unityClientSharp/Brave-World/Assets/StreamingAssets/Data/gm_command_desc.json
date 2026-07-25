@@ -1,0 +1,42 @@
+[
+  {
+    "name": "addbuff",
+    "description": "加BUFF",
+    "param_hint": "buffid"
+  },
+  {
+    "name": "removebuff",
+    "description": "移除BUFF",
+    "param_hint": "buffid"
+  },
+  {
+    "name": "additem",
+    "description": "加道具",
+    "param_hint": "itemid,数量"
+  },
+  {
+    "name": "addchest",
+    "description": "加宝箱",
+    "param_hint": "chestid,x,y"
+  },
+  {
+    "name": "teleport",
+    "description": "传送",
+    "param_hint": "x,y"
+  },
+  {
+    "name": "learnskill",
+    "description": "学习技能",
+    "param_hint": "skillid"
+  },
+  {
+    "name": "addtestitems",
+    "description": "添加测试道具",
+    "param_hint": "数量"
+  },
+  {
+    "name": "story",
+    "description": "播放剧情章节",
+    "param_hint": "章节ID"
+  }
+]

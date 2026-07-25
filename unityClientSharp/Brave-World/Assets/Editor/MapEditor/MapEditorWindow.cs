@@ -11,8 +11,7 @@ using UnityEngine;
 
 namespace BraveWorld.Editor.MapEditing
 {
-    public enum MapEditTool { PaintTerrain, PlaceDecoration, Select }
-    public enum TerrainPaintMode { TerrainType, TerrainDecoration }
+    public enum MapEditTool { PaintTerrain, PlaceDecoration }
 
     /// <summary>
     /// 地图编辑器（编辑器原生形态，取代 Godot 游戏内 MapEditor）：
@@ -26,16 +25,13 @@ namespace BraveWorld.Editor.MapEditing
 
         public static MapEditorWindow Active { get; private set; }
 
-        private static readonly string[] ToolNames = { "刷地形", "放建筑", "框选" };
-        private static readonly string[] PaintModeNames = { "地形类型", "地形装饰" };
+        private static readonly string[] ToolNames = { "刷地形", "放建筑" };
         private const string MapsAssetRoot = "Assets/StreamingAssets/Data/maps";
 
         // ---- 会话与工具状态（SceneGui 读写）----
         private readonly MapEditSession _session = new();
         public MapEditSession Session => _session;
         public MapEditTool CurrentTool = MapEditTool.PaintTerrain;
-        public TerrainPaintMode TerrainPaintMode = TerrainPaintMode.TerrainType;
-        public int PaintTerrainType;
         public int PaintDecorationId;
         public int PaletteDecoId;
         public readonly HashSet<Vector2Int> Selection = new();
@@ -51,9 +47,6 @@ namespace BraveWorld.Editor.MapEditing
         private int _newMapW = 50, _newMapH = 50;
         private string _renameTo = "";
         private List<EntityProfile> _decoProfiles = new();
-        private int[] _terrainTypeIds = new int[0];
-        private string[] _terrainTypeNames = new string[0];
-        private int _terrainTypeIdx;
         private int[] _terrainDecoIds = new int[0];
         private string[] _terrainDecoNames = new string[0];
         private int _terrainDecoIdx;
@@ -94,17 +87,12 @@ namespace BraveWorld.Editor.MapEditing
             TerrainConfigUtil.Load();
             EntityProfileManager.EnsureInitialized();
 
-            _terrainTypeIds = TerrainConfigUtil.Configs.Keys.OrderBy(k => k).ToArray();
-            _terrainTypeNames = _terrainTypeIds.Select(id => $"{id} {TerrainConfigUtil.GetName(id)}").ToArray();
-            _terrainTypeIdx = Mathf.Max(0, Array.IndexOf(_terrainTypeIds, PaintTerrainType));
-            if (_terrainTypeIds.Length > 0) PaintTerrainType = _terrainTypeIds[_terrainTypeIdx];
-
             _decoProfiles = EntityProfileManager.GetProfilesByType("decoration").OrderBy(p => p.Id).ToList();
 
             var terrainProfiles = _decoProfiles
                 .Where(p => p.GetData<CategoryData>("category")?.Category == "Terrain").ToList();
             _terrainDecoIds = new[] { 0 }.Concat(terrainProfiles.Select(p => p.Id)).ToArray();
-            _terrainDecoNames = new[] { "清除" }.Concat(terrainProfiles.Select(p => $"[{p.Id}] {p.Name}")).ToArray();
+            _terrainDecoNames = new[] { "清除" }.Concat(terrainProfiles.Select(p => $"[{p.Id}] {p.DisplayName}")).ToArray();
             int defaultDeco = PaintDecorationId > 0 ? PaintDecorationId : BuildingType.GetConfigBaseId(BuildingType.Tree);
             _terrainDecoIdx = Mathf.Max(0, Array.IndexOf(_terrainDecoIds, defaultDeco));
             if (_terrainDecoIds.Length > 0) PaintDecorationId = _terrainDecoIds[_terrainDecoIdx];
@@ -135,14 +123,6 @@ namespace BraveWorld.Editor.MapEditing
             if (cmd == null || !_session.IsActive) return;
             cmd.Redo(_session.Grid);
             _session.RefreshAll();
-            Repaint();
-        }
-
-        public void SelectAll()
-        {
-            if (!_session.IsActive) return;
-            Selection.Clear();
-            foreach (var pos in _session.Grid.GridData.Keys) Selection.Add(pos);
             Repaint();
         }
 
@@ -188,12 +168,12 @@ namespace BraveWorld.Editor.MapEditing
             }
 
             CurrentTool = (MapEditTool)GUILayout.Toolbar((int)CurrentTool, ToolNames);
+            EditorGUILayout.LabelField("视角：滚轮缩放，中键或 Alt+左键 拖动平移（左键为当前工具操作）。", EditorStyles.miniLabel);
             EditorGUILayout.Space(4);
             switch (CurrentTool)
             {
                 case MapEditTool.PaintTerrain: DrawPaintSection(); break;
                 case MapEditTool.PlaceDecoration: DrawPlaceSection(); break;
-                case MapEditTool.Select: DrawSelectSection(); break;
             }
 
             EditorGUILayout.EndScrollView();
@@ -441,85 +421,18 @@ namespace BraveWorld.Editor.MapEditing
 
         private void DrawPaintSection()
         {
-            TerrainPaintMode = (TerrainPaintMode)GUILayout.Toolbar((int)TerrainPaintMode, PaintModeNames);
-            if (TerrainPaintMode == TerrainPaintMode.TerrainType)
+            if (_terrainDecoIds.Length > 0)
             {
-                if (_terrainTypeIds.Length > 0)
-                {
-                    _terrainTypeIdx = EditorGUILayout.Popup("类型", _terrainTypeIdx, _terrainTypeNames);
-                    PaintTerrainType = _terrainTypeIds[_terrainTypeIdx];
-                }
+                _terrainDecoIdx = EditorGUILayout.Popup("装饰", _terrainDecoIdx, _terrainDecoNames);
+                PaintDecorationId = _terrainDecoIds[_terrainDecoIdx];
             }
-            else
-            {
-                if (_terrainDecoIds.Length > 0)
-                {
-                    _terrainDecoIdx = EditorGUILayout.Popup("装饰", _terrainDecoIdx, _terrainDecoNames);
-                    PaintDecorationId = _terrainDecoIds[_terrainDecoIdx];
-                }
-            }
-            EditorGUILayout.LabelField("左键按住直接刷；一次笔画 = 一步撤销；「框选」里可批量应用。", EditorStyles.miniLabel);
-        }
 
-        private void DrawPlaceSection()
-        {
-            _paletteSearch = EditorGUILayout.TextField("搜索", _paletteSearch);
-            _paletteScroll = EditorGUILayout.BeginScrollView(_paletteScroll, GUILayout.MinHeight(120), GUILayout.MaxHeight(300));
-            foreach (var p in _decoProfiles)
+            int outCount = Selection.Count(pos => !_session.Grid.IsInBounds(pos));
+            using (new EditorGUI.DisabledScope(outCount == 0))
             {
-                if (!string.IsNullOrEmpty(_paletteSearch)
-                    && !p.Name.Contains(_paletteSearch, StringComparison.OrdinalIgnoreCase)
-                    && !p.Id.ToString().Contains(_paletteSearch))
-                    continue;
-
-                bool sel = p.Id == PaletteDecoId;
-                using (new EditorGUILayout.HorizontalScope())
+                if (GUILayout.Button($"开辟地图（{outCount} 个界外格并入）"))
                 {
-                    var rect = GUILayoutUtility.GetRect(16, 16, GUILayout.Width(16));
-                    var app = p.GetData<AppearanceData>("appearance");
-                    EditorGUI.DrawRect(rect, app?.BgColor ?? Color.gray);
-                    var (sx, sy) = MapEditOps.GetDecoSize(p.Id);
-                    string label = (sel ? "● " : "　") + $"{p.Name} [{p.Id}] {sx}x{sy}";
-                    if (GUILayout.Button(label, EditorStyles.label)) PaletteDecoId = p.Id;
-                }
-            }
-            EditorGUILayout.EndScrollView();
-            EditorGUILayout.LabelField("左键点击放置；拖动已放置建筑移动；右键/Delete 删除。", EditorStyles.miniLabel);
-        }
-
-        private void DrawSelectSection()
-        {
-            EditorGUILayout.LabelField($"已选中 {Selection.Count} 格", EditorStyles.boldLabel);
-            using (new EditorGUILayout.HorizontalScope())
-            {
-                if (GUILayout.Button("全选")) SelectAll();
-                if (GUILayout.Button("反选"))
-                {
-                    var inv = new HashSet<Vector2Int>();
-                    foreach (var pos in _session.Grid.GridData.Keys)
-                        if (!Selection.Contains(pos)) inv.Add(pos);
-                    Selection.Clear();
-                    Selection.UnionWith(inv);
-                }
-                if (GUILayout.Button("清除")) Selection.Clear();
-            }
-            using (new EditorGUI.DisabledScope(Selection.Count == 0))
-            {
-                if (GUILayout.Button("应用当前刷子到选区"))
-                {
-                    int n = MapEditOps.ApplyPaintToSelection(_session.Grid, Selection,
-                        TerrainPaintMode == TerrainPaintMode.TerrainType, PaintTerrainType, PaintDecorationId);
-                    if (n > 0) _session.RefreshAll();
-                    ShowNotification(new GUIContent($"已应用到 {n} 格"));
-                }
-                if (GUILayout.Button("开辟地图（选区界外格并入）"))
-                {
-                    int outCount = Selection.Count(pos => !_session.Grid.IsInBounds(pos));
-                    if (outCount == 0)
-                    {
-                        ShowNotification(new GUIContent("选区内没有界外格"));
-                    }
-                    else if (EditorUtility.DisplayDialog("开辟地图", $"将把选区内 {outCount} 个界外格并入地图（默认普通地形）。", "开辟", "取消"))
+                    if (EditorUtility.DisplayDialog("开辟地图", $"将把选区内 {outCount} 个界外格并入地图（默认普通地形）。", "开辟", "取消"))
                     {
                         int n = MapEditOps.ExtendBySelection(_session.Grid, Selection);
                         if (n > 0)
@@ -531,7 +444,35 @@ namespace BraveWorld.Editor.MapEditing
                     }
                 }
             }
-            EditorGUILayout.LabelField("左键拖框选（Ctrl 加选）；右键清除选区。", EditorStyles.miniLabel);
+            EditorGUILayout.LabelField("左键拖框刷地形：松开把装饰应用到框内格子（一次框刷 = 一步撤销）；右键清除选区。", EditorStyles.miniLabel);
+            EditorGUILayout.LabelField("框到界外格后点「开辟地图」可将其并入地图。", EditorStyles.miniLabel);
+        }
+
+        private void DrawPlaceSection()
+        {
+            _paletteSearch = EditorGUILayout.TextField("搜索", _paletteSearch);
+            _paletteScroll = EditorGUILayout.BeginScrollView(_paletteScroll, GUILayout.MinHeight(120), GUILayout.MaxHeight(300));
+            foreach (var p in _decoProfiles)
+            {
+                if (!string.IsNullOrEmpty(_paletteSearch)
+                    && !p.Name.Contains(_paletteSearch, StringComparison.OrdinalIgnoreCase)
+                    && !p.DisplayName.Contains(_paletteSearch, StringComparison.OrdinalIgnoreCase)
+                    && !p.Id.ToString().Contains(_paletteSearch))
+                    continue;
+
+                bool sel = p.Id == PaletteDecoId;
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    var rect = GUILayoutUtility.GetRect(16, 16, GUILayout.Width(16));
+                    var app = p.GetData<AppearanceData>("appearance");
+                    EditorGUI.DrawRect(rect, app?.BgColor ?? Color.gray);
+                    var (sx, sy) = MapEditOps.GetDecoSize(p.Id);
+                    string label = (sel ? "● " : "　") + $"{p.DisplayName} [{p.Id}] {sx}x{sy}";
+                    if (GUILayout.Button(label, EditorStyles.label)) PaletteDecoId = p.Id;
+                }
+            }
+            EditorGUILayout.EndScrollView();
+            EditorGUILayout.LabelField("左键点击放置；拖动已放置建筑移动；右键/Delete 删除。", EditorStyles.miniLabel);
         }
 
         private void DrawBottomBar()

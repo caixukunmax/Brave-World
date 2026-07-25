@@ -15,13 +15,13 @@ namespace ClinetCSharp
         private Action _onChanged;
 
         private HSlider _offsetAXSlider;
-        private Label _offsetAXValue;
+        private Button _offsetAXValue;
         private HSlider _offsetAYSlider;
-        private Label _offsetAYValue;
+        private Button _offsetAYValue;
         private HSlider _offsetBXSlider;
-        private Label _offsetBXValue;
+        private Button _offsetBXValue;
         private HSlider _offsetBYSlider;
-        private Label _offsetBYValue;
+        private Button _offsetBYValue;
 
         public void BuildUI(VBoxContainer parent)
         {
@@ -92,7 +92,7 @@ namespace ClinetCSharp
 
         void OnDbl(double _) => _onChanged?.Invoke();
 
-        static (HSlider, Label) MakeSR(Container p, string lbl, double min, double max, double def)
+        static (HSlider, Button) MakeSR(Container p, string lbl, double min, double max, double def)
         {
             var row = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
             row.AddChild(new Label { Text = lbl + ":", CustomMinimumSize = new Vector2(50, 0) });
@@ -101,13 +101,12 @@ namespace ClinetCSharp
             var v = new Label { Text = ((int)def).ToString(), CustomMinimumSize = new Vector2(36, 0) };
             row.AddChild(v);
             Func<double, string> fmt = v2 => ((int)v2).ToString();
-            s.ValueChanged += (val) => v.Text = fmt(val);
             p.AddChild(row);
-            SliderValueInput.Attach(s, v, fmt);
-            return (s, v);
+            var valueDisplay = SliderValueInput.Attach(s, v, fmt);
+            return (s, valueDisplay);
         }
 
-        static void SetSliderSilent(HSlider s, double v, Label l, string t)
+        static void SetSliderSilent(HSlider s, double v, Button l, string t)
         { s?.SetBlockSignals(true); if (s != null) s.Value = v; s?.SetBlockSignals(false); if (l != null) l.Text = t; }
     }
 }

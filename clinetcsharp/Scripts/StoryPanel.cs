@@ -1,6 +1,7 @@
 using Godot;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace ClinetCSharp
 {
@@ -37,6 +38,9 @@ namespace ClinetCSharp
         private int _currentIndex;
         private IReadOnlyList<StoryConfigUtil.StoryDialogueJsonRow> _currentDialogues;
         private int _pendingChapterId;
+        private int _pendingIdStart;
+        private int _pendingIdEnd;
+        private bool _pendingRange;
 
         private string _typingFullText = "";
         private int _typingVisibleCount;
@@ -84,7 +88,13 @@ namespace ClinetCSharp
             Visible = false;
             SetProcess(false);
 
-            if (_pendingChapterId != 0)
+            if (_pendingRange)
+            {
+                _pendingRange = false;
+                ShowChapterRange(_pendingChapterId, _pendingIdStart, _pendingIdEnd);
+                _pendingChapterId = 0;
+            }
+            else if (_pendingChapterId != 0)
             {
                 int chapterId = _pendingChapterId;
                 _pendingChapterId = 0;
@@ -110,6 +120,48 @@ namespace ClinetCSharp
             if (_chapterTitle != null)
                 _chapterTitle.Visible = false;
 
+            Visible = true;
+            SetProcess(true);
+            ShowDialogue(_currentIndex);
+            PanelManager.Instance?.RequestFocus(this);
+        }
+
+        /// <summary>
+        /// 按对话id范围播放剧情（演出 cue story_play 用）：取该章节中对话id在 [idStart, idEnd]（均含）的对话，
+        /// 按 sequence 排序后依次展示；全部翻完时触发 onFinished。面板未就绪时延迟到 _Ready 后播放。
+        /// </summary>
+        public void ShowChapterRange(int chapterId, int idStart, int idEnd, System.Action onFinished = null, float autoAdvanceSec = 0f)
+        {
+            if (!IsNodeReady())
+            {
+                _pendingChapterId = chapterId;
+                _pendingIdStart = idStart;
+                _pendingIdEnd = idEnd;
+                _pendingRange = true;
+                return;
+            }
+
+            _currentChapterId = chapterId;
+            var all = StoryConfigUtil.GetDialogues(chapterId); // 已按 sequence 排序
+            var rows = all.Where(d => d.id >= idStart && d.id <= idEnd).ToList();
+            _currentDialogues = rows;
+            _currentIndex = 0;
+            _history.Clear();
+            ExitHistoryMode();
+
+            // 章节标题已隐藏，不显示
+            if (_chapterTitle != null)
+                _chapterTitle.Visible = false;
+
+            if (rows.Count == 0)
+            {
+                onFinished?.Invoke();
+                ClosePanel();
+                return;
+            }
+
+            _cutsceneLinesFinished = onFinished;
+            _autoAdvanceLines = autoAdvanceSec > 0f;
             Visible = true;
             SetProcess(true);
             ShowDialogue(_currentIndex);
@@ -157,7 +209,15 @@ namespace ClinetCSharp
             }
 
             if (_hintLabel != null)
-                _hintLabel.Text = index < _currentDialogues.Count - 1 ? "按回车继续" : "按回车结束";
+                _hintLabel.Text = _autoAdvanceLines
+                    ? "（自动播放中…）"
+                    : (index < _currentDialogues.Count - 1 ? "按回车继续" : "按回车结束");
+
+            if (_autoAdvanceLines)
+            {
+                _autoAdvanceSec = Mathf.Max(2.0f, _typingFullText.Length * 0.045f + 1.0f);
+                _autoAdvanceElapsed = 0.0;
+            }
 
             CallDeferred(MethodName.RefreshMaxLinesVisible);
         }
@@ -427,40 +487,115 @@ namespace ClinetCSharp
             ExitHistoryMode();
             Visible = false;
             SetProcess(false);
+            _autoAdvanceLines = false;
+
+            // 导演模式：单行对白播完（或中断关闭）时触发完成回调
+            var callback = _cutsceneLinesFinished;
+            _cutsceneLinesFinished = null;
+            callback?.Invoke();
+        }
+
+        // ========== 导演模式：单行对白薄封装 ==========
+        // 不改动章节播报主流程，仅复用打字机/说话人/回车翻页交互。
+        private System.Action _cutsceneLinesFinished;
+
+        // 导演模式 story_play 自动播放：每条对白停留若干秒后自动翻页（演出类剧情不应卡在等待回车）
+        private bool _autoAdvanceLines;
+        private float _autoAdvanceSec;
+        private double _autoAdvanceElapsed;
+
+        /// <summary>
+        /// 播放一组单行对白（导演模式 dialogue cue 用），全部翻完或中断时回调 onFinished。
+        /// speaker 为空即旁白；跳过/演出中断时由 CloseCutsceneLines() 收尾（同样触发回调，幂等）。
+        /// </summary>
+        public void ShowCutsceneLines(IReadOnlyList<(string Speaker, string Content)> lines, System.Action onFinished)
+        {
+            if (!IsNodeReady() || lines == null || lines.Count == 0)
+            {
+                onFinished?.Invoke();
+                return;
+            }
+
+            var rows = new List<StoryConfigUtil.StoryDialogueJsonRow>(lines.Count);
+            for (int i = 0; i < lines.Count; i++)
+            {
+                rows.Add(new StoryConfigUtil.StoryDialogueJsonRow
+                {
+                    id = i + 1,
+                    chapter_id = 0,
+                    sequence = i + 1,
+                    speaker = lines[i].Speaker ?? "",
+                    content = lines[i].Content ?? "",
+                });
+            }
+
+            _currentChapterId = 0;
+            _currentDialogues = rows;
+            _currentIndex = 0;
+            _history.Clear();
+            ExitHistoryMode();
+
+            if (_chapterTitle != null)
+                _chapterTitle.Visible = false;
+
+            _cutsceneLinesFinished = onFinished;
+            Visible = true;
+            SetProcess(true);
+            ShowDialogue(_currentIndex);
+            PanelManager.Instance?.RequestFocus(this);
+        }
+
+        /// <summary>立即关闭导演模式对白并触发完成回调（跳过/中断用；未在播对白时调用无副作用）</summary>
+        public void CloseCutsceneLines()
+        {
+            if (_cutsceneLinesFinished == null)
+                return;
+            ClosePanel();
         }
 
         public override void _Process(double delta)
         {
             base._Process(delta);
 
-            if (!_isTyping)
-                return;
-
-            double interval = StoryTypewriterIntervalMs / 1000.0;
-            if (interval <= 0.0)
+            if (_isTyping)
             {
-                FinishCurrentTyping();
+                double interval = StoryTypewriterIntervalMs / 1000.0;
+                if (interval <= 0.0)
+                {
+                    FinishCurrentTyping();
+                }
+                else
+                {
+                    _typingElapsed += delta;
+                    while (_typingElapsed >= interval && _typingVisibleCount < _typingFullText.Length)
+                    {
+                        _typingElapsed -= interval;
+                        _typingVisibleCount++;
+                        if (_contentLabel != null)
+                            _contentLabel.Text = _typingFullText.Substring(0, _typingVisibleCount);
+
+                        var player = _beepPlayers[_beepIndex];
+                        if (player != null)
+                            player.Play();
+                        _beepIndex = (_beepIndex + 1) % BeepPlayerCount;
+                    }
+
+                    if (_typingVisibleCount >= _typingFullText.Length)
+                        StopTyping();
+                }
+
+                UpdateHistoryScroll(delta);
                 return;
             }
 
-            _typingElapsed += delta;
-            while (_typingElapsed >= interval && _typingVisibleCount < _typingFullText.Length)
+            // 导演模式 story_play：每条对白停留若干秒后自动翻页，避免演出卡在"等待回车"
+            if (_autoAdvanceLines && _cutsceneLinesFinished != null
+                && _currentDialogues != null && _currentIndex < _currentDialogues.Count)
             {
-                _typingElapsed -= interval;
-                _typingVisibleCount++;
-                if (_contentLabel != null)
-                    _contentLabel.Text = _typingFullText.Substring(0, _typingVisibleCount);
-
-                var player = _beepPlayers[_beepIndex];
-                if (player != null)
-                    player.Play();
-                _beepIndex = (_beepIndex + 1) % BeepPlayerCount;
+                _autoAdvanceElapsed += delta;
+                if (_autoAdvanceElapsed >= _autoAdvanceSec)
+                    Advance();
             }
-
-            if (_typingVisibleCount >= _typingFullText.Length)
-                StopTyping();
-
-            UpdateHistoryScroll(delta);
         }
 
         private void UpdateHistoryScroll(double delta)

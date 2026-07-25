@@ -23,17 +23,17 @@ namespace ClinetCSharp
         private Button _colorBtn;
         private Label _lengthValue;
         private HSlider _lengthScaleSlider;
-        private Label _lengthScaleValue;
+        private Button _lengthScaleValue;
         private Label _heightValue;
         private HSlider _heightScaleSlider;
-        private Label _heightScaleValue;
+        private Button _heightScaleValue;
         private HSlider _fillSlider;
-        private Label _fillValue;
+        private Button _fillValue;
         private HSlider _offsetXSlider;
-        private Label _offsetXValue;
+        private Button _offsetXValue;
         private CheckButton _offsetXCenterCheck;
         private HSlider _offsetYSlider;
-        private Label _offsetYValue;
+        private Button _offsetYValue;
 
         private HashSet<string> _lockedProperties = new();
 
@@ -237,7 +237,7 @@ namespace ClinetCSharp
             row.AddChild(v); parent.AddChild(row); return v;
         }
 
-        private static (HSlider, Label) MakeSliderRow(Container parent, string label, double min, double max,
+        private static (HSlider, Button) MakeSliderRow(Container parent, string label, double min, double max,
             double def, double step, Func<double, string> fmt = null, int lw = 60, CheckButton centerCheck = null)
         {
             fmt ??= (v => v.ToString(DebugPanelLengthScalePolicy.FormatStr));
@@ -248,13 +248,12 @@ namespace ClinetCSharp
             var v = new Label { Text = fmt(def), CustomMinimumSize = new Vector2(30, 0), HorizontalAlignment = HorizontalAlignment.Right };
             row.AddChild(v);
             if (centerCheck != null) row.AddChild(centerCheck);
-            s.ValueChanged += (val) => v.Text = fmt(val);
             parent.AddChild(row);
-            SliderValueInput.Attach(s, v, fmt);
-            return (s, v);
+            var valueDisplay = SliderValueInput.Attach(s, v, fmt);
+            return (s, valueDisplay);
         }
 
-        private static void SetSliderSilent(HSlider s, double v, Label l, string t)
+        private static void SetSliderSilent(HSlider s, double v, Button l, string t)
         { s?.SetBlockSignals(true); if (s != null) s.Value = v; s?.SetBlockSignals(false); if (l != null) l.Text = t; }
 
         private static void SetCheckSilent(CheckButton c, bool v)

@@ -1,10 +1,10 @@
 {
-  "unity_port": 63776,
-  "stream_port": 63880,
+  "unity_port": -1,
+  "stream_port": 55106,
   "created_date": "2026-07-16T14:46:55.393Z",
   "project_path": "C:/code/codeBrave-World-node2/unityClientSharp/Brave-World/Assets",
   "reloading": false,
-  "reason": "ready",
-  "seq": 1851,
-  "last_heartbeat": "2026-07-20T15:03:03.764Z"
+  "reason": "stopped",
+  "seq": 2801,
+  "last_heartbeat": "2026-07-21T12:05:38.345Z"
 }
