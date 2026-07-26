@@ -30,12 +30,16 @@ namespace ClinetCSharp
         /// <summary>定点整数 → float（用于从 cfg 读取）</summary>
         internal static float FromFp(int v) => v / (float)FpScale;
 
-        /// <summary>安全读取定点整数值：兼容旧格式(double)和新格式(int)</summary>
+        /// <summary>安全读取定点整数值：兼容旧格式(double)和新格式(int)。
+        /// 类型既不是 int 也不是 float 时打印警告并回退到默认值，避免静默出错。</summary>
         internal static int ReadFp(ConfigFile config, string section, string key, int defaultFp)
         {
             var v = config.GetValue(section, key, defaultFp);
             if (v.VariantType == Variant.Type.Int) return (int)v;
             if (v.VariantType == Variant.Type.Float) return ToFpD((double)v);
+            GD.PushWarning(
+                $"[ProfileConfigIO] [{section}] {key} 类型为 {v.VariantType}，" +
+                $"期望 int/float，回退到默认值 {defaultFp}（对应浮点 {FromFp(defaultFp):F4}）");
             return defaultFp;
         }
 
@@ -615,13 +619,31 @@ namespace ClinetCSharp
                 case "building_type":
                 {
                     var typeValue = config.GetValue(section, "building_type", BuildingType.House);
-                    int type = typeValue.VariantType switch
+                    int type;
+                    switch (typeValue.VariantType)
                     {
-                        Variant.Type.Int => (int)typeValue,
-                        Variant.Type.Float => (int)(double)typeValue,
-                        Variant.Type.String => ParseLegacyBuildingType((string)typeValue),
-                        _ => BuildingType.House,
-                    };
+                        case Variant.Type.Int:
+                            type = (int)typeValue;
+                            break;
+                        case Variant.Type.Float:
+                            type = (int)(double)typeValue;
+                            break;
+                        case Variant.Type.String:
+                            type = ParseLegacyBuildingType((string)typeValue);
+                            break;
+                        default:
+                            GD.PushWarning(
+                                $"[ProfileConfigIO] [{section}] building_type 类型为 " +
+                                $"{typeValue.VariantType}，期望 int/float/string，回退到 House");
+                            type = BuildingType.House;
+                            break;
+                    }
+                    if (!BuildingType.IsValid(type))
+                    {
+                        GD.PushWarning(
+                            $"[ProfileConfigIO] [{section}] building_type={type} 非法，回退到 House");
+                        type = BuildingType.House;
+                    }
                     return new BuildingTypeData { Type = type };
                 }
 

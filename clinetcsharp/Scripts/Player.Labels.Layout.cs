@@ -45,6 +45,10 @@ namespace ClinetCSharp
             label.VerticalAlignment = VerticalAlignment.Center;
             label.AutowrapMode = TextServer.AutowrapMode.Off;
             label.CustomMinimumSize = new Vector2(1, 1);
+            // 固定游戏主题项：主题链在 Node2D 处中断，编辑器预览里会回落到编辑器主题
+            // （字体更宽、normal StyleBox 带深色底和内边距撑大标签），
+            // 与布局按 FallbackFont 预量的尺寸错配（游戏里 override 与解析结果同源，零变化）。
+            EntityLabelTheme.ApplyGameTheme(label);
             label.AddThemeColorOverride("font_color", GetLineColor(index));
             return label;
         }

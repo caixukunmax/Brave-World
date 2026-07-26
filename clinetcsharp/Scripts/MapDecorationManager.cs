@@ -120,15 +120,31 @@ namespace ClinetCSharp
 
             int buildingType = BuildingType.GetTypeFromConfigId(profileId);
             if (!BuildingType.IsValid(buildingType))
+            {
+                GD.PushError(
+                    $"[MapDecorationManager] 建筑 profileId={profileId} 的建筑类型非法，" +
+                    $"回退为 House。位置: ({pos.X}, {pos.Y})");
                 buildingType = BuildingType.House;
+            }
 
             // 从 EntityProfile 读取占地大小
             if (sizeX <= 0 || sizeY <= 0)
             {
                 var profile = EntityProfileManager.Instance?.GetProfile(profileId);
                 var app = profile?.GetData<AppearanceData>("appearance");
-                sizeX = app?.SizeX ?? 1;
-                sizeY = app?.SizeY ?? 1;
+                if (app == null)
+                {
+                    GD.PushError(
+                        $"[MapDecorationManager] 建筑 profileId={profileId} 无法读取 appearance 组件，" +
+                        $"占地大小回退为 1x1。位置: ({pos.X}, {pos.Y})");
+                    sizeX = 1;
+                    sizeY = 1;
+                }
+                else
+                {
+                    sizeX = app.SizeX;
+                    sizeY = app.SizeY;
+                }
             }
             sizeX = Mathf.Max(1, sizeX);
             sizeY = Mathf.Max(1, sizeY);

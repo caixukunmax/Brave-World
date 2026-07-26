@@ -36,6 +36,7 @@ namespace ClinetCSharp.Editor
         private PreviewMap _previewMap;
         private EntityBase _previewEntity;
         private HSlider _zoomSlider;
+        private Label _zoomValueLabel;
         // 预览渲染超采样倍率（编辑器显示缩放 → N× 渲染 / 1/N 显示），见 EditorPreviewEnvironment
         private int _previewRenderScale = 1;
 
@@ -141,8 +142,14 @@ namespace ClinetCSharp.Editor
             _previewRenderScale = EditorPreviewEnvironment.ApplyTo(_previewContainer, _previewViewport);
             _previewMap = new PreviewMap
             {
-                // 编辑器预览只渲染实体，关掉背景格子
+                // 编辑器预览只渲染实体，不画背景格子与网格线
                 ShowGrid = false,
+                // 但背景色对齐游戏地图无地形格子的底色（落叶乡等普通地图的实际背景色），
+                // 与 grid_overlay.gdshader 的 default_fill 同源，避免透明底下文字/铭牌观感与游戏不符
+                BackgroundColor = PreviewMap.NoTerrainCellFill,
+                // 与游戏使用相同的 GridSize，确保实体大小、字体、标签间距、血条位置等 1:1 一致。
+                // 编辑器插件环境下没有 GridManager 单例，PreviewMap._Ready 会保留构造时设置的值。
+                GridSize = LoadPreviewGridSize(),
                 // 放大实体，原整图自适应会让单格实体只占中心一格、显得很小
                 PreviewZoom = 3.0f,
                 // 编辑器用滑条控制缩放，不再用鼠标滚轮
@@ -175,15 +182,17 @@ namespace ClinetCSharp.Editor
             _zoomSlider.ValueChanged += OnZoomSliderChanged;
             // 拖动结束（松手）时把缩放倍率写入用户目录，重启后不丢失
             _zoomSlider.DragEnded += OnZoomDragEnded;
-            // 居中说明并入滑条行，省掉单独一行的高度
-            var previewHint = new Label
+            // 缩放倍率数值显示（替代原无意义的 "2×2" 占位文字），实时反映当前滑条值
+            _zoomValueLabel = new Label
             {
-                Text = "2×2",
+                Text = FormatZoomValue(savedZoom),
                 MouseFilter = Control.MouseFilterEnum.Ignore,
+                CustomMinimumSize = new Vector2(48, 0),
+                HorizontalAlignment = HorizontalAlignment.Right,
             };
             zoomRow.AddChild(zoomLabel);
             zoomRow.AddChild(_zoomSlider);
-            zoomRow.AddChild(previewHint);
+            zoomRow.AddChild(_zoomValueLabel);
             left.AddChild(zoomRow);
 
             _componentEditor = new EditorProfileComponentList { OwnerPanel = this, SizeFlagsVertical = SizeFlags.ExpandFill };
@@ -216,7 +225,14 @@ namespace ClinetCSharp.Editor
 
         private void LoadProfiles()
         {
+            // 预览与游戏 1:1 的两个前提，编辑器进程必须各自补齐（编辑器与游戏静态字段相互独立）：
+            // 1) 实体渲染依赖的全局配置（[system_tab] 方向箭头等）——游戏里由 DebugPanel 启动时应用，
+            //    编辑器不应用就会用代码默认值（游戏里几乎透明的方向箭头会在预览里又大又亮）；
+            // 2) 内置 Profile 规范化——游戏里由 EntityProfileManager._Ready 执行，
+            //    编辑器跳过就会出现玩家背景不透明度/怪物标签绑定/默认房舍占地等与游戏不一致。
+            EntityGlobalVisualConfig.ApplyFromFile();
             _profiles = ProfileConfigIO.LoadFromFile();
+            EntityProfileManager.NormalizeBuiltInProfiles(_profiles);
             RefreshProfileList();
             // 重载后强制重新绑定当前选中的 Profile：否则若当前 id 仍有效，
             // RefreshProfileList 不会再次 SelectProfile，组件编辑器（如占地宽/高）
@@ -310,22 +326,72 @@ namespace ClinetCSharp.Editor
             // 不先 Flush 的话预览会从旧数据重绘，实时编辑看不到变化）。
             _componentEditor?.Flush();
 
+            // 等一帧，确保 _previewContainer 布局完成、SubViewport.Size 与容器当前尺寸同步。
+            // 否则 AutoFit 会基于初始 640x640 或过渡尺寸计算 zoom，导致实体偏移或裁剪。
+            _ = RefreshPreviewAsync(profile);
+        }
+
+        private async System.Threading.Tasks.Task RefreshPreviewAsync(EntityProfile profile)
+        {
+            await ToSignal(GetTree(), "process_frame");
+            if (_previewMap == null) return;
+
+            // 创建实体前先校准一次相机。SubViewport.Size 由引擎按 容器尺寸/StretchShrink 托管
+            // （stretch 下引擎拒绝手动 set Size），这里直接读当前视口尺寸即可。
+            _previewMap.AdjustCamera();
+
             // 每次都创建全新的实体，等价于游戏里一个全新实例。
             // 不能复用同一实体：ApplyProfileToEntity 在标签 ContentPreview 为空时会
             // 故意不覆盖实体标签文字（游戏中怪物名字由 Setup 设置），复用会导致上一个
-            // Profile 的标签/状态残留到当前预览（例如显示出未配置的“战斗”等文字）。
+            // Profile 的标签/状态残留到当前预览（例如显示出未配置的"战斗"等文字）。
             _previewEntity = EntityPreviewFactory.CreatePreviewEntity(profile);
             _previewMap.SetEntity(_previewEntity);
             // 按实体占地自动缩放，使 1x1 / 2x2 / 异形都稳定撑满预览并默认居中
             _previewMap.AutoFit(_previewEntity);
+
+            // 等两帧：第 1 帧实体 _Ready 触发标签创建，第 2 帧 SetupLabelsInternal 完成布局。
+            // 然后再 ApplyProfileToEntity 一次，与游戏中 Player.SetupLabelsInternal() 末尾
+            // 通过 EntityProfileManager.Instance.ApplyProfile 二次套用的行为完全对齐，
+            // 确保"标签节点存在后才能正确生效"的属性（字号样式、行高位置等）一致。
+            await ToSignal(GetTree(), "process_frame");
+            await ToSignal(GetTree(), "process_frame");
+            if (_previewEntity != null && IsInstanceValid(_previewEntity))
+            {
+                EntityProfileManager.ApplyProfileToEntity(_previewEntity, profile);
+                _previewEntity.QueueRedraw();
+            }
+
+            // 最终再做一次 AutoFit：确保在 SubViewport 尺寸完全稳定、实体完全就绪后，
+            // 用正确的视口尺寸重新计算 PreviewZoom，避免初次打开面板时预览大小与滑条不对应。
+            // （初始化阶段容器尺寸可能经历多次变化，AutoFit 的 deferred 重试机制不一定能
+            //   恰好命中"视口稳定+实体就绪"的时间窗，这里兜底一次。）
+            if (_previewMap != null && _previewEntity != null && IsInstanceValid(_previewEntity))
+            {
+                _previewMap.AutoFit(_previewEntity);
+            }
         }
 
         private void OnPreviewResized()
         {
             if (_previewViewport == null || _previewContainer == null) return;
-            EditorPreviewEnvironment.SyncViewportSize(_previewContainer, _previewViewport, _previewRenderScale);
-            if (_previewEntity != null)
-                _previewMap?.AutoFit(_previewEntity);
+            // Stretch=true 时 SubViewport.Size 由引擎托管（强制=容器尺寸/StretchShrink），
+            // 且 resized 信号先于引擎的尺寸同步发出——此刻读到的视口尺寸还是旧值，
+            // 手动 set Size 也会被引擎拒绝（stretch 下禁止，SyncViewportSize 实测无效只刷警告）。
+            // 必须延迟到本帧末尾再校准相机，才能读到引擎应用后的真实视口尺寸；
+            // 否则初次打开面板时相机会按最小布局尺寸（宽≈2px）计算并把 zoom 钳到 0.1，
+            // 预览缩成一团、与缩放滑条值不符（实测复现确认）。
+            CallDeferred(nameof(RecalibratePreviewCamera));
+        }
+
+        /// <summary>容器尺寸稳定（引擎完成视口尺寸同步）后重新校准预览相机。</summary>
+        private void RecalibratePreviewCamera()
+        {
+            if (_previewMap == null) return;
+            // SubViewport 尺寸变化时总是重新校准相机，不管当前有没有实体，
+            // 避免初始化时容器尺寸确定前/后相机 zoom 基于错误的视口尺寸。
+            _previewMap.AdjustCamera();
+            if (_previewEntity != null && IsInstanceValid(_previewEntity))
+                _previewMap.AutoFit(_previewEntity);
         }
 
         private bool _suppressZoomSliderEvent;
@@ -337,20 +403,47 @@ namespace ClinetCSharp.Editor
             _previewMap?.SetUserZoom((float)value);
         }
 
-        /// <summary>预览缩放倍率变化（滑条或滚轮）时同步滑条显示，带标志防止回环触发。</summary>
+        /// <summary>预览缩放倍率变化（滑条或滚轮）时同步滑条显示和数值标签，带标志防止回环触发。</summary>
         private void OnPreviewUserZoomChanged(float z)
         {
             if (_zoomSlider == null) return;
             _suppressZoomSliderEvent = true;
             _zoomSlider.Value = z;
             _suppressZoomSliderEvent = false;
+            if (_zoomValueLabel != null)
+                _zoomValueLabel.Text = FormatZoomValue(z);
         }
+
+        /// <summary>缩放倍率格式化：保留两位小数，例如 1.00×。</summary>
+        private static string FormatZoomValue(float z) => $"{z:F2}×";
 
         /// <summary>滑条拖动结束（鼠标释放）时保存缩放倍率，避免每次值变化都写盘。</summary>
         private void OnZoomDragEnded(bool released)
         {
             if (released && _zoomSlider != null)
                 SavePreviewZoom((float)_zoomSlider.Value);
+        }
+
+        /// <summary>
+        /// 从 debug_panel_config.cfg 的 [map] 段读取 grid_size，使编辑器预览使用与游戏相同的格子尺寸。
+        /// 读取失败时退回 111（与 PreviewMap 默认值一致）。
+        /// </summary>
+        private static int LoadPreviewGridSize()
+        {
+            try
+            {
+                var config = new ConfigFile();
+                if (config.Load(ProfileConfigIO.ConfigPath) == Error.Ok)
+                {
+                    if (config.HasSection("map") && config.HasSectionKey("map", "grid_size"))
+                    {
+                        int gs = Mathf.RoundToInt((float)config.GetValue("map", "grid_size", 111.0f));
+                        return Mathf.Clamp(gs, 32, 256);
+                    }
+                }
+            }
+            catch (System.Exception) { /* 读取失败则使用默认值 */ }
+            return 111;
         }
 
         // 预览缩放倍率的持久化位置：用户数据目录下，不进 git、跨重启保留。

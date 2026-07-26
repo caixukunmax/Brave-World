@@ -19,11 +19,32 @@ namespace ClinetCSharp
         /// <summary>是否渲染背景格子。编辑器预览只想要实体本身时可关掉。</summary>
         [Export] public bool ShowGrid { get; set; } = true;
 
+        /// <summary>无地形格子的底色（必须与 assets/shaders/grid_overlay.gdshader 的 default_fill
+        /// 保持一致）。普通地形 color_a=0 时游戏地图显示的就是这个极暗灰（如落叶乡全图），
+        /// 预览用它做背景色即可与游戏地图背景一致。</summary>
+        public static readonly Color NoTerrainCellFill = new(0.06f, 0.06f, 0.06f, 1.0f);
+
+        /// <summary>预览背景色（A=0 时不绘制，保持旧行为）。ShowGrid=false 时生效，
+        /// 用于把预览背景对齐游戏地图底色。</summary>
+        [Export] public Color BackgroundColor { get; set; } = new(0, 0, 0, 0);
+
         /// <summary>预览放大系数（1=按整图自适应）。编辑器想让实体更大可整体放大。</summary>
         [Export] public float PreviewZoom { get; set; } = 1.0f;
 
-        /// <summary>格子像素尺寸。独立于 GridManager 存在，关掉格子后相机/实体定位仍可用。</summary>
-        [Export] public int GridSize { get; set; } = 111;
+        /// <summary>格子像素尺寸。独立于 GridManager 存在，关掉格子后相机/实体定位仍可用。
+        /// 外部一旦显式赋值，_Ready 就不再从主 GridManager 回采（见 _gridSizeExplicit）。</summary>
+        [Export]
+        public int GridSize
+        {
+            get => _gridSize;
+            set { _gridSize = value; _gridSizeExplicit = true; }
+        }
+        private int _gridSize = 111;
+        /// <summary>外部是否显式指定了 GridSize。编辑器插件预览里，主场景 main.tscn 的 GridManager
+        /// 节点（序列化值 111，非 [Tool] 在编辑器里不会跑响应式）就在编辑器场景树中，
+        /// _Ready 若回采它会覆盖面板从 debug_panel_config.cfg 读到的游戏实际生效值（响应式 136），
+        /// 导致铭牌框/血条整体缩水、固定字号文字溢出边框。显式指定后禁止回采。</summary>
+        private bool _gridSizeExplicit;
 
         private GridManager _gridManager;
         private ColorRect _background;
@@ -46,7 +67,19 @@ namespace ClinetCSharp
         public override void _Ready()
         {
             var mainGrid = GetTree()?.GetFirstNodeInGroup("grid_manager") as GridManager;
-            GridSize = mainGrid?.GridSize ?? 111;
+            if (mainGrid != null && !_gridSizeExplicit)
+            {
+                // 仅在没有显式来源时回采主 GridManager；直接写字段，不当作显式覆盖。
+                _gridSize = mainGrid.GridSize;
+            }
+            else if (!_gridSizeExplicit)
+            {
+                // 默认值 111 没有任何可信来源（既没有主 GridManager，外部也没显式覆盖），
+                // 直接报错避免静默回退导致渲染偏差难以排查。
+                // 编辑器插件预览等无 GridManager 的场景，必须在构造 PreviewMap 时显式传入 GridSize。
+                GD.PushError("[PreviewMap] 无 GridManager 且 GridSize 仍为默认值 111，" +
+                    "请在构造时显式设置 GridSize（如从 debug_panel_config.cfg map/grid_size 读取）。");
+            }
 
             int mapPixelWidth = PreviewMapWidth * GridSize;
             int mapPixelHeight = PreviewMapHeight * GridSize;
@@ -91,14 +124,32 @@ namespace ClinetCSharp
                 _gridManager.NotifyTerrainChanged();
                 _gridManager.SyncBackgroundSize();
             }
+            else if (BackgroundColor.A > 0.0f)
+            {
+                // ShowGrid=false 时用纯色背景对齐游戏地图底色（无地形格子的 default_fill，
+                // 如落叶乡全图）。尺寸给足：任意缩放级别下视口内都不会露出背景之外的部分。
+                _background = new ColorRect
+                {
+                    Name = "Background",
+                    Color = BackgroundColor,
+                    Position = new Vector2(-50000, -50000),
+                    Size = new Vector2(100000, 100000),
+                    MouseFilter = Control.MouseFilterEnum.Ignore,
+                };
+                AddChild(_background);
+            }
 
             // 相机（对准地图中心，自动计算 zoom 使地图完整显示）
             _camera = new Camera2D
             {
                 Name = "Camera",
                 AnchorMode = Camera2D.AnchorModeEnum.DragCenter,
+                Enabled = true,
             };
             AddChild(_camera);
+            // 在编辑器插件的 SubViewport 中，Camera2D 不会自动 become current，
+            // 必须显式 MakeCurrent，否则视口仍从世界 (0,0) 渲染，实体被挤到角落。
+            _camera.MakeCurrent();
 
             CallDeferred(nameof(AdjustCamera));
         }
@@ -128,11 +179,25 @@ namespace ClinetCSharp
             AdjustCamera();
         }
 
+
         public void AdjustCamera()
         {
             if (_camera == null || GetViewport() == null) return;
 
             var viewportSize = GetViewport().GetVisibleRect().Size;
+            // 视口尺寸尚未就绪（容器布局未完成）时延迟重试，避免用 0/极小尺寸计算 zoom
+            if (viewportSize.X < 2 || viewportSize.Y < 2)
+            {
+                CallDeferred(nameof(AdjustCamera));
+                return;
+            }
+
+            // 每次都重新 MakeCurrent：SubViewport 中的 Camera2D 在编辑器 [Tool] 模式下
+            // _Ready 阶段的 MakeCurrent 可能不生效（视口尚未开始渲染），
+            // 每次调整相机时重新设为 current，确保预览画面始终对准相机视角。
+            // MakeCurrent 是幂等的，重复调用无副作用。
+            _camera.MakeCurrent();
+
             int mapPixelWidth = PreviewMapWidth * GridSize;
             int mapPixelHeight = PreviewMapHeight * GridSize;
 

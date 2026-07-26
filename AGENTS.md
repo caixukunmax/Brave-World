@@ -76,11 +76,17 @@
 - 所有 `MapService.PlayerEnter` 入口须完整填 `PlayerSnapshot`（`EquippedSkills`/`Job`/`MoveSpeedMs`）；新增 `MapPlayerState` 字段同步更新所有调用点。
 - 被编辑器插件/预览复用的运行时 Node 脚本须加 `[Tool]`；运行时副作用用 `Engine.IsEditorHint()` 守卫。
 - 编辑器内嵌 `SubViewport` 画布禁 `Stretch=true+StretchShrink=1` 跟容器；监听 `Resized` 手动同步 `Size`，初始 `Size` 给小值并重写 `_GetMinimumSize()`。
+- `SubViewportContainer` 一旦 `Stretch=true`（任意 StretchShrink），`SubViewport.Size` 由引擎托管（强制=容器/StretchShrink，手动 set 被引擎拒绝只刷警告）；且容器 `resized` 信号先于引擎的尺寸同步发出，依赖视口尺寸的相机/布局校准必须 `CallDeferred` 到帧末再读，否则拿到旧尺寸（初开面板 zoom 被钳 0.1、预览缩成一团即此因，实测复现）。
 - 编辑器 Dock 主面板若继承普通 `Control`，根容器须 `SetAnchorsPreset(FullRect)`；固定宽高比视口外包 `AspectRatioContainer`。
 - 底部 Dock 内容超高会向下溢出盖住标签栏；主面板须 FullRect + `ClipContents=true` + 内容列外包 `ScrollContainer`。
 - 实体 `EnsureRenderComponents` **禁止 `_renderComponents.Count>0` 早退**，须按类型幂等补齐（`GetRenderComponent<T>()==null` 才加）。
 - 实体预览必须走 `EntityPreviewFactory.CreatePreviewEntity`，类型判定走 `EntityPreviewPolicy.ResolveKind`；禁各面板 new 预览实体或重复 switch。
 - 编辑器 `SubViewport` 预览须对齐宿主渲染环境（像素密度/主题），统一走 `EditorPreviewEnvironment`。
+- 编辑器插件渲染实体预览前，必须先 `EntityGlobalVisualConfig.ApplyFromFile()`（[system_tab] 方向箭头等全局静态配置）并对加载结果执行 `EntityProfileManager.NormalizeBuiltInProfiles(profiles)`；禁止只 `ProfileConfigIO.LoadFromFile` 就渲染——编辑器与游戏进程静态字段各自独立，缺了这两步方向箭头会回落代码默认值、内置 Profile 规范化不生效，预览必然与游戏漂移。
+- 构造 `PreviewMap` 必须显式传 `GridSize`（从 `debug_panel_config.cfg [map] grid_size` 读游戏生效值）；`PreviewMap._Ready` 只允许在未显式设置时回采场景 `grid_manager`——编辑器树里 main.tscn 的 GridManager 是非 [Tool] 的序列化旧值（111），游戏生效值由响应式算出（如 136），回采会让铭牌框/血条整体缩水、固定字号文字溢出边框。
+- 实体标签 `RichTextLabel` 创建时必须 `EntityLabelTheme.ApplyGameTheme(label)`——Control 主题链在 Node2D 处中断，编辑器预览会回落到编辑器窗口主题：字体更宽、`normal` StyleBox 带深色底和内边距（把 FitContent 撑大、文字偏离布局中心探出铭牌），与按 `ThemeDB.FallbackFont` 预量的布局尺寸错配；游戏里 override 与主题解析同源，零视觉变化。
+- 预览/编辑器里引用"地图无地形格子底色"统一用 `PreviewMap.NoTerrainCellFill`，禁止另行硬编码——它必须与 `assets/shaders/grid_overlay.gdshader` 的 `default_fill`（0.06 极暗灰）保持一致，改 shader 时同步改常量。
+- 对隐藏 Dock 内的 `SubViewport` 做离屏截图/自动验收前，须先把宿主容器置可见或重设 `RenderTargetUpdateMode=Always`——容器（EditorDock）不可见时其更新模式会被压为 Disabled（实测），视口纹理读回全透明，并非内容缺失。
 - 滑条数值显示须持有 `SliderValueInput.Attach` 返回的 `Button`，禁保留被替换的旧 `Label`（否则值脱节、点一下跳变）。
 
 **层级三：认知级免疫（Memory / Skill 沉淀）——【重点执行项】**

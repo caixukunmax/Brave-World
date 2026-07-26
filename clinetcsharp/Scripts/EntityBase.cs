@@ -491,6 +491,8 @@ namespace ClinetCSharp
                     CustomMinimumSize = minSize,
                     MouseFilter = Control.MouseFilterEnum.Ignore,
                 };
+                // 固定游戏主题项（同 Player.CreateLabelNode），编辑器预览与游戏渲染一致。
+                EntityLabelTheme.ApplyGameTheme(label);
                 label.AddThemeColorOverride("font_color", TextColor);
                 container.AddChild(label);
                 AddChild(container);

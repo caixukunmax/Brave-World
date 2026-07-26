@@ -35,7 +35,7 @@ namespace ClinetCSharp
             // 旧格式配置会清空 profile，新格式也可能缺少默认建筑的 category 组件，
             // 因此在加载完成后再兜底一次，确保默认建筑及其分类存在。
             ProfileConfigIO.EnsureDefaultProfiles(_profiles);
-            NormalizeBuiltInProfiles();
+            NormalizeBuiltInProfiles(_profiles);
 
             // 同步到 DecorationConfigUtil 兼容层，保证旧接口（如 MapEditor 建筑列表）能读到数据。
             // NetworkManager._Ready 调用 DecorationConfigUtil.Load 时，本单例可能尚未初始化，
@@ -198,7 +198,13 @@ namespace ClinetCSharp
 
         #region Built-in Profile Normalization
 
-        private void NormalizeBuiltInProfiles()
+        /// <summary>
+        /// 内置 Profile 规范化 —— 运行时（EntityProfileManager._Ready）与编辑器插件
+        /// （EditorProfilePanel.LoadProfiles）共用：编辑器预览的 Profile 数据必须经历
+        /// 与游戏完全相同的校正，否则预览会与游戏渲染漂移（如玩家旧版背景不透明度兜底、
+        /// 怪物标签绑定校正、默认房舍强制 2x2、默认建筑 building_type/category 校正）。
+        /// </summary>
+        public static void NormalizeBuiltInProfiles(Dictionary<int, EntityProfile> profiles)
         {
             // 默认 decoration profile 的规范（building_type + category），用于覆盖旧配置文件中残留的错误数据
             var defaultDecoSpecs = new System.Collections.Generic.Dictionary<int, (int buildingType, string category)>
@@ -219,7 +225,7 @@ namespace ClinetCSharp
                 [BuildingType.GetConfigBaseId(BuildingType.Grass)]     = (BuildingType.Grass, "Terrain"),
             };
 
-            foreach (var profile in _profiles.Values)
+            foreach (var profile in profiles.Values)
             {
                 // 默认 decoration profile：强制校正 building_type 和 category
                 if (profile.EntityType == "decoration" && defaultDecoSpecs.TryGetValue(profile.Id, out var spec))
@@ -397,8 +403,14 @@ namespace ClinetCSharp
                 entity.CornerRadius = app.CornerRadius;
                 entity.BgOpacity = app.BgOpacity;
                 entity.FontSize = app.FontSize;
-                entity.GridSizeX = app.SizeX > 0 ? app.SizeX : 1;
-                entity.GridSizeY = app.SizeY > 0 ? app.SizeY : 1;
+                int newSizeX = app.SizeX > 0 ? app.SizeX : 1;
+                int newSizeY = app.SizeY > 0 ? app.SizeY : 1;
+                if (newSizeX != app.SizeX || newSizeY != app.SizeY)
+                    GD.PushWarning(
+                        $"[EntityProfileManager] Profile '{profile.Name}'(id={profile.Id}) " +
+                        $"appearance.SizeX/SizeY 为 ({app.SizeX}, {app.SizeY})，非法值，回退为 ({newSizeX}, {newSizeY})");
+                entity.GridSizeX = newSizeX;
+                entity.GridSizeY = newSizeY;
                 entity.OnGridSizeChanged();
                 entity.BorderColor = app.BorderColor;
                 entity.BgColor = app.BgColor;

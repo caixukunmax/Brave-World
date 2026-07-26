@@ -414,6 +414,8 @@ namespace ClinetCSharp
         {
             if (GridData.Count == 0)
             {
+                GD.PushWarning("[GridManager] 网格数据为空，地图边界回退到默认 50x50。" +
+                    "如果这不是预期状态，请检查地图数据是否已加载。");
                 MapBounds = new Rect2I(0, 0, 50, 50);
                 return;
             }

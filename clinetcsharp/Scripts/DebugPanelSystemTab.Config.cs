@@ -178,22 +178,8 @@ namespace ClinetCSharp
             _backpackHoverColorPicker.Color = InventoryUI.BackpackHoverBoxColor;
             _backpackHoverColorPicker.SetBlockSignals(false);
 
-            // 方向箭头配置
-            EntityBase.DirectionArrowStyle = (int)(double)cfg.GetValue("system_tab", "direction_arrow_style", 0.0);
-            EntityBase.DirectionArrowSize = (float)(double)cfg.GetValue("system_tab", "direction_arrow_size", 0.35);
-            EntityBase.DirectionArrowColor = (Color)cfg.GetValue("system_tab", "direction_arrow_color", new Color(1f, 0.9f, 0.2f, 0.9f));
-            EntityBase.DirectionArrowAlpha = (float)(double)cfg.GetValue("system_tab", "direction_arrow_alpha", 0.9);
-            Vector2[] defaultOffsets = { new(15, 0), new(0, 15), new(-15, 0), new(0, -15) };
-            float[] defaultAngles = { 0f, 90f, 180f, 270f };
-            string[] dirKeys = { "right", "down", "left", "up" };
-            for (int d = 0; d < 4; d++)
-            {
-                float ox = (float)(double)cfg.GetValue("system_tab", $"direction_arrow_offset_x_{dirKeys[d]}", (double)defaultOffsets[d].X);
-                float oy = (float)(double)cfg.GetValue("system_tab", $"direction_arrow_offset_y_{dirKeys[d]}", (double)defaultOffsets[d].Y);
-                float ang = (float)(double)cfg.GetValue("system_tab", $"direction_arrow_angle_{dirKeys[d]}", (double)defaultAngles[d]);
-                EntityBase.DirectionArrowOffsets[d] = new Vector2(ox, oy);
-                EntityBase.DirectionArrowAngles[d] = ang;
-            }
+            // 方向箭头配置（与编辑器插件共用同一入口，保证游戏/预览全局视觉一致）
+            EntityGlobalVisualConfig.ApplyFromConfig(cfg);
 
             _directionArrowStyleOption.SetBlockSignals(true);
             _directionArrowStyleOption.Select(EntityBase.DirectionArrowStyle);
