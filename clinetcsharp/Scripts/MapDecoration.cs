@@ -43,6 +43,7 @@ namespace ClinetCSharp
         private VBoxContainer? _portalMenu;
         private bool _isPortal;
         private NetworkManager? _network;
+        private Player? _player;
 
         // ========== 酒馆进入交互 ==========
         private Button? _tavernEnterButton;
@@ -98,17 +99,10 @@ namespace ClinetCSharp
             Position = GetWorldPositionForGridAnchor(new Vector2I(_gridX, _gridY));
 
             // 判断是否为共享传送门
+            // 注意：Setup() 在节点 AddChild 进树之前被调用，此处 GetTree() 为 null，
+            // 不能在这里解析 _network（否则永远为 null → 传送菜单静默不弹）。
+            // _network 改为在 UpdatePortalMenu 里通过 EnsureNetwork() 惰性解析。
             _isPortal = BuildingType.GetTypeFromConfigId(ProfileId) == BuildingType.Portal;
-            if (_isPortal && !IsEditable)
-            {
-                var tree = GetTree();
-                if (tree != null)
-                {
-                    _network = tree.GetFirstNodeInGroup("network_manager") as NetworkManager;
-                    if (_network == null)
-                        _network = tree.Root.GetNodeOrNull<NetworkManager>("NetworkManager");
-                }
-            }
 
             // 判断是否为酒馆
             _isTavern = BuildingType.GetTypeFromConfigId(ProfileId) == BuildingType.Tavern;
@@ -132,7 +126,8 @@ namespace ClinetCSharp
 
         private void UpdatePortalMenu()
         {
-            var player = GetTree()?.GetFirstNodeInGroup("player") as Player;
+            EnsureNetwork();
+            var player = EnsurePlayer();
             if (player == null)
             {
                 ClosePortalMenu();
@@ -148,6 +143,30 @@ namespace ClinetCSharp
                 ShowPortalMenu();
             else if (!inRange && _portalMenu != null)
                 ClosePortalMenu();
+        }
+
+        /// <summary>
+        /// 惰性解析 NetworkManager。Setup() 早于节点进树，GetTree() 当时为 null，
+        /// 因此 _network 必须等到 _Process 阶段（已在树中）再取。
+        /// </summary>
+        private void EnsureNetwork()
+        {
+            if (_network != null)
+                return;
+            var tree = GetTree();
+            if (tree == null)
+                return;
+            _network = tree.GetFirstNodeInGroup("network_manager") as NetworkManager;
+            _network ??= tree.Root.GetNodeOrNull<NetworkManager>("NetworkManager");
+        }
+
+        /// <summary>惰性缓存本地玩家节点，避免每帧对每个装饰物做 group 查找。</summary>
+        private Player? EnsurePlayer()
+        {
+            if (_player != null && IsInstanceValid(_player))
+                return _player;
+            _player = GetTree()?.GetFirstNodeInGroup("player") as Player;
+            return _player;
         }
 
         private void ShowPortalMenu()
@@ -217,7 +236,7 @@ namespace ClinetCSharp
 
         private void UpdateTavernButton()
         {
-            var player = GetTree()?.GetFirstNodeInGroup("player") as Player;
+            var player = EnsurePlayer();
             if (player == null)
             {
                 CloseTavernButton();

@@ -61,7 +61,7 @@ public class MoveStartHandler : IMessageHandler
         {
             int oldDuration = durationMs;
             durationMs = (int)(durationMs / terrainRatio);
-            _logger.LogInformation("[Move] terrain slowdown: player={PlayerId} ratio={Ratio} old={Old}ms new={New}ms",
+            _logger.LogDebug("[Move] terrain slowdown: player={PlayerId} ratio={Ratio} old={Old}ms new={New}ms",
                 claims.AccountId, terrainRatio, oldDuration, durationMs);
         }
 
@@ -81,7 +81,7 @@ public class MoveStartHandler : IMessageHandler
 
             if (collisionMove)
             {
-                _logger.LogInformation("[Move] collision move: player={PlayerId} from=({FX},{FY}) to=({TX},{TY}) — deferring collision to 30%",
+                _logger.LogDebug("[Move] collision move: player={PlayerId} from=({FX},{FY}) to=({TX},{TY}) — deferring collision to 30%",
                     claims.AccountId, fromX, fromY, toX, toY);
                 return Task.FromResult<byte[]?>(MoveRsp(PCommon.ErrorCode.Success, "", fromX, fromY, durationMs));
             }
@@ -140,7 +140,7 @@ public class MoveConfirmHandler : IMessageHandler
             var (mapName, pos) = _session.MapService.World.FindEntityPosition(claims.AccountId);
             if (mapName != null && pos != null)
             {
-                _logger.LogInformation("[MoveConfirm] collision detected: player={PlayerId} at ({X},{Y}) map={Map}",
+                _logger.LogDebug("[MoveConfirm] collision detected: player={PlayerId} at ({X},{Y}) map={Map}",
                     claims.AccountId, pos.Value.x, pos.Value.y, mapName);
 
                 // 发送弹回通知
@@ -189,7 +189,7 @@ public class MoveConfirmHandler : IMessageHandler
             var mapName = _session.MapService.World.GetEntityMapName(claims.AccountId);
             if (mapName != null)
             {
-                _logger.LogInformation("[MoveConfirm] player={PlayerId} confirmed at ({TX},{TY}) map={Map} — checking collision",
+                _logger.LogDebug("[MoveConfirm] player={PlayerId} confirmed at ({TX},{TY}) map={Map} — checking collision",
                     claims.AccountId, res2.TargetX, res2.TargetY, mapName);
                 _session.MapService.CheckEntityCollision(claims.AccountId, mapName, res2.TargetX, res2.TargetY);
             }
@@ -276,7 +276,7 @@ public class MoveCollisionHandler : IMessageHandler
         if (!hasNearbyEnemy)
         {
             // 校验失败：目标格已无敌人，通知客户端强制回滚
-            _logger.LogInformation("[MoveCollision] validation failed: no enemy at ({TX},{TY}) for player={PlayerId}",
+            _logger.LogDebug("[MoveCollision] validation failed: no enemy at ({TX},{TY}) for player={PlayerId}",
                 req.TargetX, req.TargetY, claims.AccountId);
 
             var notify = new PGame.MoveCancelNotify
@@ -291,7 +291,7 @@ public class MoveCollisionHandler : IMessageHandler
         }
 
         // 校验通过：触发战斗
-        _logger.LogInformation("[MoveCollision] validated: player={PlayerId} collided at ({TX},{TY}) map={Map}",
+        _logger.LogDebug("[MoveCollision] validated: player={PlayerId} collided at ({TX},{TY}) map={Map}",
             claims.AccountId, req.TargetX, req.TargetY, mapName);
         _session.MapService.CheckEntityCollision(claims.AccountId, mapName, pos.Value.x, pos.Value.y);
 

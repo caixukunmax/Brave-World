@@ -45,6 +45,11 @@ namespace ClinetCSharp
             AddChild(_sprite);
         }
 
+        private InventoryManager? _invMgr;
+        private int _quality = -1;
+        private string _countText = "";
+        private int _countTextFor = -1;
+
         public override void _Process(double delta)
         {
             _time += (float)delta;
@@ -74,18 +79,24 @@ namespace ClinetCSharp
             // 数量文本（>1 时显示）
             if (Count > 1)
             {
+                if (_countTextFor != Count)
+                {
+                    _countText = $"x{Count}";
+                    _countTextFor = Count;
+                }
                 DrawString(ThemeDB.FallbackFont, center + new Vector2(-6, 4),
-                    $"x{Count}", HorizontalAlignment.Center, -1, 11, Colors.White);
+                    _countText, HorizontalAlignment.Center, -1, 11, Colors.White);
             }
         }
 
         private int GetNodeInventoryQuality()
         {
-            var tree = Engine.GetMainLoop() as SceneTree;
-            var node = tree?.GetFirstNodeInGroup("inventory_manager");
-            if (node is InventoryManager mgr)
-                return mgr.GetItemQuality((uint)ItemId);
-            return 0;
+            if (_quality >= 0)
+                return _quality;
+            _invMgr ??= (Engine.GetMainLoop() as SceneTree)?.GetFirstNodeInGroup("inventory_manager") as InventoryManager;
+            if (_invMgr != null)
+                _quality = _invMgr.GetItemQuality((uint)ItemId);
+            return _quality >= 0 ? _quality : 0;
         }
     }
 }

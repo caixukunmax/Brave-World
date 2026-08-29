@@ -191,6 +191,16 @@ public class GameServerHostedService : IHostedService
         await gameLoop.StartAsync(_cts.Token);
         _logger.LogInformation("GameLoopScheduler started");
 
+        // 断线/踢线：在逻辑线程清理玩家世界状态与在线标记（修复幽灵玩家 / 空间索引格子泄漏）
+        network.OnPlayerDisconnected = (accountId, serverId) =>
+        {
+            var mapName = worldState.GetEntityMapName(accountId);
+            if (mapName != null)
+                mapService.PlayerLeave(accountId, mapName);
+            playerSession.SetOffline(accountId);
+            _logger.LogInformation("[Gateway] 玩家下线清理: account={AccountId} map={Map}", accountId, mapName ?? "(不在图)");
+        };
+
         // 5. 注册消息路由
         var router = _sp.GetRequiredService<MessageRouter>();
         var gateway = _sp.GetRequiredService<GatewayService>();

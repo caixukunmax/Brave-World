@@ -319,7 +319,7 @@ public class MonsterManager : IMonsterRegistry
             m.TargetId = attackerId;
             m.State = MonsterState.Combat;
         }
-        _logger.LogInformation("[Monster] damaged: id={Id} dmg={Dmg} hp={Hp} state={State}", instanceId, damage, m.Hp, m.State);
+        _logger.LogDebug("[Monster] damaged: id={Id} dmg={Dmg} hp={Hp} state={State}", instanceId, damage, m.Hp, m.State);
         if (m.Hp <= 0)
         {
             m.Hp = 0;
@@ -421,7 +421,7 @@ public class MonsterManager : IMonsterRegistry
             }
         }
 
-        _logger.LogInformation("[Monster] disengaged: id={Id} returnTo=({X},{Y})", instanceId,
+        _logger.LogDebug("[Monster] disengaged: id={Id} returnTo=({X},{Y})", instanceId,
             m.ReturnPatrolPoint?.x ?? m.SpawnX, m.ReturnPatrolPoint?.y ?? m.SpawnY);
     }
 
@@ -695,7 +695,7 @@ public class MonsterManager : IMonsterRegistry
 
         if (m.ChaseTimeoutTimer >= chaseTimeout)
         {
-            _logger.LogInformation("[Monster] chase timeout: id={Id} target={Target} timer={Timer}s, entering return state", m.InstanceId, targetId, m.ChaseTimeoutTimer);
+            _logger.LogDebug("[Monster] chase timeout: id={Id} target={Target} timer={Timer}s, entering return state", m.InstanceId, targetId, m.ChaseTimeoutTimer);
 
             // 请求 CombatManager 处理脱战广播（统一走脱战通知流程）
             CombatManager?.RequestDisengage(m.InstanceId, targetId);

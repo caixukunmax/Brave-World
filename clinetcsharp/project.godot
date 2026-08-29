@@ -12,11 +12,12 @@ config_version=5
 
 config/name="clinetcsharp"
 run/main_scene="res://scenes/login_scene.tscn"
-config/features=PackedStringArray("4.6", "C#", "Forward Plus")
+config/features=PackedStringArray("4.7", "C#", "Forward Plus")
 config/icon="res://icon.svg"
 
 [autoload]
 
+DevServerLauncher="*res://Scripts/DevServerLauncher.cs"
 LogCollector="*res://Scripts/LogCollector.cs"
 NetworkManager="*res://Scripts/NetworkManager.cs"
 ScreenshotTool="*res://Scripts/ScreenshotTool.cs"
@@ -33,7 +34,7 @@ project/assembly_name="clinetcsharp"
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/openclaw/plugin.cfg")
+enabled=PackedStringArray("res://addons/map_config_manager/plugin.cfg", "res://addons/openclaw/plugin.cfg", "res://addons/skill_effect_preview/plugin.cfg")
 
 [input]
 

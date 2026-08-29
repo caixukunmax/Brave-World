@@ -30,6 +30,13 @@ public class GatewayService : INetworkSender
     private readonly Dictionary<string, long> _accountConnections = new();
     private readonly Channel<Func<Task>> _connectionChannel = Channel.CreateUnbounded<Func<Task>>();
 
+    /// <summary>
+    /// 玩家连接关闭（掉线/踢线/心跳超时）时的游戏侧下线清理回调。
+    /// 由 GatewayService 投递到 IGameLoopScheduler 逻辑线程执行，参数为 (accountId, serverId)。
+    /// 未赋值时不做任何事（向后兼容）。
+    /// </summary>
+    public Action<long, int>? OnPlayerDisconnected;
+
     public GatewayService(
         ILogger<GatewayService> logger,
         MessageRouter router,
@@ -285,15 +292,27 @@ public class GatewayService : INetworkSender
     {
         if (_connections.Remove(connId, out var conn))
         {
-            if (conn.AccountId > 0 && conn.ServerId > 0)
+            long accountId = conn.AccountId;
+            int serverId = conn.ServerId;
+            if (accountId > 0 && serverId > 0)
             {
-                var key = $"{conn.AccountId}:{conn.ServerId}";
+                var key = $"{accountId}:{serverId}";
                 if (_accountConnections.TryGetValue(key, out var existingId) && existingId == connId)
                     _accountConnections.Remove(key);
             }
             _logger.LogInformation("Connection closed: connId={ConnId} reason={Reason}", connId, reason);
             try { conn.Socket.Close(); } catch { }
             conn.Cts.Cancel();
+
+            // 游戏侧下线清理必须投递到逻辑线程（此处是连接通道线程，不能直接改 WorldState）
+            if (accountId > 0 && OnPlayerDisconnected != null)
+            {
+                _gameLoop.Enqueue(() =>
+                {
+                    OnPlayerDisconnected(accountId, serverId);
+                    return Task.CompletedTask;
+                });
+            }
         }
     }
 

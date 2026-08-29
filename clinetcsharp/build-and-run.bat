@@ -11,4 +11,4 @@ if %errorlevel% neq 0 (
 )
 
 echo [INFO] Opening Godot editor...
-start "" "D:\Program Files (x86)\Godot_v4.6.2-stable_mono_win64\Godot_v4.6.2-stable_mono_win64.exe" --editor --path "%~dp0"
+start "" "D:\Program Files (x86)\Godot_v4.7.1-stable_mono_win64\Godot_v4.7.1-stable_mono_win64\Godot_v4.7.1-stable_mono_win64.exe" --editor --path "%~dp0"

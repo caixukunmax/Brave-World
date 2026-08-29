@@ -16,6 +16,7 @@ namespace ClinetCSharp
             nm.CombatEventNotify += OnCombatEventNotify;
             nm.PlayerDeathNotify += OnPlayerDeath;
             nm.LevelUpNotify += OnLevelUp;
+            nm.Disconnected += OnNetworkDisconnected;
         }
 
         private void UnsubscribeNetworkEvents(NetworkManager nm)
@@ -29,6 +30,16 @@ namespace ClinetCSharp
             nm.CombatEventNotify -= OnCombatEventNotify;
             nm.PlayerDeathNotify -= OnPlayerDeath;
             nm.LevelUpNotify -= OnLevelUp;
+            nm.Disconnected -= OnNetworkDisconnected;
+        }
+
+        /// <summary>
+        /// 断线时重置在途移动计数：旧连接上的 MoveResponse 永远不会回来，
+        /// 不清零会让 _moveSentCount 卡在队列上限、重连后永久无法移动。
+        /// </summary>
+        private void OnNetworkDisconnected()
+        {
+            _moveSentCount = 0;
         }
 
         private void OnRoleAttrUpdated(Game.FullRoleInfo roleInfo)

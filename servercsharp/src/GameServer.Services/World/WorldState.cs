@@ -302,7 +302,7 @@ public class WorldState : IWorldState
     {
         if (_maps.TryGetValue(mapName, out var map) && map.Players.TryGetValue(accountId, out var p))
         {
-            _logger.LogInformation("[WorldState] PlayerMove: account={AccountId} map={MapName} from=({FX},{FY}) to=({TX},{TY})",
+            _logger.LogDebug("[WorldState] PlayerMove: account={AccountId} map={MapName} from=({FX},{FY}) to=({TX},{TY})",
                 accountId, mapName, p.GridX, p.GridY, x, y);
             p.GridX = x;
             p.GridY = y;

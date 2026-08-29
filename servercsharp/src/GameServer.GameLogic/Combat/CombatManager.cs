@@ -158,11 +158,18 @@ public class CombatManager
         var nameB = SkillPipeline.GetEntityName(entityB, maps);
         CombatTrace.CombatStart(_logger, combatId, entityA, entityB, nameA, nameB);
 
-        _relations.CreateRelation(entityA, entityB);
-        _relations.CreateRelation(entityB, entityA);
-
+        // 先创建带"玩家真实 BuffContainer"的战斗上下文，再建关系。
+        // 否则 CreateRelation 内部会先建一个空 BuffContainer 的 context，
+        // 使这里带 sharedBuffs 的调用变成空操作 → ctx.Buffs 与 MapPlayerState.Buffs 分裂
+        // （护盾吸收、buff 显示/过期读写两套数据源）。
         var ctxA = _relations.GetOrCreateContext(entityA, FindPlayerBuffs(entityA, maps));
         var ctxB = _relations.GetOrCreateContext(entityB, FindPlayerBuffs(entityB, maps));
+
+        // 在建立关系之前判断双方是否原本空闲（CreateRelation 会往 RelationIds 里加，之后恒 >0）
+        bool bothWereIdle = ctxA.RelationIds.Count == 0 && ctxB.RelationIds.Count == 0;
+
+        _relations.CreateRelation(entityA, entityB);
+        _relations.CreateRelation(entityB, entityA);
 
         SetCombatJob(ctxA, entityA, maps);
         SetCombatJob(ctxB, entityB, maps);
@@ -172,7 +179,6 @@ public class CombatManager
 
         // 先手攻击：仅当双方此前均未建立过任何战斗关系，且主动碰撞方(entityA)是玩家时才触发
         bool aIsPlayer = entityA < CombatConstants.MonsterIdThreshold;
-        bool bothWereIdle = ctxA.RelationIds.Count == 0 && ctxB.RelationIds.Count == 0;
         if (aIsPlayer && bothWereIdle)
         {
             ExecuteFirstStrike(entityA, entityB, maps);
