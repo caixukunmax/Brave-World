@@ -27,19 +27,12 @@ namespace ClinetCSharp
                 if (profileManager != null && profile != null)
                 {
                     // 如果类型不匹配，重新创建实体以确保和地图算法一致
-                    bool typeMatches = profile.EntityType switch
-                    {
-                        "monster" => _previewEntity is Monster,
-                        "npc" => _previewEntity is Npc,
-                        "player" => _previewEntity is PlayerPreview,
-                        _ => true,
-                    };
-
-                    if (!typeMatches)
+                    //（创建/判定统一走 EntityPreviewFactory，禁止在此重复 switch）
+                    if (!EntityPreviewFactory.TypeMatches(profile, _previewEntity))
                     {
                         _previewPanel?.ClearPreviewEntity();
                         _previewEntity = null;
-                        _previewEntity = CreatePreviewEntity(profile);
+                        _previewEntity = EntityPreviewFactory.CreatePreviewEntity(profile);
                     }
 
                     profileManager.ApplyProfile(_previewEntity, _currentProfileId);
@@ -236,35 +229,6 @@ namespace ClinetCSharp
 
         #region Preview Entity
 
-        /// <summary>
-        /// 根据 Profile 类型创建对应的预览实体，和地图上的实体使用相同的类与初始化流程。
-        /// </summary>
-        private EntityBase CreatePreviewEntity(EntityProfile profile)
-        {
-            EntityBase entity;
-            switch (profile.EntityType)
-            {
-                case "monster":
-                    var monster = new Monster();
-                    monster.Setup(0, 0, 0, 0, "预览怪物", 1, 111, profile.Id);
-                    monster.SetProcessInput(false);
-                    entity = monster;
-                    break;
-                case "npc":
-                    var npc = new Npc();
-                    npc.Setup(0, "预览NPC", 0, 0, 0, 111);
-                    npc.SetProcessInput(false);
-                    entity = npc;
-                    break;
-                case "player":
-                default:
-                    var preview = new PlayerPreview();
-                    entity = preview;
-                    break;
-            }
-            return entity;
-        }
-
         private void OnPreviewPressed()
         {
             var profileManager = EntityProfileManager.Instance;
@@ -275,11 +239,8 @@ namespace ClinetCSharp
             // 销毁旧预览
             DestroyPreviewEntity();
 
-            // 创建与地图算法一致的预览实体（同类型 + Setup + ApplyProfile）
-            _previewEntity = CreatePreviewEntity(profile);
-
-            // 应用当前模板
-            profileManager.ApplyProfile(_previewEntity, _currentProfileId);
+            // 创建与地图算法一致的预览实体（统一走 EntityPreviewFactory，内部已完成 ApplyProfile）
+            _previewEntity = EntityPreviewFactory.CreatePreviewEntity(profile);
 
             // 显示/更新面板
             if (_previewPanel == null)
@@ -320,6 +281,12 @@ namespace ClinetCSharp
                 return;
 
             profileManager.ApplyProfile(_previewEntity, _currentProfileId);
+
+            // 重新适配预览实体位置。ApplyProfile 内部可能因尺寸(SizeX/SizeY)变化触发
+            // OnGridSizeChanged，它会把多格建筑/装饰的 Position 重置回初始 (0,0) 网格锚点，
+            // 导致实体偏出预览相机视野而“看不见”。此处借助 SetPreviewEntity 的同实例分支
+            // (ApplyEntityPreviewState) 把实体重新居中到预览地图中心，避免偏移。
+            _previewPanel?.SetPreviewEntity(_previewEntity);
         }
 
 

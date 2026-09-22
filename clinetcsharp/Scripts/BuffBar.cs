@@ -29,7 +29,7 @@ namespace ClinetCSharp
             BuildSlots();
             ApplyLayout();
 
-            _network = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
+            _network = UiServices.GetNetworkManager(this);
             if (_network != null)
             {
                 _network.CombatStateNotify += OnCombatStateNotify;
@@ -266,6 +266,9 @@ namespace ClinetCSharp
 
                 // 有 buff 时不透明
                 Modulate = new Color(1, 1, 1, 1f);
+
+                // 非永久 buff 需要 _Process 来倒计时；永久 buff 不需要
+                SetProcess(!_isPermanent);
             }
 
             /// <summary>
@@ -280,6 +283,7 @@ namespace ClinetCSharp
                 _timeLabel.Visible = false;
                 _stackLabel.Visible = false;
                 Modulate = new Color(1, 1, 1, 0f); // 整体透明但占位
+                SetProcess(false); // 空槽位不需要 _Process
             }
 
             public override void _Process(double delta)
@@ -306,7 +310,10 @@ namespace ClinetCSharp
                     return;
                 }
                 _timeLabel.Visible = true;
-                _timeLabel.Text = _remainingTime >= 10f ? $"{_remainingTime:F0}s" : $"{_remainingTime:F1}s";
+                // 只在显示文本实际变化时才赋值，避免每帧触发 Label 重排
+                string newText = _remainingTime >= 10f ? $"{_remainingTime:F0}s" : $"{_remainingTime:F1}s";
+                if (_timeLabel.Text != newText)
+                    _timeLabel.Text = newText;
             }
 
             public void SyncSize(int iconSize)

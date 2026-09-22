@@ -141,6 +141,10 @@ public class SkillPipeline
             var allies = new List<long>();
             bool casterIsPlayer = casterId < 1000000;
 
+            // AllAlliesInRange 默认包含施法者自身（治疗/增益技能通常需要覆盖自身）。
+            // 如需排除自身，在技能配置表中用 TargetType=AllAlliesInRangeExcludeSelf。
+            // 当前设计：保留自身。
+
             foreach (var (mapName, map) in maps)
             {
                 // 检查施法者是否在这张地图

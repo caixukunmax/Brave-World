@@ -63,24 +63,24 @@ public class DealDamageAction : ICombatAction
         string damageType, double coefficient, Dictionary<string, MapState>? maps, CombatManager? combatManager = null)
     {
         int baseDamage = 10;
-        int targetDef = 0;
+        double targetDef = 0;
 
         // 获取施法者的 buff 属性修正
-        int casterBuffAtk = GetBuffAttrModifier(casterId, damageType == "physical" ? "patk" : "matk", maps, combatManager);
-        int targetBuffDef = GetBuffAttrModifier(targetId, damageType == "physical" ? "pdef" : "mdef", maps, combatManager);
+        double casterBuffAtk = GetBuffAttrModifier(casterId, damageType == "physical" ? "patk" : "matk", maps, combatManager);
+        double targetBuffDef = GetBuffAttrModifier(targetId, damageType == "physical" ? "pdef" : "mdef", maps, combatManager);
 
         if (damageType == "physical")
         {
-            int patk = (GetEntityAttr(casterId, "patk", maps) ?? 10) + casterBuffAtk;
-            int pdef = (GetEntityAttr(targetId, "pdef", maps) ?? 5) + targetBuffDef;
-            baseDamage = patk;
+            double patk = (GetEntityAttr(casterId, "patk", maps) ?? 10) + casterBuffAtk;
+            double pdef = (GetEntityAttr(targetId, "pdef", maps) ?? 5) + targetBuffDef;
+            baseDamage = (int)patk;
             targetDef = pdef;
         }
         else
         {
-            int matk = (GetEntityAttr(casterId, "matk", maps) ?? 10) + casterBuffAtk;
-            int mdef = (GetEntityAttr(targetId, "mdef", maps) ?? 5) + targetBuffDef;
-            baseDamage = matk;
+            double matk = (GetEntityAttr(casterId, "matk", maps) ?? 10) + casterBuffAtk;
+            double mdef = (GetEntityAttr(targetId, "mdef", maps) ?? 5) + targetBuffDef;
+            baseDamage = (int)matk;
             targetDef = mdef;
         }
 
@@ -92,16 +92,18 @@ public class DealDamageAction : ICombatAction
             if (tMapName != null && tPos != null)
                 defModifier = combatManager.GetTerrainDefModifier(targetId, tMapName, tPos.Value.x, tPos.Value.y, damageType);
         }
-        int adjustedDef = (int)(targetDef * defModifier);
+        double adjustedDef = targetDef * defModifier;
 
-        int damage = (int)Math.Floor(baseDamage * coefficient * (1 - adjustedDef * 0.01));
+        // 乘法减伤公式：damage = atk * coeff * 100 / (100 + def)
+        // 相比旧的 (1 - def*0.01)，不会在 def>100 时伤害归零，数值曲线更平滑。
+        int damage = (int)Math.Floor(baseDamage * coefficient * 100.0 / (100.0 + adjustedDef));
         if (damage < 1) damage = 1;
 
         return (damage, damageType);
     }
 
     /// <summary>获取实体的 buff 属性修正值</summary>
-    internal static int GetBuffAttrModifier(long entityId, string attrName, Dictionary<string, MapState>? maps, CombatManager? combatManager = null)
+    internal static double GetBuffAttrModifier(long entityId, string attrName, Dictionary<string, MapState>? maps, CombatManager? combatManager = null)
     {
         if (maps == null) return 0;
         foreach (var map in maps.Values)

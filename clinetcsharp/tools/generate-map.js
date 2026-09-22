@@ -2,8 +2,9 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { execSync } = require('child_process');
 const { createMapData, saveMapJson, loadMapJson, validateMapName, assertContained } = require('./lib/map-core');
-const { generateTerrain, ensureConnectivity, placeSpawn, placeDecorations } = require('./lib/generator');
+const { generateTerrain, convertTerrainToDecorations, ensureConnectivity, placeSpawn, placeDecorations } = require('./lib/generator');
 const { applyBlueprint } = require('./lib/blueprint');
 const { resolveMapName } = require('./lib/naming');
 const { writeForm } = require('./lib/form');
@@ -41,7 +42,8 @@ const BACKUP_FILE_NAMES = ['map.json', 'map-gen-form.md', 'map-blueprint.json'];
 function cloneCells(cells) {
   const out = {};
   for (const [k, v] of Object.entries(cells)) {
-    out[k] = { uid: k, terrain: 0, height: 0, custom: '', decoration: 0, ...v };
+    out[k] = { terrain: 0, height: 0, custom: '', decoration: 0, ...v };
+    delete out[k].uid;
   }
   return out;
 }
@@ -78,10 +80,11 @@ function parseSize(value, defaultValue, label, allowOversize) {
   if (!/^\d+$/.test(raw) || !Number.isFinite(n) || n <= 0) {
     throw new Error(`Invalid ${label}: "${value !== undefined ? value : defaultValue}". Must be a positive integer.`);
   }
-  if (n > 50 && !allowOversize) {
+  const maxSize = config.sizeLevels?.large?.max ?? 50;
+  if (n > maxSize && !allowOversize) {
     throw new Error(
-      `Map ${label} ${n} exceeds the default maximum size of 50. ` +
-      `To generate a map larger than 50, confirm with the user and pass --allow-oversize.`
+      `Map ${label} ${n} exceeds the default maximum size of ${maxSize}. ` +
+      `To generate a map larger than ${maxSize}, confirm with the user and pass --allow-oversize.`
     );
   }
   return n;
@@ -258,6 +261,9 @@ function generateSingleMap(options) {
   placeSpawn(mapData, largestRegion);
   placeDecorations(mapData, decoration, style, seed);
 
+  // 生成阶段用水/岩石 terrain 保证连通性，保存前统一转换为建筑装饰
+  convertTerrainToDecorations(mapData);
+
   const sizeReason = buildSizeReason(width, height, description, explicitWidth, explicitHeight);
   const layoutSummary = summarizeBlueprint(blueprint);
 
@@ -415,7 +421,10 @@ function main() {
   const noSync = args['no-sync'] === true || args['no-sync'] === 'true';
 
   let count;
-  if (args.count !== undefined) {
+  if (force && args.count === undefined) {
+    // Force 覆盖单个地图，默认只生成 1 个变体
+    count = 1;
+  } else if (args.count !== undefined) {
     const trimmed = args.count.trim();
     const parsed = parseInt(trimmed, 10);
     if (String(parsed) !== trimmed || !Number.isFinite(parsed) || parsed < 1) {
@@ -430,11 +439,6 @@ function main() {
   if (count > 1 && force) {
     console.error('Error: --force cannot be used with --count > 1 because each generated map would overwrite the same folder.');
     process.exit(1);
-  }
-
-  // Force overwrites a single map; default count must be deterministic.
-  if (force && args.count === undefined) {
-    count = 1;
   }
 
   const blueprintPath = args.blueprint;

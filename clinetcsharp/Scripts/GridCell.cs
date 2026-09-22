@@ -20,7 +20,8 @@ namespace ClinetCSharp
         public string Uid { get; set; } = "";
 
         // 地形属性
-        public int TerrainType { get; set; } = 0;       // 地形类型: 0=普通, 1=水, 2=草地, 3=沙地, 4=岩石...
+        // 当前地图统一用建筑装饰（DecorationType）表达视觉内容；TerrainType 仅保留底层平地标识（0=普通平地）。
+        public int TerrainType { get; set; } = 0;
         public int Height { get; set; } = 0;            // 高度层级 (0-9, 用于高低差系统)
 
         // 运行时绑定的 Luban 配置 (从 terrain_config.json 加载)

@@ -7,12 +7,9 @@ namespace GameServer.Services.Core;
 public static class GameConstants
 {
     // ---- 地图 ----
-    public const string DefaultMapName = "新手村";
+    // 默认地图由 MapDataProvider.GetDefaultMap() 从 map_registry.json 中第一个地图动态决定，
+    // 不再硬编码地图名。
     public const int DefaultMapId = 1;
-    public const int DefaultSpawnX = 25;
-    public const int DefaultSpawnY = 25;
-    public const int DefaultMapSpawnX = DefaultSpawnX;
-    public const int DefaultMapSpawnY = DefaultSpawnY;
 
     // ---- 创角初始配置 ----
     public const int StartGold = 10000;

@@ -19,6 +19,7 @@ namespace ClinetCSharp
         public int GridY { get; private set; }
 
         private Sprite2D _sprite;
+        private Color _qualityColor = Colors.White; // 缓存品质颜色，避免每帧 _Draw 中查找
 
         public void Setup(long dropId, int itemId, int count, int x, int y, int gridSize)
         {
@@ -32,6 +33,18 @@ namespace ClinetCSharp
             Position = UiUtils.GridToWorld(x, y, _gridSize);
 
             SetupIcon();
+            CacheQualityColor();
+        }
+
+        private void CacheQualityColor()
+        {
+            var tree = Engine.GetMainLoop() as SceneTree;
+            var node = tree?.GetFirstNodeInGroup("inventory_manager");
+            if (node is InventoryManager mgr)
+            {
+                int quality = mgr.GetItemQuality((uint)ItemId);
+                _qualityColor = ItemIconCatalog.GetQualityColor(quality);
+            }
         }
 
         private void SetupIcon()
@@ -44,11 +57,6 @@ namespace ClinetCSharp
             _sprite.Scale = new Vector2(scale, scale);
             AddChild(_sprite);
         }
-
-        private InventoryManager? _invMgr;
-        private int _quality = -1;
-        private string _countText = "";
-        private int _countTextFor = -1;
 
         public override void _Process(double delta)
         {
@@ -65,12 +73,10 @@ namespace ClinetCSharp
             // 底部光晕
             DrawCircle(center, _boxSize * 0.6f, new Color(1, 1, 1, 0.15f));
 
-            // 品质边框
-            var quality = GetNodeInventoryQuality();
-            var color = ItemIconCatalog.GetQualityColor(quality);
+            // 品质边框（颜色已缓存，避免每帧查找 InventoryManager）
             float half = _boxSize / 2f;
             var rect = new Rect2(center.X - half, center.Y - half, _boxSize, _boxSize);
-            DrawRect(rect, color, false, 1.5f);
+            DrawRect(rect, _qualityColor, false, 1.5f);
 
             // 同步子节点 Sprite2D 的浮动偏移
             if (_sprite != null)
@@ -79,24 +85,10 @@ namespace ClinetCSharp
             // 数量文本（>1 时显示）
             if (Count > 1)
             {
-                if (_countTextFor != Count)
-                {
-                    _countText = $"x{Count}";
-                    _countTextFor = Count;
-                }
                 DrawString(ThemeDB.FallbackFont, center + new Vector2(-6, 4),
-                    _countText, HorizontalAlignment.Center, -1, 11, Colors.White);
+                    $"x{Count}", HorizontalAlignment.Center, -1, 11, Colors.White);
             }
         }
 
-        private int GetNodeInventoryQuality()
-        {
-            if (_quality >= 0)
-                return _quality;
-            _invMgr ??= (Engine.GetMainLoop() as SceneTree)?.GetFirstNodeInGroup("inventory_manager") as InventoryManager;
-            if (_invMgr != null)
-                _quality = _invMgr.GetItemQuality((uint)ItemId);
-            return _quality >= 0 ? _quality : 0;
-        }
     }
 }

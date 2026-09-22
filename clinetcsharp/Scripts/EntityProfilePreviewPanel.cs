@@ -50,6 +50,8 @@ namespace ClinetCSharp
             {
                 CustomMinimumSize = new Vector2(300, 200),
                 Stretch = false,
+                // 不拦截鼠标事件，避免预览地图中的建筑挡住标题栏拖拽
+                MouseFilter = Control.MouseFilterEnum.Ignore,
             };
             _subViewport = new SubViewport
             {
@@ -71,6 +73,27 @@ namespace ClinetCSharp
         protected override void OnClosed()
         {
             OnClosePreview?.Invoke();
+        }
+
+        public override void _UnhandledInput(InputEvent @event)
+        {
+            // 只在鼠标真正位于本面板范围内时才响应滚轮缩放，避免全局滚轮被吞掉
+            if (!GetGlobalRect().HasPoint(GetGlobalMousePosition()))
+                return;
+
+            if (@event is InputEventMouseButton mouseButton)
+            {
+                if (mouseButton.ButtonIndex == MouseButton.WheelUp)
+                {
+                    _previewMap?.ApplyZoom(-1);
+                    GetViewport()?.SetInputAsHandled();
+                }
+                else if (mouseButton.ButtonIndex == MouseButton.WheelDown)
+                {
+                    _previewMap?.ApplyZoom(1);
+                    GetViewport()?.SetInputAsHandled();
+                }
+            }
         }
 
         public void UpdateInfo(string profileName, string entityType, int profileId)

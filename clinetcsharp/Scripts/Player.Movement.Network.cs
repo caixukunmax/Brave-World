@@ -7,7 +7,7 @@ namespace ClinetCSharp
     {
         private void SendMoveStartRequest(Vector2I from, Vector2I to)
         {
-            var nm = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
+            var nm = UiServices.GetNetworkManager(this);
             if (nm == null || !nm.IsServerConnected() || string.IsNullOrEmpty(nm.GatewayToken))
                 return;
 
@@ -24,7 +24,7 @@ namespace ClinetCSharp
 
         private string GetMapName()
         {
-            var nm = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
+            var nm = UiServices.GetNetworkManager(this);
             return nm?.CurrentMapName ?? "xinshoucun";
         }
 
@@ -123,7 +123,7 @@ namespace ClinetCSharp
 
         private void SendMoveConfirmRequest()
         {
-            var nm = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
+            var nm = UiServices.GetNetworkManager(this);
             if (nm == null || !nm.IsServerConnected())
                 return;
 
@@ -137,7 +137,7 @@ namespace ClinetCSharp
 
         private void SendMoveCollisionNotify(Vector2I targetPos)
         {
-            var nm = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
+            var nm = UiServices.GetNetworkManager(this);
             if (nm == null || !nm.IsServerConnected())
                 return;
 
@@ -153,7 +153,7 @@ namespace ClinetCSharp
 
         private void SendMoveCompleteRequest(Vector2I targetPos)
         {
-            var nm = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
+            var nm = UiServices.GetNetworkManager(this);
             if (nm == null || !nm.IsServerConnected())
                 return;
 
@@ -163,6 +163,20 @@ namespace ClinetCSharp
                 TargetY = targetPos.Y,
             };
             nm.SendPacket(MessageId.GameMoveCompleteReq, req);
+        }
+
+        public void SendDirectionChangeRequest(int direction)
+        {
+            var nm = UiServices.GetNetworkManager(this);
+            if (nm == null || !nm.IsServerConnected() || string.IsNullOrEmpty(nm.GatewayToken))
+                return;
+
+            var notify = new Game.DirectionNotify
+            {
+                EntityId = (ulong)(nm.AccountId),
+                Direction = direction,
+            };
+            nm.SendPacket(MessageId.GameDirectionChangeReq, notify);
         }
     }
 }

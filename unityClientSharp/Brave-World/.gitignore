@@ -1,0 +1,17 @@
+# Unity / Tuanjie 引擎生成目录（绝不入库）
+Library/
+Temp/
+Logs/
+UserSettings/
+obj/
+Build/
+Builds/
+ExportedObj/
+
+# 自动生成的解决方案/项目缓存
+*.csproj.user
+*.sln.iml
+
+# 操作系统
+.DS_Store
+Thumbs.db

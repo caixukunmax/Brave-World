@@ -17,6 +17,35 @@ namespace ClinetCSharp
         }
 
         /// <summary>
+        /// 清空节点的所有子节点（替代重复的 foreach + QueueFree 模式）。
+        /// </summary>
+        public static void ClearChildren(this Node parent)
+        {
+            if (parent == null) return;
+            foreach (var child in parent.GetChildren())
+                child.QueueFree();
+        }
+
+        /// <summary>
+        /// 创建一个水平排列的 Label + 控件行。
+        /// labelWidth 为 0 表示自适应。
+        /// </summary>
+        public static HBoxContainer MakeLabelRow(string labelText, Control child, float labelWidth = 0)
+        {
+            var row = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+            var label = new Label { Text = labelText };
+            if (labelWidth > 0)
+                label.CustomMinimumSize = new Vector2(labelWidth, 0);
+            row.AddChild(label);
+            if (child != null)
+            {
+                child.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+                row.AddChild(child);
+            }
+            return row;
+        }
+
+        /// <summary>
         /// 将控件及其所有子控件设为 MouseFilter.Ignore（鼠标事件穿透）。
         /// 用于纯展示面板（如战斗信息条、血条等），避免拦截鼠标事件影响其他面板拖拽。
         /// </summary>

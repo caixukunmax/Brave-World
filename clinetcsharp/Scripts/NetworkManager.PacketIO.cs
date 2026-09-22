@@ -7,7 +7,18 @@ namespace ClinetCSharp
 {
     public partial class NetworkManager
     {
+        // 按 session 关联的一次性响应回调（当前用于截屏请求服务器日志路径）
+        private readonly System.Collections.Generic.Dictionary<uint, System.Action<string>> _pendingLogPathCallbacks = new();
+
         public bool SendPacket(MessageId msgId, IMessage data)
+        {
+            return SendPacket(msgId, data, _sessionCounter++);
+        }
+
+        /// <summary>
+        /// 使用外部指定的 session 发送消息（用于需要按 session 关联响应回调的场景）。
+        /// </summary>
+        public bool SendPacket(MessageId msgId, IMessage data, uint session)
         {
             if (!IsServerConnected())
             {
@@ -24,8 +35,8 @@ namespace ClinetCSharp
             var packet = new Common.Packet
             {
                 MsgId = (uint)msgId,
-                Session = _sessionCounter++,
-                Data = ByteString.CopyFrom(data.ToByteArray()),
+                Session = session,
+                Data = data.ToByteString(),
                 Timestamp = _cachedTimestamp,
             };
 
@@ -74,7 +85,7 @@ namespace ClinetCSharp
                 }
             }
 
-            int maxPackets = 10;
+            int maxPackets = 50;
             int packetsProcessed = 0;
             while (packetsProcessed < maxPackets)
             {
@@ -84,7 +95,9 @@ namespace ClinetCSharp
                 if (_bufferCount < _expectedLength)
                     return;
 
-                var body = ByteString.CopyFrom(_readBuffer, _bufferOffset, _expectedLength);
+                // 直接从 _readBuffer 解析，跳过 ByteString.CopyFrom 的中间拷贝
+                int bodyOffset = _bufferOffset;
+                int bodyLength = _expectedLength;
                 _bufferOffset += _expectedLength;
                 _bufferCount -= _expectedLength;
                 _expectedLength = -1;
@@ -92,8 +105,8 @@ namespace ClinetCSharp
 
                 try
                 {
-                    var packet = Common.Packet.Parser.ParseFrom(body);
-                    DispatchMessage((int)packet.MsgId, packet.Data);
+                    var packet = Common.Packet.Parser.ParseFrom(_readBuffer, bodyOffset, bodyLength);
+                    DispatchMessage((int)packet.MsgId, packet.Data, packet.Session);
                 }
                 catch (Exception e)
                 {
@@ -144,6 +157,28 @@ namespace ClinetCSharp
             _bufferOffset += 4;
             _bufferCount -= 4;
             return true;
+        }
+
+        /// <summary>
+        /// 请求服务器当前正在写入的日志文件绝对路径。
+        /// 收到响应后调用 onResult(logPath)。未连接服务器时静默跳过。
+        /// </summary>
+        public void RequestServerLogPath(System.Action<string> onResult)
+        {
+            if (!IsServerConnected())
+                return;
+
+            uint session = _sessionCounter++;
+            _pendingLogPathCallbacks[session] = onResult;
+            SendPacket(MessageId.GameGetServerLogPathReq, new Game.GetServerLogPathRequest(), session);
+        }
+
+        /// <summary>
+        /// 断线时清理挂起的一次性回调，避免残留。
+        /// </summary>
+        private void ClearPendingCallbacks()
+        {
+            _pendingLogPathCallbacks.Clear();
         }
     }
 }

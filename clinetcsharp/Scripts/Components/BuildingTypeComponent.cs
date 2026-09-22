@@ -1,10 +1,11 @@
 using Godot;
 using System;
+using System.Linq;
 
 namespace ClinetCSharp
 {
     /// <summary>
-    /// 建筑类型组件 — 选择建筑分类（房舍 / 商店）。
+    /// 建筑类型组件 — 选择建筑分类。
     /// </summary>
     public class BuildingTypeComponent : IEntityTabComponent
     {
@@ -15,11 +16,9 @@ namespace ClinetCSharp
         private Action _onChanged;
         private OptionButton _typeOption;
 
-        private static readonly (int type, string name)[] TypeOptions = new[]
-        {
-            (BuildingType.House, "房舍"),
-            (BuildingType.Shop, "商店"),
-        };
+        private static readonly (int type, string name)[] TypeOptions = BuildingType.GetAllTypes()
+            .Select(type => (type, BuildingType.GetDisplayName(type)))
+            .ToArray();
 
         public void BuildUI(VBoxContainer parent)
         {

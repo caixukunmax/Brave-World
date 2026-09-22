@@ -79,7 +79,7 @@ describe('generator connectivity', () => {
 
 describe('generator walkability', () => {
   it('treats configured walkable terrain as walkable', () => {
-    assert.strictEqual(isWalkable(makeCell(config.terrains.grass.id)), true);
+    assert.strictEqual(isWalkable(makeCell(config.terrains.normal.id)), true);
   });
 
   it('treats configured unwalkable terrain as unwalkable', () => {

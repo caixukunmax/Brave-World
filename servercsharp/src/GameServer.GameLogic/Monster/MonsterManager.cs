@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using GameServer.Common;
 using GameServer.Common.Buffs;
 using GameServer.Common.Config;
 using GameServer.Services.Core;
@@ -69,8 +70,6 @@ public class MonsterManager : IMonsterRegistry
         _logger.LogInformation("[Monster] initializing...");
         _monsters.Clear();
 
-        _tables.Load();
-
         int nextId = (int)CombatConstants.MonsterIdThreshold + 1;
         foreach (var (mapName, _) in _mapData.GetAllMaps())
         {
@@ -80,6 +79,7 @@ public class MonsterManager : IMonsterRegistry
                 _monsters[instanceId] = m;
                 _mapService.MonsterEnter(instanceId, m.MonsterId, mapName, m.Name, m.X, m.Y, m.Hp, m.MaxHp, m.Level,
                     m.Patk, m.Matk, m.Pdef, m.Mdef, m.SizeX, m.SizeY);
+                BindMonsterToMapState(m);
                 _logger.LogInformation("[Monster] init: id={InstanceId} map={Map} pos=({X},{Y}) ai={Ai}", instanceId, mapName, m.X, m.Y, m.AiType);
             }
             nextId += mapMonsters.Count;
@@ -120,18 +120,27 @@ public class MonsterManager : IMonsterRegistry
     {
         try
         {
-            // 按地图分组处理
-            var monsterSnapshot = _monsters.ToArray();
-            var byMap = monsterSnapshot.GroupBy(kv => kv.Value.MapName).ToList();
-            foreach (var group in byMap)
+            // 按地图分组处理：直接遍历 ConcurrentDictionary（线程安全快照枚举），
+            // 避免 ToArray + GroupBy 的额外分配
+            var byMap = new Dictionary<string, List<KeyValuePair<long, MonsterRuntimeState>>>();
+            foreach (var kv in _monsters)
             {
-                var mapName = group.Key;
+                if (!byMap.TryGetValue(kv.Value.MapName, out var list))
+                {
+                    list = new List<KeyValuePair<long, MonsterRuntimeState>>();
+                    byMap[kv.Value.MapName] = list;
+                }
+                list.Add(kv);
+            }
+
+            foreach (var (mapName, monsters) in byMap)
+            {
                 var players = GetOnlinePlayers(mapName);
                 // 高频 tick 不再打印玩家坐标，避免刷屏；如需调试可用日志级别开关或断点
                 var movedMonsters = new List<(long id, int fx, int fy, int tx, int ty, MonsterState state, int durationMs)>();
                 var cancelledMonsters = new List<(long id, int rollbackX, int rollbackY)>();
 
-                foreach (var (instanceId, m) in group)
+                foreach (var (instanceId, m) in monsters)
                 {
                     bool inReturnCooldown = m.ReturnCooldownEndMs > Environment.TickCount64;
                     UpdateTerritoryNarration(m, players);
@@ -184,6 +193,7 @@ public class MonsterManager : IMonsterRegistry
                         if (elapsed >= moveDuration)
                         {
                             _mapService.World.CompleteMove(instanceId);
+                            m.Direction = DirectionUtil.FromMoveVector(m.X, m.Y, m.MoveTargetX, m.MoveTargetY);
                             m.X = m.MoveTargetX;
                             m.Y = m.MoveTargetY;
                             m.IsMoving = false;
@@ -278,6 +288,7 @@ public class MonsterManager : IMonsterRegistry
                         ToY = ty,
                         State = state.ToStateString(),
                         DurationMs = durationMs,
+                        Direction = DirectionUtil.FromMoveVector(fx, fy, tx, ty),
                     };
                     _mapService.BroadcastToMap(mapName, (int)PProtocol.MessageId.GameMonsterMoveNotify, notify.ToByteArray());
                 }
@@ -309,8 +320,9 @@ public class MonsterManager : IMonsterRegistry
     public void OnDamage(long instanceId, long attackerId, int damage)
     {
         if (!_monsters.TryGetValue(instanceId, out var m)) return;
-        m.Hp -= damage;
 
+        // HP 已由 CombatManager 在 MapMonsterState 上扣除；
+        // 这里只处理 AI 战斗状态与死亡回调。
         // 回归/强制返回状态下接受伤害但不重新进入战斗，避免回归途中被 pending 伤害拉回追击
         bool isReturning = m.State is MonsterState.Return or MonsterState.ForcedReturn;
         if (!isReturning)
@@ -319,7 +331,7 @@ public class MonsterManager : IMonsterRegistry
             m.TargetId = attackerId;
             m.State = MonsterState.Combat;
         }
-        _logger.LogDebug("[Monster] damaged: id={Id} dmg={Dmg} hp={Hp} state={State}", instanceId, damage, m.Hp, m.State);
+        _logger.LogInformation("[Monster] damaged: id={Id} dmg={Dmg} hp={Hp} state={State}", instanceId, damage, m.Hp, m.State);
         if (m.Hp <= 0)
         {
             m.Hp = 0;
@@ -376,6 +388,7 @@ public class MonsterManager : IMonsterRegistry
     public void OnRegen(long instanceId, int regen)
     {
         if (!_monsters.TryGetValue(instanceId, out var m)) return;
+        if (m.MapState == null) return;
         m.Hp = Math.Min(m.MaxHp, m.Hp + regen);
     }
 
@@ -421,7 +434,7 @@ public class MonsterManager : IMonsterRegistry
             }
         }
 
-        _logger.LogDebug("[Monster] disengaged: id={Id} returnTo=({X},{Y})", instanceId,
+        _logger.LogInformation("[Monster] disengaged: id={Id} returnTo=({X},{Y})", instanceId,
             m.ReturnPatrolPoint?.x ?? m.SpawnX, m.ReturnPatrolPoint?.y ?? m.SpawnY);
     }
 
@@ -475,6 +488,19 @@ public class MonsterManager : IMonsterRegistry
     }
 
     // ---- 内部 ----
+
+    private void BindMonsterToMapState(MonsterRuntimeState m)
+    {
+        var mapMonster = _mapService.World.GetMonstersOnMap(m.MapName).GetValueOrDefault(m.InstanceId);
+        if (mapMonster != null)
+        {
+            m.MapState = mapMonster;
+        }
+        else
+        {
+            _logger.LogWarning("[Monster] failed to bind MapMonsterState: id={Id} map={Map}", m.InstanceId, m.MapName);
+        }
+    }
 
     private Dictionary<long, MonsterRuntimeState> InitMonstersForMap(string mapName, int startId)
     {
@@ -695,7 +721,7 @@ public class MonsterManager : IMonsterRegistry
 
         if (m.ChaseTimeoutTimer >= chaseTimeout)
         {
-            _logger.LogDebug("[Monster] chase timeout: id={Id} target={Target} timer={Timer}s, entering return state", m.InstanceId, targetId, m.ChaseTimeoutTimer);
+            _logger.LogInformation("[Monster] chase timeout: id={Id} target={Target} timer={Timer}s, entering return state", m.InstanceId, targetId, m.ChaseTimeoutTimer);
 
             // 请求 CombatManager 处理脱战广播（统一走脱战通知流程）
             CombatManager?.RequestDisengage(m.InstanceId, targetId);
@@ -777,6 +803,7 @@ public class MonsterManager : IMonsterRegistry
         _monsters[entry.InstanceId] = m;
         _mapService.MonsterEnter(entry.InstanceId, entry.MonsterId, entry.MapName, entry.Name, rx, ry, m.Hp, m.MaxHp, m.Level,
             m.Patk, m.Matk, m.Pdef, m.Mdef, m.SizeX, m.SizeY);
+        BindMonsterToMapState(m);
 
         _logger.LogInformation("[Monster] respawned: id={Id} map={Map} pos=({X},{Y}) type={Type}", entry.InstanceId, entry.MapName, rx, ry, entry.RespawnType);
 

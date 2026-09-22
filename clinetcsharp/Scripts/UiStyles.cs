@@ -74,6 +74,43 @@ namespace ClinetCSharp
             };
         }
 
+        /// <summary>
+        /// 通用 StyleBoxFlat 工厂方法 — 替代散布各处的 new StyleBoxFlat { ... } 模式。
+        /// 只设置非默认值的边框宽度；所有边框宽度默认为 0（无边框）。
+        /// </summary>
+        public static StyleBoxFlat CreateStyleBox(Color bgColor, Color? borderColor = null,
+            int borderWidth = 0, int cornerRadius = 0)
+        {
+            var style = new StyleBoxFlat { BgColor = bgColor };
+            if (borderColor != null)
+            {
+                style.BorderColor = borderColor.Value;
+                if (borderWidth > 0)
+                {
+                    style.BorderWidthBottom = borderWidth;
+                    style.BorderWidthLeft = borderWidth;
+                    style.BorderWidthRight = borderWidth;
+                    style.BorderWidthTop = borderWidth;
+                }
+            }
+            if (cornerRadius > 0)
+            {
+                style.CornerRadiusBottomLeft = cornerRadius;
+                style.CornerRadiusBottomRight = cornerRadius;
+                style.CornerRadiusTopLeft = cornerRadius;
+                style.CornerRadiusTopRight = cornerRadius;
+            }
+            return style;
+        }
+
+        /// <summary>
+        /// 带圆角的面板样式快捷方法。
+        /// </summary>
+        public static StyleBoxFlat CreatePanelStyle(Color bgColor, Color borderColor, int borderWidth = 1, int cornerRadius = 0)
+        {
+            return CreateStyleBox(bgColor, borderColor, borderWidth, cornerRadius);
+        }
+
         /// <summary>为面板应用标准深色主题样式</summary>
         public static void ApplyDarkTheme(DraggablePanel panel)
         {

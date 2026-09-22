@@ -6,6 +6,10 @@ namespace ClinetCSharp
     /// <summary>
     /// NPC 实体 - 蓝色系主题，渲染在地图格子上
     /// </summary>
+    // [Tool]：编辑器插件「实体配置」面板用真实 Npc 渲染 npc 类型 Profile 的预览。
+    // 本类没有覆写 _Ready/_Process，编辑器下不会跑任何逻辑，只有 _Draw 会执行；
+    // 输入已被预览侧 SetProcessInput(false) 关闭。
+    [Tool]
     public partial class Npc : EntityBase
     {
         private int _gridSize = 111;
@@ -75,16 +79,20 @@ namespace ClinetCSharp
             // 渲染组件模式：按 DrawOrder 顺序遍历
             foreach (var comp in _renderComponents)
                 comp.Draw();
+            EntityDrawUtils.DrawDirectionArrow(this);
         }
 
-        /// <summary>确保渲染组件已添加（幂等，只添加一次）</summary>
+        /// <summary>确保渲染组件已添加（按类型幂等补齐；禁止 Count>0 早退，原因见 AGENTS.md）</summary>
         private void EnsureRenderComponents()
         {
-            if (_renderComponents.Count > 0) return;
-            AddRenderComponent(new RenderComponents.AppearanceComponent());
-            AddRenderComponent(new RenderComponents.HealthBarComponent());
-            AddRenderComponent(new RenderComponents.MpBarComponent());
-            AddRenderComponent(new RenderComponents.DebugOverlayComponent());
+            if (GetRenderComponent<RenderComponents.AppearanceComponent>() == null)
+                AddRenderComponent(new RenderComponents.AppearanceComponent());
+            if (GetRenderComponent<RenderComponents.HealthBarComponent>() == null)
+                AddRenderComponent(new RenderComponents.HealthBarComponent());
+            if (GetRenderComponent<RenderComponents.MpBarComponent>() == null)
+                AddRenderComponent(new RenderComponents.MpBarComponent());
+            if (GetRenderComponent<RenderComponents.DebugOverlayComponent>() == null)
+                AddRenderComponent(new RenderComponents.DebugOverlayComponent());
             // 不再使用 LabelComponent — 改用 RichTextLabel 控件
         }
     }

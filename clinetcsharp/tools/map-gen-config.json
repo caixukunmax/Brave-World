@@ -1,20 +1,18 @@
 {
-  "version": 1,
+  "version": 2,
   "terrains": {
     "normal": { "id": 0, "walkable": true },
-    "water": { "id": 1, "walkable": false },
-    "grass": { "id": 2, "walkable": true },
-    "sand": { "id": 3, "walkable": true },
-    "rock": { "id": 4, "walkable": false },
+    "water": { "id": 1, "walkable": false, "decorationId": 80000 },
+    "rock": { "id": 4, "walkable": false, "decorationId": 90000 },
     "snow": { "id": 5, "walkable": true }
   },
   "styles": {
-    "forest": { "water": 0.15, "obstacle": 0.10, "decoration": "high", "terrainBias": ["grass", "normal"] },
-    "desert": { "water": 0.05, "obstacle": 0.15, "decoration": "low", "terrainBias": ["sand"] },
-    "snow": { "water": 0.10, "obstacle": 0.10, "decoration": "low", "terrainBias": ["snow"] },
-    "swamp": { "water": 0.35, "obstacle": 0.10, "decoration": "medium", "terrainBias": ["grass"] },
-    "ruins": { "water": 0.10, "obstacle": 0.20, "decoration": "high", "terrainBias": ["normal", "sand"] },
-    "mixed": { "water": 0.15, "obstacle": 0.12, "decoration": "medium", "terrainBias": [] }
+    "forest": { "water": 0.15, "obstacle": 0.10, "decoration": "high" },
+    "desert": { "water": 0.05, "obstacle": 0.15, "decoration": "low" },
+    "snow": { "water": 0.10, "obstacle": 0.10, "decoration": "low" },
+    "swamp": { "water": 0.35, "obstacle": 0.10, "decoration": "medium" },
+    "ruins": { "water": 0.10, "obstacle": 0.20, "decoration": "high" },
+    "mixed": { "water": 0.15, "obstacle": 0.12, "decoration": "medium" }
   },
   "decorationDensity": {
     "low": 0.02,
@@ -22,9 +20,11 @@
     "high": 0.12
   },
   "decorations": {
-    "tree": { "id": 10000, "walkable": true, "biomes": ["forest", "mixed", "swamp"] },
-    "rock": { "id": 10002, "walkable": false, "biomes": ["desert", "ruins", "snow"] },
-    "palm": { "id": 10003, "walkable": false, "biomes": ["desert", "swamp"] }
+    "tree": { "id": 100000, "walkable": true, "biomes": ["forest", "mixed", "swamp"] },
+    "grass": { "id": 110000, "walkable": true, "biomes": ["forest", "mixed", "swamp", "snow"] },
+    "palm": { "id": 120000, "walkable": true, "biomes": ["desert", "swamp"] },
+    "rock": { "id": 90000, "walkable": false, "biomes": ["desert", "ruins", "snow", "mixed"] },
+    "water": { "id": 80000, "walkable": false, "biomes": ["forest", "mixed", "swamp", "ruins", "snow", "desert"] }
   },
   "sizeLevels": {
     "small": { "min": 15, "max": 25 },

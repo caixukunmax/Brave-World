@@ -2,18 +2,15 @@ namespace GameServer.Services.Core;
 
 /// <summary>
 /// 地图名规范化器：统一历史数据中的拼音/中文差异。
-/// 例如旧数据库中可能存储 "xinshoucun"，现在统一为 "新手村"。
+/// 别名映射现在由 MapDataProvider.RegisterAliases() 动态管理，
+/// 此类仅保留向后兼容的空壳。
 /// </summary>
 public static class MapNameNormalizer
 {
-    private static readonly System.Collections.Generic.Dictionary<string, string> Aliases = new()
-    {
-        ["xinshoucun"] = "新手村"
-    };
-
     public static string Normalize(string mapName)
     {
-        if (string.IsNullOrEmpty(mapName)) return mapName;
-        return Aliases.TryGetValue(mapName, out var normalized) ? normalized : mapName;
+        // 别名统一由 MapDataProvider.ResolveMapName 处理，
+        // 此处仅做透传（保留调用方兼容性）。
+        return mapName ?? "";
     }
 }

@@ -40,7 +40,7 @@ namespace ClinetCSharp
             AddToGroup("inventory_manager");
             LoadItemConfig();
 
-            _network = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
+            _network = UiServices.GetNetworkManager(this);
             if (_network != null)
             {
                 _network.UseItemResponse += OnUseItemResponse;

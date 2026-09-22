@@ -81,8 +81,8 @@ namespace ClinetCSharp
                         enabled.Add((name, displayName));
                 }
 
-                BuildEnabledComponentList(dialogVBox, enabled, toDisable, toEnable, toRemove, toAdd);
-                BuildDisabledComponentList(dialogVBox, disabled, toDisable, toEnable, toRemove, toAdd);
+                BuildEnabledComponentList(dialogVBox, enabled, toDisable, toEnable, toRemove, toAdd, RefreshList);
+                BuildDisabledComponentList(dialogVBox, disabled, toDisable, toEnable, toRemove, toAdd, RefreshList);
                 BuildAvailableComponentList(dialogVBox, available, profile, toRemove, toAdd, RefreshList);
             }
 
@@ -105,8 +105,15 @@ namespace ClinetCSharp
                     var component = ComponentRegistry.Create(name);
                     if (component != null)
                     {
+                        // 必须先 BuildUI，否则 SyncToData 会访问未初始化的控件。
+                        // tempContainer 无需加入场景树：Godot 控件属性（Slider.Value 等）
+                        // 在脱离场景树时也可正常读写，各组件 BuildUI 均不依赖 _Ready。
+                        // QueueFree 会释放 tempContainer 及其子节点，信号订阅随之断开。
+                        var tempContainer = new VBoxContainer();
+                        component.BuildUI(tempContainer);
                         profile.SetData(name, component.SyncToData());
                         component.Dispose();
+                        tempContainer.QueueFree();
                         AddComponentUI(name);
                         changed = true;
                     }
@@ -124,6 +131,8 @@ namespace ClinetCSharp
                 if (changed)
                 {
                     profileManager.ApplyProfileToAll(_currentProfileId);
+                    // 组件结构变更属于低频但重要的操作，立即落盘，避免重启后丢失
+                    profileManager.SaveConfig();
                 }
             };
             _manageComponentsDialog.Confirmed += _manageComponentsHandler;
@@ -141,7 +150,11 @@ namespace ClinetCSharp
                 if (catalog.Any(x => x.name == componentName))
                     continue;
 
-                catalog.Add((componentName, ResolveComponentDisplayName(componentName)));
+                // profile 已有但不在 allowed 白名单中的组件也标记为"实验"，与高级模式下的标记保持一致
+                bool isExperimental = !allowed.Any(x => x.name == componentName);
+                string resolved = ResolveComponentDisplayName(componentName);
+                string displayName = isExperimental ? $"{resolved}（实验）" : resolved;
+                catalog.Add((componentName, displayName));
             }
 
             if (!_showAllComponents)
@@ -175,7 +188,8 @@ namespace ClinetCSharp
             HashSet<string> toDisable,
             HashSet<string> toEnable,
             HashSet<string> toRemove,
-            HashSet<string> toAdd)
+            HashSet<string> toAdd,
+            Action refreshList)
         {
             if (enabled.Count <= 0)
                 return;
@@ -190,8 +204,8 @@ namespace ClinetCSharp
                 var disableButton = new Button { Text = "停用", CustomMinimumSize = new Vector2(52, 26), SizeFlagsHorizontal = Control.SizeFlags.ShrinkEnd };
                 var removeButton = new Button { Text = "移除", CustomMinimumSize = new Vector2(52, 26), SizeFlagsHorizontal = Control.SizeFlags.ShrinkEnd };
                 string capturedName = name;
-                disableButton.Pressed += () => { toDisable.Add(capturedName); toEnable.Remove(capturedName); };
-                removeButton.Pressed += () => { toAdd.Remove(capturedName); toRemove.Add(capturedName); };
+                disableButton.Pressed += () => { toDisable.Add(capturedName); toEnable.Remove(capturedName); refreshList(); };
+                removeButton.Pressed += () => { toAdd.Remove(capturedName); toRemove.Add(capturedName); refreshList(); };
                 row.AddChild(disableButton);
                 row.AddChild(removeButton);
                 dialogVBox.AddChild(row);
@@ -204,7 +218,8 @@ namespace ClinetCSharp
             HashSet<string> toDisable,
             HashSet<string> toEnable,
             HashSet<string> toRemove,
-            HashSet<string> toAdd)
+            HashSet<string> toAdd,
+            Action refreshList)
         {
             if (disabled.Count <= 0)
                 return;
@@ -222,8 +237,8 @@ namespace ClinetCSharp
                 var enableButton = new Button { Text = "启用", CustomMinimumSize = new Vector2(52, 26), SizeFlagsHorizontal = Control.SizeFlags.ShrinkEnd };
                 var removeButton = new Button { Text = "移除", CustomMinimumSize = new Vector2(52, 26), SizeFlagsHorizontal = Control.SizeFlags.ShrinkEnd };
                 string capturedName = name;
-                enableButton.Pressed += () => { toEnable.Add(capturedName); toDisable.Remove(capturedName); };
-                removeButton.Pressed += () => { toAdd.Remove(capturedName); toRemove.Add(capturedName); };
+                enableButton.Pressed += () => { toEnable.Add(capturedName); toDisable.Remove(capturedName); refreshList(); };
+                removeButton.Pressed += () => { toAdd.Remove(capturedName); toRemove.Add(capturedName); refreshList(); };
                 row.AddChild(enableButton);
                 row.AddChild(removeButton);
                 dialogVBox.AddChild(row);
@@ -293,15 +308,13 @@ namespace ClinetCSharp
             profile.RemoveComponent(componentName);
             RemoveComponentUI(componentName);
             profileManager.ApplyProfileToAll(_currentProfileId);
+            profileManager.SaveConfig();
         }
 
         private void OnComponentChanged()
         {
             if (_isRefreshing)
-            {
-                GD.Print($"[EntityTab] OnComponentChanged skipped: _isRefreshing=true");
                 return;
-            }
 
             var profileManager = EntityProfileManager.Instance;
             var profile = profileManager?.GetProfile(_currentProfileId);
@@ -314,11 +327,10 @@ namespace ClinetCSharp
             foreach (var kv in _activeComponents)
                 profile.SetData(kv.Key, kv.Value.SyncToData());
 
-            var labels = profile.GetData<LabelGroupData>("labels");
-            GD.Print($"[EntityTab] OnComponentChanged: profileId={_currentProfileId}, label0={labels?.ContentPreview[0] ?? "<null>"}");
-
             profileManager.ApplyProfileToAll(_currentProfileId);
             SyncPreviewEntity();
+            // 防抖落盘：拖动 slider 期间不会频繁写盘，停止操作 1 秒后自动保存
+            ScheduleSave();
         }
 
         private void SaveCurrentProfileData()
@@ -425,8 +437,12 @@ namespace ClinetCSharp
             RefreshComponents();
             SyncProfileNameEdit();
 
-            foreach (var component in _activeComponents.Values)
-                component.SyncFromEntity(entity);
+            // 注意：这里不调用 SyncFromEntity。
+            // 调试面板是 Profile 配置编辑器，UI 必须始终代表 Profile 配置数据，
+            // 而非实体的运行时瞬时状态（如血量、施法进度）。
+            // 若用 SyncFromEntity 把实体真值塞进 UI，后续切换 Profile 时
+            // SaveCurrentProfileData 会把实体瞬时状态误存为配置，污染 Profile。
+            // SyncFromEntity 仅用于服务端推送等"读实体真值"场景，不在此调用。
         }
     }
 }

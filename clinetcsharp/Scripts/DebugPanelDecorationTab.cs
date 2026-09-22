@@ -372,7 +372,7 @@ namespace ClinetCSharp
             if (profile != null)
             {
                 int buildingType = BuildingType.GetTypeFromConfigId(profile.Id);
-                string typeName = buildingType == BuildingType.House ? "房舍" : buildingType == BuildingType.Shop ? "商店" : "未知";
+                string typeName = BuildingType.GetDisplayName(buildingType);
                 _buildingTypeLabel.Text = $"{typeName} ({buildingType})";
             }
             else
@@ -571,7 +571,7 @@ namespace ClinetCSharp
         {
             var bt = profile.GetData<BuildingTypeData>("building_type");
             int type = bt?.Type ?? BuildingType.House;
-            string name = type == BuildingType.House ? "房舍" : type == BuildingType.Shop ? "商店" : "建筑";
+            string name = BuildingType.GetDisplayName(type);
             profile.Name = name;
             var labels = profile.GetData<LabelGroupData>("labels");
             if (labels != null)
@@ -653,8 +653,8 @@ namespace ClinetCSharp
                         enabled.Add((name, displayName));
                 }
 
-                BuildEnabledComponentList(dialogVBox, enabled, toDisable, toEnable, toRemove, toAdd);
-                BuildDisabledComponentList(dialogVBox, disabled, toDisable, toEnable, toRemove, toAdd);
+                BuildEnabledComponentList(dialogVBox, enabled, toDisable, toEnable, toRemove, toAdd, RefreshList);
+                BuildDisabledComponentList(dialogVBox, disabled, toDisable, toEnable, toRemove, toAdd, RefreshList);
                 BuildAvailableComponentList(dialogVBox, available, profile, toRemove, toAdd, RefreshList);
             }
 
@@ -684,8 +684,12 @@ namespace ClinetCSharp
                     var component = ComponentRegistry.Create(name);
                     if (component != null)
                     {
+                        // 必须先 BuildUI，否则 SyncToData 会访问未初始化的控件
+                        var tempContainer = new VBoxContainer();
+                        component.BuildUI(tempContainer);
                         profile.SetData(name, component.SyncToData());
                         component.Dispose();
+                        tempContainer.QueueFree();
                         changed = true;
                     }
                 }
@@ -752,7 +756,8 @@ namespace ClinetCSharp
             HashSet<string> toDisable,
             HashSet<string> toEnable,
             HashSet<string> toRemove,
-            HashSet<string> toAdd)
+            HashSet<string> toAdd,
+            Action refreshList)
         {
             if (enabled.Count <= 0) return;
 
@@ -766,8 +771,8 @@ namespace ClinetCSharp
                 var disableButton = new Button { Text = "停用", CustomMinimumSize = new Vector2(52, 26), SizeFlagsHorizontal = Control.SizeFlags.ShrinkEnd };
                 var removeButton = new Button { Text = "移除", CustomMinimumSize = new Vector2(52, 26), SizeFlagsHorizontal = Control.SizeFlags.ShrinkEnd };
                 string capturedName = name;
-                disableButton.Pressed += () => { toDisable.Add(capturedName); toEnable.Remove(capturedName); };
-                removeButton.Pressed += () => { toAdd.Remove(capturedName); toRemove.Add(capturedName); };
+                disableButton.Pressed += () => { toDisable.Add(capturedName); toEnable.Remove(capturedName); refreshList(); };
+                removeButton.Pressed += () => { toAdd.Remove(capturedName); toRemove.Add(capturedName); refreshList(); };
                 row.AddChild(disableButton);
                 row.AddChild(removeButton);
                 dialogVBox.AddChild(row);
@@ -780,7 +785,8 @@ namespace ClinetCSharp
             HashSet<string> toDisable,
             HashSet<string> toEnable,
             HashSet<string> toRemove,
-            HashSet<string> toAdd)
+            HashSet<string> toAdd,
+            Action refreshList)
         {
             if (disabled.Count <= 0) return;
 
@@ -797,8 +803,8 @@ namespace ClinetCSharp
                 var enableButton = new Button { Text = "启用", CustomMinimumSize = new Vector2(52, 26), SizeFlagsHorizontal = Control.SizeFlags.ShrinkEnd };
                 var removeButton = new Button { Text = "移除", CustomMinimumSize = new Vector2(52, 26), SizeFlagsHorizontal = Control.SizeFlags.ShrinkEnd };
                 string capturedName = name;
-                enableButton.Pressed += () => { toEnable.Add(capturedName); toDisable.Remove(capturedName); };
-                removeButton.Pressed += () => { toAdd.Remove(capturedName); toRemove.Add(capturedName); };
+                enableButton.Pressed += () => { toEnable.Add(capturedName); toDisable.Remove(capturedName); refreshList(); };
+                removeButton.Pressed += () => { toAdd.Remove(capturedName); toRemove.Add(capturedName); refreshList(); };
                 row.AddChild(enableButton);
                 row.AddChild(removeButton);
                 dialogVBox.AddChild(row);

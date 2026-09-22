@@ -14,15 +14,18 @@ function generateTerrain(mapData, options) {
 
   // Only operate on cells that have not been pre-set by a blueprint.
   // Blueprint regions take precedence; noise fills the remaining default cells.
-  const cells = Object.values(mapData.cells).filter(c => c.terrain === 0);
-  const values = cells.map(c => ({ c, v: noise(c.uid.split('_').map(Number)[0] * 0.1, c.uid.split('_').map(Number)[1] * 0.1) }));
+  const entries = Object.entries(mapData.cells).filter(([_, c]) => c.terrain === 0);
+  const values = entries.map(([key, c]) => {
+    const [x, y] = key.split('_').map(Number);
+    return { c, v: noise(x * 0.1, y * 0.1) };
+  });
   values.sort((a, b) => a.v - b.v);
 
-  const waterCount = Math.floor(cells.length * waterRatio);
-  const obstacleCount = Math.floor(cells.length * obstacleRatio);
+  const waterCount = Math.floor(entries.length * waterRatio);
+  const obstacleCount = Math.floor(entries.length * obstacleRatio);
 
   // Reset default cells so previously generated terrain does not leak through.
-  cells.forEach(c => { c.terrain = 0; c.decoration = 0; });
+  values.forEach(({ c }) => { c.terrain = 0; c.decoration = 0; });
 
   // Water lowest values
   for (let i = 0; i < waterCount; i++) {
@@ -33,13 +36,21 @@ function generateTerrain(mapData, options) {
   for (let i = waterCount; i < waterCount + obstacleCount && i < values.length; i++) {
     values[i].c.terrain = config.terrains.rock.id;
   }
+}
 
-  // Apply style bias for remaining land
-  const bias = style.terrainBias;
-  for (const { c } of values.slice(waterCount + obstacleCount)) {
-    if (bias.length > 0) {
-      const pick = bias[Math.floor(Math.abs(noise(c.uid.split('_').map(Number)[0], c.uid.split('_').map(Number)[1])) * bias.length) % bias.length];
-      c.terrain = config.terrains[pick].id;
+/**
+ * 将生成阶段使用的 terrain 类型（水、岩石）转换为建筑装饰。
+ * 最终地图数据中只保留普通平地（terrain=0）和建筑装饰（decoration）。
+ */
+function convertTerrainToDecorations(mapData) {
+  for (const cell of Object.values(mapData.cells)) {
+    const terrain = terrainById.get(cell.terrain);
+    if (terrain && terrain.decorationId) {
+      // 只在没有已有装饰的格子上转换，避免覆盖蓝图或 placeDecorations 放置的建筑
+      if (!cell.decoration) {
+        cell.decoration = terrain.decorationId;
+      }
+      cell.terrain = 0;
     }
   }
 }
@@ -111,8 +122,12 @@ function placeDecorations(mapData, density, styleName, seed) {
   const { x: spawnX, y: spawnY } = mapData.spawn;
   const { x: bx, y: by, w: bw, h: bh } = mapData.bounds;
 
-  // Filter decorations by biome compatibility
+  // Filter decorations by biome compatibility.
+  // 水/岩石属于地形类装饰，由 generateTerrain + convertTerrainToDecorations 统一放置，
+  // 不在此处作为普通装饰随机放置，避免排序靠前的候选全部选中水。
+  const terrainDecorationNames = new Set(['water', 'rock']);
   const validDecs = Object.entries(config.decorations)
+    .filter(([name, d]) => !terrainDecorationNames.has(name))
     .filter(([_, d]) => d.biomes.includes(styleName) || d.biomes.includes('mixed') || styleName === 'mixed')
     .map(([_, d]) => d.id);
 
@@ -202,6 +217,7 @@ function placeSpawn(mapData, region) {
 
 module.exports = {
   generateTerrain,
+  convertTerrainToDecorations,
   countTerrain,
   isWalkable,
   findLargestConnectedRegion,

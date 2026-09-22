@@ -119,6 +119,9 @@ namespace ClinetCSharp
             // 保存日志
             SaveLogs(folderPath);
 
+            // 请求服务器当前日志文件路径并写入截屏文件夹
+            RequestServerLogPath(folderPath);
+
             // 恢复调试面板
             if (debugPanel != null && wasDebugPanelVisible)
             {
@@ -231,6 +234,42 @@ namespace ClinetCSharp
             catch (System.Exception ex)
             {
                 GD.PushWarning($"[ScreenshotTool] Failed to save logs: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 向服务器请求当前正在写入的日志文件绝对路径，收到后写入截屏文件夹的 server_log_path.txt。
+        /// 未连接服务器时静默跳过，不影响截图流程。
+        /// </summary>
+        private void RequestServerLogPath(string folderPath)
+        {
+            try
+            {
+                var network = GetTree().Root.GetNodeOrNull<NetworkManager>("NetworkManager");
+                if (network == null || !network.IsServerConnected())
+                {
+                    GD.Print("[ScreenshotTool] 未连接服务器，跳过服务器日志路径请求");
+                    return;
+                }
+
+                network.RequestServerLogPath(logPath =>
+                {
+                    if (string.IsNullOrEmpty(logPath))
+                        return;
+
+                    string outPath = folderPath + "/server_log_path.txt";
+                    var file = FileAccess.Open(outPath, FileAccess.ModeFlags.Write);
+                    if (file != null)
+                    {
+                        file.StoreString(logPath);
+                        file.Close();
+                        GD.Print("[ScreenshotTool] Server log path saved to: " + outPath);
+                    }
+                });
+            }
+            catch (System.Exception ex)
+            {
+                GD.PushWarning($"[ScreenshotTool] Failed to request server log path: {ex.Message}");
             }
         }
 

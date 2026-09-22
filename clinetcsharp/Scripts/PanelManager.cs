@@ -28,9 +28,9 @@ namespace ClinetCSharp
         [Export] public PackedScene EntityListPanelScene { get; set; }
         [Export] public PackedScene InventoryUIScene { get; set; }
         [Export] public PackedScene SkillPanelScene { get; set; }
+        [Export] public PackedScene StoryPanelScene { get; set; }
 
         private CanvasLayer _uiCanvas;
-        private readonly List<DraggablePanel> _panels = new();
         private DraggablePanel _focusedPanel;
         private readonly Dictionary<Key, DraggablePanel> _toggleKeys = new();
         private readonly List<IPanel> _allPanels = new();
@@ -52,6 +52,7 @@ namespace ClinetCSharp
             EntityListPanelScene ??= GD.Load<PackedScene>("res://scenes/entity_list_panel.tscn");
             InventoryUIScene ??= GD.Load<PackedScene>("res://scenes/inventory_ui_panel.tscn");
             SkillPanelScene ??= GD.Load<PackedScene>("res://scenes/skill_panel.tscn");
+            StoryPanelScene ??= GD.Load<PackedScene>("res://scenes/story_panel.tscn");
 
             RegisterScene<DebugPanel>(DebugPanelScene);
             RegisterScene<GMPanel>(GMPanelScene);
@@ -60,6 +61,7 @@ namespace ClinetCSharp
             RegisterScene<EntityListPanel>(EntityListPanelScene);
             RegisterScene<InventoryUI>(InventoryUIScene);
             RegisterScene<SkillPanel>(SkillPanelScene);
+            RegisterScene<StoryPanel>(StoryPanelScene);
 
             // 调试面板负责在初始化时应用 debug_panel_config.cfg 里的网格/相机/实体配置
             // 必须在启动时就实例化（保持隐藏），否则游戏一开始会缺少这些配置
@@ -107,15 +109,12 @@ namespace ClinetCSharp
         }
 
         #region DraggablePanel Registry
-        public void Register(DraggablePanel panel)
-        {
-            if (!_panels.Contains(panel))
-                _panels.Add(panel);
-        }
+        // DraggablePanel 已实现 IPanel，统一走 IPanel 注册表，避免两套集合重复维护。
+        public void Register(DraggablePanel panel) => RegisterPanel(panel);
 
         public void Unregister(DraggablePanel panel)
         {
-            _panels.Remove(panel);
+            UnregisterPanel(panel);
             if (_focusedPanel == panel)
                 _focusedPanel = null;
         }
@@ -140,7 +139,7 @@ namespace ClinetCSharp
 
         public T GetDraggablePanel<T>() where T : DraggablePanel
         {
-            return EnsurePanel<T>() as T;
+            return EnsurePanel<T>();
         }
 
         private T EnsurePanel<T>() where T : class, IPanel
@@ -168,8 +167,6 @@ namespace ClinetCSharp
         {
             foreach (var p in _allPanels)
                 p.HidePanel();
-            foreach (var p in _panels)
-                p.Visible = false;
         }
         #endregion
 
@@ -217,14 +214,14 @@ namespace ClinetCSharp
         #region Query
         public bool IsAnyPanelInteracting()
         {
-            foreach (var p in _panels)
+            foreach (var p in _allPanels.OfType<DraggablePanel>())
                 if (p.IsInteracting) return true;
             return false;
         }
 
         public bool IsMouseOverAnyPanel()
         {
-            foreach (var p in _panels)
+            foreach (var p in _allPanels.OfType<DraggablePanel>())
                 if (p.IsMouseOver()) return true;
             return false;
         }

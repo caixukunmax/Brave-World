@@ -21,6 +21,22 @@ namespace ClinetCSharp
         public static float HitShakeAmplitude { get; set; } = 3.0f;
         public static float HitFlashIntensity { get; set; } = 0.3f;
 
+        // ========== 方向箭头全局配置（可通过 DebugPanel 实时调整）==========
+        public static int DirectionArrowStyle { get; set; } = 0;       // 0-5 六种样式
+        public static float DirectionArrowSize { get; set; } = 0.35f;  // 相对 VisualSize 的比例
+        public static Color DirectionArrowColor { get; set; } = new Color(1f, 0.9f, 0.2f, 0.9f); // 金黄色
+        public static float DirectionArrowAlpha { get; set; } = 0.9f;  // 半透明度
+        /// <summary>四个方向的偏移: 右[0], 下[1], 左[2], 上[3]</summary>
+        public static Vector2[] DirectionArrowOffsets { get; set; } = new Vector2[4]
+        {
+            new Vector2(15, 0),   // 右: 箭头在角色右侧
+            new Vector2(0, 15),   // 下: 箭头在角色下方
+            new Vector2(-15, 0),  // 左: 箭头在角色左侧
+            new Vector2(0, -15),  // 上: 箭头在角色上方
+        };
+        /// <summary>四个方向的旋转角度(度): 右[0], 下[1], 左[2], 上[3]</summary>
+        public static float[] DirectionArrowAngles { get; set; } = new float[4] { 0f, 90f, 180f, 270f };
+
         // ========== 攻击抖动全局配置（可通过 DebugPanel 实时调整）==========
         public static float AttackShakeDuration { get; set; } = 0.08f;
         public static float AttackShakeDistance { get; set; } = 12.0f;
@@ -123,6 +139,16 @@ namespace ClinetCSharp
         public bool[] LabelCenterX = new bool[4] { true, true, true, true };
         public float[] LabelYOffsets = new float[4] { 0, 0, 0, 0 };
 
+        // ========== 铭牌背景 ==========
+        public bool NameplateVisible { get; set; } = false;
+        public float NameplateYOffset { get; set; } = -80f;
+        public float NameplateSpacing { get; set; } = 4f;
+        public float NameplateBarHeight { get; set; } = 6f;
+        public Color NameplateBarColor { get; set; } = new Color(0.1f, 0.1f, 0.1f, 0.7f);
+        public float NameplateCenterBoxHeight { get; set; } = 24f;
+        public float NameplateCenterBoxWidthScale { get; set; } = 0.6f;
+        public Color NameplateCenterBoxColor { get; set; } = new Color(0.1f, 0.1f, 0.1f, 0.85f);
+
         // ========== 全局标签可见性开关 ==========
         /// <summary>全局标签可见性（调试面板控制，影响所有实体的 RichTextLabel）</summary>
         public static bool GlobalLabelsVisible = true;
@@ -172,9 +198,37 @@ namespace ClinetCSharp
         /// <summary>占地大小变化后的回调，子类可重写以更新渲染位置</summary>
         public virtual void OnGridSizeChanged() { }
 
+        // ========== 朝向 ==========
+        private int _direction = 1; // 默认向下
+        /// <summary>朝向: 0=右, 1=下, 2=左, 3=上</summary>
+        public int Direction
+        {
+            get => _direction;
+            set { _direction = Mathf.PosMod(value, 4); QueueRedraw(); }
+        }
+
+        /// <summary>从移动向量推导 4 方向索引 (0=右, 1=下, 2=左, 3=上)</summary>
+        public static int DirectionFromVector(int dx, int dy)
+        {
+            if (dx > 0) return 0;
+            if (dx < 0) return 2;
+            if (dy > 0) return 1;
+            if (dy < 0) return 3;
+            return 1;
+        }
+
         // ========== 移动基础 ==========
         protected Tween _currentTween;
         public bool IsMoving { get; set; } = false;
+
+        /// <summary>
+        /// Tween 宿主覆盖（导演模式用）：演出期间整棵树被暂停，被暂停节点创建的 Tween 会冻结，
+        /// 由 CutsceneDirector（ProcessMode=Always）在驱动本实体 MoveTo 前临时设置，移动完成后还原。
+        /// </summary>
+        public Node TweenHostOverride { get; set; }
+
+        /// <summary>当前移动 Tween（演出编排等待移动完成用，可能为 null）</summary>
+        public Tween CurrentTween => _currentTween;
 
         // ========== 施法条（从 Player 下沉） ==========
         public Vector2 CastBarOffset { get; set; } = new Vector2(0, -80);
@@ -437,6 +491,8 @@ namespace ClinetCSharp
                     CustomMinimumSize = minSize,
                     MouseFilter = Control.MouseFilterEnum.Ignore,
                 };
+                // 固定游戏主题项（同 Player.CreateLabelNode），编辑器预览与游戏渲染一致。
+                EntityLabelTheme.ApplyGameTheme(label);
                 label.AddThemeColorOverride("font_color", TextColor);
                 container.AddChild(label);
                 AddChild(container);
@@ -632,7 +688,8 @@ namespace ClinetCSharp
         {
             IsMoving = true;
             _currentTween?.Kill();
-            _currentTween = CreateTween();
+            // 演出期间 TweenHostOverride 指向 Always 节点，避免实体被暂停时 Tween 一并冻结
+            _currentTween = (TweenHostOverride ?? this).CreateTween();
             _currentTween.SetTrans(Tween.TransitionType.Quad);
             _currentTween.SetEase(Tween.EaseType.Out);
             _currentTween.TweenProperty(this, "position", GetWorldPositionForGridPos(targetGridPos), duration);

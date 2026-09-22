@@ -1,4 +1,4 @@
-[gd_scene load_steps=24 format=3]
+[gd_scene load_steps=25 format=3]
 
 [ext_resource type="Script" path="res://Scripts/GridManager.cs" id="1_grid"]
 [ext_resource type="Script" path="res://Scripts/Player.cs" id="2_player"]
@@ -19,6 +19,7 @@
 [ext_resource type="PackedScene" path="res://scenes/entity_list_panel.tscn" id="17_entity"]
 [ext_resource type="PackedScene" path="res://scenes/inventory_ui_panel.tscn" id="18_invui"]
 [ext_resource type="PackedScene" path="res://scenes/skill_panel.tscn" id="20_skill"]
+[ext_resource type="PackedScene" path="res://scenes/story_panel.tscn" id="20_story"]
 [ext_resource type="PackedScene" path="res://scenes/skill_bar.tscn" id="21_skillbar"]
 [ext_resource type="Script" path="res://Scripts/FunctionButtonBar.cs" id="22_fnbar"]
 [ext_resource type="PackedScene" path="res://scenes/buff_bar.tscn" id="23_buffbar"]
@@ -27,6 +28,7 @@
 [ext_resource type="PackedScene" path="res://scenes/big_map_panel.tscn" id="26_bigmap"]
 [ext_resource type="Script" path="res://Scripts/ScreenTransition.cs" id="27_transition"]
 [ext_resource type="PackedScene" path="res://scenes/tavern_interior_panel.tscn" id="28_tavern"]
+[ext_resource type="Script" path="res://Scripts/Cutscene/CutsceneDirector.cs" id="29_cutscene"]
 
 [node name="Main" type="Node2D"]
 
@@ -92,6 +94,9 @@ script = ExtResource("12_map")
 [node name="ScreenTransition" type="CanvasLayer" parent="."]
 script = ExtResource("27_transition")
 
+[node name="CutsceneDirector" type="Node2D" parent="." groups=["cutscene_director"]]
+script = ExtResource("29_cutscene")
+
 [node name="TavernInteriorPanel" parent="." instance=ExtResource("28_tavern")]
 
 [node name="UICanvas" type="CanvasLayer" parent="."]
@@ -106,6 +111,7 @@ character_panel_scene = ExtResource("16_charpanel")
 entity_list_panel_scene = ExtResource("17_entity")
 inventory_ui_scene = ExtResource("18_invui")
 skill_panel_scene = ExtResource("20_skill")
+story_panel_scene = ExtResource("20_story")
 
 [node name="SkillBarCanvas" type="CanvasLayer" parent="."]
 layer = 60

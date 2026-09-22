@@ -63,8 +63,7 @@ namespace ClinetCSharp
             if (_inventoryContainer != null)
                 _inventoryContainer.ItemRightClicked -= OnItemRightClicked;
 
-            foreach (Node child in _content.GetChildren())
-                child.QueueFree();
+            _content.ClearChildren();
 
             _capacityLabel = null;
             _inventoryContainer = null;

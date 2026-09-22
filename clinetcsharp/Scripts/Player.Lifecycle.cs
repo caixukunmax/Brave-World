@@ -17,7 +17,7 @@ namespace ClinetCSharp
             SetupLabels();
             QueueRedraw();
 
-            var nm = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
+            var nm = UiServices.GetNetworkManager(this);
             if (nm != null)
             {
                 SubscribeNetworkEvents(nm);
@@ -28,7 +28,7 @@ namespace ClinetCSharp
 
         public override void _ExitTree()
         {
-            var nm = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
+            var nm = UiServices.GetNetworkManager(this);
             if (nm != null)
                 UnsubscribeNetworkEvents(nm);
 

@@ -16,7 +16,6 @@ namespace ClinetCSharp
             nm.CombatEventNotify += OnCombatEventNotify;
             nm.PlayerDeathNotify += OnPlayerDeath;
             nm.LevelUpNotify += OnLevelUp;
-            nm.Disconnected += OnNetworkDisconnected;
         }
 
         private void UnsubscribeNetworkEvents(NetworkManager nm)
@@ -30,16 +29,6 @@ namespace ClinetCSharp
             nm.CombatEventNotify -= OnCombatEventNotify;
             nm.PlayerDeathNotify -= OnPlayerDeath;
             nm.LevelUpNotify -= OnLevelUp;
-            nm.Disconnected -= OnNetworkDisconnected;
-        }
-
-        /// <summary>
-        /// 断线时重置在途移动计数：旧连接上的 MoveResponse 永远不会回来，
-        /// 不清零会让 _moveSentCount 卡在队列上限、重连后永久无法移动。
-        /// </summary>
-        private void OnNetworkDisconnected()
-        {
-            _moveSentCount = 0;
         }
 
         private void OnRoleAttrUpdated(Game.FullRoleInfo roleInfo)
@@ -52,7 +41,7 @@ namespace ClinetCSharp
 
         private void OnCombatStateNotify(Game.CombatStateNotify notify)
         {
-            var nm = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
+            var nm = UiServices.GetNetworkManager(this);
             if (nm == null || nm.AccountId == 0)
                 return;
 
@@ -113,7 +102,7 @@ namespace ClinetCSharp
 
         private void OnCombatEndNotify(Game.CombatEndNotify notify)
         {
-            var nm = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
+            var nm = UiServices.GetNetworkManager(this);
             if (nm == null || nm.AccountId == 0)
                 return;
 
@@ -132,7 +121,7 @@ namespace ClinetCSharp
 
         private void OnCastStartNotify(Game.CastStartNotify notify)
         {
-            var nm = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
+            var nm = UiServices.GetNetworkManager(this);
             if (nm == null || nm.AccountId == 0)
                 return;
             if (notify.CasterId != nm.AccountId)
@@ -147,7 +136,7 @@ namespace ClinetCSharp
 
         private void OnCombatEventNotify(Game.CombatEventNotify notify)
         {
-            var nm = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
+            var nm = UiServices.GetNetworkManager(this);
             if (nm == null || nm.AccountId == 0)
                 return;
             if (notify.TargetId != nm.AccountId)

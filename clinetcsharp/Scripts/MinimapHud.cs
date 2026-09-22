@@ -243,7 +243,7 @@ namespace ClinetCSharp
 
         private void OpenBigMap()
         {
-            BigMapPanel.Instance?.Open();
+            BigMapPanel.Get()?.Open();
         }
 
         private GridManager GetGridManager()

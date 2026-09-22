@@ -11,6 +11,7 @@ using GameServer.Services.Core;
 using GameServer.Services.Player;
 using GameServer.Services.World;
 using GameServer.Tables;
+using GameServer.HttpApi;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -43,6 +44,8 @@ class Program
     {
         GameConstants.LoadFromConfig();
         Directory.CreateDirectory("logs");
+        // 记录日志目录，供 GameLogic 层（ServerLogPathHandler）计算当前日志文件绝对路径
+        GameServer.Common.ServerLogConfig.LogDirectory = "logs";
         Log.Logger = new LoggerConfiguration()
             .WriteTo.Console()
             .WriteTo.File("logs/server-.log", rollingInterval: RollingInterval.Day)
@@ -83,6 +86,7 @@ class Program
                         sp.GetRequiredService<ILogger<GatewayService>>(),
                         sp.GetRequiredService<MessageRouter>(),
                         sp.GetRequiredService<IGameLoopScheduler>(),
+                        sp,
                         port,
                         hbTimeout);
                 });
@@ -119,6 +123,9 @@ class Program
 
                 // Hot reloader
                 services.AddSingleton<HotReloader>();
+
+                // HTTP API for admin panel
+                services.AddSingleton<HttpApiServer>();
 
                 // Hosted service
                 services.AddSingleton<GameServerHostedService>();
@@ -191,16 +198,6 @@ public class GameServerHostedService : IHostedService
         await gameLoop.StartAsync(_cts.Token);
         _logger.LogInformation("GameLoopScheduler started");
 
-        // 断线/踢线：在逻辑线程清理玩家世界状态与在线标记（修复幽灵玩家 / 空间索引格子泄漏）
-        network.OnPlayerDisconnected = (accountId, serverId) =>
-        {
-            var mapName = worldState.GetEntityMapName(accountId);
-            if (mapName != null)
-                mapService.PlayerLeave(accountId, mapName);
-            playerSession.SetOffline(accountId);
-            _logger.LogInformation("[Gateway] 玩家下线清理: account={AccountId} map={Map}", accountId, mapName ?? "(不在图)");
-        };
-
         // 5. 注册消息路由
         var router = _sp.GetRequiredService<MessageRouter>();
         var gateway = _sp.GetRequiredService<GatewayService>();
@@ -264,7 +261,12 @@ public class GameServerHostedService : IHostedService
         _ = HotReloadCommandLoop(hotReloader, _logger, network, mapData, mapService, handlerRegistry, playerSession, router, worldState, eventBus, _cts.Token);
         _logger.LogInformation("Game tick loops started");
 
-        // 7. 启动 Gateway
+        // 7. 启动 HTTP API (管理后台)
+        var httpApi = _sp.GetRequiredService<HttpApiServer>();
+        _ = httpApi.StartAsync(_cts.Token);
+        _logger.LogInformation("HTTP API started on port {Port}", _config["HttpApi:Port"] ?? "8890");
+
+        // 8. 启动 Gateway
         _ = gateway.StartAsync(_cts.Token);
         _logger.LogInformation("======== Game Server Ready ========");
     }
@@ -272,6 +274,9 @@ public class GameServerHostedService : IHostedService
     public async Task StopAsync(CancellationToken cancellationToken)
     {
         _cts.Cancel();
+        var httpApi = _sp.GetService<HttpApiServer>();
+        if (httpApi != null)
+            await httpApi.StopAsync();
         var gameLoop = _sp.GetService<IGameLoopScheduler>();
         if (gameLoop != null)
             await gameLoop.StopAsync(cancellationToken);

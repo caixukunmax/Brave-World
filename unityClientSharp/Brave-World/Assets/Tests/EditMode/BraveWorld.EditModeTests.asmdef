@@ -1,0 +1,24 @@
+{
+    "name": "BraveWorld.EditModeTests",
+    "rootNamespace": "BraveWorld.Tests",
+    "references": [
+        "GUID:7061b8d7d213a204c982c26bd2f51d07",
+        "Unity.TextMeshPro"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll",
+        "Google.Protobuf.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

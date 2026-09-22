@@ -1,0 +1,578 @@
+[
+  {
+    "id": 2,
+    "name": "烈斩",
+    "cast_range": 1,
+    "cast_time": 0.8,
+    "interrupt_on_move": false,
+    "post_cast_time": 0.1,
+    "cooldown": 3,
+    "mp_cost": 10,
+    "target_type": 1,
+    "actions": [
+      {
+        "action_type": 1,
+        "damage_type": 1,
+        "coefficient": 1.5,
+        "buff_id": 0
+      }
+    ],
+    "job": 1,
+    "projectile_speed": 0,
+    "projectile_max_range": 0
+  },
+  {
+    "id": 3,
+    "name": "盾击",
+    "cast_range": 1,
+    "cast_time": 0.6,
+    "interrupt_on_move": false,
+    "post_cast_time": 0.1,
+    "cooldown": 5,
+    "mp_cost": 15,
+    "target_type": 1,
+    "actions": [
+      {
+        "action_type": 1,
+        "damage_type": 1,
+        "coefficient": 0.8,
+        "buff_id": 0
+      },
+      {
+        "action_type": 4,
+        "damage_type": 1,
+        "coefficient": 0,
+        "buff_id": 10
+      }
+    ],
+    "job": 1,
+    "projectile_speed": 0,
+    "projectile_max_range": 0
+  },
+  {
+    "id": 4,
+    "name": "旋风斩",
+    "cast_range": 2,
+    "cast_time": 1,
+    "interrupt_on_move": false,
+    "post_cast_time": 0.1,
+    "cooldown": 8,
+    "mp_cost": 15,
+    "target_type": 2,
+    "actions": [
+      {
+        "action_type": 1,
+        "damage_type": 1,
+        "coefficient": 0.6,
+        "buff_id": 0
+      }
+    ],
+    "job": 1,
+    "projectile_speed": 0,
+    "projectile_max_range": 0
+  },
+  {
+    "id": 5,
+    "name": "火球术",
+    "cast_range": 3,
+    "cast_time": 1,
+    "interrupt_on_move": false,
+    "post_cast_time": 0.1,
+    "cooldown": 3,
+    "mp_cost": 15,
+    "target_type": 1,
+    "actions": [
+      {
+        "action_type": 7,
+        "damage_type": 2,
+        "coefficient": 1.5,
+        "buff_id": 0
+      }
+    ],
+    "job": 2,
+    "projectile_speed": 5,
+    "projectile_max_range": 3
+  },
+  {
+    "id": 6,
+    "name": "冰霜新星",
+    "cast_range": 2,
+    "cast_time": 0.8,
+    "interrupt_on_move": false,
+    "post_cast_time": 0.1,
+    "cooldown": 5,
+    "mp_cost": 20,
+    "target_type": 2,
+    "actions": [
+      {
+        "action_type": 1,
+        "damage_type": 2,
+        "coefficient": 1,
+        "buff_id": 0
+      },
+      {
+        "action_type": 4,
+        "damage_type": 2,
+        "coefficient": 0,
+        "buff_id": 6
+      }
+    ],
+    "job": 2,
+    "projectile_speed": 0,
+    "projectile_max_range": 0
+  },
+  {
+    "id": 7,
+    "name": "奥术飞弹",
+    "cast_range": 3,
+    "cast_time": 0.5,
+    "interrupt_on_move": false,
+    "post_cast_time": 0.1,
+    "cooldown": 2,
+    "mp_cost": 10,
+    "target_type": 1,
+    "actions": [
+      {
+        "action_type": 1,
+        "damage_type": 2,
+        "coefficient": 0.8,
+        "buff_id": 0
+      }
+    ],
+    "job": 2,
+    "projectile_speed": 0,
+    "projectile_max_range": 0
+  },
+  {
+    "id": 9,
+    "name": "治疗术",
+    "cast_range": 3,
+    "cast_time": 1,
+    "interrupt_on_move": false,
+    "post_cast_time": 0.1,
+    "cooldown": 3,
+    "mp_cost": 15,
+    "target_type": 3,
+    "actions": [
+      {
+        "action_type": 1,
+        "damage_type": 2,
+        "coefficient": 1,
+        "buff_id": 0
+      }
+    ],
+    "job": 3,
+    "projectile_speed": 0,
+    "projectile_max_range": 0
+  },
+  {
+    "id": 10,
+    "name": "神圣之光",
+    "cast_range": 3,
+    "cast_time": 1.5,
+    "interrupt_on_move": false,
+    "post_cast_time": 0.1,
+    "cooldown": 8,
+    "mp_cost": 30,
+    "target_type": 3,
+    "actions": [
+      {
+        "action_type": 1,
+        "damage_type": 2,
+        "coefficient": 2,
+        "buff_id": 0
+      }
+    ],
+    "job": 3,
+    "projectile_speed": 0,
+    "projectile_max_range": 0
+  },
+  {
+    "id": 11,
+    "name": "惩击",
+    "cast_range": 2,
+    "cast_time": 0.6,
+    "interrupt_on_move": false,
+    "post_cast_time": 0.1,
+    "cooldown": 4,
+    "mp_cost": 10,
+    "target_type": 1,
+    "actions": [
+      {
+        "action_type": 1,
+        "damage_type": 2,
+        "coefficient": 0.8,
+        "buff_id": 0
+      }
+    ],
+    "job": 3,
+    "projectile_speed": 0,
+    "projectile_max_range": 0
+  },
+  {
+    "id": 12,
+    "name": "撕咬",
+    "cast_range": 1,
+    "cast_time": 0.6,
+    "interrupt_on_move": false,
+    "post_cast_time": 0.1,
+    "cooldown": 3,
+    "mp_cost": 0,
+    "target_type": 1,
+    "actions": [
+      {
+        "action_type": 1,
+        "damage_type": 1,
+        "coefficient": 1.2,
+        "buff_id": 0
+      }
+    ],
+    "job": 4,
+    "projectile_speed": 0,
+    "projectile_max_range": 0
+  },
+  {
+    "id": 13,
+    "name": "狼嚎",
+    "cast_range": 2,
+    "cast_time": 0.8,
+    "interrupt_on_move": false,
+    "post_cast_time": 0.1,
+    "cooldown": 6,
+    "mp_cost": 0,
+    "target_type": 2,
+    "actions": [
+      {
+        "action_type": 1,
+        "damage_type": 1,
+        "coefficient": 0.5,
+        "buff_id": 0
+      }
+    ],
+    "job": 4,
+    "projectile_speed": 0,
+    "projectile_max_range": 0
+  },
+  {
+    "id": 14,
+    "name": "骷髅突刺",
+    "cast_range": 1,
+    "cast_time": 0.5,
+    "interrupt_on_move": false,
+    "post_cast_time": 0.1,
+    "cooldown": 2,
+    "mp_cost": 0,
+    "target_type": 1,
+    "actions": [
+      {
+        "action_type": 1,
+        "damage_type": 1,
+        "coefficient": 1,
+        "buff_id": 0
+      },
+      {
+        "action_type": 4,
+        "damage_type": 1,
+        "coefficient": 0,
+        "buff_id": 10
+      }
+    ],
+    "job": 4,
+    "projectile_speed": 0,
+    "projectile_max_range": 0
+  },
+  {
+    "id": 20,
+    "name": "战吼",
+    "cast_range": 3,
+    "cast_time": 0.5,
+    "interrupt_on_move": false,
+    "post_cast_time": 0.1,
+    "cooldown": 10,
+    "mp_cost": 20,
+    "target_type": 4,
+    "actions": [
+      {
+        "action_type": 4,
+        "damage_type": 1,
+        "coefficient": 0,
+        "buff_id": 3
+      }
+    ],
+    "job": 1,
+    "projectile_speed": 0,
+    "projectile_max_range": 0
+  },
+  {
+    "id": 21,
+    "name": "石肤术",
+    "cast_range": 0,
+    "cast_time": 0.5,
+    "interrupt_on_move": false,
+    "post_cast_time": 0.1,
+    "cooldown": 15,
+    "mp_cost": 10,
+    "target_type": 3,
+    "actions": [
+      {
+        "action_type": 4,
+        "damage_type": 1,
+        "coefficient": 0,
+        "buff_id": 5
+      }
+    ],
+    "job": 1,
+    "projectile_speed": 0,
+    "projectile_max_range": 0
+  },
+  {
+    "id": 22,
+    "name": "毒雾",
+    "cast_range": 2,
+    "cast_time": 0.8,
+    "interrupt_on_move": false,
+    "post_cast_time": 0.1,
+    "cooldown": 8,
+    "mp_cost": 25,
+    "target_type": 2,
+    "actions": [
+      {
+        "action_type": 4,
+        "damage_type": 2,
+        "coefficient": 0,
+        "buff_id": 1
+      }
+    ],
+    "job": 2,
+    "projectile_speed": 0,
+    "projectile_max_range": 0
+  },
+  {
+    "id": 23,
+    "name": "冰冻术",
+    "cast_range": 2,
+    "cast_time": 1,
+    "interrupt_on_move": false,
+    "post_cast_time": 0.1,
+    "cooldown": 10,
+    "mp_cost": 20,
+    "target_type": 1,
+    "actions": [
+      {
+        "action_type": 1,
+        "damage_type": 2,
+        "coefficient": 0.5,
+        "buff_id": 0
+      },
+      {
+        "action_type": 4,
+        "damage_type": 2,
+        "coefficient": 0,
+        "buff_id": 2
+      }
+    ],
+    "job": 2,
+    "projectile_speed": 0,
+    "projectile_max_range": 0
+  },
+  {
+    "id": 24,
+    "name": "神圣护盾",
+    "cast_range": 0,
+    "cast_time": 0.5,
+    "interrupt_on_move": false,
+    "post_cast_time": 0.1,
+    "cooldown": 15,
+    "mp_cost": 15,
+    "target_type": 3,
+    "actions": [
+      {
+        "action_type": 5,
+        "damage_type": 2,
+        "coefficient": 0,
+        "buff_id": 4
+      }
+    ],
+    "job": 3,
+    "projectile_speed": 0,
+    "projectile_max_range": 0
+  },
+  {
+    "id": 25,
+    "name": "祝福",
+    "cast_range": 3,
+    "cast_time": 0.8,
+    "interrupt_on_move": false,
+    "post_cast_time": 0.1,
+    "cooldown": 10,
+    "mp_cost": 20,
+    "target_type": 4,
+    "actions": [
+      {
+        "action_type": 4,
+        "damage_type": 2,
+        "coefficient": 0,
+        "buff_id": 8
+      }
+    ],
+    "job": 3,
+    "projectile_speed": 0,
+    "projectile_max_range": 0
+  },
+  {
+    "id": 26,
+    "name": "猛毒撕咬",
+    "cast_range": 1,
+    "cast_time": 0.6,
+    "interrupt_on_move": false,
+    "post_cast_time": 0.1,
+    "cooldown": 5,
+    "mp_cost": 0,
+    "target_type": 1,
+    "actions": [
+      {
+        "action_type": 1,
+        "damage_type": 1,
+        "coefficient": 1,
+        "buff_id": 0
+      },
+      {
+        "action_type": 4,
+        "damage_type": 1,
+        "coefficient": 0,
+        "buff_id": 1
+      }
+    ],
+    "job": 4,
+    "projectile_speed": 0,
+    "projectile_max_range": 0
+  },
+  {
+    "id": 27,
+    "name": "寒冰吐息",
+    "cast_range": 2,
+    "cast_time": 0.8,
+    "interrupt_on_move": false,
+    "post_cast_time": 0.1,
+    "cooldown": 8,
+    "mp_cost": 0,
+    "target_type": 2,
+    "actions": [
+      {
+        "action_type": 1,
+        "damage_type": 1,
+        "coefficient": 0.4,
+        "buff_id": 0
+      },
+      {
+        "action_type": 4,
+        "damage_type": 1,
+        "coefficient": 0,
+        "buff_id": 2
+      }
+    ],
+    "job": 4,
+    "projectile_speed": 0,
+    "projectile_max_range": 0
+  },
+  {
+    "id": 30,
+    "name": "挑衅",
+    "cast_range": 1,
+    "cast_time": 0.3,
+    "interrupt_on_move": false,
+    "post_cast_time": 0.1,
+    "cooldown": 8,
+    "mp_cost": 5,
+    "target_type": 1,
+    "actions": [
+      {
+        "action_type": 1,
+        "damage_type": 1,
+        "coefficient": 0.5,
+        "buff_id": 0
+      },
+      {
+        "action_type": 4,
+        "damage_type": 1,
+        "coefficient": 0,
+        "buff_id": 9
+      }
+    ],
+    "job": 1,
+    "projectile_speed": 0,
+    "projectile_max_range": 0
+  },
+  {
+    "id": 31,
+    "name": "燃烧",
+    "cast_range": 2,
+    "cast_time": 0.8,
+    "interrupt_on_move": false,
+    "post_cast_time": 0.1,
+    "cooldown": 8,
+    "mp_cost": 20,
+    "target_type": 1,
+    "actions": [
+      {
+        "action_type": 1,
+        "damage_type": 2,
+        "coefficient": 0.6,
+        "buff_id": 0
+      },
+      {
+        "action_type": 4,
+        "damage_type": 2,
+        "coefficient": 0,
+        "buff_id": 7
+      }
+    ],
+    "job": 2,
+    "projectile_speed": 0,
+    "projectile_max_range": 0
+  },
+  {
+    "id": 32,
+    "name": "净化",
+    "cast_range": 0,
+    "cast_time": 0.3,
+    "interrupt_on_move": false,
+    "post_cast_time": 0.1,
+    "cooldown": 8,
+    "mp_cost": 10,
+    "target_type": 3,
+    "actions": [
+      {
+        "action_type": 6,
+        "damage_type": 2,
+        "coefficient": 0,
+        "buff_id": 0
+      }
+    ],
+    "job": 3,
+    "projectile_speed": 0,
+    "projectile_max_range": 0
+  },
+  {
+    "id": 33,
+    "name": "狂暴",
+    "cast_range": 0,
+    "cast_time": 0.5,
+    "interrupt_on_move": false,
+    "post_cast_time": 0.1,
+    "cooldown": 15,
+    "mp_cost": 0,
+    "target_type": 3,
+    "actions": [
+      {
+        "action_type": 4,
+        "damage_type": 1,
+        "coefficient": 0,
+        "buff_id": 11
+      }
+    ],
+    "job": 4,
+    "projectile_speed": 0,
+    "projectile_max_range": 0
+  }
+]

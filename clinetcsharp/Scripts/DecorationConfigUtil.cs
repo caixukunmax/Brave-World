@@ -53,6 +53,7 @@ namespace ClinetCSharp
                 var labels = profile.GetData<LabelGroupData>("labels");
                 var obstacle = profile.GetData<ObstacleData>("obstacle");
 
+                var category = profile.GetData<CategoryData>("category")?.Category ?? "";
                 var cfg = new DecorationConfig
                 {
                     Id = profile.Id,
@@ -60,6 +61,65 @@ namespace ClinetCSharp
                     DisplayName = labels?.ContentPreview[0] ?? profile.Name,
                     BlockMovement = obstacle?.BlockMovement ?? false,
                     Description = $"{profile.Name} 装饰",
+                    Category = category,
+                };
+
+                if (app != null)
+                {
+                    cfg.Color = new Color(app.BgColor.R, app.BgColor.G, app.BgColor.B, app.BgOpacity);
+                    cfg.BorderColor = app.BorderColor;
+                    cfg.SizeX = app.SizeX > 0 ? app.SizeX : 1;
+                    cfg.SizeY = app.SizeY > 0 ? app.SizeY : 1;
+                }
+
+                Configs[profile.Id] = cfg;
+            }
+
+            ProfilesChanged?.Invoke();
+        }
+
+        /// <summary>
+        /// 编辑器安全：从已加载的 Profile 字典刷新建筑配置，<b>不</b>依赖 EntityProfileManager 运行时单例。
+        /// 地图编辑器插件用 <c>ProfileConfigIO.LoadFromFile()</c> 取得 profiles 后调用此方法，
+        /// 从而在不开游戏的情况下也能拿到建筑图鉴。
+        /// </summary>
+        public static void LoadFromProfiles(System.Collections.Generic.Dictionary<int, EntityProfile> profiles)
+        {
+            Configs.Clear();
+            Configs[0] = new DecorationConfig
+            {
+                Id = 0,
+                Name = "None",
+                DisplayName = "无",
+                BlockMovement = false,
+                Color = Colors.Transparent,
+                BorderColor = Colors.Transparent,
+                Description = "无装饰"
+            };
+
+            if (profiles == null)
+            {
+                ProfilesChanged?.Invoke();
+                return;
+            }
+
+            foreach (var profile in profiles.Values)
+            {
+                if (profile.EntityType != "decoration") continue;
+
+                AppearanceData app = profile.GetData<AppearanceData>("appearance");
+                LabelGroupData labels = profile.GetData<LabelGroupData>("labels");
+                ObstacleData obstacle = profile.GetData<ObstacleData>("obstacle");
+                CategoryData category = profile.GetData<CategoryData>("category");
+
+                var cfg = new DecorationConfig
+                {
+                    Id = profile.Id,
+                    Name = profile.Name,
+                    DisplayName = labels?.ContentPreview[0] ?? profile.Name,
+                    BlockMovement = obstacle?.BlockMovement ?? false,
+                    Description = $"{profile.Name} 装饰",
+                    Category = category?.Category ?? "",
                 };
 
                 if (app != null)
@@ -78,7 +138,9 @@ namespace ClinetCSharp
 
         public static DecorationConfig Get(int id)
         {
-            RefreshFromProfileManager();
+            // 只在未加载过配置时主动刷新，避免每次读取都触发 ProfilesChanged 造成循环刷新。
+            if (Configs.Count == 0)
+                RefreshFromProfileManager();
             return Configs.TryGetValue(id, out var c) ? c : Configs.GetValueOrDefault(0);
         }
 
@@ -107,7 +169,7 @@ namespace ClinetCSharp
 
         // 未来扩展字段
         public string IconPath { get; set; } = "";      // 图标资源路径，空则使用 Color 块
-        public string Category { get; set; } = "";       // 分类标签（民居 / 军事 / 装饰等）
+        public string Category { get; set; } = "";       // 分类标签：Terrain（地形类建筑）/ Building（建筑）/ Special（特殊）
         public string PinyinName { get; set; } = "";     // 拼音或首字母，用于搜索
         public int SizeX { get; set; } = 1;              // 占地宽度（格子数）
         public int SizeY { get; set; } = 1;              // 占地高度（格子数）

@@ -7,9 +7,10 @@ namespace ClinetCSharp
     /// 酒馆内部面板。
     /// 全屏显示酒馆内部场景，提供退出按钮。
     /// </summary>
-    public partial class TavernInteriorPanel : CanvasLayer
+    public partial class TavernInteriorPanel : CanvasLayer, IPanel
     {
-        public static TavernInteriorPanel Instance { get; private set; }
+        /// <summary>获取酒馆面板实例。优先从 PanelManager 查询，确保生命周期受统一管理。</summary>
+        public static TavernInteriorPanel Get() => PanelManager.Instance?.GetPanel<TavernInteriorPanel>();
 
         [Export] public float TransitionDuration { get; set; } = 0.4f;
 
@@ -18,18 +19,22 @@ namespace ClinetCSharp
 
         public override void _Ready()
         {
-            Instance = this;
             Layer = 105;
             Visible = false;
             ProcessMode = ProcessModeEnum.Always;
 
             BuildUi();
+            CallDeferred(MethodName.RegisterWithPanelManager);
         }
 
         public override void _ExitTree()
         {
-            if (Instance == this)
-                Instance = null;
+            PanelManager.Instance?.UnregisterPanel(this);
+        }
+
+        private void RegisterWithPanelManager()
+        {
+            PanelManager.Instance?.RegisterPanel(this);
         }
 
         public override void _Input(InputEvent @event)
@@ -50,10 +55,10 @@ namespace ClinetCSharp
 
             UIInputPolicy.Instance?.PauseGame();
 
-            ScreenTransition.Instance?.FadeToBlack(() =>
+            ScreenTransition.Get()?.FadeToBlack(() =>
             {
                 Visible = true;
-                ScreenTransition.Instance?.FadeFromBlack(null, TransitionDuration);
+                ScreenTransition.Get()?.FadeFromBlack(null, TransitionDuration);
             }, TransitionDuration);
         }
 
@@ -61,12 +66,12 @@ namespace ClinetCSharp
         {
             if (!_isOpen) return;
 
-            ScreenTransition.Instance?.FadeToBlack(() =>
+            ScreenTransition.Get()?.FadeToBlack(() =>
             {
                 Visible = false;
                 _isOpen = false;
                 UIInputPolicy.Instance?.ResumeGame();
-                ScreenTransition.Instance?.FadeFromBlack(null, TransitionDuration);
+                ScreenTransition.Get()?.FadeFromBlack(null, TransitionDuration);
             }, TransitionDuration);
         }
 
@@ -148,5 +153,12 @@ namespace ClinetCSharp
             btn.Pressed += () => GD.Print($"[TavernInteriorPanel] 点击了: {text}");
             parent.AddChild(btn);
         }
+
+        #region IPanel Implementation
+        bool IPanel.IsVisible() => Visible;
+        void IPanel.ShowPanel() => Enter();
+        void IPanel.HidePanel() => Exit();
+        string IPanel.PanelName => "TavernInteriorPanel";
+        #endregion
     }
 }

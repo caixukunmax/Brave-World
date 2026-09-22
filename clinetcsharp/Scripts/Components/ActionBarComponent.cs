@@ -16,9 +16,9 @@ namespace ClinetCSharp
 
         private CheckButton _forceShowCheck;
         private HSlider _textYOffsetSlider;
-        private Label _textYOffsetValue;
+        private Button _textYOffsetValue;
         private HSlider _progressHeightSlider;
-        private Label _progressHeightValue;
+        private Button _progressHeightValue;
 
         public void BuildUI(VBoxContainer parent)
         {
@@ -35,20 +35,20 @@ namespace ClinetCSharp
             tyRow.AddChild(new Label { Text = "文字Y偏移:", CustomMinimumSize = new Vector2(70, 0) });
             _textYOffsetSlider = new HSlider { MinValue = -30, MaxValue = 30, Step = 1, Value = 0, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, CustomMinimumSize = new Vector2(0, 20), Scrollable = false, FocusMode = Control.FocusModeEnum.Click };
             tyRow.AddChild(_textYOffsetSlider);
-            _textYOffsetValue = new Label { Text = "0", CustomMinimumSize = new Vector2(30, 0), HorizontalAlignment = HorizontalAlignment.Right };
-            tyRow.AddChild(_textYOffsetValue);
+            var textYOffsetValLbl = new Label { Text = "0", CustomMinimumSize = new Vector2(30, 0), HorizontalAlignment = HorizontalAlignment.Right };
+            tyRow.AddChild(textYOffsetValLbl);
             parent.AddChild(tyRow);
-            SliderValueInput.Attach(_textYOffsetSlider, _textYOffsetValue, v => ((int)v).ToString());
+            _textYOffsetValue = SliderValueInput.Attach(_textYOffsetSlider, textYOffsetValLbl, v => ((int)v).ToString());
 
             // Progress height
             var phRow = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
             phRow.AddChild(new Label { Text = "进度条高度:", CustomMinimumSize = new Vector2(70, 0) });
             _progressHeightSlider = new HSlider { MinValue = 1, MaxValue = 20, Step = 1, Value = 4, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, CustomMinimumSize = new Vector2(0, 20), Scrollable = false, FocusMode = Control.FocusModeEnum.Click };
             phRow.AddChild(_progressHeightSlider);
-            _progressHeightValue = new Label { Text = "4", CustomMinimumSize = new Vector2(30, 0), HorizontalAlignment = HorizontalAlignment.Right };
-            phRow.AddChild(_progressHeightValue);
+            var progressHeightValLbl = new Label { Text = "4", CustomMinimumSize = new Vector2(30, 0), HorizontalAlignment = HorizontalAlignment.Right };
+            phRow.AddChild(progressHeightValLbl);
             parent.AddChild(phRow);
-            SliderValueInput.Attach(_progressHeightSlider, _progressHeightValue, v => ((int)v).ToString());
+            _progressHeightValue = SliderValueInput.Attach(_progressHeightSlider, progressHeightValLbl, v => ((int)v).ToString());
         }
 
         public void SyncFromData(IComponentData data)
@@ -99,7 +99,7 @@ namespace ClinetCSharp
         void OnDbl(double _) => _onChanged?.Invoke();
         void OnBool(bool _) => _onChanged?.Invoke();
 
-        static void SetSliderSilent(HSlider s, double v, Label l, string t)
+        static void SetSliderSilent(HSlider s, double v, Button l, string t)
         { s?.SetBlockSignals(true); if (s != null) s.Value = v; s?.SetBlockSignals(false); if (l != null) l.Text = t; }
         static void SetCheckSilent(CheckButton c, bool v)
         { c?.SetBlockSignals(true); if (c != null) c.ButtonPressed = v; c?.SetBlockSignals(false); }

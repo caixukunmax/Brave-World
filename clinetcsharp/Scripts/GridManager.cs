@@ -6,8 +6,12 @@ using System.Linq;
 namespace ClinetCSharp
 {
     /// <summary>
-    /// 网格管理器
+    /// 网格管理器。
+    /// [Tool]：地图编辑器插件（addons/map_editor_editor）会在编辑器里手工 new 实例（SkipAutoLoad=true），
+    /// 需要 _Ready/_Process/_Draw 在编辑器下执行才能渲染地形/网格；
+    /// 游戏场景（main.tscn）中的实例在编辑器下由 _Ready 开头的 Engine.IsEditorHint() 守卫直接跳过，维持原行为。
     /// </summary>
+    [Tool]
     [GlobalClass]
     public partial class GridManager : Node2D
     {
@@ -53,7 +57,7 @@ namespace ClinetCSharp
 
         /// <summary>地图数据：逻辑坐标 -> 格子。只有存在的格子才会被加入。</summary>
         public System.Collections.Generic.Dictionary<Vector2I, GridCell> GridData { get; set; } = new();
-        public string CurrentMapName { get; set; } = "新手村";
+        public string CurrentMapName { get; set; } = "落叶乡";
 
         /// <summary>当前地图边界（所有存在格子的包围盒）。</summary>
         public Rect2I MapBounds { get; private set; } = new Rect2I(0, 0, 50, 50);
@@ -129,6 +133,22 @@ namespace ClinetCSharp
 
         public override void _Ready()
         {
+            // 编辑器环境下（如用编辑器打开 main.tscn）不做任何初始化：
+            // 避免触发 LoadMapData 读写地图文件、连 SizeChanged 信号、修改视口参数等运行时副作用。
+            // 地图编辑器插件以 SkipAutoLoad=true 手工创建实例，需要完整初始化渲染链路，不受此守卫影响。
+            if (Engine.IsEditorHint() && !SkipAutoLoad)
+            {
+                SetProcess(false);
+#if DEBUG
+                GD.Print($"[GridManager] 编辑器守卫：跳过初始化（SkipAutoLoad={SkipAutoLoad}，游戏场景实例正常行为）");
+#endif
+                return;
+            }
+#if DEBUG
+            if (Engine.IsEditorHint())
+                GD.Print("[GridManager] 编辑器插件实例：执行完整初始化（渲染链路启动）");
+#endif
+
             // 初始化地形标签字体
             _terrainLabelFont = ThemeDB.Singleton?.FallbackFont;
             if (_terrainLabelFont == null)
@@ -183,7 +203,48 @@ namespace ClinetCSharp
             UpdateGridShaderOverlay();
             UpdateTerrainMask();
 
+            SetupHoverCoordLabel();
+
             QueueRedraw();
+        }
+
+        // ========== 鼠标悬停格子坐标（运行时调试，制作演出脚本拾取坐标用） ==========
+        /// <summary>悬停坐标显示开关（静态，供调试面板/GM 控制）</summary>
+        public static bool ShowHoverGridCoord { get; set; } = true;
+        private Label _hoverCoordLabel;
+
+        private void SetupHoverCoordLabel()
+        {
+            _hoverCoordLabel = new Label
+            {
+                Visible = false,
+                MouseFilter = Control.MouseFilterEnum.Ignore,
+                ZIndex = 100,
+            };
+            _hoverCoordLabel.AddThemeFontSizeOverride("font_size", 14);
+            _hoverCoordLabel.AddThemeColorOverride("font_color", new Color(1f, 1f, 0.6f));
+            _hoverCoordLabel.AddThemeColorOverride("font_outline_color", new Color(0f, 0f, 0f, 0.9f));
+            _hoverCoordLabel.AddThemeConstantOverride("outline_size", 4);
+            AddChild(_hoverCoordLabel);
+        }
+
+        /// <summary>每帧刷新鼠标悬停格子的坐标标签</summary>
+        private void UpdateHoverCoordLabel()
+        {
+            if (_hoverCoordLabel == null)
+                return;
+
+            if (!ShowHoverGridCoord || IsEditMode)
+            {
+                _hoverCoordLabel.Visible = false;
+                return;
+            }
+
+            var gridPos = WorldToGrid(GetGlobalMousePosition());
+            _hoverCoordLabel.Text = $"({gridPos.X}, {gridPos.Y})";
+            // 标签是世界子节点，跟随缩放；抬高到光标上方避免遮挡
+            _hoverCoordLabel.Position = GetLocalMousePosition() + new Vector2(12, -22) / Mathf.Max(0.1f, GetCameraZoom());
+            _hoverCoordLabel.Visible = true;
         }
 
         public override void _ExitTree()
@@ -199,6 +260,8 @@ namespace ClinetCSharp
 
         public override void _Process(double _delta)
         {
+            UpdateHoverCoordLabel();
+
             var currentZoom = GetCameraZoom();
 
             bool zoomChanged = Mathf.Abs(currentZoom - _lastCameraZoom) > 0.001f;
@@ -351,6 +414,8 @@ namespace ClinetCSharp
         {
             if (GridData.Count == 0)
             {
+                GD.PushWarning("[GridManager] 网格数据为空，地图边界回退到默认 50x50。" +
+                    "如果这不是预期状态，请检查地图数据是否已加载。");
                 MapBounds = new Rect2I(0, 0, 50, 50);
                 return;
             }
@@ -1113,7 +1178,7 @@ namespace ClinetCSharp
         private void DrawGridCoords()
         {
             // 绘制每个格子的逻辑坐标
-            var font = ThemeDB.FallbackFont;
+            var font = _terrainLabelFont ?? ThemeDB.FallbackFont;
             var fontSize = Mathf.Max(8, GridSize / 6);  // 根据格子大小动态调整字号
             var textColor = new Color(0.8f, 0.8f, 0.8f, 0.7f);  // 浅灰色
 
@@ -1134,7 +1199,7 @@ namespace ClinetCSharp
         private void DrawCellUids()
         {
             // 绘制每个格子的 UID（唯一标识符，创建时生成，永不改变）
-            var font = ThemeDB.FallbackFont;
+            var font = _terrainLabelFont ?? ThemeDB.FallbackFont;
             var fontSize = Mathf.Max(8, GridSize / 6);
             var textColor = new Color(1.0f, 0.9f, 0.3f, 0.85f);  // 金黄色，醒目但不过度遮挡
 
@@ -1282,6 +1347,24 @@ namespace ClinetCSharp
             }
             GD.PrintErr($"[GridManager] LoadMap: 地图 '{mapName}' 不存在");
             return false;
+        }
+
+        /// <summary>
+        /// 编辑器插件专用：灌入地图数据并刷新地形/网格渲染，但<b>不</b>生成 MapDecoration 节点
+        /// （避免编辑器下触发运行时副作用）。装饰由插件的绘制层自行渲染。
+        /// 普通运行时加载请继续使用 <see cref="LoadMap"/>。
+        /// </summary>
+        public void ApplyLoadedGridData(System.Collections.Generic.Dictionary<Vector2I, GridCell> loadedData, Rect2I loadedBounds)
+        {
+            GridData = loadedData;
+            MapBounds = loadedBounds;
+            RecalculateMapBounds();
+            UpdateGridShaderOverlay();
+            _gridShaderOverlay?.UpdateTerrainMask(null, 0, 0);
+            _gridShaderOverlay?.UpdateWaterMask(null, 0, 0);
+            UpdateTerrainMask();
+            SyncBackgroundSize();
+            QueueRedraw();
         }
 
         /// <summary>

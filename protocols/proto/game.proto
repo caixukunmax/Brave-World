@@ -155,6 +155,7 @@ message FullRoleInfo {
   repeated AttrItem attrs = 22; // 战斗属性集合（key-value，接 luban 枚举）
   repeated uint32 learned_skills = 23;  // 已学会的技能ID列表
   repeated uint32 equipped_skills = 24; // 已装备的技能ID列表
+  int32 direction = 27;     // 朝向: 0=右, 1=下, 2=左, 3=上
 }
 
 /**
@@ -423,6 +424,7 @@ message MoveComponentData {
   bool is_moving = 2;
   int32 target_x = 3;
   int32 target_y = 4;
+  int32 direction = 5;  // 朝向: 0=右, 1=下, 2=左, 3=上
 }
 
 /**
@@ -458,6 +460,7 @@ message EntitySnapshot {
   MoveComponentData move = 11;
   CastComponentData cast = 12;
   InteractComponentData interact = 14;
+  int32 direction = 15;  // 朝向: 0=右, 1=下, 2=左, 3=上
 }
 
 /**
@@ -515,6 +518,7 @@ message MonsterInfo {
   repeated MonsterAttr attrs = 7; // 属性列表
   int32 size_x = 8;              // 占地宽度（格子数，默认1）
   int32 size_y = 9;              // 占地高度（格子数，默认1）
+  int32 direction = 10;          // 朝向: 0=右, 1=下, 2=左, 3=上
 }
 
 /**
@@ -528,6 +532,7 @@ message MonsterMoveNotify {
   int32 to_y = 5;                // 终点 Y
   string state = 6;              // 状态：idle | patrol | chase | return
   int32 duration_ms = 7;         // 移动耗时（毫秒），客户端据此播放动画
+  int32 direction = 8;           // 朝向: 0=右, 1=下, 2=左, 3=上
 }
 
 /**
@@ -572,6 +577,7 @@ message NpcInfo {
   int32  y               = 5;
   int32  size_x          = 6;   // 占地宽度（格子数，默认1）
   int32  size_y          = 7;   // 占地高度（格子数，默认1）
+  int32  direction       = 8;   // 朝向: 0=右, 1=下, 2=左, 3=上
 }
 
 /**
@@ -890,6 +896,14 @@ message MonsterMoveCancelNotify {
   int32 rollback_y = 3;
 }
 
+/**
+ * 朝向变更通知（服务器主动广播）
+ */
+message DirectionNotify {
+  uint64 entity_id = 1;
+  int32 direction = 2;  // 朝向: 0=右, 1=下, 2=左, 3=上
+}
+
 
 // ==================== 掉落/拾取 ====================
 
@@ -929,4 +943,20 @@ message DropPickupNotify {
  */
 message DropRemoveNotify {
   repeated uint64 drop_ids = 1;
+}
+
+// ==================== 调试辅助 ====================
+
+/**
+ * 请求服务器当前正在写入的日志文件绝对路径（截屏工具调试用）
+ */
+message GetServerLogPathRequest {}
+
+/**
+ * 返回服务器当前日志文件绝对路径
+ */
+message GetServerLogPathResponse {
+  common.ErrorCode code = 1;
+  string message = 2;
+  string log_path = 3;   // 当前正在写入的服务器日志绝对路径
 }

@@ -107,7 +107,7 @@ namespace ClinetCSharp
                     }
                 }
                 if (_network == null)
-                    _network = tree.Root.GetNodeOrNull<NetworkManager>("NetworkManager");
+                    _network = UiServices.GetNetworkManager(this);
                 if (_network != null)
                 {
                     _network.NpcInteractNotify += OnNpcInteractNotify;
@@ -211,6 +211,7 @@ namespace ClinetCSharp
                 npc.Setup(n.NpcInstanceId, n.NpcName, n.NpcType, n.X, n.Y, gridSize, 1,
                     n.SizeX > 0 ? (int)n.SizeX : 1,
                     n.SizeY > 0 ? (int)n.SizeY : 1);
+                npc.Direction = n.Direction;
                 ApplyDefaultStyle(npc);
                 npc.ProfileId = 3;
                 AddChild(npc);

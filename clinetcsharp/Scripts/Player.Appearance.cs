@@ -8,7 +8,7 @@ namespace ClinetCSharp
         /// <summary>
         /// 从配置文件加载样式参数，确保 VisualSizeScale 等值在场景显示前就绪
         /// </summary>
-        private void LoadStyleConfig()
+        internal void LoadStyleConfig()
         {
             var config = new ConfigFile();
             if (config.Load("res://debug_panel_config.cfg") != Error.Ok)
@@ -155,6 +155,7 @@ namespace ClinetCSharp
             Status = roleInfo.Status;
             GridSizeX = roleInfo.SizeX > 0 ? roleInfo.SizeX : 1;
             GridSizeY = roleInfo.SizeY > 0 ? roleInfo.SizeY : 1;
+            Direction = roleInfo.Direction;
 
             PlayerLabelTexts[0] = $"LV.{Level} {CharacterName}";
             PlayerLabelTexts[1] = Job;

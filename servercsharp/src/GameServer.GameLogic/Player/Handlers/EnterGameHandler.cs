@@ -183,6 +183,7 @@ public class EnterGameHandler : IMessageHandler
                 Level = (uint)m.Level,
                 SizeX = m.SizeX > 0 ? m.SizeX : 1,
                 SizeY = m.SizeY > 0 ? m.SizeY : 1,
+                Direction = m.Direction,
             };
             info.Attrs.Add(new PGame.MonsterAttr { AttrKey = 1, AttrValue = m.Hp });
             info.Attrs.Add(new PGame.MonsterAttr { AttrKey = 2, AttrValue = m.Patk });
@@ -206,6 +207,7 @@ public class EnterGameHandler : IMessageHandler
                     Y = n.Y,
                     SizeX = n.SizeX > 0 ? n.SizeX : 1,
                     SizeY = n.SizeY > 0 ? n.SizeY : 1,
+                    Direction = n.Direction,
                 });
             }
         }
@@ -216,15 +218,17 @@ public class EnterGameHandler : IMessageHandler
 
         // 推送地形数据（只同步非普通地形，减少数据量）
         var terrainData = _session.MapService.GetMapTerrainData(mapName);
-        if (terrainData != null)
+        var decorationData = _session.MapService.GetMapDecorationData(mapName);
+        if (terrainData != null && decorationData != null)
         {
             var (width, height, terrainTypes) = terrainData.Value;
+            var (_, _, decorationTypes) = decorationData.Value;
             for (int y = 0; y < height; y++)
             {
                 for (int x = 0; x < width; x++)
                 {
                     int terrain = terrainTypes[x, y];
-                    int decoration = _session.MapService.GetDecorationType(mapName, x, y);
+                    int decoration = decorationTypes[x, y];
                     if (terrain != 0 || decoration != 0)
                     {
                         notify.Tiles.Add(new PGame.TileInfo

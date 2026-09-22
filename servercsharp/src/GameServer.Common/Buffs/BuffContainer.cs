@@ -96,8 +96,8 @@ public class BuffContainer
 
     // ---- 属性修正 ----
 
-    /// <summary>获取某属性的修正值总和</summary>
-    public int GetAttrModifier(string attrName)
+    /// <summary>获取某属性的修正值总和（返回 double 避免百分比修正被截断）</summary>
+    public double GetAttrModifier(string attrName)
     {
         double total = 0;
         foreach (var buff in _buffs)
@@ -113,7 +113,7 @@ public class BuffContainer
                     total += mod.Value * buff.Stacks;
             }
         }
-        return (int)total;
+        return total;
     }
 
     // ---- 护盾 ----

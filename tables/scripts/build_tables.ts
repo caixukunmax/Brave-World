@@ -217,6 +217,18 @@ function main(): void {
   if (fs.existsSync(TMP_JSON_ONLY)) {
     copyDirSync(TMP_JSON_ONLY, JSON_DATA_DIR);
   }
+
+  // 清理 Luban 自动扫描 #StoryChapterData / #StoryDialogueData 文件名生成的冗余空表
+  const staleDataFiles = [
+    path.join(JSON_DATA_DIR, 'common_tbstorychapterdata.json'),
+    path.join(JSON_DATA_DIR, 'common_tbstorydialoguedata.json'),
+  ];
+  for (const stale of staleDataFiles)
+  {
+    if (fs.existsSync(stale))
+      fs.unlinkSync(stale);
+  }
+
   success(`JSON data → ${paths.tables.json_data_dir}`);
 
   // 将技能配置 JSON 复制到客户端 data 目录
@@ -263,6 +275,24 @@ function main(): void {
     fs.mkdirSync(CLIENT_DATA_DIR, { recursive: true });
     fs.copyFileSync(GM_COMMAND_DESC_JSON_SRC, GM_COMMAND_DESC_JSON_DST);
     success('GM command desc config → clinetcsharp/data/gm_command_desc.json');
+  }
+
+  // 将剧情章节配置 JSON 复制到客户端 data 目录
+  const STORY_CHAPTER_JSON_SRC = path.join(JSON_DATA_DIR, 'common_tbstorychapter.json');
+  const STORY_CHAPTER_JSON_DST = path.join(CLIENT_DATA_DIR, 'story_chapter_config.json');
+  if (fs.existsSync(STORY_CHAPTER_JSON_SRC)) {
+    fs.mkdirSync(CLIENT_DATA_DIR, { recursive: true });
+    fs.copyFileSync(STORY_CHAPTER_JSON_SRC, STORY_CHAPTER_JSON_DST);
+    success('Story chapter config → clinetcsharp/data/story_chapter_config.json');
+  }
+
+  // 将剧情对话配置 JSON 复制到客户端 data 目录
+  const STORY_DIALOGUE_JSON_SRC = path.join(JSON_DATA_DIR, 'common_tbstorydialogue.json');
+  const STORY_DIALOGUE_JSON_DST = path.join(CLIENT_DATA_DIR, 'story_dialogue_config.json');
+  if (fs.existsSync(STORY_DIALOGUE_JSON_SRC)) {
+    fs.mkdirSync(CLIENT_DATA_DIR, { recursive: true });
+    fs.copyFileSync(STORY_DIALOGUE_JSON_SRC, STORY_DIALOGUE_JSON_DST);
+    success('Story dialogue config → clinetcsharp/data/story_dialogue_config.json');
   }
 
   // 将生成的 JSON 同步到服务端 bin 目录（运行时读取位置）

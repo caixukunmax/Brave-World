@@ -1,11 +1,20 @@
 using Godot;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 
 namespace ClinetCSharp
 {
     /// <summary>
-    /// 滑条值输入工具 — 把 Label 替换为可点击的 Button，点击后变成 LineEdit 直接输入数值
+    /// 滑条值输入工具 — 把 Label 替换为可点击的 Button，点击后变成 LineEdit 直接输入数值。
+    ///
+    /// <para><b>关键约定（防止“滑条值与后方文本失同步”类 bug）：</b></para>
+    /// <para><see cref="Attach"/> 会用一个新的 Button 替换你传入的 valueLabel，该 Button 才是 UI 上
+    /// 真正显示数值的控件，并且它在点击编辑结束后会被原样放回（引用不变）。
+    /// 因此组件<b>必须持有并使用 Attach 返回的这个 Button 作为“数值显示”</b>，
+    /// 切勿再保留或更新被替换掉的原始 Label——否则会写到一个已脱离界面的节点上，
+    /// 导致显示值与滑条实际值脱节（典型现象：显示 111，点一下滑条没拖动，值却变了）。</para>
+    /// <para>各 CreateSliderRow / MakeSR 之类辅助方法已改为返回 (HSlider, Button)，请直接使用返回的 Button。</para>
     /// </summary>
     public static class SliderValueInput
     {
@@ -16,11 +25,12 @@ namespace ClinetCSharp
         public static bool HasActiveEdit => _activeEdit != null;
 
         /// <summary>
-        /// 将 slider 旁边的值 Label 替换为可点击输入的 Button
+        /// 将 slider 旁边的值 Label 替换为可点击输入的 Button，并返回该 Button（即 UI 上真正显示数值的控件）。
+        /// 组件应当持有并使用这个返回的 Button，而不是被替换掉的原始 Label。
         /// </summary>
-        public static void Attach(HSlider slider, Label valueLabel, Func<double, string> formatValue = null)
+        public static Button Attach(HSlider slider, Label valueLabel, Func<double, string> formatValue = null)
         {
-            if (slider == null || valueLabel == null) return;
+            if (slider == null || valueLabel == null) return null;
             if (formatValue == null)
                 formatValue = v => v.ToString(DebugPanelLengthScalePolicy.FormatStr);
 
@@ -37,13 +47,14 @@ namespace ClinetCSharp
             clickBtn.AddThemeConstantOverride("h_separation", 0);
             clickBtn.AddThemeConstantOverride("outline_size", 0);
 
+            // 用户拖动/点击滑条时，始终用同一来源刷新可见 Button 文本
             slider.ValueChanged += (v) =>
             {
                 clickBtn.Text = formatValue(v);
             };
 
             var parent = valueLabel.GetParent();
-            if (parent == null) return;
+            if (parent == null) return clickBtn;
             int labelIndex = valueLabel.GetIndex();
             parent.RemoveChild(valueLabel);
             parent.AddChild(clickBtn);
@@ -80,8 +91,8 @@ namespace ClinetCSharp
                     if (applying) return;
                     applying = true;
 
-                    if (double.TryParse(edit.Text, System.Globalization.NumberStyles.Float,
-                        System.Globalization.CultureInfo.InvariantCulture, out double val))
+                    if (double.TryParse(edit.Text, NumberStyles.Float,
+                        CultureInfo.InvariantCulture, out double val))
                     {
                         val = Mathf.Clamp((float)val, (float)slider.MinValue, (float)slider.MaxValue);
                         slider.Value = val;
@@ -113,6 +124,8 @@ namespace ClinetCSharp
                     ApplyValue();
                 };
             };
+
+            return clickBtn;
         }
 
         /// <summary>

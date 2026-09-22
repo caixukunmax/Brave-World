@@ -110,6 +110,7 @@ public class MapPlayerState : CombatEntityState
     public int GridY { get; set; }
     public int SizeX { get; set; } = 1;
     public int SizeY { get; set; } = 1;
+    public int Direction { get; set; } = 1; // 0=右, 1=下, 2=左, 3=上
     public int MpRegen { get => GetAttr((int)RoleAttrs.MpRegen); set => SetAttr((int)RoleAttrs.MpRegen, value); }
     public string Job { get; set; } = "";
     public int MoveSpeedMs { get; set; }
@@ -137,6 +138,7 @@ public class MapMonsterState : CombatEntityState
     public int Y { get; set; }
     public int SizeX { get; set; } = 1;
     public int SizeY { get; set; } = 1;
+    public int Direction { get; set; } = 1; // 0=右, 1=下, 2=左, 3=上
 }
 
 /// <summary>
@@ -152,6 +154,7 @@ public class MapNpcState : CombatEntityState
     public int Y { get; set; }
     public int SizeX { get; set; } = 1;
     public int SizeY { get; set; } = 1;
+    public int Direction { get; set; } = 1; // 0=右, 1=下, 2=左, 3=上
 
     /// <summary>NPC 是否处于战斗状态（对话触发）</summary>
     public bool InCombat { get; set; } = false;

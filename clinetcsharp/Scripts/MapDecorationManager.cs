@@ -101,6 +101,13 @@ namespace ClinetCSharp
             if (_decorations.ContainsKey(pos))
                 return _decorations[pos];
 
+            // 防御：玩家/怪物/NPC 的 Profile ID 不能用作建筑装饰
+            if (profileId >= 1 && profileId <= 3)
+            {
+                GD.PushError($"[MapDecorationManager] 拒绝使用玩家/怪物/NPC Profile {profileId} 作为建筑装饰 at {pos}");
+                return null;
+            }
+
             // 兼容旧 decoration type（1=房舍，2=商店），转换为 build_cfg_id
             if (profileId == BuildingType.House)
                 profileId = BuildingType.GetConfigBaseId(BuildingType.House) + 1;
@@ -113,15 +120,31 @@ namespace ClinetCSharp
 
             int buildingType = BuildingType.GetTypeFromConfigId(profileId);
             if (!BuildingType.IsValid(buildingType))
+            {
+                GD.PushError(
+                    $"[MapDecorationManager] 建筑 profileId={profileId} 的建筑类型非法，" +
+                    $"回退为 House。位置: ({pos.X}, {pos.Y})");
                 buildingType = BuildingType.House;
+            }
 
             // 从 EntityProfile 读取占地大小
             if (sizeX <= 0 || sizeY <= 0)
             {
                 var profile = EntityProfileManager.Instance?.GetProfile(profileId);
                 var app = profile?.GetData<AppearanceData>("appearance");
-                sizeX = app?.SizeX ?? 1;
-                sizeY = app?.SizeY ?? 1;
+                if (app == null)
+                {
+                    GD.PushError(
+                        $"[MapDecorationManager] 建筑 profileId={profileId} 无法读取 appearance 组件，" +
+                        $"占地大小回退为 1x1。位置: ({pos.X}, {pos.Y})");
+                    sizeX = 1;
+                    sizeY = 1;
+                }
+                else
+                {
+                    sizeX = app.SizeX;
+                    sizeY = app.SizeY;
+                }
             }
             sizeX = Mathf.Max(1, sizeX);
             sizeY = Mathf.Max(1, sizeY);

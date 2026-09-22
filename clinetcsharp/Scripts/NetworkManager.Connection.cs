@@ -5,17 +5,8 @@ namespace ClinetCSharp
 {
     public partial class NetworkManager
     {
-        // ---- 开发期自动重连 ----
-        // 断线或连不上时，按固定间隔自动重试连接，直到成功。
-        // 仅在编辑器/dev 环境启用（生产版重连策略属产品决策，暂不在此改动）。
-        private bool _autoReconnectEnabled;
-        private bool _connecting;
-        private double _reconnectTimer;
-        private const double ReconnectInterval = 1.5;
-
         public override void _Ready()
         {
-            _autoReconnectEnabled = OS.HasFeature("editor_build");
             SkillDataUtil.Load();
             TerrainConfigUtil.Load();
             DecorationConfigUtil.Load();
@@ -60,29 +51,9 @@ namespace ClinetCSharp
             if ((status == StreamPeerTcp.Status.None || status == StreamPeerTcp.Status.Error) && _connected)
             {
                 _connected = false;
-                ResetDecodeState();
+                ClearPendingCallbacks();
                 Disconnected?.Invoke();
             }
-
-            // 未连接（连不上 / 已断开）→ 开发期自动重连，天然等待托管拉起的服务器就绪
-            if (_autoReconnectEnabled && !_connected && !_connecting)
-            {
-                _reconnectTimer += delta;
-                if (_reconnectTimer >= ReconnectInterval)
-                {
-                    _reconnectTimer = 0.0;
-                    GD.Print("[NetworkManager] 自动重连：尝试重新连接服务器...");
-                    ConnectToServer();
-                }
-            }
-        }
-
-        /// <summary>重置 TCP 包重组状态：断线/重连时清掉半截包残留，避免污染新连接或按垃圾长度撑爆缓冲。</summary>
-        private void ResetDecodeState()
-        {
-            _bufferOffset = 0;
-            _bufferCount = 0;
-            _expectedLength = -1;
         }
 
         public async void ConnectToServer()
@@ -95,55 +66,41 @@ namespace ClinetCSharp
                 return;
             }
 
-            // 已有一次连接在途，避免自动重连与手动触发并发
-            if (_connecting)
+            // 如果之前有失败的连接，先清理掉，确保每次重连都是干净状态
+            _tcp?.DisconnectFromHost();
+            _tcp = new StreamPeerTcp();
+
+            var err = _tcp.ConnectToHost(ServerHost, ServerPort);
+            if (err != Error.Ok)
+            {
+                GD.Print("[NetworkManager] Connection failed with error: " + err);
+                ConnectionError?.Invoke("连接服务器失败: " + err);
                 return;
-
-            _connecting = true;
-            try
-            {
-                // 如果之前有失败的连接，先清理掉，确保每次重连都是干净状态
-                _tcp?.DisconnectFromHost();
-                _tcp = new StreamPeerTcp();
-                ResetDecodeState();
-
-                var err = _tcp.ConnectToHost(ServerHost, ServerPort);
-                if (err != Error.Ok)
-                {
-                    GD.Print("[NetworkManager] Connection failed with error: " + err);
-                    ConnectionError?.Invoke("连接服务器失败: " + err);
-                    return;
-                }
-
-                GD.Print("[NetworkManager] Waiting for connection...");
-
-                int attempts = 0;
-                while (_tcp.GetStatus() == StreamPeerTcp.Status.Connecting && attempts < 100)
-                {
-                    _tcp.Poll();
-                    await ToSignal(GetTree().CreateTimer(0.05), "timeout");
-                    attempts++;
-                }
-
-                var finalStatus = _tcp.GetStatus();
-                GD.Print($"[NetworkManager] Connection status after {attempts} attempts: {finalStatus}");
-
-                if (finalStatus == StreamPeerTcp.Status.Connected)
-                {
-                    _connected = true;
-                    _reconnectTimer = 0.0;
-                    GD.Print("[NetworkManager] Connected successfully");
-                    Connected?.Invoke();
-                    return;
-                }
-
-                GD.Print("[NetworkManager] Failed to connect, status: " + finalStatus);
-                ConnectionError?.Invoke("无法连接到服务器");
             }
-            finally
+
+            GD.Print("[NetworkManager] Waiting for connection...");
+
+            int attempts = 0;
+            while (_tcp.GetStatus() == StreamPeerTcp.Status.Connecting && attempts < 100)
             {
-                _connecting = false;
+                _tcp.Poll();
+                await ToSignal(GetTree().CreateTimer(0.05), "timeout");
+                attempts++;
             }
+
+            var finalStatus = _tcp.GetStatus();
+            GD.Print($"[NetworkManager] Connection status after {attempts} attempts: {finalStatus}");
+
+            if (finalStatus == StreamPeerTcp.Status.Connected)
+            {
+                _connected = true;
+                GD.Print("[NetworkManager] Connected successfully");
+                Connected?.Invoke();
+                return;
+            }
+
+            GD.Print("[NetworkManager] Failed to connect, status: " + finalStatus);
+            ConnectionError?.Invoke("无法连接到服务器");
         }
 
         public void DisconnectFromServer()
@@ -154,6 +111,7 @@ namespace ClinetCSharp
             _bufferOffset = 0;
             _bufferCount = 0;
             _expectedLength = -1;
+            ClearPendingCallbacks();
         }
 
         public bool IsServerConnected()

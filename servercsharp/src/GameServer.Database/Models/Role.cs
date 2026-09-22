@@ -30,9 +30,10 @@ public class Role
     [BsonElement("job")]             public string Job           { get; set; } = "";
     [BsonElement("title")]           public string Title         { get; set; } = "";
     [BsonElement("status")]          public string Status        { get; set; } = "";
-    [BsonElement("current_map")]     public string CurrentMap    { get; set; } = "新手村";
+    [BsonElement("current_map")]     public string CurrentMap    { get; set; } = "";
     [BsonElement("grid_x")]          public int    GridX         { get; set; }
     [BsonElement("grid_y")]          public int    GridY         { get; set; }
+    [BsonElement("direction")]       public int    Direction     { get; set; } = 1; // 0=右, 1=下, 2=左, 3=上
     [BsonElement("grid_size_x")]     public int    GridSizeX     { get; set; } = 1;
     [BsonElement("grid_size_y")]     public int    GridSizeY     { get; set; } = 1;
     [BsonElement("hp")]              public int    Hp            { get; set; }

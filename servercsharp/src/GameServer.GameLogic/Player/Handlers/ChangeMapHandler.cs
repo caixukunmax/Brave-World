@@ -58,12 +58,13 @@ public class ChangeMapHandler : IMessageHandler
         if (walkable != null) { spawnX = walkable.Value.x; spawnY = walkable.Value.y; }
 
         // 按当前等级计算属性，避免切图后属性被重置为 Lv1
-        var (hp, mp, patk, matk, pdef, mdef, _) = _tables.GetPlayerAttrsByLevel(role.Level);
+        var (hp, mp, patk, matk, pdef, mdef, mpRegen) = _tables.GetPlayerAttrsByLevel(role.Level);
 
         // 更新角色数据
         role.CurrentMap = targetMap;
         role.GridX = spawnX;
         role.GridY = spawnY;
+        role.MpRegen = mpRegen;
 
         // 进入新地图（保留当前血量比例，不满血切图不会直接满血）
         int enterHp = role.Hp > 0 ? Math.Min(role.Hp, hp) : hp;
@@ -82,7 +83,7 @@ public class ChangeMapHandler : IMessageHandler
             CurrentMap = targetMap,
             Hp = enterHp, MaxHp = hp, Mp = enterMp, MaxMp = mp,
             Patk = patk, Matk = matk, Pdef = pdef, Mdef = mdef,
-            MpRegen = role.MpRegen,
+            MpRegen = mpRegen,
             Job = role.Job,
             MoveSpeedMs = role.MoveSpeedMs > 0 ? role.MoveSpeedMs : GameConstants.BaseMoveSpeedMs,
             PreferredSkillId = role.PreferredSkillId,
@@ -105,6 +106,7 @@ public class ChangeMapHandler : IMessageHandler
                 Level = (uint)m.Level,
                 SizeX = m.SizeX > 0 ? m.SizeX : 1,
                 SizeY = m.SizeY > 0 ? m.SizeY : 1,
+                Direction = m.Direction,
             };
             info.Attrs.Add(new PGame.MonsterAttr { AttrKey = 1, AttrValue = m.Hp });
             info.Attrs.Add(new PGame.MonsterAttr { AttrKey = 2, AttrValue = m.Patk });
@@ -128,21 +130,24 @@ public class ChangeMapHandler : IMessageHandler
                     Y = n.Y,
                     SizeX = n.SizeX > 0 ? n.SizeX : 1,
                     SizeY = n.SizeY > 0 ? n.SizeY : 1,
+                    Direction = n.Direction,
                 });
             }
         }
 
         // 推送地形数据（只同步非普通地形）
         var terrainData = _session.MapService.GetMapTerrainData(targetMap);
-        if (terrainData != null)
+        var decorationData = _session.MapService.GetMapDecorationData(targetMap);
+        if (terrainData != null && decorationData != null)
         {
             var (width, height, terrainTypes) = terrainData.Value;
+            var (_, _, decorationTypes) = decorationData.Value;
             for (int y = 0; y < height; y++)
             {
                 for (int x = 0; x < width; x++)
                 {
                     int terrain = terrainTypes[x, y];
-                    int decoration = _session.MapService.GetDecorationType(targetMap, x, y);
+                    int decoration = decorationTypes[x, y];
                     if (terrain != 0 || decoration != 0)
                     {
                         notify.Tiles.Add(new PGame.TileInfo

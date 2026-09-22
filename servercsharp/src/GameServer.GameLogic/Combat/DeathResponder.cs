@@ -70,9 +70,11 @@ public class DeathResponder
         // 4. 恢复满血（按当前等级计算属性）
         var (hp, mp, patk, matk, pdef, mdef, _) = _tables.GetPlayerAttrsByLevel(role.Level);
 
-        // 5. 更新 Role 模型
+        // 5. 更新 Role 模型（必须同步 Hp/Mp，否则自动保存会把 0 血写入数据库）
         role.GridX = spawnX;
         role.GridY = spawnY;
+        role.Hp = hp;
+        role.Mp = mp;
 
         // 6. 重新进入地图（满血）
         _mapService.PlayerEnter(new PlayerSnapshot
@@ -112,7 +114,9 @@ public class DeathResponder
         // 8. 持久化
         _ = _session.Roles.Update(role.RoleId, u => u
             .Set(r => r.GridX, spawnX)
-            .Set(r => r.GridY, spawnY));
+            .Set(r => r.GridY, spawnY)
+            .Set(r => r.Hp, hp)
+            .Set(r => r.Mp, mp));
 
         _logger.LogInformation("[DeathResponder] respawned account={AccountId} at ({X},{Y}) hp={Hp}",
             entityId, spawnX, spawnY, hp);

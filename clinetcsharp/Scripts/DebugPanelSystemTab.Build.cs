@@ -34,6 +34,16 @@ namespace ClinetCSharp
             AddSectionSeparator(tabContainer);
             AddTabTitle(tabContainer, "背包", 12, HorizontalAlignment.Left);
             BuildInventorySection(tabContainer);
+
+            // ---- 朝向箭头配置 ----
+            AddSectionSeparator(tabContainer);
+            AddTabTitle(tabContainer, "朝向箭头", 12, HorizontalAlignment.Left);
+            BuildDirectionArrowSection(tabContainer);
+
+            // ---- 剧情窗口配置 ----
+            AddSectionSeparator(tabContainer);
+            AddTabTitle(tabContainer, "剧情窗口", 12, HorizontalAlignment.Left);
+            BuildStoryPanelSection(tabContainer);
         }
 
         private void BuildDeathEffectSection(Container parent)
@@ -263,6 +273,149 @@ namespace ClinetCSharp
         private void OnBounceOvershootThresholdChanged(double value)
         {
             EntityBase.BounceBackOvershootThreshold = (float)value / 100f;
+        }
+
+        // ---- 朝向箭头配置 ----
+
+        private void BuildDirectionArrowSection(Container parent)
+        {
+            // 箭头样式下拉
+            var styleRow = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+            styleRow.AddChild(new Label { Text = "箭头样式:", CustomMinimumSize = new Vector2(80, 0) });
+            _directionArrowStyleOption = new OptionButton { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+            _directionArrowStyleOption.AddItem("三角箭头", 0);
+            _directionArrowStyleOption.AddItem("V形双线", 1);
+            _directionArrowStyleOption.AddItem("扇形锥形", 2);
+            _directionArrowStyleOption.AddItem("细长指针", 3);
+            _directionArrowStyleOption.AddItem("圆点指针", 4);
+            _directionArrowStyleOption.AddItem("罗盘针", 5);
+            _directionArrowStyleOption.Select(EntityBase.DirectionArrowStyle);
+            styleRow.AddChild(_directionArrowStyleOption);
+            parent.AddChild(styleRow);
+
+            // 箭头大小滑块
+            (_directionArrowSizeSlider, _directionArrowSizeValue) = CreateSliderRow(parent, "箭头大小", 0.1f, 2.0f, EntityBase.DirectionArrowSize, 0.05f);
+
+            // 箭头颜色
+            var colorRow = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+            colorRow.AddChild(new Label { Text = "箭头颜色:", CustomMinimumSize = new Vector2(80, 0) });
+            _directionArrowColorPicker = new ColorPickerButton
+            {
+                CustomMinimumSize = new Vector2(60, 24),
+                Color = EntityBase.DirectionArrowColor,
+                SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+            };
+            colorRow.AddChild(_directionArrowColorPicker);
+            parent.AddChild(colorRow);
+
+            // 箭头透明度
+            (_directionArrowAlphaSlider, _directionArrowAlphaValue) = CreateSliderRow(parent, "透明度", 0f, 1f, EntityBase.DirectionArrowAlpha, 0.05f);
+
+            // ---- 四个方向分别配置 ----
+            string[] dirNames = { "右 (→)", "下 (↓)", "左 (←)", "上 (↑)" };
+            for (int d = 0; d < 4; d++)
+            {
+                int dir = d; // capture for lambda
+                AddSectionSeparator(parent);
+                AddTabTitle(parent, dirNames[dir], 11, HorizontalAlignment.Left);
+
+                (_directionArrowOffsetXSliders[dir], _directionArrowOffsetXValues[dir]) =
+                    CreateSliderRow(parent, "X偏移", -100f, 100f, EntityBase.DirectionArrowOffsets[dir].X, 1f);
+                (_directionArrowOffsetYSliders[dir], _directionArrowOffsetYValues[dir]) =
+                    CreateSliderRow(parent, "Y偏移", -100f, 100f, EntityBase.DirectionArrowOffsets[dir].Y, 1f);
+                (_directionArrowAngleSliders[dir], _directionArrowAngleValues[dir]) =
+                    CreateSliderRow(parent, "角度", -180f, 180f, EntityBase.DirectionArrowAngles[dir], 1f);
+
+                _directionArrowOffsetXSliders[dir].ValueChanged += v => OnDirectionOffsetChanged(dir, 0, v);
+                _directionArrowOffsetYSliders[dir].ValueChanged += v => OnDirectionOffsetChanged(dir, 1, v);
+                _directionArrowAngleSliders[dir].ValueChanged += v => OnDirectionAngleChanged(dir, v);
+            }
+
+            // 绑定事件
+            _directionArrowStyleOption.ItemSelected += OnDirectionArrowStyleChanged;
+            _directionArrowSizeSlider.ValueChanged += OnDirectionArrowSizeChanged;
+            _directionArrowColorPicker.ColorChanged += OnDirectionArrowColorChanged;
+            _directionArrowAlphaSlider.ValueChanged += OnDirectionArrowAlphaChanged;
+        }
+
+        private void OnDirectionArrowAlphaChanged(double value)
+        {
+            EntityBase.DirectionArrowAlpha = (float)value;
+            _directionArrowAlphaValue.Text = value.ToString("F2");
+            RefreshAllEntityRedraws();
+        }
+
+        private void OnDirectionArrowStyleChanged(long index)
+        {
+            EntityBase.DirectionArrowStyle = (int)index;
+            RefreshAllEntityRedraws();
+        }
+
+        private void OnDirectionArrowSizeChanged(double value)
+        {
+            EntityBase.DirectionArrowSize = (float)value;
+            _directionArrowSizeValue.Text = value.ToString("F2");
+            RefreshAllEntityRedraws();
+        }
+
+        private void OnDirectionArrowColorChanged(Color color)
+        {
+            EntityBase.DirectionArrowColor = color;
+            RefreshAllEntityRedraws();
+        }
+
+        private void OnDirectionOffsetChanged(int dir, int axis, double value)
+        {
+            var off = EntityBase.DirectionArrowOffsets[dir];
+            if (axis == 0) off.X = (float)value;
+            else off.Y = (float)value;
+            EntityBase.DirectionArrowOffsets[dir] = off;
+            if (axis == 0) _directionArrowOffsetXValues[dir].Text = value.ToString("F0");
+            else _directionArrowOffsetYValues[dir].Text = value.ToString("F0");
+            RefreshAllEntityRedraws();
+        }
+
+        private void OnDirectionAngleChanged(int dir, double value)
+        {
+            EntityBase.DirectionArrowAngles[dir] = (float)value;
+            _directionArrowAngleValues[dir].Text = value.ToString("F0");
+            RefreshAllEntityRedraws();
+        }
+
+        private void RefreshAllEntityRedraws()
+        {
+            // 遍历场景中所有实体刷新箭头
+            foreach (var node in Owner.GetTree().GetNodesInGroup("monster"))
+                if (node is EntityBase e) e.QueueRedraw();
+            foreach (var node in Owner.GetTree().GetNodesInGroup("npc"))
+                if (node is EntityBase e) e.QueueRedraw();
+            var player = Owner.GetTree()?.GetFirstNodeInGroup("player") as EntityBase;
+            player?.QueueRedraw();
+        }
+
+        private void BuildStoryPanelSection(Container parent)
+        {
+            (_storyPanelWidthSlider, _storyPanelWidthValue) = CreateSliderRow(parent, "窗口宽度(px)", 200, 800, StoryPanel.StoryPanelWidth, 10f);
+            (_storyPanelHeightSlider, _storyPanelHeightValue) = CreateSliderRow(parent, "窗口高度(px)", 120, 500, StoryPanel.StoryPanelHeight, 10f);
+            (_storyFontSizeSlider, _storyFontSizeValue) = CreateSliderRow(parent, "字号(px)", 12, 32, StoryPanel.StoryFontSize, 1f);
+            (_storyPanelAlphaSlider, _storyPanelAlphaValue) = CreateSliderRow(parent, "背景透明度(%)", 0, 100, StoryPanel.StoryPanelAlpha, 1f);
+            (_storyContentPaddingSlider, _storyContentPaddingValue) = CreateSliderRow(parent, "内容边距(px)", 0, 64, StoryPanel.StoryContentPadding, 1f);
+
+            _storyTypewriterCheck = new CheckBox { Text = "逐字显示" };
+            _storyTypewriterCheck.ButtonPressed = StoryPanel.StoryTypewriterEnabled;
+            parent.AddChild(_storyTypewriterCheck);
+
+            (_storyTypewriterIntervalSlider, _storyTypewriterIntervalValue) = CreateSliderRow(parent, "字间间隔(ms)", 20, 200, StoryPanel.StoryTypewriterIntervalMs, 5f);
+            (_storyHistorySpacingSlider, _storyHistorySpacingValue) = CreateSliderRow(parent, "历史条目间距(px)", 0, 32, StoryPanel.StoryHistoryEntrySpacing, 1f);
+
+            _storyPanelWidthSlider.ValueChanged += OnStoryPanelWidthChanged;
+            _storyPanelHeightSlider.ValueChanged += OnStoryPanelHeightChanged;
+            _storyFontSizeSlider.ValueChanged += OnStoryFontSizeChanged;
+            _storyPanelAlphaSlider.ValueChanged += OnStoryPanelAlphaChanged;
+            _storyContentPaddingSlider.ValueChanged += OnStoryContentPaddingChanged;
+            _storyTypewriterCheck.Toggled += OnStoryTypewriterToggled;
+            _storyTypewriterIntervalSlider.ValueChanged += OnStoryTypewriterIntervalChanged;
+            _storyHistorySpacingSlider.ValueChanged += OnStoryHistorySpacingChanged;
         }
     }
 }

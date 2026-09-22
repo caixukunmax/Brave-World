@@ -109,12 +109,6 @@ public class MapService
         _worldState.MonsterMove(instanceId, mapName, x, y);
     }
 
-    public void MonsterLeave(long instanceId)
-    {
-        foreach (var (mapName, _) in _worldState.GetAllMaps())
-            _worldState.MonsterLeave(instanceId, mapName);
-    }
-
     /// <summary>
     /// 统一碰撞检测：实体到达 (x,y) 后检查相邻敌方实体
     /// 所有实体类型（玩家、怪物、未来新类型）共用
@@ -144,26 +138,7 @@ public class MapService
         return cfg?.MoveSpeedRatio ?? 1.0f;
     }
     public (int width, int height, int[,] terrainTypes)? GetMapTerrainData(string mapName)
-    {
-        // 通过 WorldState 逐格查询地形数据（MapService 未直接持有 MapDataProvider）
-        var allMaps = _worldState.GetAllMaps();
-        if (!allMaps.TryGetValue(mapName, out var mapState)) return null;
-        
-        // 需要知道地图尺寸，通过遍历找到边界
-        // 简化方案：从 WorldState 获取地图尺寸信息
-        // 实际实现：需要 WorldState 或 MapDataProvider 暴露 GetMap 方法
-        // 临时方案：通过 IsWalkable 探测地图边界
-        int width = 0, height = 0;
-        while (_worldState.IsWalkable(mapName, width, 0) || _worldState.GetTerrainType(mapName, width, 0) != 0) width++;
-        while (_worldState.IsWalkable(mapName, 0, height) || _worldState.GetTerrainType(mapName, 0, height) != 0) height++;
-        
-        var terrainTypes = new int[width, height];
-        for (int x = 0; x < width; x++)
-            for (int y = 0; y < height; y++)
-                terrainTypes[x, y] = _worldState.GetTerrainType(mapName, x, y);
-        
-        return (width, height, terrainTypes);
-    }
+        => _worldState.GetMapTerrainData(mapName);
 
     public ConcurrentDictionary<long, MapPlayerState> GetPlayersOnMap(string mapName)
     {
@@ -224,89 +199,6 @@ public class MapService
                     .ToList();
                 m.CombatPositions = combatPos.Count > 0 ? combatPos
                     : new List<(int, int)> { (m.X, m.Y) };
-            }
-        }
-    }
-
-    // ---- 向后兼容旧接口（保留用于过渡期，新代码请用 GetMapsSnapshot） ----
-
-    [Obsolete("Use GetMapsSnapshot() + RefreshCombatPositionsForSnapshot() instead")]
-    public Dictionary<string, MapState> GetAllMapsLegacy()
-    {
-        var result = new Dictionary<string, MapState>();
-        foreach (var (name, instance) in _worldState.GetAllMaps())
-        {
-            var ms = new MapState { MapId = instance.MapId };
-            foreach (var (id, p) in instance.Players)
-            {
-                var combatPos = _worldState.GetCombatPositions(id)
-                    .Where(cp => cp.mapName == name)
-                    .Select(cp => (cp.x, cp.y))
-                    .ToList();
-                if (combatPos.Count == 0)
-                    combatPos = new List<(int, int)> { (p.GridX, p.GridY) };
-
-                ms.Players[id] = new MapPlayerState
-                {
-                    AccountId = p.AccountId, RoleId = p.RoleId, RoleName = p.RoleName,
-                    ServerId = p.ServerId, GridX = p.GridX, GridY = p.GridY, Level = p.Level,
-                    Hp = p.Hp, MaxHp = p.MaxHp, Mp = p.Mp, MaxMp = p.MaxMp,
-                    Patk = p.Patk, Matk = p.Matk, Pdef = p.Pdef, Mdef = p.Mdef,
-                    Job = p.Job,
-                    CombatPositions = combatPos,
-                    EquippedSkills = new List<int>(p.EquippedSkills),
-                    Buffs = new BuffContainer(_tables),
-                };
-            }
-            foreach (var (id, m) in instance.Monsters)
-            {
-                var combatPos = _worldState.GetCombatPositions(id)
-                    .Where(cp => cp.mapName == name)
-                    .Select(cp => (cp.x, cp.y))
-                    .ToList();
-                if (combatPos.Count == 0)
-                    combatPos = new List<(int, int)> { (m.X, m.Y) };
-
-                ms.Monsters[id] = new MapMonsterState
-                {
-                    InstanceId = m.InstanceId, MonsterId = m.MonsterId, Name = m.Name,
-                    X = m.X, Y = m.Y, Hp = m.Hp, MaxHp = m.MaxHp, Level = m.Level,
-                    Patk = m.Patk, Matk = m.Matk, Pdef = m.Pdef, Mdef = m.Mdef,
-                    CombatPositions = combatPos,
-                };
-            }
-            result[name] = ms;
-        }
-        return result;
-    }
-
-    /// <summary>
-    /// [DEPRECATED] 将 legacy MapState 中的 HP 变更同步回权威数据。
-    /// 使用 GetMapsSnapshot() 时不再需要此方法（战斗系统直接修改权威数据）。
-    /// </summary>
-    [Obsolete("Not needed when using GetMapsSnapshot() — combat modifies authoritative data directly")]
-    public void SyncCombatHp(Dictionary<string, MapState> legacyMaps)
-    {
-        foreach (var (mapName, legacyMap) in legacyMaps)
-        {
-            var instance = _worldState.GetMapState(mapName);
-            if (instance == null) continue;
-
-            foreach (var (id, p) in legacyMap.Players)
-            {
-                if (instance.Players.TryGetValue(id, out var auth))
-                {
-                    if (auth.Hp != p.Hp) auth.Hp = p.Hp;
-                    if (auth.Mp != p.Mp) auth.Mp = p.Mp;
-                }
-            }
-
-            foreach (var (id, m) in legacyMap.Monsters)
-            {
-                if (instance.Monsters.TryGetValue(id, out var auth))
-                {
-                    if (auth.Hp != m.Hp) auth.Hp = m.Hp;
-                }
             }
         }
     }

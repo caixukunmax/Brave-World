@@ -68,8 +68,7 @@ namespace ClinetCSharp
 
         private void OnMoveCancelReceived(Game.MoveCancelNotify notify)
         {
-            var nm = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
-            if (nm == null || notify.EntityId != nm.AccountId)
+            if (notify.EntityId != (ulong)GetInstanceId())
                 return;
 
             GD.Print($"[Player] Server cancelled move, rollback to ({notify.RollbackX}, {notify.RollbackY})");

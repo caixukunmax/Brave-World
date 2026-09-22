@@ -47,7 +47,7 @@ namespace ClinetCSharp
 
             LoadSavedAccount();
 
-            _network = GetNodeOrNull<NetworkManager>("/root/NetworkManager");
+            _network = UiServices.GetNetworkManager(this);
             if (_network != null)
             {
                 _network.Connected += OnConnected;

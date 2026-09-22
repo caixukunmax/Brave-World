@@ -39,6 +39,7 @@ public static class PlayerProtoMapper
             GridY = role.GridY,
             SizeX = role.GridSizeX > 0 ? role.GridSizeX : 1,
             SizeY = role.GridSizeY > 0 ? role.GridSizeY : 1,
+            Direction = role.Direction,
         };
 
         info.Attrs.Add(new PGame.AttrItem { Key = RoleAttrs.Hp, Value = role.Hp });

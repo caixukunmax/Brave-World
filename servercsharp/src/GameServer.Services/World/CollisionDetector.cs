@@ -70,7 +70,7 @@ public class CollisionDetector
                     Math.Abs(cp.x - npc.X) + Math.Abs(cp.y - npc.Y) <= 1);
                 if (collides)
                 {
-                    _logger.LogDebug("[Collision] player={PlayerId} adjacent to NPC={NpcId}({NpcName}) at ({NX},{NY})",
+                    _logger.LogInformation("[Collision] player={PlayerId} adjacent to NPC={NpcId}({NpcName}) at ({NX},{NY})",
                         entityId, npcId, npc.Name, npc.X, npc.Y);
                     _eventBus.Emit("NpcCollisionDetected", (playerId: entityId, npcInstanceId: npcId, mapName));
                 }

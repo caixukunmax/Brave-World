@@ -1,0 +1,53 @@
+{
+  "id": 2,
+  "name": "\u65B0\u6F14\u51FA",
+  "letterbox": true,
+  "skippable": true,
+  "trigger": null,
+  "actors": [
+    {
+      "id": 1,
+      "type": 1,
+      "monsterConfigId": 0
+    },
+    {
+      "id": 2,
+      "type": 2,
+      "monsterConfigId": 1001
+    }
+  ],
+  "cues": [
+    {
+      "seq": 1,
+      "group": 0,
+      "type": "camera_set",
+      "actor": "",
+      "params": {
+        "x": 52,
+        "y": 50,
+        "zoom": 0.89
+      }
+    },
+    {
+      "seq": 2,
+      "group": 0,
+      "type": "actor_enter",
+      "actor": "2",
+      "params": {
+        "x": 49,
+        "y": 51
+      }
+    },
+    {
+      "seq": 3,
+      "group": 0,
+      "type": "story_play",
+      "actor": "",
+      "params": {
+        "chapter": 1,
+        "dialogue_start": 1,
+        "dialogue_end": 1
+      }
+    }
+  ]
+}

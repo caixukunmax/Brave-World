@@ -1,0 +1,38 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 15
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BraveWorld.Runtime", "BraveWorld.Runtime.csproj", "{8981EE97-6BB3-C870-6AD1-65248850DB9E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BraveWorld.EditModeTests", "BraveWorld.EditModeTests.csproj", "{D584070D-CB0C-EC7A-F8BB-32CB37176AA3}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BraveWorld.PlayModeTests", "BraveWorld.PlayModeTests.csproj", "{3E8ECABF-3B68-8411-F61A-FC81B8030B8E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BraveWorld.Editor", "BraveWorld.Editor.csproj", "{1213623D-5B01-4ECE-9D44-BC4C2DCB437F}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{8981EE97-6BB3-C870-6AD1-65248850DB9E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8981EE97-6BB3-C870-6AD1-65248850DB9E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8981EE97-6BB3-C870-6AD1-65248850DB9E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8981EE97-6BB3-C870-6AD1-65248850DB9E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D584070D-CB0C-EC7A-F8BB-32CB37176AA3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D584070D-CB0C-EC7A-F8BB-32CB37176AA3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D584070D-CB0C-EC7A-F8BB-32CB37176AA3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D584070D-CB0C-EC7A-F8BB-32CB37176AA3}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3E8ECABF-3B68-8411-F61A-FC81B8030B8E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3E8ECABF-3B68-8411-F61A-FC81B8030B8E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3E8ECABF-3B68-8411-F61A-FC81B8030B8E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3E8ECABF-3B68-8411-F61A-FC81B8030B8E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1213623D-5B01-4ECE-9D44-BC4C2DCB437F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1213623D-5B01-4ECE-9D44-BC4C2DCB437F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1213623D-5B01-4ECE-9D44-BC4C2DCB437F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1213623D-5B01-4ECE-9D44-BC4C2DCB437F}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

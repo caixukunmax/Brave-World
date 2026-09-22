@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "monsters": [
+    { "monsterId": 1001, "name": "史莱姆", "mapName": "xinshoucun", "x": 15, "y": 15, "aiType": "patrol_chase", "hp": 100, "maxHp": 100, "level": 1, "patk": 8, "matk": 3, "pdef": 3, "mdef": 2 },
+    { "monsterId": 1001, "name": "史莱姆", "mapName": "xinshoucun", "x": 20, "y": 10, "aiType": "patrol", "hp": 100, "maxHp": 100, "level": 1, "patk": 8, "matk": 3, "pdef": 3, "mdef": 2 },
+    { "monsterId": 1002, "name": "哥布林", "mapName": "xinshoucun", "x": 30, "y": 20, "aiType": "patrol_chase", "hp": 150, "maxHp": 150, "level": 2, "patk": 15, "matk": 5, "pdef": 6, "mdef": 4 }
+  ],
+  "ai_defaults": {
+    "patrol": {
+      "patrolRange": 3,
+      "moveIntervalMs": 2000
+    },
+    "patrol_chase": {
+      "patrolRange": 3,
+      "aggroRange": 5,
+      "maxChaseDistance": 8,
+      "moveIntervalMs": 2000,
+      "chaseIntervalMs": 500
+    },
+    "guard": {
+      "patrolRange": 0,
+      "aggroRange": 3,
+      "maxChaseDistance": 5,
+      "moveIntervalMs": 3000,
+      "chaseIntervalMs": 1000
+    }
+  },
+  "move_defaults": {
+    "monsterMoveSpeedMs": 800
+  },
+  "move_system": {
+    "checkRatio": 30,
+    "dualGridStartRatio": 30,
+    "dualGridEndRatio": 70
+  }
+}

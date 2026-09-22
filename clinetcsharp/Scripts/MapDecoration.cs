@@ -10,6 +10,9 @@ namespace ClinetCSharp
     /// 地图装饰实体（房舍等静态摆件）。
     /// 作为 entityType="decoration" 的 EntityProfile 运行时表现，通过 ProfileId 驱动外观/标签/障碍属性。
     /// </summary>
+    // [Tool]：地图编辑器插件用真实 MapDecoration 节点渲染建筑外观（全靠 _Draw 里的 RenderComponent），
+    // 需要 _Draw 在编辑器下执行；插件侧已 SetProcess(false)/SetProcessInput(false)，_Process/_Input 不会在编辑器触发。
+    [Tool]
     public partial class MapDecoration : EntityBase
     {
         private int _gridSize = 111;
@@ -43,7 +46,6 @@ namespace ClinetCSharp
         private VBoxContainer? _portalMenu;
         private bool _isPortal;
         private NetworkManager? _network;
-        private Player? _player;
 
         // ========== 酒馆进入交互 ==========
         private Button? _tavernEnterButton;
@@ -53,7 +55,12 @@ namespace ClinetCSharp
         protected override int GetGridSize() => _gridSize;
         protected override void SetGridSizeValue(int value) => _gridSize = value;
 
-        public void Setup(int profileId, int gridX, int gridY, int gridSize, int buildingUid = -1, int sizeX = 1, int sizeY = 1)
+        /// <param name="registerInDecorationGroup">
+        /// 是否加入 map_decoration / decoration 组。真实放置在地图上的建筑应加入，
+        /// 以便 ApplyProfileToAll 等按组逻辑命中；预览实体必须传 false，
+        /// 否则会被当成“已放置的建筑”计入 applied，并可能干扰组相关的真实逻辑。
+        /// </param>
+        public void Setup(int profileId, int gridX, int gridY, int gridSize, int buildingUid = -1, int sizeX = 1, int sizeY = 1, bool registerInDecorationGroup = true)
         {
             ProfileId = profileId;
             BuildingUid = buildingUid;
@@ -63,8 +70,11 @@ namespace ClinetCSharp
             GridSizeX = sizeX > 0 ? sizeX : 1;
             GridSizeY = sizeY > 0 ? sizeY : 1;
 
-            AddToGroup("map_decoration");
-            AddToGroup("decoration");
+            if (registerInDecorationGroup)
+            {
+                AddToGroup("map_decoration");
+                AddToGroup("decoration");
+            }
 
             Name = $"MapDecoration_{gridX}_{gridY}_{profileId}_{buildingUid}";
             VisualSizeScale = 1.0f; // 填满整个 footprint
@@ -99,13 +109,52 @@ namespace ClinetCSharp
             Position = GetWorldPositionForGridAnchor(new Vector2I(_gridX, _gridY));
 
             // 判断是否为共享传送门
-            // 注意：Setup() 在节点 AddChild 进树之前被调用，此处 GetTree() 为 null，
-            // 不能在这里解析 _network（否则永远为 null → 传送菜单静默不弹）。
-            // _network 改为在 UpdatePortalMenu 里通过 EnsureNetwork() 惰性解析。
             _isPortal = BuildingType.GetTypeFromConfigId(ProfileId) == BuildingType.Portal;
+            if (_isPortal && !IsEditable)
+            {
+                var tree = GetTree();
+                if (tree != null)
+                {
+                    _network = tree.GetFirstNodeInGroup("network_manager") as NetworkManager;
+                    if (_network == null)
+                        _network = UiServices.GetNetworkManager(this);
+                }
+            }
 
             // 判断是否为酒馆
             _isTavern = BuildingType.GetTypeFromConfigId(ProfileId) == BuildingType.Tavern;
+
+            EnsureRenderComponents();
+            QueueRedraw();
+        }
+
+        /// <summary>
+        /// 预览专用：直接从一个 EntityProfile 对象套用配置，不依赖运行时 EntityProfileManager 单例。
+        /// 复用与游戏中相同的 ApplyProfileToEntity 核心逻辑 + 同一套 IRenderComponent，保证预览与游戏 1:1 一致。
+        /// 用于编辑器插件「实体配置」面板的实时预览。
+        /// </summary>
+        /// <param name="registerInDecorationGroup">
+        /// 预览实体必须传 false，避免被当成“已放置的建筑”计入 Applied/干扰组相关逻辑。
+        /// </param>
+        public void SetupFromProfile(EntityProfile profile, bool registerInDecorationGroup = false, int gridX = -1, int gridY = -1, int gridSize = 0)
+        {
+            IsEditable = true;
+            ProfileId = profile.Id;
+            Name = $"PreviewMapDecoration_{profile.Id}";
+
+            if (gridX >= 0) { _gridX = gridX; _gridY = gridY; }
+            if (gridSize > 0) SetGridSize(gridSize);
+
+            // 与游戏同一套套用逻辑：设置视觉/尺寸/标签/血条/铭牌等并同步渲染组件
+            EntityProfileManager.ApplyProfileToEntity(this, profile);
+
+            if (registerInDecorationGroup)
+            {
+                AddToGroup("map_decoration");
+                AddToGroup("decoration");
+            }
+
+            if (gridX >= 0) Position = GetWorldPositionForGridAnchor(new Vector2I(_gridX, _gridY));
 
             EnsureRenderComponents();
             QueueRedraw();
@@ -126,8 +175,7 @@ namespace ClinetCSharp
 
         private void UpdatePortalMenu()
         {
-            EnsureNetwork();
-            var player = EnsurePlayer();
+            var player = GetTree()?.GetFirstNodeInGroup("player") as Player;
             if (player == null)
             {
                 ClosePortalMenu();
@@ -143,30 +191,6 @@ namespace ClinetCSharp
                 ShowPortalMenu();
             else if (!inRange && _portalMenu != null)
                 ClosePortalMenu();
-        }
-
-        /// <summary>
-        /// 惰性解析 NetworkManager。Setup() 早于节点进树，GetTree() 当时为 null，
-        /// 因此 _network 必须等到 _Process 阶段（已在树中）再取。
-        /// </summary>
-        private void EnsureNetwork()
-        {
-            if (_network != null)
-                return;
-            var tree = GetTree();
-            if (tree == null)
-                return;
-            _network = tree.GetFirstNodeInGroup("network_manager") as NetworkManager;
-            _network ??= tree.Root.GetNodeOrNull<NetworkManager>("NetworkManager");
-        }
-
-        /// <summary>惰性缓存本地玩家节点，避免每帧对每个装饰物做 group 查找。</summary>
-        private Player? EnsurePlayer()
-        {
-            if (_player != null && IsInstanceValid(_player))
-                return _player;
-            _player = GetTree()?.GetFirstNodeInGroup("player") as Player;
-            return _player;
         }
 
         private void ShowPortalMenu()
@@ -236,7 +260,7 @@ namespace ClinetCSharp
 
         private void UpdateTavernButton()
         {
-            var player = EnsurePlayer();
+            var player = GetTree()?.GetFirstNodeInGroup("player") as Player;
             if (player == null)
             {
                 CloseTavernButton();
@@ -293,7 +317,7 @@ namespace ClinetCSharp
         private void OnEnterTavern()
         {
             CloseTavernButton();
-            TavernInteriorPanel.Instance?.Enter();
+            TavernInteriorPanel.Get()?.Enter();
             GD.Print("[MapDecoration] 进入酒馆");
         }
 
@@ -347,12 +371,16 @@ namespace ClinetCSharp
         {
             if (IsEditable && @event is InputEventMouseButton mb && mb.ButtonIndex == MouseButton.Left && mb.Pressed)
             {
-                if (HitTest(GetGlobalMousePosition()))
+                // 编辑模式下：只在“放建筑”工具下才允许拖拽建筑；
+                // 刷地形模式下不拦截，让框选可以从建筑上启动。
+                var editor = GetTree()?.GetFirstNodeInGroup("map_editor") as MapEditor;
+                if (editor != null && editor.CurrentTool == MapEditor.EditorTool.PlaceDecoration && HitTest(GetGlobalMousePosition()))
                 {
                     DecorationDragRequested?.Invoke(this);
                     GetViewport()?.SetInputAsHandled();
-                    return;
                 }
+                // 编辑模式下不触发普通实体点击（传送门/酒馆等），避免拦截编辑器操作
+                return;
             }
 
             // 如果鼠标正悬停在其他 UI 控件上（如酒馆进入按钮），让控件先处理，不吞掉点击
@@ -386,11 +414,15 @@ namespace ClinetCSharp
 
         private void EnsureRenderComponents()
         {
-            if (_renderComponents.Count > 0)
-                return;
-
-            AddRenderComponent(new Render.AppearanceComponent());
-            AddRenderComponent(new Render.LabelComponent());
+            // 禁止用 _renderComponents.Count > 0 早退：Setup/SetupFromProfile 先走
+            // ApplyProfileToEntity，它会按 Profile 组件先行加入 nameplate/castbar/actionbar
+            // 渲染组件——此时 Count 已 >0，但 Appearance/Label 还没加，早退会让实体
+            // 只剩铭牌、身体和文字标签丢失（狗-旺财只渲染出铭牌的根因）。
+            // 改为按类型幂等补齐；AddRenderComponent 自动按 DrawOrder 排序，后加不影响层级。
+            if (GetRenderComponent<Render.AppearanceComponent>() == null)
+                AddRenderComponent(new Render.AppearanceComponent());
+            if (GetRenderComponent<Render.LabelComponent>() == null)
+                AddRenderComponent(new Render.LabelComponent());
         }
     }
 }

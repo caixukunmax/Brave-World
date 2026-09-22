@@ -57,7 +57,7 @@ public class WorldState : IWorldState
     /// 实体位置索引：entityId → (mapName, anchorX, anchorY, sizeX, sizeY)。
     /// 与 MapState.Players/Monsters/Npcs 同步维护，用于 O(1) 定位实体。
     /// </summary>
-    private readonly Dictionary<long, (string mapName, int x, int y, int sizeX, int sizeY)> _entityLocations = new();
+    private readonly ConcurrentDictionary<long, (string mapName, int x, int y, int sizeX, int sizeY)> _entityLocations = new();
 
     public WorldState(MapDataProvider mapData, ILogger<WorldState> logger)
     {
@@ -74,7 +74,11 @@ public class WorldState : IWorldState
             _maps[mapName] = new MapState { MapId = mapId++ };
         }
         if (_maps.Count == 0)
-            _maps[GameConstants.DefaultMapName] = new MapState { MapId = GameConstants.DefaultMapId };
+        {
+            var defaultMap = _mapData.GetDefaultMap();
+            if (defaultMap != null)
+                _maps[defaultMap.Value.mapName] = new MapState { MapId = GameConstants.DefaultMapId };
+        }
     }
 
     // ---- 只读接口 ----
@@ -168,6 +172,9 @@ public class WorldState : IWorldState
     public (int width, int height, int[,] decorationTypes)? GetMapDecorationData(string mapName)
         => _mapData.GetMapDecorationData(mapName);
 
+    public (int width, int height, int[,] terrainTypes)? GetMapTerrainData(string mapName)
+        => _mapData.GetMapTerrainData(mapName);
+
     public bool IsOccupied(string mapName, int x, int y)
     {
         if (!_maps.TryGetValue(mapName, out var map)) return false;
@@ -232,7 +239,7 @@ public class WorldState : IWorldState
     {
         if (!_entityLocations.TryGetValue(entityId, out var loc))
             return;
-        _entityLocations.Remove(entityId);
+        _entityLocations.TryRemove(entityId, out _);
 
         if (!_maps.TryGetValue(loc.mapName, out var map))
             return;
@@ -289,6 +296,15 @@ public class WorldState : IWorldState
 
     public void PlayerEnter(string mapName, MapPlayerState player)
     {
+        // 幂等：若该账号已存在于某地图，先强制移除旧实体，避免脏空间索引
+        if (_entityLocations.TryGetValue(player.AccountId, out var oldLoc))
+        {
+            _logger.LogWarning("[WorldState] PlayerEnter: account={AccountId} already on map={OldMap}, forcing leave before enter",
+                player.AccountId, oldLoc.mapName);
+            PlayerLeave(player.AccountId, oldLoc.mapName);
+        }
+        CancelMove(player.AccountId);
+
         if (!_maps.TryGetValue(mapName, out var map))
         {
             map = new MapState { MapId = GameConstants.DefaultMapId };
@@ -302,7 +318,7 @@ public class WorldState : IWorldState
     {
         if (_maps.TryGetValue(mapName, out var map) && map.Players.TryGetValue(accountId, out var p))
         {
-            _logger.LogDebug("[WorldState] PlayerMove: account={AccountId} map={MapName} from=({FX},{FY}) to=({TX},{TY})",
+            _logger.LogInformation("[WorldState] PlayerMove: account={AccountId} map={MapName} from=({FX},{FY}) to=({TX},{TY})",
                 accountId, mapName, p.GridX, p.GridY, x, y);
             p.GridX = x;
             p.GridY = y;
