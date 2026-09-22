@@ -1,10 +1,10 @@
-# tslua2 项目架构总览
+# Brave-World 项目架构总览
 
 > 最后更新：2026-04-28
 
 ## 一句话概括
 
-tslua2 是一个 MMORPG 项目，C# 全栈：Godot 4 客户端 + .NET 8 服务端，Protobuf 通信，Luban 配置表。
+Brave-World 是一个 MMORPG 项目，C# 全栈：Godot 4 客户端 + .NET 8 服务端，Protobuf 通信，Luban 配置表。
 
 > 项目名是历史遗留，实际没有 TypeScript / Lua。
 
@@ -13,7 +13,7 @@ tslua2 是一个 MMORPG 项目，C# 全栈：Godot 4 客户端 + .NET 8 服务�
 ## 仓库结构
 
 ```
-tslua2/
+Brave-World/
 ├── protocols/          # Protobuf 协议定义 + 生成脚本
 │   ├── protos/         #   .proto 源文件
 │   ├── scripts/        #   build_proto.ts 生成脚本
